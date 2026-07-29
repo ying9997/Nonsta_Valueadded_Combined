@@ -56,7 +56,8 @@
 | 2 | 更新 Codex A 指令：基于原子清单 + 新 2a 用例重构金标集 | Opus | 待办 1 完成 | 更新后的 Codex A prompt |
 | 3 | Codex A 执行 Phase 4 金标集构建 | Codex A | 待办 2 | `eval/golden-set.json` + `eval/acceptance-criteria.md` |
 | 4 | 和业务方确认原子清单的 productType 标注是否准确 | 你 | `references/vas-atom-matrix.md` 汇总二 | 确认/修正 |
-| 5 | （如待办 3 通过）启动 Codex A 做非标页 Coze 包 | Codex A | Phase 4 验收通过 | `coze-package/` |
+| 5 | 产出方案乙原型：2a/2b/2d 各至少一个完整对话示例，展示 Agent 指引全流程 | Opus + Codex | 原子清单 + 金标集中各分支代表用例 | 方案乙演示原型（可对业务方展示） |
+| 6 | （后续）启动 Codex A 做非标页 Coze 包 | Codex A | Phase 4 验收通过 | `coze-package/` |
 
 ### 补抽 2a 的方向提示
 
