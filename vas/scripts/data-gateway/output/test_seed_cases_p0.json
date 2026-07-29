@@ -1,0 +1,2643 @@
+{
+  "meta": {
+    "version": "1.1",
+    "scope": "P0",
+    "entry_flows": [
+      "existing_eb_pre_vas",
+      "existing_eb_post_vas"
+    ],
+    "seed_layers": [
+      "Layer1 WI 入库单",
+      "Layer2 EB 异常实例",
+      "Layer3 EB 附件 eventFiles",
+      "Layer4 VASC 增值单（post_vas 档位）",
+      "Layer5 原子服务 + vaAtomAttrs（post_vas 档位）"
+    ],
+    "reference_vasc_runtime_sample": "D:\\DA\\AI_EXPERT\\TOM\\PlanEvent查询\\output\\vas_VASC000000296745.json",
+    "generated_at": "2026-06-18T13:01:26.272701+00:00"
+  },
+  "prerequisites": {
+    "test_account": "",
+    "warehouse_code": "USGA"
+  },
+  "attr_catalog_ref": "vas_attrs_catalog_p0.json",
+  "cases": [
+    {
+      "case_id": "TC-P0-01",
+      "scenario_id": "inbound_包裹条码异常",
+      "priority": "P0",
+      "status": "pending",
+      "seed_profiles": {
+        "pre_vas": {
+          "profile_id": "pre_vas",
+          "label": "异常待处理（AI 推荐入口）",
+          "pages": [
+            "异常单列表/详情"
+          ],
+          "description": "仅有 WI + EB，客户尚未下增值单；用于 AI 推荐验证",
+          "vasc_required": false,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "status_hint": "收货/查验中（可挂异常）"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E21",
+              "eventName": "包裹条码异常(需客户处理)",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "待客户处理",
+              "status_hint": "操作增值类，待客户下增值单",
+              "eventFiles": ">=1 张仓库实拍图"
+            },
+            "vasc": null
+          },
+          "verify_apis": [
+            "OMS 异常单查询（EB 存在且 eventCode 正确）",
+            "pms.PlanEventService_queryPlanEventPage",
+            "pms.BaseAttrRelService_findBaseAttrRelPage"
+          ],
+          "simulation": {
+            "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「①包裹条码异常」，应该怎么处理？"
+          }
+        },
+        "post_vas": {
+          "profile_id": "post_vas",
+          "label": "异常已处理 + 增值单已完成",
+          "pages": [
+            "异常单列表/详情",
+            "增值订单列表/详情"
+          ],
+          "description": "WI + EB + VASC 全链路；EB 已关联增值单并关闭，增值订单页可查到已完成单据",
+          "vasc_required": true,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "businessNo": "{WI.businessNo}"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E21",
+              "eventName": "包裹条码异常(需客户处理)",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "CL",
+              "statusDesc": "已关闭",
+              "status_hint": "异常已关联增值单并处理完成",
+              "linkedVascNo": "{VASC.orderNo}",
+              "eventFiles": "保留造数时上传的仓库图"
+            },
+            "vasc": {
+              "orderNo": "{VASC.orderNo}",
+              "vaSource": "UNUSUAL",
+              "status": "PD",
+              "statusDesc": "已完成",
+              "orderSource": "WINIT",
+              "orderSourceDesc": "万邑联下单",
+              "warehouseCode": "USGA",
+              "businessOrderNo": "{WI.businessNo}",
+              "vasc": {
+                "productCode": "VASC202407031503503",
+                "productName": "原单上架",
+                "shelveWayCode": "USE_ORIGIN_INBOUND_ORDER"
+              },
+              "childBusinessOrders": [
+                {
+                  "businessNo": "{EB.businessNo}",
+                  "businessType": "UNUSUAL",
+                  "parentBusinessNo": "{WI.businessNo}"
+                }
+              ],
+              "atomic_services": [
+                {
+                  "serviceCode": "OW01V1560",
+                  "serviceName": "入库-补贴包裹条码",
+                  "serviceSequence": "1",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "LABEL_TYPE",
+                      "attributeName": "标签类型",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "PACKGE_SERNO",
+                      "attributeValue": "Winit包裹条码"
+                    },
+                    {
+                      "attributeKeyOriginal": "LABEL_SIZE",
+                      "attributeName": "尺寸规格",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "10X6",
+                      "attributeValue": "10cm*6cm"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B0102E21",
+                      "eventName": "包裹条码异常(需客户处理)",
+                      "eventObj": "商品"
+                    }
+                  ]
+                },
+                {
+                  "serviceCode": "OW01V1736",
+                  "serviceName": "入库-覆盖包裹标签",
+                  "serviceSequence": "2",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "CLEAR_LABEL_TYPE",
+                      "attributeName": "清除的标签类型",
+                      "showType": "OPTIONAL_BOX_WITH_IMAGE",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "DG_LABEL",
+                      "attributeValue": "DG标签"
+                    },
+                    {
+                      "attributeKeyOriginal": "COVER_LABEL_TYPE",
+                      "attributeName": "覆盖的标签类型",
+                      "showType": "OPTIONAL_BOX_WITH_IMAGE",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "WINIT_LABEL",
+                      "attributeValue": "Winit标签-白标"
+                    },
+                    {
+                      "attributeKeyOriginal": "CLEAR_LABEL_SAMPLE_IMAGE",
+                      "attributeName": "上传清除标签示例图",
+                      "showType": "ANNEX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "PLACEHOLDER_FILE",
+                      "attributeValue": "测试附件（仓库可见）"
+                    },
+                    {
+                      "attributeKeyOriginal": "COVER_LABEL_IMAGE",
+                      "attributeName": "上传覆盖标签图片",
+                      "showType": "ANNEX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "PLACEHOLDER_FILE",
+                      "attributeValue": "测试附件（仓库可见）"
+                    },
+                    {
+                      "attributeKeyOriginal": "COVER_LABEL_SIZE",
+                      "attributeName": "覆盖的标签尺寸规格",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "10X15",
+                      "attributeValue": "10cm*15cm"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B0102E21",
+                      "eventName": "包裹条码异常(需客户处理)",
+                      "eventObj": "商品"
+                    }
+                  ]
+                }
+              ],
+              "related_orders": [
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{WI.businessNo}",
+                  "businessTypeName": "入库订单",
+                  "eventNo": "{EB.businessNo}"
+                },
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{EB.businessNo}",
+                  "businessTypeName": "异常订单",
+                  "eventNo": "{EB.businessNo}"
+                }
+              ]
+            }
+          },
+          "verify_apis": [
+            "oms.VaOrderService_pageQuery（增值单列表，where[orderNo]=VASC）",
+            "oms.VaOrderService_getVasList（原子服务列表）",
+            "oms.VaOrderService_getEventOrder4VaAtom（EB↔eventCode 关联）",
+            "oms.VaOrderService_getVaAtomDetails（businessOrder.businessNo=EB）",
+            "oms.VaOrderRelatedService_queryRelatedVaOrdersPage（WI+EB 关联行）",
+            "OMS 异常单查询（EB 状态已关闭，linkedVascNo 一致）"
+          ],
+          "simulation": {
+            "user_message": "我的增值单 {vasc_no} 处理得怎么样了？入库单 {wi_no} 上的异常 {eb_no} 是否已经处理完？"
+          },
+          "acceptance": [
+            "增值订单详情 statusDesc=已完成",
+            "各原子服务 statusDesc=已处理，vaAtomAttrs 必填项已填",
+            "getEventOrder4VaAtom 返回 eventCode 与 PMS 一致",
+            "异常单详情显示已关联 VASC 且状态已关闭"
+          ]
+        }
+      },
+      "seed_spec": {
+        "wi": {
+          "businessType": "INBOUND",
+          "warehouseCode": "USGA",
+          "status_hint": "收货/查验中（可挂异常）"
+        },
+        "eb": {
+          "businessType": "UNUSUAL",
+          "eventCode": "B0102E21",
+          "eventName": "包裹条码异常(需客户处理)",
+          "parentBusinessNo": "{WI.businessNo}",
+          "status": "待客户处理",
+          "status_hint": "操作增值类，待客户下增值单",
+          "eventFiles": ">=1 张仓库实拍图"
+        },
+        "vasc": null
+      },
+      "seed_instance": {
+        "pre_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        },
+        "post_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "vasc_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        }
+      },
+      "simulation": {
+        "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「①包裹条码异常」，应该怎么处理？"
+      },
+      "expected": {
+        "exception": {
+          "eventCode": "B0102E21",
+          "eventName": "包裹条码异常(需客户处理)"
+        },
+        "vasc_products": [
+          {
+            "productCode": "VASC202407031503503",
+            "productName": "原单上架"
+          },
+          {
+            "productCode": "VASC202407161056217",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202409121753076",
+            "productName": "（入库异常处理常用套餐）"
+          }
+        ],
+        "atomic_services": [
+          {
+            "serviceCode": "OW01V1560",
+            "serviceName": "入库-补贴包裹条码",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "LABEL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "PACKGE_SERNO",
+                  "THIRD_PARTY_PACKGE_SERNO"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "LABEL_SIZE",
+                "isRequired": true,
+                "allowedValues": [
+                  "10X6",
+                  "10X15"
+                ]
+              }
+            ]
+          },
+          {
+            "serviceCode": "OW01V1736",
+            "serviceName": "入库-覆盖包裹标签",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "CLEAR_LABEL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "DG_LABEL",
+                  "UN_LABEL",
+                  "CARGO_AIRCRAFT_ONLY_LABEL",
+                  "CUSTOM_LABEL"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "COVER_LABEL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "WINIT_LABEL",
+                  "WINIT_LABEL_GRAPHIC",
+                  "CUSTOMER_PROVIDED_OVERRIDING_LABEL"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "CLEAR_LABEL_SAMPLE_IMAGE",
+                "isRequired": true,
+                "allowedValues": []
+              },
+              {
+                "attributeKeyOriginal": "COVER_LABEL_IMAGE",
+                "isRequired": true,
+                "allowedValues": []
+              },
+              {
+                "attributeKeyOriginal": "COVER_LABEL_SIZE",
+                "isRequired": true,
+                "allowedValues": [
+                  "10X15",
+                  "10X10"
+                ]
+              }
+            ]
+          }
+        ],
+        "must_not_recommend": []
+      },
+      "verify_apis": [
+        "OMS 异常单查询（EB 存在且 eventCode 正确）",
+        "pms.PlanEventService_queryPlanEventPage",
+        "pms.BaseAttrRelService_findBaseAttrRelPage"
+      ],
+      "verification_notes": "⭐高频。海外仓主异常为操作增值类「需客户处理」；国内验货仓对应 B01E06；无需客户处理变体 B01E1519 为知悉类分支。推荐增值「贴标/换标」→ 入库-补贴包裹条码 / 覆盖包裹标签。",
+      "reference_vasc_order": null
+    },
+    {
+      "case_id": "TC-P0-02",
+      "scenario_id": "inbound_商品质量异常",
+      "priority": "P0",
+      "status": "pending",
+      "seed_profiles": {
+        "pre_vas": {
+          "profile_id": "pre_vas",
+          "label": "异常待处理（AI 推荐入口）",
+          "pages": [
+            "异常单列表/详情"
+          ],
+          "description": "仅有 WI + EB，客户尚未下增值单；用于 AI 推荐验证",
+          "vasc_required": false,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "status_hint": "收货/查验中（可挂异常）"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B01E1314",
+              "eventName": "商品质量异常(影响销售)",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "待客户处理",
+              "status_hint": "操作增值类，待客户下增值单",
+              "eventFiles": ">=1 张仓库实拍图"
+            },
+            "vasc": null
+          },
+          "verify_apis": [
+            "OMS 异常单查询（EB 存在且 eventCode 正确）",
+            "pms.PlanEventService_queryPlanEventPage",
+            "pms.BaseAttrRelService_findBaseAttrRelPage"
+          ],
+          "simulation": {
+            "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「②商品质量异常」，应该怎么处理？"
+          }
+        },
+        "post_vas": {
+          "profile_id": "post_vas",
+          "label": "异常已处理 + 增值单已完成",
+          "pages": [
+            "异常单列表/详情",
+            "增值订单列表/详情"
+          ],
+          "description": "WI + EB + VASC 全链路；EB 已关联增值单并关闭，增值订单页可查到已完成单据",
+          "vasc_required": true,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "businessNo": "{WI.businessNo}"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B01E1314",
+              "eventName": "商品质量异常(影响销售)",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "CL",
+              "statusDesc": "已关闭",
+              "status_hint": "异常已关联增值单并处理完成",
+              "linkedVascNo": "{VASC.orderNo}",
+              "eventFiles": "保留造数时上传的仓库图"
+            },
+            "vasc": {
+              "orderNo": "{VASC.orderNo}",
+              "vaSource": "UNUSUAL",
+              "status": "PD",
+              "statusDesc": "已完成",
+              "orderSource": "WINIT",
+              "orderSourceDesc": "万邑联下单",
+              "warehouseCode": "USGA",
+              "businessOrderNo": "{WI.businessNo}",
+              "vasc": {
+                "productCode": "VASC202407012141008",
+                "productName": "新单上架（WINIT创建入库单）",
+                "shelveWayCode": "USE_ORIGIN_INBOUND_ORDER"
+              },
+              "childBusinessOrders": [
+                {
+                  "businessNo": "{EB.businessNo}",
+                  "businessType": "UNUSUAL",
+                  "parentBusinessNo": "{WI.businessNo}"
+                }
+              ],
+              "atomic_services": [
+                {
+                  "serviceCode": "OW01V1563",
+                  "serviceName": "上架前商品销毁",
+                  "serviceSequence": "1",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B01E1314",
+                      "eventName": "商品质量异常(影响销售)",
+                      "eventObj": "商品"
+                    }
+                  ]
+                },
+                {
+                  "serviceCode": "OW01V1703",
+                  "serviceName": "上架前包裹销毁",
+                  "serviceSequence": "2",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B01E1314",
+                      "eventName": "商品质量异常(影响销售)",
+                      "eventObj": "商品"
+                    }
+                  ]
+                }
+              ],
+              "related_orders": [
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{WI.businessNo}",
+                  "businessTypeName": "入库订单",
+                  "eventNo": "{EB.businessNo}"
+                },
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{EB.businessNo}",
+                  "businessTypeName": "异常订单",
+                  "eventNo": "{EB.businessNo}"
+                }
+              ]
+            }
+          },
+          "verify_apis": [
+            "oms.VaOrderService_pageQuery（增值单列表，where[orderNo]=VASC）",
+            "oms.VaOrderService_getVasList（原子服务列表）",
+            "oms.VaOrderService_getEventOrder4VaAtom（EB↔eventCode 关联）",
+            "oms.VaOrderService_getVaAtomDetails（businessOrder.businessNo=EB）",
+            "oms.VaOrderRelatedService_queryRelatedVaOrdersPage（WI+EB 关联行）",
+            "OMS 异常单查询（EB 状态已关闭，linkedVascNo 一致）"
+          ],
+          "simulation": {
+            "user_message": "我的增值单 {vasc_no} 处理得怎么样了？入库单 {wi_no} 上的异常 {eb_no} 是否已经处理完？"
+          },
+          "acceptance": [
+            "增值订单详情 statusDesc=已完成",
+            "各原子服务 statusDesc=已处理，vaAtomAttrs 必填项已填",
+            "getEventOrder4VaAtom 返回 eventCode 与 PMS 一致",
+            "异常单详情显示已关联 VASC 且状态已关闭"
+          ]
+        }
+      },
+      "seed_spec": {
+        "wi": {
+          "businessType": "INBOUND",
+          "warehouseCode": "USGA",
+          "status_hint": "收货/查验中（可挂异常）"
+        },
+        "eb": {
+          "businessType": "UNUSUAL",
+          "eventCode": "B01E1314",
+          "eventName": "商品质量异常(影响销售)",
+          "parentBusinessNo": "{WI.businessNo}",
+          "status": "待客户处理",
+          "status_hint": "操作增值类，待客户下增值单",
+          "eventFiles": ">=1 张仓库实拍图"
+        },
+        "vasc": null
+      },
+      "seed_instance": {
+        "pre_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        },
+        "post_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "vasc_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        }
+      },
+      "simulation": {
+        "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「②商品质量异常」，应该怎么处理？"
+      },
+      "expected": {
+        "exception": {
+          "eventCode": "B01E1314",
+          "eventName": "商品质量异常(影响销售)"
+        },
+        "vasc_products": [
+          {
+            "productCode": "VASC202407012141008",
+            "productName": "新单上架（WINIT创建入库单）"
+          },
+          {
+            "productCode": "VASC202407031503503",
+            "productName": "原单上架"
+          },
+          {
+            "productCode": "VASC202407031507376",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202407161056217",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202409121753076",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202411192240522",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202411192246131",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202504251617529",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202505282347101",
+            "productName": ""
+          }
+        ],
+        "atomic_services": [
+          {
+            "serviceCode": "OW01V1563",
+            "serviceName": "上架前商品销毁"
+          },
+          {
+            "serviceCode": "OW01V1703",
+            "serviceName": "上架前包裹销毁"
+          }
+        ],
+        "must_not_recommend": []
+      },
+      "verify_apis": [
+        "OMS 异常单查询（EB 存在且 eventCode 正确）",
+        "pms.PlanEventService_queryPlanEventPage",
+        "pms.BaseAttrRelService_findBaseAttrRelPage"
+      ],
+      "verification_notes": "操作增值类暂存。eventDefine 与知识库场景一致。推荐「上架前销毁」→ 上架前商品销毁 / 上架前包裹销毁。",
+      "reference_vasc_order": null
+    },
+    {
+      "case_id": "TC-P0-03",
+      "scenario_id": "inbound_商品包装异常",
+      "priority": "P0",
+      "status": "pending",
+      "seed_profiles": {
+        "pre_vas": {
+          "profile_id": "pre_vas",
+          "label": "异常待处理（AI 推荐入口）",
+          "pages": [
+            "异常单列表/详情"
+          ],
+          "description": "仅有 WI + EB，客户尚未下增值单；用于 AI 推荐验证",
+          "vasc_required": false,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "status_hint": "收货/查验中（可挂异常）"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E08",
+              "eventName": "商品包装异常",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "待客户处理",
+              "status_hint": "操作增值类，待客户下增值单",
+              "eventFiles": ">=1 张仓库实拍图"
+            },
+            "vasc": null
+          },
+          "verify_apis": [
+            "OMS 异常单查询（EB 存在且 eventCode 正确）",
+            "pms.PlanEventService_queryPlanEventPage",
+            "pms.BaseAttrRelService_findBaseAttrRelPage"
+          ],
+          "simulation": {
+            "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「④商品包装异常」，应该怎么处理？"
+          }
+        },
+        "post_vas": {
+          "profile_id": "post_vas",
+          "label": "异常已处理 + 增值单已完成",
+          "pages": [
+            "异常单列表/详情",
+            "增值订单列表/详情"
+          ],
+          "description": "WI + EB + VASC 全链路；EB 已关联增值单并关闭，增值订单页可查到已完成单据",
+          "vasc_required": true,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "businessNo": "{WI.businessNo}"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E08",
+              "eventName": "商品包装异常",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "CL",
+              "statusDesc": "已关闭",
+              "status_hint": "异常已关联增值单并处理完成",
+              "linkedVascNo": "{VASC.orderNo}",
+              "eventFiles": "保留造数时上传的仓库图"
+            },
+            "vasc": {
+              "orderNo": "{VASC.orderNo}",
+              "vaSource": "UNUSUAL",
+              "status": "PD",
+              "statusDesc": "已完成",
+              "orderSource": "WINIT",
+              "orderSourceDesc": "万邑联下单",
+              "warehouseCode": "USGA",
+              "businessOrderNo": "{WI.businessNo}",
+              "vasc": {
+                "productCode": "VASC202407031456553",
+                "productName": "",
+                "shelveWayCode": "USE_ORIGIN_INBOUND_ORDER"
+              },
+              "childBusinessOrders": [
+                {
+                  "businessNo": "{EB.businessNo}",
+                  "businessType": "UNUSUAL",
+                  "parentBusinessNo": "{WI.businessNo}"
+                }
+              ],
+              "atomic_services": [
+                {
+                  "serviceCode": "OW01V1563",
+                  "serviceName": "上架前商品销毁",
+                  "serviceSequence": "1",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B0102E08",
+                      "eventName": "商品包装异常",
+                      "eventObj": "商品"
+                    }
+                  ]
+                }
+              ],
+              "related_orders": [
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{WI.businessNo}",
+                  "businessTypeName": "入库订单",
+                  "eventNo": "{EB.businessNo}"
+                },
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{EB.businessNo}",
+                  "businessTypeName": "异常订单",
+                  "eventNo": "{EB.businessNo}"
+                }
+              ]
+            }
+          },
+          "verify_apis": [
+            "oms.VaOrderService_pageQuery（增值单列表，where[orderNo]=VASC）",
+            "oms.VaOrderService_getVasList（原子服务列表）",
+            "oms.VaOrderService_getEventOrder4VaAtom（EB↔eventCode 关联）",
+            "oms.VaOrderService_getVaAtomDetails（businessOrder.businessNo=EB）",
+            "oms.VaOrderRelatedService_queryRelatedVaOrdersPage（WI+EB 关联行）",
+            "OMS 异常单查询（EB 状态已关闭，linkedVascNo 一致）"
+          ],
+          "simulation": {
+            "user_message": "我的增值单 {vasc_no} 处理得怎么样了？入库单 {wi_no} 上的异常 {eb_no} 是否已经处理完？"
+          },
+          "acceptance": [
+            "增值订单详情 statusDesc=已完成",
+            "各原子服务 statusDesc=已处理，vaAtomAttrs 必填项已填",
+            "getEventOrder4VaAtom 返回 eventCode 与 PMS 一致",
+            "异常单详情显示已关联 VASC 且状态已关闭"
+          ]
+        }
+      },
+      "seed_spec": {
+        "wi": {
+          "businessType": "INBOUND",
+          "warehouseCode": "USGA",
+          "status_hint": "收货/查验中（可挂异常）"
+        },
+        "eb": {
+          "businessType": "UNUSUAL",
+          "eventCode": "B0102E08",
+          "eventName": "商品包装异常",
+          "parentBusinessNo": "{WI.businessNo}",
+          "status": "待客户处理",
+          "status_hint": "操作增值类，待客户下增值单",
+          "eventFiles": ">=1 张仓库实拍图"
+        },
+        "vasc": null
+      },
+      "seed_instance": {
+        "pre_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        },
+        "post_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "vasc_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        }
+      },
+      "simulation": {
+        "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「④商品包装异常」，应该怎么处理？"
+      },
+      "expected": {
+        "exception": {
+          "eventCode": "B0102E08",
+          "eventName": "商品包装异常"
+        },
+        "vasc_products": [
+          {
+            "productCode": "VASC202407031456553",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202407031511413",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202411192229072",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202411192250069",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202412111836315",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202504171850278",
+            "productName": ""
+          }
+        ],
+        "atomic_services": [
+          {
+            "serviceCode": "OW01V1563",
+            "serviceName": "上架前商品销毁"
+          }
+        ],
+        "must_not_recommend": []
+      },
+      "verify_apis": [
+        "OMS 异常单查询（EB 存在且 eventCode 正确）",
+        "pms.PlanEventService_queryPlanEventPage",
+        "pms.BaseAttrRelService_findBaseAttrRelPage"
+      ],
+      "verification_notes": "与商品质量异常处理分支相同（上架前销毁），PMS 为独立标准异常 B0102E08。",
+      "reference_vasc_order": null
+    },
+    {
+      "case_id": "TC-P0-04",
+      "scenario_id": "inbound_商品裸装",
+      "priority": "P0",
+      "status": "pending",
+      "seed_profiles": {
+        "pre_vas": {
+          "profile_id": "pre_vas",
+          "label": "异常待处理（AI 推荐入口）",
+          "pages": [
+            "异常单列表/详情"
+          ],
+          "description": "仅有 WI + EB，客户尚未下增值单；用于 AI 推荐验证",
+          "vasc_required": false,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "status_hint": "收货/查验中（可挂异常）"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E27",
+              "eventName": "商品裸装",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "待客户处理",
+              "status_hint": "操作增值类，待客户下增值单",
+              "eventFiles": ">=1 张仓库实拍图"
+            },
+            "vasc": null
+          },
+          "verify_apis": [
+            "OMS 异常单查询（EB 存在且 eventCode 正确）",
+            "pms.PlanEventService_queryPlanEventPage",
+            "pms.BaseAttrRelService_findBaseAttrRelPage"
+          ],
+          "simulation": {
+            "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「③商品裸装」，应该怎么处理？"
+          }
+        },
+        "post_vas": {
+          "profile_id": "post_vas",
+          "label": "异常已处理 + 增值单已完成",
+          "pages": [
+            "异常单列表/详情",
+            "增值订单列表/详情"
+          ],
+          "description": "WI + EB + VASC 全链路；EB 已关联增值单并关闭，增值订单页可查到已完成单据",
+          "vasc_required": true,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "businessNo": "{WI.businessNo}"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E27",
+              "eventName": "商品裸装",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "CL",
+              "statusDesc": "已关闭",
+              "status_hint": "异常已关联增值单并处理完成",
+              "linkedVascNo": "{VASC.orderNo}",
+              "eventFiles": "保留造数时上传的仓库图"
+            },
+            "vasc": {
+              "orderNo": "{VASC.orderNo}",
+              "vaSource": "UNUSUAL",
+              "status": "PD",
+              "statusDesc": "已完成",
+              "orderSource": "WINIT",
+              "orderSourceDesc": "万邑联下单",
+              "warehouseCode": "USGA",
+              "businessOrderNo": "{WI.businessNo}",
+              "vasc": {
+                "productCode": "VASC202407012141008",
+                "productName": "新单上架（WINIT创建入库单）",
+                "shelveWayCode": "USE_ORIGIN_INBOUND_ORDER"
+              },
+              "childBusinessOrders": [
+                {
+                  "businessNo": "{EB.businessNo}",
+                  "businessType": "UNUSUAL",
+                  "parentBusinessNo": "{WI.businessNo}"
+                }
+              ],
+              "atomic_services": [
+                {
+                  "serviceCode": "OW01V1573",
+                  "serviceName": "入库-商品其他标签（非商品条码）",
+                  "serviceSequence": "1",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "LABEL_SIZE",
+                      "attributeName": "尺寸规格",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "10X6",
+                      "attributeValue": "10cm*6cm"
+                    },
+                    {
+                      "attributeKeyOriginal": "ALL_GOODS_SAME_LABEL",
+                      "attributeName": "标签文件是否全部相同",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "Y",
+                      "attributeValue": "是"
+                    },
+                    {
+                      "attributeKeyOriginal": "FILE_OPERATION_POSITION",
+                      "attributeName": "文件操作位置",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "LABELING",
+                      "attributeValue": "贴标"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B0102E27",
+                      "eventName": "商品裸装",
+                      "eventObj": "商品"
+                    }
+                  ]
+                }
+              ],
+              "related_orders": [
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{WI.businessNo}",
+                  "businessTypeName": "入库订单",
+                  "eventNo": "{EB.businessNo}"
+                },
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{EB.businessNo}",
+                  "businessTypeName": "异常订单",
+                  "eventNo": "{EB.businessNo}"
+                }
+              ]
+            }
+          },
+          "verify_apis": [
+            "oms.VaOrderService_pageQuery（增值单列表，where[orderNo]=VASC）",
+            "oms.VaOrderService_getVasList（原子服务列表）",
+            "oms.VaOrderService_getEventOrder4VaAtom（EB↔eventCode 关联）",
+            "oms.VaOrderService_getVaAtomDetails（businessOrder.businessNo=EB）",
+            "oms.VaOrderRelatedService_queryRelatedVaOrdersPage（WI+EB 关联行）",
+            "OMS 异常单查询（EB 状态已关闭，linkedVascNo 一致）"
+          ],
+          "simulation": {
+            "user_message": "我的增值单 {vasc_no} 处理得怎么样了？入库单 {wi_no} 上的异常 {eb_no} 是否已经处理完？"
+          },
+          "acceptance": [
+            "增值订单详情 statusDesc=已完成",
+            "各原子服务 statusDesc=已处理，vaAtomAttrs 必填项已填",
+            "getEventOrder4VaAtom 返回 eventCode 与 PMS 一致",
+            "异常单详情显示已关联 VASC 且状态已关闭"
+          ]
+        }
+      },
+      "seed_spec": {
+        "wi": {
+          "businessType": "INBOUND",
+          "warehouseCode": "USGA",
+          "status_hint": "收货/查验中（可挂异常）"
+        },
+        "eb": {
+          "businessType": "UNUSUAL",
+          "eventCode": "B0102E27",
+          "eventName": "商品裸装",
+          "parentBusinessNo": "{WI.businessNo}",
+          "status": "待客户处理",
+          "status_hint": "操作增值类，待客户下增值单",
+          "eventFiles": ">=1 张仓库实拍图"
+        },
+        "vasc": null
+      },
+      "seed_instance": {
+        "pre_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        },
+        "post_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "vasc_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        }
+      },
+      "simulation": {
+        "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「③商品裸装」，应该怎么处理？"
+      },
+      "expected": {
+        "exception": {
+          "eventCode": "B0102E27",
+          "eventName": "商品裸装"
+        },
+        "vasc_products": [
+          {
+            "productCode": "VASC202407012141008",
+            "productName": "新单上架（WINIT创建入库单）"
+          },
+          {
+            "productCode": "VASC202407031503503",
+            "productName": "原单上架"
+          },
+          {
+            "productCode": "VASC202407161056217",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202409121753076",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202411192240522",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202411192246131",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202505282347101",
+            "productName": ""
+          }
+        ],
+        "atomic_services": [
+          {
+            "serviceCode": "OW01V1573",
+            "serviceName": "入库-商品其他标签（非商品条码）",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "LABEL_SIZE",
+                "isRequired": true,
+                "allowedValues": [
+                  "10X6",
+                  "5X2.5"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "ALL_GOODS_SAME_LABEL",
+                "isRequired": true,
+                "allowedValues": [
+                  "Y"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "FILE_OPERATION_POSITION",
+                "isRequired": true,
+                "allowedValues": [
+                  "LABELING"
+                ]
+              }
+            ]
+          }
+        ],
+        "must_not_recommend": []
+      },
+      "verify_apis": [
+        "OMS 异常单查询（EB 存在且 eventCode 正确）",
+        "pms.PlanEventService_queryPlanEventPage",
+        "pms.BaseAttrRelService_findBaseAttrRelPage"
+      ],
+      "verification_notes": "知悉类上架后冻结。知识库「海外仓增值服务」对应出库加包装体系，入库侧关联 OW01V1573 商品其他标签。",
+      "reference_vasc_order": null
+    },
+    {
+      "case_id": "TC-P0-05",
+      "scenario_id": "inbound_包裹包装异常_A包裹质量异常",
+      "priority": "P0",
+      "status": "pending",
+      "seed_profiles": {
+        "pre_vas": {
+          "profile_id": "pre_vas",
+          "label": "异常待处理（AI 推荐入口）",
+          "pages": [
+            "异常单列表/详情"
+          ],
+          "description": "仅有 WI + EB，客户尚未下增值单；用于 AI 推荐验证",
+          "vasc_required": false,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "status_hint": "收货/查验中（可挂异常）"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E23",
+              "eventName": "A+包裹质量异常",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "待客户处理",
+              "status_hint": "操作增值类，待客户下增值单",
+              "eventFiles": ">=1 张仓库实拍图"
+            },
+            "vasc": null
+          },
+          "verify_apis": [
+            "OMS 异常单查询（EB 存在且 eventCode 正确）",
+            "pms.PlanEventService_queryPlanEventPage",
+            "pms.BaseAttrRelService_findBaseAttrRelPage"
+          ],
+          "simulation": {
+            "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「⑤包裹包装异常/A+包裹质量异常」，应该怎么处理？"
+          }
+        },
+        "post_vas": {
+          "profile_id": "post_vas",
+          "label": "异常已处理 + 增值单已完成",
+          "pages": [
+            "异常单列表/详情",
+            "增值订单列表/详情"
+          ],
+          "description": "WI + EB + VASC 全链路；EB 已关联增值单并关闭，增值订单页可查到已完成单据",
+          "vasc_required": true,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "businessNo": "{WI.businessNo}"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E23",
+              "eventName": "A+包裹质量异常",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "CL",
+              "statusDesc": "已关闭",
+              "status_hint": "异常已关联增值单并处理完成",
+              "linkedVascNo": "{VASC.orderNo}",
+              "eventFiles": "保留造数时上传的仓库图"
+            },
+            "vasc": {
+              "orderNo": "{VASC.orderNo}",
+              "vaSource": "UNUSUAL",
+              "status": "PD",
+              "statusDesc": "已完成",
+              "orderSource": "WINIT",
+              "orderSourceDesc": "万邑联下单",
+              "warehouseCode": "USGA",
+              "businessOrderNo": "{WI.businessNo}",
+              "vasc": {
+                "productCode": "VASC202407031503503",
+                "productName": "原单上架",
+                "shelveWayCode": "USE_ORIGIN_INBOUND_ORDER"
+              },
+              "childBusinessOrders": [
+                {
+                  "businessNo": "{EB.businessNo}",
+                  "businessType": "UNUSUAL",
+                  "parentBusinessNo": "{WI.businessNo}"
+                }
+              ],
+              "atomic_services": [
+                {
+                  "serviceCode": "OW01V1561",
+                  "serviceName": "入库-更换商品包装",
+                  "serviceSequence": "1",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "PACKAGING_MODE",
+                      "attributeName": "包装方式",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "PACKAGING_WINIT",
+                      "attributeValue": "Winit标准包装"
+                    },
+                    {
+                      "attributeKeyOriginal": "PACKAGING_MATERAIL_TYPE",
+                      "attributeName": "包材类型",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "PADDED_ENVELOPE",
+                      "attributeValue": "气泡袋"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B0102E23",
+                      "eventName": "A+包裹质量异常",
+                      "eventObj": "商品"
+                    }
+                  ]
+                }
+              ],
+              "related_orders": [
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{WI.businessNo}",
+                  "businessTypeName": "入库订单",
+                  "eventNo": "{EB.businessNo}"
+                },
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{EB.businessNo}",
+                  "businessTypeName": "异常订单",
+                  "eventNo": "{EB.businessNo}"
+                }
+              ]
+            }
+          },
+          "verify_apis": [
+            "oms.VaOrderService_pageQuery（增值单列表，where[orderNo]=VASC）",
+            "oms.VaOrderService_getVasList（原子服务列表）",
+            "oms.VaOrderService_getEventOrder4VaAtom（EB↔eventCode 关联）",
+            "oms.VaOrderService_getVaAtomDetails（businessOrder.businessNo=EB）",
+            "oms.VaOrderRelatedService_queryRelatedVaOrdersPage（WI+EB 关联行）",
+            "OMS 异常单查询（EB 状态已关闭，linkedVascNo 一致）"
+          ],
+          "simulation": {
+            "user_message": "我的增值单 {vasc_no} 处理得怎么样了？入库单 {wi_no} 上的异常 {eb_no} 是否已经处理完？"
+          },
+          "acceptance": [
+            "增值订单详情 statusDesc=已完成",
+            "各原子服务 statusDesc=已处理，vaAtomAttrs 必填项已填",
+            "getEventOrder4VaAtom 返回 eventCode 与 PMS 一致",
+            "异常单详情显示已关联 VASC 且状态已关闭"
+          ],
+          "reference_sample": "../output/vas_VASC000000296745.json"
+        }
+      },
+      "seed_spec": {
+        "wi": {
+          "businessType": "INBOUND",
+          "warehouseCode": "USGA",
+          "status_hint": "收货/查验中（可挂异常）"
+        },
+        "eb": {
+          "businessType": "UNUSUAL",
+          "eventCode": "B0102E23",
+          "eventName": "A+包裹质量异常",
+          "parentBusinessNo": "{WI.businessNo}",
+          "status": "待客户处理",
+          "status_hint": "操作增值类，待客户下增值单",
+          "eventFiles": ">=1 张仓库实拍图"
+        },
+        "vasc": null
+      },
+      "seed_instance": {
+        "pre_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        },
+        "post_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "vasc_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        }
+      },
+      "simulation": {
+        "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「⑤包裹包装异常/A+包裹质量异常」，应该怎么处理？"
+      },
+      "expected": {
+        "exception": {
+          "eventCode": "B0102E23",
+          "eventName": "A+包裹质量异常"
+        },
+        "vasc_products": [
+          {
+            "productCode": "VASC202407031503503",
+            "productName": "原单上架"
+          },
+          {
+            "productCode": "VASC202407031507376",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202409121753076",
+            "productName": "（入库异常处理常用套餐）"
+          }
+        ],
+        "atomic_services": [
+          {
+            "serviceCode": "OW01V1561",
+            "serviceName": "入库-更换商品包装",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "PACKAGING_MODE",
+                "isRequired": true,
+                "allowedValues": [
+                  "PACKAGING_WINIT",
+                  "REINFORCED_PACKAGING"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "PACKAGING_MATERAIL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "PADDED_ENVELOPE",
+                  "COURIER_SATCHEL",
+                  "CARTON_BOX",
+                  "PAPER_SEALING",
+                  "FILM_WRAPPING_REINFORCE"
+                ]
+              }
+            ]
+          }
+        ],
+        "must_not_recommend": [
+          {
+            "serviceCode": "",
+            "eventCode": "B01E02",
+            "reason": "知悉类分支"
+          }
+        ]
+      },
+      "verify_apis": [
+        "OMS 异常单查询（EB 存在且 eventCode 正确）",
+        "pms.PlanEventService_queryPlanEventPage",
+        "pms.BaseAttrRelService_findBaseAttrRelPage"
+      ],
+      "verification_notes": "A+包裹质量异常 B0102E23 为主（操作增值类）；B01E02 为「包裹包装异常无需客户下增值单」知悉分支。推荐「更换商品包装」→ OW01V1561。",
+      "reference_vasc_order": null
+    },
+    {
+      "case_id": "TC-P0-06",
+      "scenario_id": "inbound_商品条码异常",
+      "priority": "P0",
+      "status": "pending",
+      "seed_profiles": {
+        "pre_vas": {
+          "profile_id": "pre_vas",
+          "label": "异常待处理（AI 推荐入口）",
+          "pages": [
+            "异常单列表/详情"
+          ],
+          "description": "仅有 WI + EB，客户尚未下增值单；用于 AI 推荐验证",
+          "vasc_required": false,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "status_hint": "收货/查验中（可挂异常）"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B01E1315",
+              "eventName": "商品条码异常(需客户处理)",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "待客户处理",
+              "status_hint": "操作增值类，待客户下增值单",
+              "eventFiles": ">=1 张仓库实拍图"
+            },
+            "vasc": null
+          },
+          "verify_apis": [
+            "OMS 异常单查询（EB 存在且 eventCode 正确）",
+            "pms.PlanEventService_queryPlanEventPage",
+            "pms.BaseAttrRelService_findBaseAttrRelPage"
+          ],
+          "simulation": {
+            "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「①商品条码异常」，应该怎么处理？"
+          }
+        },
+        "post_vas": {
+          "profile_id": "post_vas",
+          "label": "异常已处理 + 增值单已完成",
+          "pages": [
+            "异常单列表/详情",
+            "增值订单列表/详情"
+          ],
+          "description": "WI + EB + VASC 全链路；EB 已关联增值单并关闭，增值订单页可查到已完成单据",
+          "vasc_required": true,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "businessNo": "{WI.businessNo}"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B01E1315",
+              "eventName": "商品条码异常(需客户处理)",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "CL",
+              "statusDesc": "已关闭",
+              "status_hint": "异常已关联增值单并处理完成",
+              "linkedVascNo": "{VASC.orderNo}",
+              "eventFiles": "保留造数时上传的仓库图"
+            },
+            "vasc": {
+              "orderNo": "{VASC.orderNo}",
+              "vaSource": "UNUSUAL",
+              "status": "PD",
+              "statusDesc": "已完成",
+              "orderSource": "WINIT",
+              "orderSourceDesc": "万邑联下单",
+              "warehouseCode": "USGA",
+              "businessOrderNo": "{WI.businessNo}",
+              "vasc": {
+                "productCode": "VASC202407012141008",
+                "productName": "新单上架（WINIT创建入库单）",
+                "shelveWayCode": "USE_ORIGIN_INBOUND_ORDER"
+              },
+              "childBusinessOrders": [
+                {
+                  "businessNo": "{EB.businessNo}",
+                  "businessType": "UNUSUAL",
+                  "parentBusinessNo": "{WI.businessNo}"
+                }
+              ],
+              "atomic_services": [
+                {
+                  "serviceCode": "OW01V1558",
+                  "serviceName": "入库-补贴原商品条码",
+                  "serviceSequence": "1",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "LABEL_SIZE",
+                      "attributeName": "尺寸规格",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "10X6",
+                      "attributeValue": "10cm*6cm"
+                    },
+                    {
+                      "attributeKeyOriginal": "LABEL_TYPE",
+                      "attributeName": "标签类型",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "WINIT_SKU_SERNO_ITEM_SERNO",
+                      "attributeValue": "Winit商品/单品条码"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B01E1315",
+                      "eventName": "商品条码异常(需客户处理)",
+                      "eventObj": "商品"
+                    }
+                  ]
+                },
+                {
+                  "serviceCode": "OW01V1559",
+                  "serviceName": "入库-更换新商品条码",
+                  "serviceSequence": "2",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "LABEL_TYPE",
+                      "attributeName": "标签类型",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "WINIT_SKU_SERNO_ITEM_SERNO",
+                      "attributeValue": "Winit商品/单品条码"
+                    },
+                    {
+                      "attributeKeyOriginal": "LABEL_SIZE",
+                      "attributeName": "尺寸规格",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "10X6",
+                      "attributeValue": "10cm*6cm"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B01E1315",
+                      "eventName": "商品条码异常(需客户处理)",
+                      "eventObj": "商品"
+                    }
+                  ]
+                },
+                {
+                  "serviceCode": "OW01V1825",
+                  "serviceName": "入库-补贴原商品条码（带示例图）",
+                  "serviceSequence": "3",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "LABEL_SIZE",
+                      "attributeName": "尺寸规格",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "10X6",
+                      "attributeValue": "10cm*6cm"
+                    },
+                    {
+                      "attributeKeyOriginal": "LABEL_TYPE",
+                      "attributeName": "标签类型",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "WINIT_SKU_SERNO_ITEM_SERNO",
+                      "attributeValue": "Winit商品/单品条码"
+                    },
+                    {
+                      "attributeKeyOriginal": "VAS_ATTR_REL_SP",
+                      "attributeName": "示例图片",
+                      "showType": "ANNEX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "PLACEHOLDER_FILE",
+                      "attributeValue": "测试附件（仓库可见）"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B01E1315",
+                      "eventName": "商品条码异常(需客户处理)",
+                      "eventObj": "商品"
+                    }
+                  ]
+                }
+              ],
+              "related_orders": [
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{WI.businessNo}",
+                  "businessTypeName": "入库订单",
+                  "eventNo": "{EB.businessNo}"
+                },
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{EB.businessNo}",
+                  "businessTypeName": "异常订单",
+                  "eventNo": "{EB.businessNo}"
+                }
+              ]
+            }
+          },
+          "verify_apis": [
+            "oms.VaOrderService_pageQuery（增值单列表，where[orderNo]=VASC）",
+            "oms.VaOrderService_getVasList（原子服务列表）",
+            "oms.VaOrderService_getEventOrder4VaAtom（EB↔eventCode 关联）",
+            "oms.VaOrderService_getVaAtomDetails（businessOrder.businessNo=EB）",
+            "oms.VaOrderRelatedService_queryRelatedVaOrdersPage（WI+EB 关联行）",
+            "OMS 异常单查询（EB 状态已关闭，linkedVascNo 一致）"
+          ],
+          "simulation": {
+            "user_message": "我的增值单 {vasc_no} 处理得怎么样了？入库单 {wi_no} 上的异常 {eb_no} 是否已经处理完？"
+          },
+          "acceptance": [
+            "增值订单详情 statusDesc=已完成",
+            "各原子服务 statusDesc=已处理，vaAtomAttrs 必填项已填",
+            "getEventOrder4VaAtom 返回 eventCode 与 PMS 一致",
+            "异常单详情显示已关联 VASC 且状态已关闭"
+          ]
+        }
+      },
+      "seed_spec": {
+        "wi": {
+          "businessType": "INBOUND",
+          "warehouseCode": "USGA",
+          "status_hint": "收货/查验中（可挂异常）"
+        },
+        "eb": {
+          "businessType": "UNUSUAL",
+          "eventCode": "B01E1315",
+          "eventName": "商品条码异常(需客户处理)",
+          "parentBusinessNo": "{WI.businessNo}",
+          "status": "待客户处理",
+          "status_hint": "操作增值类，待客户下增值单",
+          "eventFiles": ">=1 张仓库实拍图"
+        },
+        "vasc": null
+      },
+      "seed_instance": {
+        "pre_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        },
+        "post_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "vasc_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        }
+      },
+      "simulation": {
+        "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「①商品条码异常」，应该怎么处理？"
+      },
+      "expected": {
+        "exception": {
+          "eventCode": "B01E1315",
+          "eventName": "商品条码异常(需客户处理)"
+        },
+        "vasc_products": [
+          {
+            "productCode": "VASC202407012141008",
+            "productName": "新单上架（WINIT创建入库单）"
+          },
+          {
+            "productCode": "VASC202407031503503",
+            "productName": "原单上架"
+          },
+          {
+            "productCode": "VASC202407031507376",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202407161056217",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202409121753076",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202411192240522",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202411192246131",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202412111831129",
+            "productName": ""
+          }
+        ],
+        "atomic_services": [
+          {
+            "serviceCode": "OW01V1558",
+            "serviceName": "入库-补贴原商品条码",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "LABEL_SIZE",
+                "isRequired": true,
+                "allowedValues": [
+                  "10X6",
+                  "5X2.5"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "LABEL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "WINIT_SKU_SERNO_ITEM_SERNO",
+                  "THIRD_PARTY_SKU_SERNO_ITEM_SERNO"
+                ]
+              }
+            ]
+          },
+          {
+            "serviceCode": "OW01V1559",
+            "serviceName": "入库-更换新商品条码",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "LABEL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "WINIT_SKU_SERNO_ITEM_SERNO",
+                  "THIRD_PARTY_SKU_SERNO_ITEM_SERNO"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "LABEL_SIZE",
+                "isRequired": true,
+                "allowedValues": [
+                  "10X6",
+                  "5X2.5"
+                ]
+              }
+            ]
+          },
+          {
+            "serviceCode": "OW01V1825",
+            "serviceName": "入库-补贴原商品条码（带示例图）",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "LABEL_SIZE",
+                "isRequired": true,
+                "allowedValues": [
+                  "10X6",
+                  "5X2.5"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "LABEL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "WINIT_SKU_SERNO_ITEM_SERNO",
+                  "THIRD_PARTY_SKU_SERNO_ITEM_SERNO"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "VAS_ATTR_REL_SP",
+                "isRequired": true,
+                "allowedValues": []
+              }
+            ]
+          }
+        ],
+        "must_not_recommend": []
+      },
+      "verify_apis": [
+        "OMS 异常单查询（EB 存在且 eventCode 正确）",
+        "pms.PlanEventService_queryPlanEventPage",
+        "pms.BaseAttrRelService_findBaseAttrRelPage"
+      ],
+      "verification_notes": "需客户处理 B01E1315 为主；国内验 B03E1542；无需客户处理 B0102E22 为知悉分支。关联增值：补贴原商品条码、更换新商品条码、第三方条码关联。",
+      "reference_vasc_order": null
+    },
+    {
+      "case_id": "TC-P0-07",
+      "scenario_id": "inbound_包裹内商品错装",
+      "priority": "P0",
+      "status": "pending",
+      "seed_profiles": {
+        "pre_vas": {
+          "profile_id": "pre_vas",
+          "label": "异常待处理（AI 推荐入口）",
+          "pages": [
+            "异常单列表/详情"
+          ],
+          "description": "仅有 WI + EB，客户尚未下增值单；用于 AI 推荐验证",
+          "vasc_required": false,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "status_hint": "收货/查验中（可挂异常）"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B05E013",
+              "eventName": "包裹内商品错装",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "待客户处理",
+              "status_hint": "操作增值类，待客户下增值单",
+              "eventFiles": ">=1 张仓库实拍图"
+            },
+            "vasc": null
+          },
+          "verify_apis": [
+            "OMS 异常单查询（EB 存在且 eventCode 正确）",
+            "pms.PlanEventService_queryPlanEventPage",
+            "pms.BaseAttrRelService_findBaseAttrRelPage"
+          ],
+          "simulation": {
+            "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「包裹内商品错装」，应该怎么处理？"
+          }
+        },
+        "post_vas": {
+          "profile_id": "post_vas",
+          "label": "异常已处理 + 增值单已完成",
+          "pages": [
+            "异常单列表/详情",
+            "增值订单列表/详情"
+          ],
+          "description": "WI + EB + VASC 全链路；EB 已关联增值单并关闭，增值订单页可查到已完成单据",
+          "vasc_required": true,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "businessNo": "{WI.businessNo}"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B05E013",
+              "eventName": "包裹内商品错装",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "CL",
+              "statusDesc": "已关闭",
+              "status_hint": "异常已关联增值单并处理完成",
+              "linkedVascNo": "{VASC.orderNo}",
+              "eventFiles": "保留造数时上传的仓库图"
+            },
+            "vasc": {
+              "orderNo": "{VASC.orderNo}",
+              "vaSource": "UNUSUAL",
+              "status": "PD",
+              "statusDesc": "已完成",
+              "orderSource": "WINIT",
+              "orderSourceDesc": "万邑联下单",
+              "warehouseCode": "USGA",
+              "businessOrderNo": "{WI.businessNo}",
+              "vasc": {
+                "productCode": "VASC202407031456553",
+                "productName": "",
+                "shelveWayCode": "USE_ORIGIN_INBOUND_ORDER"
+              },
+              "childBusinessOrders": [
+                {
+                  "businessNo": "{EB.businessNo}",
+                  "businessType": "UNUSUAL",
+                  "parentBusinessNo": "{WI.businessNo}"
+                }
+              ],
+              "atomic_services": [
+                {
+                  "serviceCode": "OW01V1560",
+                  "serviceName": "入库-补贴包裹条码",
+                  "serviceSequence": "1",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "LABEL_TYPE",
+                      "attributeName": "标签类型",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "PACKGE_SERNO",
+                      "attributeValue": "Winit包裹条码"
+                    },
+                    {
+                      "attributeKeyOriginal": "LABEL_SIZE",
+                      "attributeName": "尺寸规格",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "10X6",
+                      "attributeValue": "10cm*6cm"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B05E013",
+                      "eventName": "包裹内商品错装",
+                      "eventObj": "商品"
+                    }
+                  ]
+                }
+              ],
+              "related_orders": [
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{WI.businessNo}",
+                  "businessTypeName": "入库订单",
+                  "eventNo": "{EB.businessNo}"
+                },
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{EB.businessNo}",
+                  "businessTypeName": "异常订单",
+                  "eventNo": "{EB.businessNo}"
+                }
+              ]
+            }
+          },
+          "verify_apis": [
+            "oms.VaOrderService_pageQuery（增值单列表，where[orderNo]=VASC）",
+            "oms.VaOrderService_getVasList（原子服务列表）",
+            "oms.VaOrderService_getEventOrder4VaAtom（EB↔eventCode 关联）",
+            "oms.VaOrderService_getVaAtomDetails（businessOrder.businessNo=EB）",
+            "oms.VaOrderRelatedService_queryRelatedVaOrdersPage（WI+EB 关联行）",
+            "OMS 异常单查询（EB 状态已关闭，linkedVascNo 一致）"
+          ],
+          "simulation": {
+            "user_message": "我的增值单 {vasc_no} 处理得怎么样了？入库单 {wi_no} 上的异常 {eb_no} 是否已经处理完？"
+          },
+          "acceptance": [
+            "增值订单详情 statusDesc=已完成",
+            "各原子服务 statusDesc=已处理，vaAtomAttrs 必填项已填",
+            "getEventOrder4VaAtom 返回 eventCode 与 PMS 一致",
+            "异常单详情显示已关联 VASC 且状态已关闭"
+          ]
+        }
+      },
+      "seed_spec": {
+        "wi": {
+          "businessType": "INBOUND",
+          "warehouseCode": "USGA",
+          "status_hint": "收货/查验中（可挂异常）"
+        },
+        "eb": {
+          "businessType": "UNUSUAL",
+          "eventCode": "B05E013",
+          "eventName": "包裹内商品错装",
+          "parentBusinessNo": "{WI.businessNo}",
+          "status": "待客户处理",
+          "status_hint": "操作增值类，待客户下增值单",
+          "eventFiles": ">=1 张仓库实拍图"
+        },
+        "vasc": null
+      },
+      "seed_instance": {
+        "pre_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        },
+        "post_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "vasc_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        }
+      },
+      "simulation": {
+        "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「包裹内商品错装」，应该怎么处理？"
+      },
+      "expected": {
+        "exception": {
+          "eventCode": "B05E013",
+          "eventName": "包裹内商品错装"
+        },
+        "vasc_products": [
+          {
+            "productCode": "VASC202407031456553",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202407031511413",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202411192250069",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202504171850278",
+            "productName": ""
+          }
+        ],
+        "atomic_services": [
+          {
+            "serviceCode": "OW01V1560",
+            "serviceName": "入库-补贴包裹条码",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "LABEL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "PACKGE_SERNO",
+                  "THIRD_PARTY_PACKGE_SERNO"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "LABEL_SIZE",
+                "isRequired": true,
+                "allowedValues": [
+                  "10X6",
+                  "10X15"
+                ]
+              }
+            ]
+          }
+        ],
+        "must_not_recommend": []
+      },
+      "verify_apis": [
+        "OMS 异常单查询（EB 存在且 eventCode 正确）",
+        "pms.PlanEventService_queryPlanEventPage",
+        "pms.BaseAttrRelService_findBaseAttrRelPage"
+      ],
+      "verification_notes": "eventDefine 与知识库逐字对齐。客户需提交新入库单+贴标/换标（海外验货仓版增值在 PMS 为独立命名，入库侧用 OW01V1560 补贴包裹条码）。",
+      "reference_vasc_order": null
+    },
+    {
+      "case_id": "TC-P0-08",
+      "scenario_id": "inbound_商品有条码但系统无法识别",
+      "priority": "P0",
+      "status": "pending",
+      "seed_profiles": {
+        "pre_vas": {
+          "profile_id": "pre_vas",
+          "label": "异常待处理（AI 推荐入口）",
+          "pages": [
+            "异常单列表/详情"
+          ],
+          "description": "仅有 WI + EB，客户尚未下增值单；用于 AI 推荐验证",
+          "vasc_required": false,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "status_hint": "收货/查验中（可挂异常）"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B01E1316",
+              "eventName": "商品有条码但系统无法识别",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "待客户处理",
+              "status_hint": "操作增值类，待客户下增值单",
+              "eventFiles": ">=1 张仓库实拍图"
+            },
+            "vasc": null
+          },
+          "verify_apis": [
+            "OMS 异常单查询（EB 存在且 eventCode 正确）",
+            "pms.PlanEventService_queryPlanEventPage",
+            "pms.BaseAttrRelService_findBaseAttrRelPage"
+          ],
+          "simulation": {
+            "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「②商品有条码但系统无法识别」，应该怎么处理？"
+          }
+        },
+        "post_vas": {
+          "profile_id": "post_vas",
+          "label": "异常已处理 + 增值单已完成",
+          "pages": [
+            "异常单列表/详情",
+            "增值订单列表/详情"
+          ],
+          "description": "WI + EB + VASC 全链路；EB 已关联增值单并关闭，增值订单页可查到已完成单据",
+          "vasc_required": true,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "businessNo": "{WI.businessNo}"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B01E1316",
+              "eventName": "商品有条码但系统无法识别",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "CL",
+              "statusDesc": "已关闭",
+              "status_hint": "异常已关联增值单并处理完成",
+              "linkedVascNo": "{VASC.orderNo}",
+              "eventFiles": "保留造数时上传的仓库图"
+            },
+            "vasc": {
+              "orderNo": "{VASC.orderNo}",
+              "vaSource": "UNUSUAL",
+              "status": "PD",
+              "statusDesc": "已完成",
+              "orderSource": "WINIT",
+              "orderSourceDesc": "万邑联下单",
+              "warehouseCode": "USGA",
+              "businessOrderNo": "{WI.businessNo}",
+              "vasc": {
+                "productCode": "VASC202407012141008",
+                "productName": "新单上架（WINIT创建入库单）",
+                "shelveWayCode": "USE_ORIGIN_INBOUND_ORDER"
+              },
+              "childBusinessOrders": [
+                {
+                  "businessNo": "{EB.businessNo}",
+                  "businessType": "UNUSUAL",
+                  "parentBusinessNo": "{WI.businessNo}"
+                }
+              ],
+              "atomic_services": [
+                {
+                  "serviceCode": "OW01V1572",
+                  "serviceName": "入库-第三方商品条码关联",
+                  "serviceSequence": "1",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B01E1316",
+                      "eventName": "商品有条码但系统无法识别",
+                      "eventObj": "商品"
+                    }
+                  ]
+                }
+              ],
+              "related_orders": [
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{WI.businessNo}",
+                  "businessTypeName": "入库订单",
+                  "eventNo": "{EB.businessNo}"
+                },
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{EB.businessNo}",
+                  "businessTypeName": "异常订单",
+                  "eventNo": "{EB.businessNo}"
+                }
+              ]
+            }
+          },
+          "verify_apis": [
+            "oms.VaOrderService_pageQuery（增值单列表，where[orderNo]=VASC）",
+            "oms.VaOrderService_getVasList（原子服务列表）",
+            "oms.VaOrderService_getEventOrder4VaAtom（EB↔eventCode 关联）",
+            "oms.VaOrderService_getVaAtomDetails（businessOrder.businessNo=EB）",
+            "oms.VaOrderRelatedService_queryRelatedVaOrdersPage（WI+EB 关联行）",
+            "OMS 异常单查询（EB 状态已关闭，linkedVascNo 一致）"
+          ],
+          "simulation": {
+            "user_message": "我的增值单 {vasc_no} 处理得怎么样了？入库单 {wi_no} 上的异常 {eb_no} 是否已经处理完？"
+          },
+          "acceptance": [
+            "增值订单详情 statusDesc=已完成",
+            "各原子服务 statusDesc=已处理，vaAtomAttrs 必填项已填",
+            "getEventOrder4VaAtom 返回 eventCode 与 PMS 一致",
+            "异常单详情显示已关联 VASC 且状态已关闭"
+          ]
+        }
+      },
+      "seed_spec": {
+        "wi": {
+          "businessType": "INBOUND",
+          "warehouseCode": "USGA",
+          "status_hint": "收货/查验中（可挂异常）"
+        },
+        "eb": {
+          "businessType": "UNUSUAL",
+          "eventCode": "B01E1316",
+          "eventName": "商品有条码但系统无法识别",
+          "parentBusinessNo": "{WI.businessNo}",
+          "status": "待客户处理",
+          "status_hint": "操作增值类，待客户下增值单",
+          "eventFiles": ">=1 张仓库实拍图"
+        },
+        "vasc": null
+      },
+      "seed_instance": {
+        "pre_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        },
+        "post_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "vasc_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        }
+      },
+      "simulation": {
+        "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「②商品有条码但系统无法识别」，应该怎么处理？"
+      },
+      "expected": {
+        "exception": {
+          "eventCode": "B01E1316",
+          "eventName": "商品有条码但系统无法识别"
+        },
+        "vasc_products": [
+          {
+            "productCode": "VASC202407012141008",
+            "productName": "新单上架（WINIT创建入库单）"
+          },
+          {
+            "productCode": "VASC202407031503503",
+            "productName": "原单上架"
+          },
+          {
+            "productCode": "VASC202407031507376",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202407161056217",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202409121753076",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202411192240522",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202411192246131",
+            "productName": ""
+          },
+          {
+            "productCode": "VASC202412111831129",
+            "productName": ""
+          }
+        ],
+        "atomic_services": [
+          {
+            "serviceCode": "OW01V1572",
+            "serviceName": "入库-第三方商品条码关联"
+          }
+        ],
+        "must_not_recommend": []
+      },
+      "verify_apis": [
+        "OMS 异常单查询（EB 存在且 eventCode 正确）",
+        "pms.PlanEventService_queryPlanEventPage",
+        "pms.BaseAttrRelService_findBaseAttrRelPage"
+      ],
+      "verification_notes": "名称精确匹配。处理为维护 SKU 关联，关联增值「入库-第三方商品条码关联」OW01V1572。",
+      "reference_vasc_order": null
+    },
+    {
+      "case_id": "TC-P0-10",
+      "scenario_id": "inbound_包裹包装异常_A包裹质量异常",
+      "priority": "P0",
+      "status": "pending",
+      "seed_profiles": {
+        "pre_vas": {
+          "profile_id": "pre_vas",
+          "label": "异常待处理（AI 推荐入口）",
+          "pages": [
+            "异常单列表/详情"
+          ],
+          "description": "仅有 WI + EB，客户尚未下增值单；用于 AI 推荐验证",
+          "vasc_required": false,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "status_hint": "收货/查验中（可挂异常）"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E23",
+              "eventName": "A+包裹质量异常",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "待客户处理",
+              "status_hint": "操作增值类，待客户下增值单",
+              "eventFiles": ">=1 张仓库实拍图"
+            },
+            "vasc": null
+          },
+          "verify_apis": [
+            "OMS 异常单查询（EB 存在且 eventCode 正确）",
+            "pms.PlanEventService_queryPlanEventPage",
+            "pms.BaseAttrRelService_findBaseAttrRelPage"
+          ],
+          "simulation": {
+            "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「A+包裹质量异常（多原子组合）」，应该怎么处理？"
+          }
+        },
+        "post_vas": {
+          "profile_id": "post_vas",
+          "label": "异常已处理 + 增值单已完成",
+          "pages": [
+            "异常单列表/详情",
+            "增值订单列表/详情"
+          ],
+          "description": "WI + EB + VASC 全链路；EB 已关联增值单并关闭，增值订单页可查到已完成单据",
+          "vasc_required": true,
+          "seed_spec": {
+            "wi": {
+              "businessType": "INBOUND",
+              "warehouseCode": "USGA",
+              "businessNo": "{WI.businessNo}"
+            },
+            "eb": {
+              "businessType": "UNUSUAL",
+              "eventCode": "B0102E23",
+              "eventName": "A+包裹质量异常",
+              "parentBusinessNo": "{WI.businessNo}",
+              "status": "CL",
+              "statusDesc": "已关闭",
+              "status_hint": "异常已关联增值单并处理完成",
+              "linkedVascNo": "{VASC.orderNo}",
+              "eventFiles": "保留造数时上传的仓库图"
+            },
+            "vasc": {
+              "orderNo": "{VASC.orderNo}",
+              "vaSource": "UNUSUAL",
+              "status": "PD",
+              "statusDesc": "已完成",
+              "orderSource": "WINIT",
+              "orderSourceDesc": "万邑联下单",
+              "warehouseCode": "USGA",
+              "businessOrderNo": "{WI.businessNo}",
+              "vasc": {
+                "productCode": "VASC202407031503503",
+                "productName": "原单上架",
+                "shelveWayCode": "USE_ORIGIN_INBOUND_ORDER"
+              },
+              "childBusinessOrders": [
+                {
+                  "businessNo": "{EB.businessNo}",
+                  "businessType": "UNUSUAL",
+                  "parentBusinessNo": "{WI.businessNo}"
+                }
+              ],
+              "atomic_services": [
+                {
+                  "serviceCode": "OW01V1561",
+                  "serviceName": "入库-更换商品包装",
+                  "serviceSequence": "1",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "PACKAGING_MODE",
+                      "attributeName": "包装方式",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "PACKAGING_WINIT",
+                      "attributeValue": "Winit标准包装"
+                    },
+                    {
+                      "attributeKeyOriginal": "PACKAGING_MATERAIL_TYPE",
+                      "attributeName": "包材类型",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "PADDED_ENVELOPE",
+                      "attributeValue": "气泡袋"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B0102E23",
+                      "eventName": "A+包裹质量异常",
+                      "eventObj": "商品"
+                    }
+                  ]
+                },
+                {
+                  "serviceCode": "OW01V1558",
+                  "serviceName": "入库-补贴原商品条码",
+                  "serviceSequence": "2",
+                  "status": "CO",
+                  "statusDesc": "已处理",
+                  "serviceObject": "GOODS",
+                  "vaAtomAttrs": [
+                    {
+                      "attributeKeyOriginal": "LABEL_SIZE",
+                      "attributeName": "尺寸规格",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "10X6",
+                      "attributeValue": "10cm*6cm"
+                    },
+                    {
+                      "attributeKeyOriginal": "LABEL_TYPE",
+                      "attributeName": "标签类型",
+                      "showType": "OPTIONAL_BOX",
+                      "isRequired": "Y",
+                      "inputNode": "SUBMIT",
+                      "attributeValueOriginal": "WINIT_SKU_SERNO_ITEM_SERNO",
+                      "attributeValue": "Winit商品/单品条码"
+                    }
+                  ],
+                  "runtime_events": [
+                    {
+                      "eventNo": "{EB.businessNo}",
+                      "eventCode": "B0102E23",
+                      "eventName": "A+包裹质量异常",
+                      "eventObj": "商品"
+                    }
+                  ]
+                }
+              ],
+              "related_orders": [
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{WI.businessNo}",
+                  "businessTypeName": "入库订单",
+                  "eventNo": "{EB.businessNo}"
+                },
+                {
+                  "orderNo": "{VASC.orderNo}",
+                  "businessNo": "{EB.businessNo}",
+                  "businessTypeName": "异常订单",
+                  "eventNo": "{EB.businessNo}"
+                }
+              ]
+            }
+          },
+          "verify_apis": [
+            "oms.VaOrderService_pageQuery（增值单列表，where[orderNo]=VASC）",
+            "oms.VaOrderService_getVasList（原子服务列表）",
+            "oms.VaOrderService_getEventOrder4VaAtom（EB↔eventCode 关联）",
+            "oms.VaOrderService_getVaAtomDetails（businessOrder.businessNo=EB）",
+            "oms.VaOrderRelatedService_queryRelatedVaOrdersPage（WI+EB 关联行）",
+            "OMS 异常单查询（EB 状态已关闭，linkedVascNo 一致）"
+          ],
+          "simulation": {
+            "user_message": "我的增值单 {vasc_no} 处理得怎么样了？入库单 {wi_no} 上的异常 {eb_no} 是否已经处理完？"
+          },
+          "acceptance": [
+            "增值订单详情 statusDesc=已完成",
+            "各原子服务 statusDesc=已处理，vaAtomAttrs 必填项已填",
+            "getEventOrder4VaAtom 返回 eventCode 与 PMS 一致",
+            "异常单详情显示已关联 VASC 且状态已关闭"
+          ],
+          "reference_sample": "../output/vas_VASC000000296745.json"
+        }
+      },
+      "seed_spec": {
+        "wi": {
+          "businessType": "INBOUND",
+          "warehouseCode": "USGA",
+          "status_hint": "收货/查验中（可挂异常）"
+        },
+        "eb": {
+          "businessType": "UNUSUAL",
+          "eventCode": "B0102E23",
+          "eventName": "A+包裹质量异常",
+          "parentBusinessNo": "{WI.businessNo}",
+          "status": "待客户处理",
+          "status_hint": "操作增值类，待客户下增值单",
+          "eventFiles": ">=1 张仓库实拍图"
+        },
+        "vasc": null
+      },
+      "seed_instance": {
+        "pre_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        },
+        "post_vas": {
+          "wi_no": "",
+          "eb_no": "",
+          "vasc_no": "",
+          "seeded_by": "",
+          "seeded_at": ""
+        }
+      },
+      "simulation": {
+        "user_message": "我的入库单 {wi_no} 有个异常 {eb_no}，仓库反馈「A+包裹质量异常（多原子组合）」，应该怎么处理？"
+      },
+      "expected": {
+        "exception": {
+          "eventCode": "B0102E23",
+          "eventName": "A+包裹质量异常"
+        },
+        "vasc_products": [
+          {
+            "productCode": "VASC202407031503503",
+            "productName": "原单上架"
+          },
+          {
+            "productCode": "VASC202407031507376",
+            "productName": "（入库异常处理常用套餐）"
+          },
+          {
+            "productCode": "VASC202409121753076",
+            "productName": "（入库异常处理常用套餐）"
+          }
+        ],
+        "atomic_services": [
+          {
+            "serviceCode": "OW01V1561",
+            "serviceName": "入库-更换商品包装",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "PACKAGING_MODE",
+                "isRequired": true,
+                "allowedValues": [
+                  "PACKAGING_WINIT",
+                  "REINFORCED_PACKAGING"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "PACKAGING_MATERAIL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "PADDED_ENVELOPE",
+                  "COURIER_SATCHEL",
+                  "CARTON_BOX",
+                  "PAPER_SEALING",
+                  "FILM_WRAPPING_REINFORCE"
+                ]
+              }
+            ]
+          },
+          {
+            "serviceCode": "OW01V1558",
+            "serviceName": "入库-补贴原商品条码",
+            "attrs": [
+              {
+                "attributeKeyOriginal": "LABEL_SIZE",
+                "isRequired": true,
+                "allowedValues": [
+                  "10X6",
+                  "5X2.5"
+                ]
+              },
+              {
+                "attributeKeyOriginal": "LABEL_TYPE",
+                "isRequired": true,
+                "allowedValues": [
+                  "WINIT_SKU_SERNO_ITEM_SERNO",
+                  "THIRD_PARTY_SKU_SERNO_ITEM_SERNO"
+                ]
+              }
+            ]
+          }
+        ],
+        "must_not_recommend": [
+          {
+            "serviceCode": "",
+            "eventCode": "B01E02",
+            "reason": "知悉类分支"
+          }
+        ]
+      },
+      "verify_apis": [
+        "OMS 异常单查询（EB 存在且 eventCode 正确）",
+        "pms.PlanEventService_queryPlanEventPage",
+        "pms.BaseAttrRelService_findBaseAttrRelPage"
+      ],
+      "verification_notes": "多原子组合参考样例，对齐生产样本 VASC000000296745",
+      "reference_vasc_order": "VASC000000296745"
+    }
+  ],
+  "negative_cases": [
+    {
+      "case_id": "TC-NEG-01",
+      "scenario_id": "inbound_包裹包装异常_A包裹质量异常",
+      "pms_event_code": "B01E02",
+      "event_name_hint": "包裹包装异常(无需客户下增值单)",
+      "expect_no_vasc": true,
+      "must_not_recommend": [
+        {
+          "serviceCode": "OW01V1561",
+          "reason": "知悉类分支，无需客户下增值单"
+        }
+      ],
+      "status": "pending",
+      "expected": {
+        "exception": {
+          "eventCode": "B01E02",
+          "eventName": "包裹包装异常(无需客户下增值单)"
+        },
+        "vasc_products": [],
+        "atomic_services": [],
+        "must_not_recommend": [
+          {
+            "serviceCode": "OW01V1561",
+            "reason": "知悉类分支，无需客户下增值单"
+          }
+        ],
+        "expect_no_vasc": true
+      }
+    },
+    {
+      "case_id": "TC-NEG-02",
+      "scenario_id": "inbound_商品尺重异常",
+      "pms_event_code": "B0402E11",
+      "event_name_hint": "商品尺重异常",
+      "expect_no_vasc": true,
+      "must_not_recommend": [],
+      "status": "pending",
+      "expected": {
+        "exception": {
+          "eventCode": "B0402E11",
+          "eventName": "商品尺重异常"
+        },
+        "vasc_products": [],
+        "atomic_services": [],
+        "must_not_recommend": [],
+        "expect_no_vasc": true
+      }
+    }
+  ]
+}
