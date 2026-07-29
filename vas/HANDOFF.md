@@ -50,14 +50,14 @@
 
 ## §7 明日待办（2026-07-30）
 
-| # | 任务 | 执行者 | 依赖 | 产出 |
-|---|------|--------|------|------|
-| 1 | 用 Aily 补抽真正的 2a 评测用例（基于原子清单中的 23 个命名原子） | 你（Aily） | `references/vas-atom-matrix.md` 中 2a_named 原子列表 | `eval/evaluations_2a_cases_v2.json` |
-| 2 | 更新 Codex A 指令：基于原子清单 + 新 2a 用例重构金标集 | Opus | 待办 1 完成 | 更新后的 Codex A prompt |
-| 3 | Codex A 执行 Phase 4 金标集构建 | Codex A | 待办 2 | `eval/golden-set.json` + `eval/acceptance-criteria.md` |
-| 4 | 和业务方确认原子清单的 productType 标注是否准确 | 你 | `references/vas-atom-matrix.md` 汇总二 | 确认/修正 |
-| 5 | 产出方案乙原型：2a/2b/2d 各至少一个完整对话示例，展示 Agent 指引全流程 | Opus + Codex | 原子清单 + 金标集中各分支代表用例 | 方案乙演示原型（可对业务方展示） |
-| 6 | （后续）启动 Codex A 做非标页 Coze 包 | Codex A | Phase 4 验收通过 | `coze-package/` |
+| # | 任务 | 执行者 | 依赖 | 产出 | 预估时间 |
+|---|------|--------|------|------|---------|
+| 1 | 用 Aily 补抽真正的 2a 评测用例（基于原子清单中的 23 个命名原子） | 你（Aily） | `references/vas-atom-matrix.md` 中 2a_named 原子列表 | `eval/evaluations_2a_cases_v2.json` | 30min |
+| 2 | 更新 Codex A 指令：基于原子清单 + 新 2a 用例重构金标集 | Opus | 待办 1 完成 | 更新后的 Codex A prompt | 5min |
+| 3 | Codex A 执行 Phase 4 金标集构建 | Codex A | 待办 2 | `eval/golden-set.json` + `eval/acceptance-criteria.md` | 20min |
+| 4 | 和业务方确认原子清单的 productType 标注是否准确 | 你 | `references/vas-atom-matrix.md` 汇总二 | 确认/修正 | 15min |
+| 5 | 产出方案乙原型：2a/2b/2d 各至少一个完整对话示例，展示 Agent 指引全流程 | Opus + Codex | 原子清单 + 金标集中各分支代表用例 | 方案乙演示原型（可对业务方展示） | 45min |
+| 6 | （后续）启动 Codex A 做非标页 Coze 包 | Codex A | Phase 4 验收通过 | `coze-package/` | 后续 |
 
 ### 补抽 2a 的方向提示
 
