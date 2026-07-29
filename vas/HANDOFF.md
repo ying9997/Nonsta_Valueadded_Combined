@@ -34,6 +34,45 @@
 
 2026-07-29：新增前置模块（标准页 AI 弹窗）；2d 改为条件触发；采用方案 A 渐进式上线。
 
+2026-07-29（下午，Opus + Codex 并行）：
+- Opus 验收 Phase 3 接口契约：核心框架通过，识别 G1-G5 五个缺口
+- Codex A 执行 G1-G5 补充 → Opus 验收通过（V1-V7 全部通过）
+- Opus 产出 Track B 弹窗前置模块方案（`design/弹窗前置模块方案.md`）
+- Codex B 产出弹窗 Coze 包（`popup/coze-package/`）→ Opus 验收通过
+- 飞书 Aily 抽取评测候选：10 条通用 + 3 条附件 + 5 条 2a 补充
+- Opus 发现关键缺口：缺少"处理方式→产品→原子"映射清单，2a/2b 判定无依据
+- 确定一期范围限定为入库段（pscgCode=OW01）
+- Codex C 执行原子清单提取 → 产出 `references/vas-atom-matrix.md/json`（24 产品 53 原子）
+- Opus 基于原子清单验证：之前 5 条"2a 候选"实际全是 2b（业务口语≠系统原子名）
+- 建立 Opus→Codex→Coze 标准化交接流程（`HANDOFF_TEMPLATE_Opus-Codex-Coze.md`）
+
+当前结论：原子清单已产出，2a/2b 分类有了确定性依据。评测集需基于原子清单重构。
+
+## §7 明日待办（2026-07-30）
+
+| # | 任务 | 执行者 | 依赖 | 产出 |
+|---|------|--------|------|------|
+| 1 | 用 Aily 补抽真正的 2a 评测用例（基于原子清单中的 23 个命名原子） | 你（Aily） | `references/vas-atom-matrix.md` 中 2a_named 原子列表 | `eval/evaluations_2a_cases_v2.json` |
+| 2 | 更新 Codex A 指令：基于原子清单 + 新 2a 用例重构金标集 | Opus | 待办 1 完成 | 更新后的 Codex A prompt |
+| 3 | Codex A 执行 Phase 4 金标集构建 | Codex A | 待办 2 | `eval/golden-set.json` + `eval/acceptance-criteria.md` |
+| 4 | 和业务方确认原子清单的 productType 标注是否准确 | 你 | `references/vas-atom-matrix.md` 汇总二 | 确认/修正 |
+| 5 | （如待办 3 通过）启动 Codex A 做非标页 Coze 包 | Codex A | Phase 4 验收通过 | `coze-package/` |
+
+### 补抽 2a 的方向提示
+
+原子清单中的 2a_named 原子（客户可直选的命名服务）：
+- 上架前自提（无需/需 WINIT 打托）
+- 包裹串仓异常调拨
+- 入库-单品指定位置开箱拍照
+- 入库-异常包裹开箱拍照
+- 提供海外仓监控视频（少包裹/少单品调查）
+- A+包裹条码异常直接上架
+- 入库-清除商品标签
+- 入库-提供无箱单预报单上架
+- Anker 异常包裹良品/不良品辨识
+
+在飞书群聊中搜索这些原子名称相关的对话，抽取客户实际选这些具体服务项的案例。
+
 ## §2 资料索引
 
 | 类型 | 路径 | 用法 |
