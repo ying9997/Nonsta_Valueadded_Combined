@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>方案一 - 顶部全宽嵌入式 AI 指引框</title>
+  <style>
+    *{box-sizing:border-box} body{margin:0;background:#f5f6f8;color:#1f2329;font:14px/1.5 Arial,"Microsoft YaHei",sans-serif} button,input,textarea,select{font:inherit}
+    .page{max-width:1240px;margin:0 auto;padding:16px 20px 40px}.notice{background:#fff7e6;border:1px solid #ffd591;padding:8px 12px;border-radius:4px;margin-bottom:10px}.steps{display:flex;gap:8px;margin:8px 0 12px}.step{padding:6px 12px;border-radius:16px;background:#e8eaed;color:#646a73}.step.active{background:#8a5a2b;color:#fff}.card{background:#fff;border:1px solid #dee0e3;border-radius:6px;margin-bottom:10px}.card-h{padding:10px 12px;border-bottom:1px solid #eff0f1;font-weight:700}.card-b{padding:12px}.compact-grid{display:grid;grid-template-columns:220px 1fr 260px 120px;gap:10px;align-items:start}.field{display:grid;grid-template-columns:120px 1fr;gap:6px;align-items:start;margin-bottom:8px}.field label{font-weight:600;color:#4e5969}.field input,.field textarea,.ai-input textarea{width:100%;border:1px solid #c9cdd4;border-radius:4px;padding:6px 8px;background:#fff}.field textarea{min-height:56px;resize:vertical}.service-list label{display:block;margin-bottom:8px}.file-btn{display:block;width:100%;margin-bottom:6px;border:1px solid #c9cdd4;background:#fff;border-radius:4px;padding:6px}.hint{font-size:12px;color:#d46b08}.price{color:#7b4d24;font-size:13px}.bottom{display:flex;gap:8px;justify-content:center;margin-top:12px}.btn{border:1px solid #c9cdd4;background:#fff;border-radius:4px;padding:6px 12px;cursor:pointer}.btn.primary{background:#8a5a2b;color:#fff;border-color:#8a5a2b}.btn[disabled]{opacity:.45;cursor:not-allowed}.ai-panel{border:1px solid #8a5a2b;background:#fffaf3;border-radius:6px;margin-bottom:10px}.ai-head{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid #ead8c4}.ai-title{font-weight:700}.ai-body{padding:12px;display:grid;gap:10px}.ai-input{display:grid;grid-template-columns:1fr 96px;gap:8px}.route-tabs{display:flex;gap:6px;flex-wrap:wrap}.tag{display:inline-block;padding:2px 8px;border-radius:12px;background:#edf2ff;color:#2454c5;font-size:12px}.result{background:#fff;border:1px solid #ead8c4;border-radius:4px;padding:10px}.actions{display:flex;flex-wrap:wrap;gap:8px}.requirement{background:#fffbe6;border:1px solid #ffe58f;border-radius:4px;padding:8px;margin-top:6px}.meta{font-size:12px;color:#646a73}.low{color:#b42318}.ok{color:#16823a}@media(max-width:900px){.compact-grid{grid-template-columns:1fr}.field{grid-template-columns:1fr}.ai-input{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="notice">检测到您的账号未绑定微信账号，为给您提供更便捷的服务，请尽快绑定微信。</div>
+    <div class="steps"><span class="step">1 基础信息</span><span class="step active">2 增值产品信息</span><span class="step">3 确认提交</span></div>
+
+    <section class="ai-panel" data-guide-point="ai-top-inline-panel">
+      <div class="ai-head">
+        <div><div class="ai-title">AI 非标需求引导</div><div class="meta">方案一：挂载在“增值产品信息”标题下方，客户先描述需求再填写表单。</div></div>
+        <span class="tag">一期可落地</span>
+      </div>
+      <div class="ai-body">
+        <div class="route-tabs">
+          <button class="btn" data-sim-route="2d">模拟 2d 标准纠偏</button>
+          <button class="btn" data-sim-route="2a">模拟 2a 命名直选</button>
+          <button class="btn" data-sim-route="2b">模拟 2b SOP 补齐</button>
+          <button class="btn" data-sim-route="low">模拟低置信兜底</button>
+          <button class="btn" data-sim-route="unknown">模拟 unknown 兜底</button>
+        </div>
+        <div class="ai-input">
+          <textarea id="customerInput" placeholder="请描述希望仓库怎么处理，例如：按条码对应关系换标后上架到新入库单。"></textarea>
+          <button class="btn primary" id="askAi">发送</button>
+        </div>
+        <div id="aiResult" class="result">默认空态：AI 将基于 vascType、matchState、matchConfidence 和 pageActions 判断页面动作。</div>
+        <div class="actions" id="actionBar"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-h">增值产品信息</div>
+      <div class="card-b compact-grid">
+        <div data-guide-point="vasc-selector">
+          <div class="meta">增值产品</div>
+          <strong>入库非标增值（特批）</strong>
+          <div class="service-list" style="margin-top:10px">
+            <label><input type="checkbox" value="OW01V1555"> 包裹串仓异常调拨</label>
+            <label><input type="checkbox" value="OW01V1602" checked> 入库其他服务需求</label>
+          </div>
+        </div>
+        <div data-guide-point="service-requirements">
+          <div class="field"><label>包裹条码</label><input placeholder="请输入"></div>
+          <div class="field"><label>商品条码</label><input placeholder="请输入"></div>
+          <div class="field"><label>上架入库单号</label><input placeholder="请输入"></div>
+          <div class="field"><label>需求描述</label><textarea id="vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_RD_attributeValue" data-bind-field="description" placeholder="请输入"></textarea></div>
+          <div class="field"><label>需求背景说明</label><textarea id="vaAtoms_OW01V1602_attributes_BEOR_attributeValue" data-bind-field="background" placeholder="请输入"></textarea></div>
+        </div>
+        <div data-guide-point="attachment-area">
+          <button class="file-btn" id="vaAtoms_OW01V1602_vasFiles_VAS_ATTR_REL_AOOI">操作说明附件</button>
+          <div id="attachmentHint" class="requirement">附件提示将在 AI 确认后展示。</div>
+          <button class="file-btn">商品和标签的对应关系</button>
+          <button class="file-btn">包裹和标签的对应关系</button>
+          <button class="file-btn">标签文件</button>
+          <div class="hint">仅支持 DOC、PDF、XLS、XLSX、图片或压缩包等格式。</div>
+        </div>
+        <div class="price">以实际报价为准，审核完成后请确认报价。</div>
+      </div>
+    </section>
+    <div class="bottom" data-guide-point="bottom-actions"><button class="btn">上一步</button><button class="btn">保存草稿</button><button class="btn primary">提交</button></div>
+  </main>
+  <script>
+    // 本期不做：不接真实接口、不跨页面持久化、不自动提交、不做视频 SOP 解析、不做复杂附件内容识别、不估价。
+    const pageContext={eventNo:"EVENT_DEMO_001",path:location.pathname};
+    const storageKey=`nonstandard_ai:${pageContext.path}:${pageContext.eventNo}`;
+    const thresholds={matched:.82,partial:.62};
+    let simRoute="2b";
+    document.querySelectorAll("[data-sim-route]").forEach(btn=>btn.onclick=()=>{simRoute=btn.dataset.simRoute;runAi();});
+    document.getElementById("askAi").onclick=runAi;
+    function makeState(route){
+      const base={conversationId:"conv_"+pageContext.eventNo,lifecycleState:"active",savedAt:Date.now(),path:pageContext.path};
+      if(route==="2d")return {...base,route:"2d_standard_redirect",selectedVasc:{vascCode:"VASC_STD_001",vascName:"入库商品换标",vascType:"standard"},selectedService:{},sopMatch:null,fieldSuggestions:{background:"",description:""},pageActions:[{action:"show_redirect_notice",target:"aiResult",label:"复制标准路径建议",enabled:true,scope:"phase1",payload:{value:"当前诉求可由标准增值覆盖，建议返回标准增值路径选择入库商品换标。"}}]};
+      if(route==="2a")return {...base,route:"2a_named_nonstandard_direct",selectedVasc:{vascCode:"VASC_NONSTD_001",vascName:"入库非标增值（特批）",vascType:"nonstandard"},selectedService:{serviceCode:"OW01V1555",serviceName:"包裹串仓异常调拨"},sopMatch:null,fieldSuggestions:{background:"发现包裹串仓异常，需要仓库按异常单定位并执行调拨处理。",description:"请按包裹串仓异常调拨服务项处理，核对包裹条码、目标入库单和调拨范围后执行。"},pageActions:fieldActions()};
+      if(route==="unknown")return{...base,route:"manual_fallback",selectedVasc:{vascCode:"UNKNOWN_VASC",vascName:"未知增值产品",vascType:"unknown"},selectedService:{serviceCode:"UNKNOWN_SERVICE",serviceName:"未知服务项"},sopMatch:null,fieldSuggestions:{background:"",description:""},pageActions:[{action:"show_manual_fallback",target:"aiResult",label:"转人工确认",enabled:true,scope:"phase1",payload:{value:"候选类型无法自动确认（vascType=unknown），请联系客服或人工选择增值产品和服务项。"}}]};const score=route==="low"?.48:.88,matchState=score>=thresholds.matched?"matched":score>=thresholds.partial?"partial":"none";
+      return {...base,route:"2b_other_service_sop",selectedVasc:{vascCode:"VASC_NONSTD_001",vascName:"入库非标增值（特批）",vascType:"nonstandard"},selectedService:{serviceCode:"OW01V1602",serviceName:"入库其他服务需求"},sopMatch:{matchState,matchConfidence:score,matchedTemplateId:matchState==="none"?"":"sop_2_1_inbound_relabel_shelving",matchedTitle:matchState==="none"?"":"入库尺重/标签辨识后换标上架"},fieldSuggestions: matchState==="none"?{background:"",description:""}:{background:"到仓商品条码与系统登记信息不一致，需要仓库按客户提供的条码对应关系处理后上架。",description:"请根据附件中的实物条码与新商品条码对应关系，补贴新商品标签，并上架到客户指定的新入库单。客户确认不等于审核通过，最终以增值审核和仓库可执行性为准。"},attachmentRequirements:["实物条码与新商品条码对应关系文件","新商品标签文件","如涉及包裹标签，请提供包裹与标签对应关系"],pageActions: matchState==="none"?[{action:"show_attachment_check_warning",target:"aiResult",label:"按 SOP 模板继续补充",enabled:true,scope:"phase1",payload:{value:"未匹配可复用 SOP 场景，请按场景概述、业务单据、SKU、操作步骤、关键输出、异常处理和附件要求补充。"}}]:fieldActions()};
+    }
+    function fieldActions(){return[{action:"fill_field",target:"vaAtoms_OW01V1602_attributes_BEOR_attributeValue",label:"填入需求背景说明",enabled:true,scope:"phase1",payload:{fieldKey:"background"}},{action:"fill_field",target:"vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_RD_attributeValue",label:"填入需求描述",enabled:true,scope:"phase1",payload:{fieldKey:"description"}},{action:"copy_text",target:"aiResult",label:"复制字段建议",enabled:true,scope:"phase1",payload:{}}];}
+    function runAi(){const r=document.getElementById("aiResult");r.textContent="AI 正在结合候选服务、异常单信息和 SOP 模板判断，预计 3-5 秒。";setTimeout(()=>render(makeState(simRoute)),500);}
+    function render(state){localStorage.setItem(storageKey,JSON.stringify(state));const r=document.getElementById("aiResult"),bar=document.getElementById("actionBar");bar.innerHTML="";if(state.route==="manual_fallback"){r.innerHTML=`<b>人工兜底</b><br>vascType=unknown，无法自动分流。请联系客服或人工确认服务项。`;}else if(state.route==="2d_standard_redirect"){r.innerHTML=`<b>建议返回标准增值路径</b><br>vascType=${state.selectedVasc.vascType}。当前需求可由 ${state.selectedVasc.vascName} 覆盖，本页不生成非标字段建议。`;}else if(state.route==="2a_named_nonstandard_direct"){r.innerHTML=`<b>建议选择命名非标服务项</b><br>${state.selectedService.serviceName}。该路径不进入 SOP 长追问。`;}else{r.innerHTML=`<b>${state.sopMatch.matchState==="none"?"低置信度兜底引导":"需要补齐非标 SOP 信息"}</b><br>matchState=${state.sopMatch.matchState}，matchConfidence=${state.sopMatch.matchConfidence}。${state.sopMatch.matchState==="none"?"低于阈值，按 SOP 模板结构追问。":"已生成字段建议，可一键填入。"}`;document.getElementById("attachmentHint").innerHTML=(state.attachmentRequirements||[]).map(x=>"· "+x).join("<br>")||"附件提示将在 AI 确认后展示。";}state.pageActions.forEach(a=>{const b=document.createElement("button");b.className="btn";b.textContent=a.label;b.disabled=!a.enabled;b.onclick=()=>consume(a,state);bar.appendChild(b);});}
+    function consume(a,state){if(a.action==="fill_field"){const el=document.getElementById(a.target);if(el)el.value=state.fieldSuggestions[a.payload.fieldKey]||"";}else{navigator.clipboard&&navigator.clipboard.writeText(a.payload.value||JSON.stringify(state.fieldSuggestions));}}
+  </script>
+</body>
+</html>
+
+

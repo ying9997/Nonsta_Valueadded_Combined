@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>模块2原型 - 非标增值补全小对话框</title>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      background: #f5f7fa;
+    }
+    .original-page {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+    .ai-launcher {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      z-index: 10;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      height: 38px;
+      padding: 0 14px;
+      border: 1px solid #2b79ff;
+      border-radius: 20px;
+      background: #2b79ff;
+      color: #fff;
+      box-shadow: 0 8px 22px rgba(19, 49, 97, .22);
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .prototype-dialog {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      z-index: 11;
+      width: 392px;
+      max-width: calc(100vw - 32px);
+      height: 588px;
+      max-height: calc(100vh - 56px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid #d8dfe8;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 14px 38px rgba(21, 36, 61, .22);
+      color: #1f2d3d;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .dialog-head {
+      height: 48px;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px 0 14px;
+      border-bottom: 1px solid #e5e9f0;
+      background: #fff;
+    }
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .bot-mark {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #2b79ff;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    button {
+      min-height: 30px;
+      padding: 0 10px;
+      border: 1px solid #d8dfe8;
+      border-radius: 4px;
+      background: #fff;
+      color: #1f2d3d;
+      font: inherit;
+      cursor: pointer;
+    }
+    button.primary {
+      border-color: #2b79ff;
+      background: #2b79ff;
+      color: #fff;
+    }
+    button.link {
+      border-color: transparent;
+      background: transparent;
+      padding: 0 6px;
+      color: #607085;
+      font-size: 16px;
+    }
+    .dialog-body {
+      flex: 1;
+      overflow: auto;
+      padding: 12px;
+      background: #f7f9fc;
+    }
+    .msg {
+      margin: 0 0 10px;
+      padding: 10px 11px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #e5e9f0;
+    }
+    .msg.ai {
+      border-color: #cfe0ff;
+      background: #f4f8ff;
+    }
+    .msg.warn {
+      border-color: #ffd699;
+      background: #fff8ec;
+    }
+    .msg-title {
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .muted {
+      color: #6b778c;
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 12px;
+      background: #edf2f7;
+      color: #3d4b5f;
+      font-size: 12px;
+    }
+    .pill.good {
+      background: #e8f6ef;
+      color: #147a55;
+    }
+    .pill.warn {
+      background: #fff4dd;
+      color: #935300;
+    }
+    .pill.bad {
+      background: #fff0ed;
+      color: #b42318;
+    }
+    .meter {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 4px;
+      background: #e6ebf2;
+      margin: 9px 0 6px;
+    }
+    .meter span {
+      display: block;
+      width: 45%;
+      height: 100%;
+      background: #2b79ff;
+      transition: width .18s ease;
+    }
+    .check-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .check {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 8px;
+      align-items: start;
+      padding: 8px;
+      border: 1px solid #e5e9f0;
+      border-radius: 6px;
+      background: #fff;
+    }
+    .check input {
+      width: 15px;
+      height: 15px;
+      margin-top: 2px;
+    }
+    .field {
+      margin-top: 8px;
+    }
+    .field label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 700;
+    }
+    textarea,
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #cfd7e3;
+      border-radius: 4px;
+      padding: 7px 8px;
+      font: inherit;
+      background: #fff;
+      color: #1f2d3d;
+    }
+    textarea {
+      min-height: 62px;
+      resize: vertical;
+    }
+    .summary {
+      min-height: 92px;
+      white-space: pre-wrap;
+      padding: 9px;
+      border: 1px solid #e5e9f0;
+      border-radius: 6px;
+      background: #fff;
+      color: #344054;
+    }
+    .dialog-foot {
+      flex: 0 0 auto;
+      padding: 10px 12px;
+      border-top: 1px solid #e5e9f0;
+      background: #fff;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .note {
+      margin-top: 8px;
+      color: #8a95a5;
+      font-size: 12px;
+    }
+    @media (max-width: 520px) {
+      .prototype-dialog {
+        right: 12px;
+        bottom: 12px;
+        width: calc(100vw - 24px);
+      }
+      .ai-launcher {
+        right: 12px;
+        bottom: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <iframe class="original-page" src="../../../../增值配置AI化/增值单ai指引助手/万邑联-处理异常-第二步-填写增值产品信息（核心-非标增值）.html" title="原始万邑联处理异常第二步页面（非标增值）"></iframe>
+
+  <button class="ai-launcher" id="launcher" type="button">AI 补全非标资料</button>
+
+  <section class="prototype-dialog" id="dialog" aria-label="AI 非标增值补全小对话框">
+    <div class="dialog-head">
+      <div class="title"><span class="bot-mark">AI</span><span>非标增值补全</span></div>
+      <button class="link" id="minimize" type="button" aria-label="最小化">-</button>
+    </div>
+
+    <div class="dialog-body">
+      <div class="msg warn">
+        <div class="msg-title">SOP 命中：入库-指定商品拍照暂存</div>
+        <div>当前需求不是简单“拍几张照片”，而是异常包裹需拍照核实后再决定上架、销毁或自提。若缺少数字标识、拍照要求、照片命名和暂存说明，非标单容易被退回补充。</div>
+        <div class="pill-row">
+          <span class="pill warn">非标需审核</span>
+          <span class="pill">指定商品拍照暂存</span>
+          <span class="pill">不承诺通过</span>
+        </div>
+      </div>
+
+      <div class="msg ai">
+        <div class="msg-title">资料完整度 <span id="percent">45%</span></div>
+        <div class="meter"><span id="bar"></span></div>
+        <div class="muted">请把下面 5 类客户需提供信息补齐后，再回到原页面填写非标增值说明和附件。</div>
+      </div>
+
+      <div class="msg">
+        <div class="msg-title">1. 业务背景</div>
+        <textarea id="background">异常包裹需先拍照核实，客户后续会根据照片决定上架、销毁或自提。</textarea>
+      </div>
+
+      <div class="msg">
+        <div class="msg-title">2. 操作对象</div>
+        <div class="field">
+          <label for="barcode">异常包裹范围与数量</label>
+          <input id="barcode" placeholder="例如：EB0126032028217574 中 43 件 A+ 包裹，或包裹号清单">
+        </div>
+      </div>
+
+      <div class="msg">
+        <div class="msg-title">3. 客户期望动作</div>
+        <textarea id="action" placeholder="例如：希望每个包裹有 01、02、03... 数字标识；照片能看清外箱和标识；照片按数字标识命名；拍照后先暂存，待客户后续确认。"></textarea>
+      </div>
+
+      <div class="msg">
+        <div class="msg-title">4. 附件与拍照规则</div>
+        <div class="check-list">
+          <label class="check"><input type="checkbox" id="image"><span>已准备异常包裹清单或异常单截图</span></label>
+          <label class="check"><input type="checkbox" id="mapping"><span>已写明数字标识规则和照片命名规则</span></label>
+          <label class="check"><input type="checkbox" id="file"><span>已提供示例图片、拍照角度或补充说明</span></label>
+        </div>
+      </div>
+
+      <div class="msg">
+        <div class="msg-title">5. 审核风险确认</div>
+        <div class="check-list">
+          <label class="check"><input type="checkbox" id="review"><span>已知悉非标需审核，是否可执行以审核结论为准</span></label>
+          <label class="check"><input type="checkbox" id="charge"><span>已知悉涉及拍照、拆箱/封箱等动作时，最终收费按实际扣费为准</span></label>
+        </div>
+      </div>
+
+      <div class="msg ai">
+        <div class="msg-title">AI 拦截的常见退回点</div>
+        <div class="pill-row">
+          <span class="pill bad">未写拍哪些包裹</span>
+          <span class="pill bad">未要求数字标识</span>
+          <span class="pill bad">未写照片命名</span>
+          <span class="pill bad">未确认暂存</span>
+        </div>
+      </div>
+
+      <div class="msg ai">
+        <div class="msg-title">AI 生成的提交摘要</div>
+        <div class="summary" id="summary">点击“生成摘要”，AI 会整理成可放入非标说明的结构化内容。</div>
+      </div>
+    </div>
+
+    <div class="dialog-foot">
+      <div class="actions">
+        <button type="button" id="demo">填入示例</button>
+        <button class="primary" type="button" id="generate">生成摘要</button>
+      </div>
+      <div class="note" id="note">原页面通过 iframe 原样加载非标增值快照；本原型只叠加小对话框，不改原页面结构、内容、样式。</div>
+    </div>
+  </section>
+
+  <script>
+    const dialog = document.getElementById("dialog");
+    const launcher = document.getElementById("launcher");
+    const ids = ["background", "barcode", "action", "image", "mapping", "file", "review", "charge"];
+    const fields = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+    const bar = document.getElementById("bar");
+    const percent = document.getElementById("percent");
+    const note = document.getElementById("note");
+    const summary = document.getElementById("summary");
+
+    function isFilled(item) {
+      if (item.type === "checkbox") return item.checked;
+      return item.value.trim().length >= 8;
+    }
+
+    function update() {
+      const checks = [
+        isFilled(fields.background),
+        isFilled(fields.barcode),
+        isFilled(fields.action),
+        fields.image.checked && fields.mapping.checked,
+        fields.review.checked && fields.charge.checked
+      ];
+      const value = Math.round(checks.filter(Boolean).length / checks.length * 100);
+      bar.style.width = `${value}%`;
+      percent.textContent = `${value}%`;
+      note.textContent = value === 100
+        ? "资料已满足本原型提交前检查；真实系统仍需客户确认并走原审核流程。"
+        : "仍有信息缺失，建议补齐后再提交非标，减少退回。";
+    }
+
+    function generateSummary() {
+      update();
+      const missing = [];
+      if (!isFilled(fields.background)) missing.push("业务背景");
+      if (!isFilled(fields.barcode)) missing.push("异常包裹范围与数量");
+        if (!isFilled(fields.action)) missing.push("客户期望动作、照片命名和暂存要求");
+      if (!(fields.image.checked && fields.mapping.checked)) missing.push("异常包裹清单、数字标识规则和照片命名规则");
+      if (!(fields.review.checked && fields.charge.checked)) missing.push("审核与费用边界确认");
+
+      summary.textContent = [
+        "非标增值需求摘要：入库-指定商品拍照暂存",
+        "SOP 场景：异常包裹需拍照核实后再决定处理方式",
+        `业务背景：${fields.background.value.trim() || "未填写"}`,
+        `操作对象：${fields.barcode.value.trim() || "未填写异常包裹范围与数量"}`,
+        `客户期望动作：${fields.action.value.trim() || "未填写数字标识、拍照要求、命名规则和暂存要求"}`,
+        `附件/规则：${fields.image.checked ? "有异常包裹清单" : "缺异常包裹清单"}；${fields.mapping.checked ? "有数字标识和命名规则" : "缺数字标识或命名规则"}；${fields.file.checked ? "有示例图片/补充说明" : "无示例图片/补充说明"}`,
+        missing.length ? `仍缺信息：${missing.join("、")}` : "仍缺信息：无",
+        "审核提示：非标需审核；拍照费、拆箱/封箱工时费等以实际动作和扣费为准；拍照后货物需暂存，后续上架/销毁/自提需客户再确认。"
+      ].join("\n");
+    }
+
+    document.getElementById("minimize").addEventListener("click", () => {
+      dialog.style.display = "none";
+      launcher.style.display = "inline-flex";
+    });
+    launcher.addEventListener("click", () => {
+      launcher.style.display = "none";
+      dialog.style.display = "flex";
+    });
+    document.getElementById("demo").addEventListener("click", () => {
+      fields.barcode.value = "EB0126032028217574 中 43 件 A+ 包裹，按异常单内包裹清单处理";
+      fields.action.value = "希望每个包裹有明显数字标识（01、02、03...43），照片能看清完整包裹外箱和对应数字标识；照片按数字标识命名；数字标识拍照后继续保留，拍照后先暂存，待客户后续确认上架/销毁/自提。";
+      fields.image.checked = true;
+      fields.mapping.checked = true;
+      fields.file.checked = true;
+      fields.review.checked = true;
+      fields.charge.checked = true;
+      generateSummary();
+    });
+    document.getElementById("generate").addEventListener("click", generateSummary);
+    Object.values(fields).forEach(field => {
+      field.addEventListener("input", update);
+      field.addEventListener("change", update);
+    });
+    update();
+  </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+{
+  "testCase": {
+    "id": "TC-B0102E23-001",
+    "eventCode": "B0102E23",
+    "eventName": "A+包裹质量异常",
+    "realCaseRef": "EB0126032028176357",
+    "description": "客户要求先拍照确认商品状态，确认没问题后更换5号纸箱原单上架"
+  },
+  "systemPrompt": "你是万邑通智能客服的增值服务推荐助手。你的职责是：当客户从异常单进入增值产品信息页面时，根据异常事实和客户需求描述，主动判断客户应该选择哪个增值服务产品，并告知需要填写哪些信息。\n\n规则：\n1. 只能推荐 enrichedContext.systemScopedVascList 中的产品，禁止推荐 forbiddenProducts 中的产品\n2. 从客户的需求描述中主动推断处理方式（原单/新单/销毁/自提），帮客户选，不要列选项让客户自己选\n3. 推断为新单上架时，必须追问客户提供新的上架入库单号\n4. 推断为原单上架时，使用异常单关联的原入库单，无需追问\n5. 只有在客户描述模糊无法推断时才追问处理方向\n6. 推荐后告知客户需要填写的必填字段（来自 fieldRequirements）\n7. 话术一步到位，直接告诉客户该选什么，不要输出AI内部推理过程\n8. 不报价、不承诺审核结果、不描述仓库内部操作流程",
+  "enrichedContext": {
+    "exceptionFacts": {
+      "eventNo": "EB0126032028176357",
+      "eventCode": "B0102E23",
+      "eventName": "A+包裹质量异常",
+      "exceptionNode": "IN_BOUND",
+      "exceptionObject": "包裹",
+      "warehouseCode": "CNHZ1",
+      "pscCode": "OW01",
+      "relatedInboundOrderNo": "待接口返回（异常单关联的原入库单号，原单上架时直接使用）",
+      "goodsDimensions": "56.3x38.4x27.1 cm",
+      "goodsWeight": "11.4 KG"
+    },
+    "systemScopedVascList": [
+      {"vascCode": "VASC202411271721537", "vascName": "入库非标拍照或提供视频", "type": "非标", "description": "仓库对异常商品进行拍照或提供视频，供客户确认状态"},
+      {"vascCode": "VASC202407031503503", "vascName": "原单上架", "type": "标准", "description": "使用原入库单继续承接上架，可选更换包装、补贴条码等处理"},
+      {"vascCode": "VASC202407161056217", "vascName": "新单上架（客户创建入库单）", "type": "标准", "description": "客户新建入库单，将异常货物挂到新单下上架"},
+      {"vascCode": "VASC202409121753076", "vascName": "上架前销毁", "type": "标准", "description": "客户不要该批货物，仓库安排销毁"},
+      {"vascCode": "VASC202411192240522", "vascName": "上架前自提", "type": "非标", "description": "客户自行取回货物"},
+      {"vascCode": "VASC202411192246131", "vascName": "入库非标增值（特批）", "type": "非标", "description": "标准增值无法覆盖的特殊处理需求"},
+      {"vascCode": "VASC202504251617529", "vascName": "原单上架（直接上架）", "type": "标准", "description": "无需额外处理，直接用原入库单上架"},
+      {"vascCode": "VASC202505282347101", "vascName": "新单上架（直接上架）", "type": "标准", "description": "无需额外处理，用新入库单直接上架"}
+    ],
+    "forbiddenProducts": [
+      {"vascCode": "VASC202407031507376", "vascName": "入库商品拍照", "reason": "xlsx【入库】异常解决方案sheet第6行客服备注：标准增值已失效，只有非标增值。拍照需求引导至「入库非标拍照或提供视频」"}
+    ],
+    "counterpartSemanticMatch": {
+      "source": "海外仓各业务环节异常类型与增值服务对照表 - 入库环节",
+      "eventCode": "B0102E23",
+      "recommendedServiceNames": ["更换商品包装", "商品开箱拍照", "补贴包裹条码", "直接上架", "销毁", "自提"]
+    },
+    "intentTriples": [
+      {
+        "customerNeedDescription": "先拍照确认商品状态，暂存等待下一步指令",
+        "recommendProduct": "入库非标拍照或提供视频",
+        "vascCode": "VASC202411271721537",
+        "serviceItems": ["拍照/视频相关原子（待getVascInfo确认）"],
+        "explanation": "仓库开箱拍照后把结果发给您，您确认商品状态再决定后续处理"
+      },
+      {
+        "customerNeedDescription": "商品确认没问题，更换包装后用原入库单继续上架",
+        "recommendProduct": "原单上架",
+        "vascCode": "VASC202407031503503",
+        "serviceItems": ["OW01V1561 入库-更换商品包装", "OW01V1558 入库-补贴原商品条码"],
+        "explanation": "继续用原来的入库单，仓库帮您换好纸箱包装、贴好条码后上架"
+      },
+      {
+        "customerNeedDescription": "商品确认没问题，不需要换包装直接上架",
+        "recommendProduct": "原单上架（直接上架）",
+        "vascCode": "VASC202504251617529",
+        "serviceItems": ["直接上架"],
+        "explanation": "商品状态没问题且不需要额外处理，直接恢复上架"
+      },
+      {
+        "customerNeedDescription": "原入库单已关闭或不可用，需要新建入库单上架",
+        "recommendProduct": "新单上架（客户创建入库单）",
+        "vascCode": "VASC202407161056217",
+        "serviceItems": ["入库-补贴包裹条码"],
+        "explanation": "您需要先在系统里新建一个入库单，然后仓库把货物挂到新单下上架"
+      },
+      {
+        "customerNeedDescription": "商品不要了，安排销毁",
+        "recommendProduct": "上架前销毁",
+        "vascCode": "VASC202409121753076",
+        "serviceItems": ["销毁相关原子"],
+        "explanation": "仓库会按规定销毁该批货物"
+      },
+      {
+        "customerNeedDescription": "要把货取回来",
+        "recommendProduct": "上架前自提",
+        "vascCode": "VASC202411192240522",
+        "serviceItems": ["自提相关原子"],
+        "explanation": "您自行安排取回货物，需要非标审核"
+      }
+    ],
+    "fieldRequirements": {
+      "OW01V1561": {
+        "atomName": "入库-更换商品包装",
+        "mutexGroup": "入库-更换商品包装",
+        "fields": [
+          {
+            "attrKey": "PACKAGING_MATERAIL_TYPE",
+            "attrName": "包材类型",
+            "required": true,
+            "showType": "OPTIONAL_BOX",
+            "options": [
+              {"value": "CARTON_BOX", "label": "纸箱"},
+              {"value": "BUBBLE_BAG", "label": "气泡袋"},
+              {"value": "STRETCH_FILM", "label": "缠绕膜"}
+            ],
+            "aiGuidance": "客户说换纸箱则选CARTON_BOX"
+          },
+          {
+            "attrKey": "PACKAGING_MODE",
+            "attrName": "包装方式",
+            "required": true,
+            "showType": "OPTIONAL_BOX",
+            "options": [
+              {"value": "PACKAGING_WINIT", "label": "万邑通提供包材"},
+              {"value": "PACKAGING_CUSTOMER", "label": "客户提供包材"}
+            ],
+            "aiGuidance": "客户说用'你们的纸箱'则选PACKAGING_WINIT"
+          }
+        ]
+      },
+      "OW01V1558": {
+        "atomName": "入库-补贴原商品条码",
+        "mutexGroup": "贴商品标",
+        "fields": [
+          {
+            "attrKey": "LABEL_TYPE",
+            "attrName": "标签类型",
+            "required": true,
+            "showType": "OPTIONAL_BOX",
+            "options": [
+              {"value": "WINIT_SKU_SERNO_ITEM_SERNO", "label": "Winit商品条码+单品条码"},
+              {"value": "CUSTOMER_SKU_SERNO", "label": "客户商品条码"}
+            ]
+          },
+          {
+            "attrKey": "LABEL_SIZE",
+            "attrName": "尺寸规格",
+            "required": true,
+            "showType": "OPTIONAL_BOX",
+            "options": [
+              {"value": "10X6", "label": "10×6 cm"},
+              {"value": "5X2.5", "label": "5×2.5 cm"}
+            ]
+          },
+          {
+            "attrKey": "SHELVE_PRODUCT_GRADE",
+            "attrName": "上架的商品等级",
+            "required": false,
+            "showType": "OPTIONAL_BOX",
+            "options": [
+              {"value": "GOOD_PRODUCT", "label": "良品"},
+              {"value": "DEFECTIVE_PRODUCT", "label": "次品"}
+            ]
+          }
+        ]
+      },
+      "OW01V1562": {
+        "atomName": "入库-商品开箱拍照",
+        "mutexGroup": "商品拍照辨识",
+        "fields": [],
+        "note": "该原子属于已失效标准产品（xlsx客服备注），当前拍照需求走非标路径"
+      },
+      "新单上架_产品级必填": {
+        "note": "以下字段不是原子属性，而是选择新单上架（客户创建入库单）时产品级必填",
+        "fields": [
+          {
+            "attrKey": "NEW_INBOUND_ORDER_NO",
+            "attrName": "上架入库单号",
+            "required": true,
+            "showType": "INPUT",
+            "aiGuidance": "AI推断为新单上架时必须追问客户提供，且需校验该入库单号属于同一仓库",
+            "validation": "入库单号需属于 exceptionFacts.warehouseCode 同一仓库"
+          }
+        ]
+      }
+    },
+    "inferenceRules": {
+      "description": "AI从客户描述中主动推断处理方式，帮客户选，不列选项让客户选",
+      "rules": [
+        {"keywords": ["拍照", "确认状态", "看看有没有问题"], "infer": "先拍照", "product": "入库非标拍照或提供视频"},
+        {"keywords": ["换包装", "换纸箱", "换箱子"], "infer": "原单上架", "additionalCheck": "客户未提新建入库单 + 异常单有关联入库单"},
+        {"keywords": ["新建入库单", "重新创建", "换一个入库单"], "infer": "新单上架", "mustAsk": "请提供新的上架入库单号"},
+        {"keywords": ["销毁", "不要了", "报废"], "infer": "销毁", "product": "上架前销毁"},
+        {"keywords": ["取回", "自提", "拿走"], "infer": "自提", "product": "上架前自提"},
+        {"keywords": [], "infer": "无法推断", "mustAsk": "您希望怎么处理这批货？"}
+      ]
+    },
+    "hRulesHit": [],
+    "needsHumanReview": false
+  },
+  "userMessage": "EB0126032028176357，这个异常，我想拍照暂存，如果产品没有问题，然后更换你们的5号纸箱上架，这样处理可以么",
+  "expectedOutput": {
+    "inference_trace": {
+      "step1": "客户说'拍照暂存' → 推断：先拍照确认",
+      "step2": "客户说'更换你们的5号纸箱上架' + 未提新建入库单 → 推断：原单上架",
+      "step3": "不需要追问原单/新单（描述已明确）"
+    },
+    "recommended_products": [
+      {
+        "step": 1,
+        "product": "入库非标拍照或提供视频",
+        "vascCode": "VASC202411271721537",
+        "reason": "客户说'拍照暂存'，标准拍照产品已失效，走非标拍照"
+      },
+      {
+        "step": 2,
+        "product": "原单上架",
+        "vascCode": "VASC202407031503503",
+        "atoms": ["OW01V1561 入库-更换商品包装", "OW01V1558 入库-补贴原商品条码"],
+        "reason": "客户说'换纸箱上架'且未提新单 → 原单上架，使用异常单关联的入库单",
+        "no_need_to_ask": "上架入库单号（原单上架直接用关联入库单）"
+      }
+    ],
+    "fields_to_collect": {
+      "OW01V1561": {"包材类型": "纸箱（CARTON_BOX）", "包装方式": "万邑通提供（PACKAGING_WINIT）"},
+      "OW01V1558": {"标签类型": "来自getVascInfo接口选项", "尺寸规格": "来自BaseAttrRel接口选项", "上架商品等级": "良品（GOOD_PRODUCT，客户说没问题）"}
+    },
+    "must_not_recommend": ["VASC202407031507376 入库商品拍照（xlsx备注：标准增值已失效）"],
+    "must_not_do": [
+      "列出原单/新单选项让客户自己选（应从描述推断）",
+      "推断为原单上架时追问入库单号（异常单已有关联）",
+      "输出AI内部推理过程给客户",
+      "报价",
+      "承诺审核结果"
+    ],
+    "variant_test": {
+      "if_customer_says": "我要新建一个入库单上架",
+      "expected_behavior": "AI推断为新单上架，必须追问：请提供新的上架入库单号",
+      "validation": "追问到的入库单号需校验是否属于同一仓库"
+    }
+  }
+}
