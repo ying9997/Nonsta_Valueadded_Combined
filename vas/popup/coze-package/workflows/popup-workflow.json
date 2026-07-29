@@ -1,0 +1,252 @@
+{
+  "format": "coze-workflow-package/v1",
+  "workflowName": "standard-page-ai-popup-routing",
+  "description": "标准页 AI 下单指引弹窗：判断客户需求是否由候选内标准增值覆盖，并返回弹窗展示文案或非标跳转上下文。",
+  "ambiguities": [
+    {
+      "type": "[AMBIGUITY]",
+      "description": "仓库和方案文档未提供 Coze 平台原生 workflow 导出 JSON 的精确字段 schema。本文件按交接模板要求表达节点、连线和变量，导入 Coze 时可能需要按平台实际导出格式做字段映射。"
+    }
+  ],
+  "variables": {
+    "inputs": {
+      "conversationId": {
+        "type": "string",
+        "required": true,
+        "description": "弹窗会话 ID"
+      },
+      "customerInput": {
+        "type": "string",
+        "required": true,
+        "description": "客户在弹窗中的自然语言输入"
+      },
+      "eventCode": {
+        "type": "string",
+        "required": true,
+        "description": "异常单编码"
+      },
+      "exceptionNode": {
+        "type": "string",
+        "required": true,
+        "description": "异常节点"
+      },
+      "exceptionObject": {
+        "type": "string",
+        "required": true,
+        "description": "异常对象"
+      },
+      "systemScopedVascList": {
+        "type": "array",
+        "required": true,
+        "description": "中间层注入的候选 VASC 清单，含标准和非标候选"
+      },
+      "standardCandidates": {
+        "type": "array",
+        "required": true,
+        "description": "从 systemScopedVascList 过滤出的 vascType=standard 候选"
+      },
+      "dialogHistory": {
+        "type": "array",
+        "required": false,
+        "default": [],
+        "description": "弹窗对话历史"
+      }
+    },
+    "outputs": {
+      "routeDecision": {
+        "type": "string",
+        "enum": ["standard", "nonstandard", "need_more_info"]
+      },
+      "confidence": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "standardRecommendation": {
+        "type": ["object", "null"]
+      },
+      "nonstandardReason": {
+        "type": ["string", "null"]
+      },
+      "followUpQuestion": {
+        "type": ["string", "null"]
+      },
+      "customerMessage": {
+        "type": "string"
+      },
+      "popupContext": {
+        "type": "object"
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "entry",
+      "type": "start",
+      "name": "入口节点",
+      "description": "接收客户输入，并注入异常单上下文、候选清单、标准候选和历史对话。",
+      "inputs": [
+        "conversationId",
+        "customerInput",
+        "eventCode",
+        "exceptionNode",
+        "exceptionObject",
+        "systemScopedVascList",
+        "standardCandidates",
+        "dialogHistory"
+      ],
+      "outputs": [
+        "conversationId",
+        "customerInput",
+        "eventCode",
+        "exceptionNode",
+        "exceptionObject",
+        "systemScopedVascList",
+        "standardCandidates",
+        "dialogHistory"
+      ]
+    },
+    {
+      "id": "llm_route",
+      "type": "llm",
+      "name": "LLM 路由判断",
+      "description": "调用 system prompt 和标准产品知识库，输出符合弹窗 Schema 的 JSON。",
+      "model": "doubao-pro-256k",
+      "temperature": 0.3,
+      "systemPromptRef": "prompts/system-prompt.md",
+      "knowledgeRefs": ["prompts/kb-standard-products.md"],
+      "promptVariables": {
+        "eventCode": "{{entry.eventCode}}",
+        "exceptionNode": "{{entry.exceptionNode}}",
+        "exceptionObject": "{{entry.exceptionObject}}",
+        "systemScopedVascList": "{{entry.systemScopedVascList}}",
+        "standardCandidates": "{{entry.standardCandidates}}"
+      },
+      "userPrompt": "{{entry.customerInput}}",
+      "responseFormat": "json_object",
+      "outputs": ["agentResult"]
+    },
+    {
+      "id": "validate_output",
+      "type": "code",
+      "name": "输出校验节点",
+      "description": "检查 routeDecision 枚举、confidence 范围和条件字段，非法时降级为 need_more_info。",
+      "language": "javascript",
+      "inputs": ["agentResult"],
+      "code": "const allowed = new Set(['standard', 'nonstandard', 'need_more_info']);\nconst result = typeof agentResult === 'string' ? JSON.parse(agentResult) : agentResult;\nconst errors = [];\nif (!allowed.has(result.routeDecision)) errors.push('routeDecision must be standard|nonstandard|need_more_info');\nif (typeof result.confidence !== 'number' || result.confidence < 0 || result.confidence > 1) errors.push('confidence must be a number between 0 and 1');\nif (result.routeDecision === 'standard' && !result.standardRecommendation) errors.push('standardRecommendation required for standard');\nif (result.routeDecision !== 'standard' && result.standardRecommendation !== null) errors.push('standardRecommendation must be null unless standard');\nif (result.routeDecision === 'nonstandard' && !result.nonstandardReason) errors.push('nonstandardReason required for nonstandard');\nif (result.routeDecision === 'need_more_info' && !result.followUpQuestion) errors.push('followUpQuestion required for need_more_info');\nif (!result.customerMessage) errors.push('customerMessage required');\nif (!result.popupContext) errors.push('popupContext required');\nif (errors.length) {\n  return {\n    valid: false,\n    errors,\n    result: {\n      routeDecision: 'need_more_info',\n      confidence: 0.5,\n      standardRecommendation: null,\n      nonstandardReason: null,\n      followUpQuestion: '请问您希望这批货物怎么处理？比如继续上架、销毁、自提取回、先拍照确认，或者有其他特殊处理需求？',\n      customerMessage: '为了避免给您推荐错误路径，请补充您希望仓库具体怎么处理这批异常货物。',\n      popupContext: result.popupContext || {}\n    }\n  };\n}\nreturn { valid: true, errors: [], result };",
+      "outputs": ["validatedResult", "validationErrors"]
+    },
+    {
+      "id": "branch_route",
+      "type": "condition",
+      "name": "条件分支",
+      "description": "根据 routeDecision 分发到标准、非标或追问返回。",
+      "input": "{{validate_output.validatedResult.result.routeDecision}}",
+      "branches": [
+        {
+          "condition": "standard",
+          "target": "return_standard"
+        },
+        {
+          "condition": "nonstandard",
+          "target": "return_nonstandard"
+        },
+        {
+          "condition": "need_more_info",
+          "target": "return_need_more_info"
+        }
+      ],
+      "defaultTarget": "return_need_more_info"
+    },
+    {
+      "id": "return_standard",
+      "type": "end",
+      "name": "standard 返回操作路径参考文案",
+      "description": "弹窗内展示标准增值参考，不跳转、不自动选卡片。",
+      "outputs": {
+        "routeDecision": "{{validate_output.validatedResult.result.routeDecision}}",
+        "confidence": "{{validate_output.validatedResult.result.confidence}}",
+        "standardRecommendation": "{{validate_output.validatedResult.result.standardRecommendation}}",
+        "nonstandardReason": null,
+        "followUpQuestion": null,
+        "customerMessage": "{{validate_output.validatedResult.result.customerMessage}}",
+        "popupContext": "{{validate_output.validatedResult.result.popupContext}}",
+        "uiAction": {
+          "type": "show_standard_reference",
+          "jumpToNonstandard": false,
+          "autoSelectCard": false
+        }
+      }
+    },
+    {
+      "id": "return_nonstandard",
+      "type": "end",
+      "name": "nonstandard 返回跳转引导",
+      "description": "弹窗展示【我要提非标增值】按钮，点击后以站内新 tab 跳转非标页并传 popupContext。",
+      "outputs": {
+        "routeDecision": "{{validate_output.validatedResult.result.routeDecision}}",
+        "confidence": "{{validate_output.validatedResult.result.confidence}}",
+        "standardRecommendation": null,
+        "nonstandardReason": "{{validate_output.validatedResult.result.nonstandardReason}}",
+        "followUpQuestion": null,
+        "customerMessage": "{{validate_output.validatedResult.result.customerMessage}}",
+        "popupContext": "{{validate_output.validatedResult.result.popupContext}}",
+        "uiAction": {
+          "type": "show_nonstandard_jump",
+          "buttonLabel": "我要提非标增值",
+          "jumpToNonstandard": true,
+          "openMode": "in_app_new_tab_same_level_as_create_vas_order"
+        }
+      }
+    },
+    {
+      "id": "return_need_more_info",
+      "type": "end",
+      "name": "need_more_info 返回追问文案",
+      "description": "弹窗内只追问 1 个关键问题，不跳转。",
+      "outputs": {
+        "routeDecision": "{{validate_output.validatedResult.result.routeDecision}}",
+        "confidence": "{{validate_output.validatedResult.result.confidence}}",
+        "standardRecommendation": null,
+        "nonstandardReason": null,
+        "followUpQuestion": "{{validate_output.validatedResult.result.followUpQuestion}}",
+        "customerMessage": "{{validate_output.validatedResult.result.customerMessage}}",
+        "popupContext": "{{validate_output.validatedResult.result.popupContext}}",
+        "uiAction": {
+          "type": "ask_follow_up",
+          "jumpToNonstandard": false,
+          "autoSelectCard": false
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "entry",
+      "to": "llm_route"
+    },
+    {
+      "from": "llm_route",
+      "to": "validate_output"
+    },
+    {
+      "from": "validate_output",
+      "to": "branch_route"
+    },
+    {
+      "from": "branch_route",
+      "to": "return_standard",
+      "condition": "routeDecision == 'standard'"
+    },
+    {
+      "from": "branch_route",
+      "to": "return_nonstandard",
+      "condition": "routeDecision == 'nonstandard'"
+    },
+    {
+      "from": "branch_route",
+      "to": "return_need_more_info",
+      "condition": "routeDecision == 'need_more_info'"
+    }
+  ]
+}

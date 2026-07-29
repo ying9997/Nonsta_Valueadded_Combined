@@ -1,0 +1,374 @@
+[
+  {
+    "caseId": "B-STD-001",
+    "input": {
+      "eventCode": "B0102E23",
+      "exceptionContext": {
+        "exceptionNode": "IN_BOUND",
+        "exceptionObject": "包裹"
+      },
+      "systemScopedVascList": [
+        {
+          "vascCode": "VASC202407031503503",
+          "vascName": "原单上架",
+          "vascType": "standard",
+          "description": "使用原入库单继续承接上架，可选更换包装、补贴条码等处理"
+        },
+        {
+          "vascCode": "VASC202407161056217",
+          "vascName": "新单上架（客户创建入库单）",
+          "vascType": "standard",
+          "description": "客户新建入库单，将异常货物挂到新单下上架"
+        },
+        {
+          "vascCode": "VASC202409121753076",
+          "vascName": "上架前销毁",
+          "vascType": "standard",
+          "description": "客户不要该批货物，仓库安排销毁"
+        },
+        {
+          "vascCode": "VASC202411192246131",
+          "vascName": "入库非标增值（特批）",
+          "vascType": "nonstandard",
+          "description": "标准增值无法覆盖的特殊处理需求"
+        }
+      ],
+      "customerInput": "商品没问题，帮我换个包装用原来的入库单上架就行"
+    },
+    "expected": {
+      "routeDecision": "standard",
+      "confidence": 0.9,
+      "standardRecommendation": {
+        "vascCode": "VASC202407031503503",
+        "vascName": "原单上架"
+      },
+      "nonstandardReason": null,
+      "followUpQuestion": null
+    },
+    "forbiddenOutputs": [
+      "推荐 systemScopedVascList 之外的产品",
+      "自动选择页面卡片",
+      "承诺审核通过或费用"
+    ]
+  },
+  {
+    "caseId": "B-STD-002",
+    "input": {
+      "eventCode": "B0102E23",
+      "exceptionContext": {
+        "exceptionNode": "IN_BOUND",
+        "exceptionObject": "包裹"
+      },
+      "systemScopedVascList": [
+        {
+          "vascCode": "VASC202504251617529",
+          "vascName": "原单上架（直接上架）",
+          "vascType": "standard",
+          "description": "无需额外处理，直接用原入库单上架"
+        },
+        {
+          "vascCode": "VASC202409121753076",
+          "vascName": "上架前销毁",
+          "vascType": "standard",
+          "description": "客户不要该批货物，仓库安排销毁"
+        },
+        {
+          "vascCode": "VASC202411271721537",
+          "vascName": "入库非标拍照或提供视频",
+          "vascType": "nonstandard",
+          "description": "仓库对异常商品进行拍照或提供视频，供客户确认状态"
+        }
+      ],
+      "customerInput": "确认没问题，不用换包装也不用贴标，直接用原入库单上架"
+    },
+    "expected": {
+      "routeDecision": "standard",
+      "confidence": 0.88,
+      "standardRecommendation": {
+        "vascCode": "VASC202504251617529",
+        "vascName": "原单上架（直接上架）"
+      },
+      "nonstandardReason": null,
+      "followUpQuestion": null
+    },
+    "forbiddenOutputs": [
+      "推荐拍照非标",
+      "追问新入库单号",
+      "承诺已完成上架"
+    ]
+  },
+  {
+    "caseId": "B-STD-003",
+    "input": {
+      "eventCode": "B0102E23",
+      "exceptionContext": {
+        "exceptionNode": "IN_BOUND",
+        "exceptionObject": "包裹"
+      },
+      "systemScopedVascList": [
+        {
+          "vascCode": "VASC202407031503503",
+          "vascName": "原单上架",
+          "vascType": "standard",
+          "description": "使用原入库单继续承接上架，可选更换包装、补贴条码等处理"
+        },
+        {
+          "vascCode": "VASC202407161056217",
+          "vascName": "新单上架（客户创建入库单）",
+          "vascType": "standard",
+          "description": "客户新建入库单，将异常货物挂到新单下上架"
+        },
+        {
+          "vascCode": "VASC202409121753076",
+          "vascName": "上架前销毁",
+          "vascType": "standard",
+          "description": "客户不要该批货物，仓库安排销毁"
+        }
+      ],
+      "customerInput": "原入库单已经关了，我重新建一个入库单，让仓库挂到新单下上架"
+    },
+    "expected": {
+      "routeDecision": "standard",
+      "confidence": 0.9,
+      "standardRecommendation": {
+        "vascCode": "VASC202407161056217",
+        "vascName": "新单上架（客户创建入库单）"
+      },
+      "nonstandardReason": null,
+      "followUpQuestion": null
+    },
+    "forbiddenOutputs": [
+      "推荐原单上架",
+      "引导走非标特批",
+      "承诺仓库已挂新单"
+    ]
+  },
+  {
+    "caseId": "B-NS-001",
+    "input": {
+      "eventCode": "B0102E23",
+      "exceptionContext": {
+        "exceptionNode": "IN_BOUND",
+        "exceptionObject": "包裹"
+      },
+      "systemScopedVascList": [
+        {
+          "vascCode": "VASC202407031503503",
+          "vascName": "原单上架",
+          "vascType": "standard",
+          "description": "使用原入库单继续承接上架，可选更换包装、补贴条码等处理"
+        },
+        {
+          "vascCode": "VASC202411192246131",
+          "vascName": "入库非标增值（特批）",
+          "vascType": "nonstandard",
+          "description": "标准增值无法覆盖的特殊处理需求"
+        }
+      ],
+      "customerInput": "这批货的条码打错了，需要按我给的对应关系重新贴标再上架"
+    },
+    "expected": {
+      "routeDecision": "nonstandard",
+      "confidence": 0.9,
+      "standardRecommendation": null,
+      "nonstandardReason": "包含按对应关系重新贴标，属于标准上架产品不覆盖的特殊换标需求。",
+      "followUpQuestion": null
+    },
+    "forbiddenOutputs": [
+      "推荐原单上架",
+      "输出非标页字段建议",
+      "承诺审核通过"
+    ]
+  },
+  {
+    "caseId": "B-NS-002",
+    "input": {
+      "eventCode": "B0102E23",
+      "exceptionContext": {
+        "exceptionNode": "IN_BOUND",
+        "exceptionObject": "包裹"
+      },
+      "systemScopedVascList": [
+        {
+          "vascCode": "VASC202407031503503",
+          "vascName": "原单上架",
+          "vascType": "standard",
+          "description": "使用原入库单继续承接上架，可选更换包装、补贴条码等处理"
+        },
+        {
+          "vascCode": "VASC202411271721537",
+          "vascName": "入库非标拍照或提供视频",
+          "vascType": "nonstandard",
+          "description": "仓库对异常商品进行拍照或提供视频，供客户确认状态"
+        }
+      ],
+      "customerInput": "先帮我开箱拍照看看有没有破损，暂时不要上架"
+    },
+    "expected": {
+      "routeDecision": "nonstandard",
+      "confidence": 0.88,
+      "standardRecommendation": null,
+      "nonstandardReason": "客户目标是拍照确认并暂存等待，标准上架候选不覆盖拍照或视频确认。",
+      "followUpQuestion": null
+    },
+    "forbiddenOutputs": [
+      "推荐入库商品拍照 VASC202407031507376",
+      "推荐原单上架",
+      "追问是否上架替代非标判断"
+    ]
+  },
+  {
+    "caseId": "B-NS-003",
+    "input": {
+      "eventCode": "B0102E23",
+      "exceptionContext": {
+        "exceptionNode": "IN_BOUND",
+        "exceptionObject": "包裹"
+      },
+      "systemScopedVascList": [
+        {
+          "vascCode": "VASC202409121753076",
+          "vascName": "上架前销毁",
+          "vascType": "standard",
+          "description": "客户不要该批货物，仓库安排销毁"
+        },
+        {
+          "vascCode": "VASC202411192240522",
+          "vascName": "上架前自提",
+          "vascType": "nonstandard",
+          "description": "客户自行取回货物"
+        }
+      ],
+      "customerInput": "这批货我不要仓库处理了，我安排人去仓库自提取回来"
+    },
+    "expected": {
+      "routeDecision": "nonstandard",
+      "confidence": 0.87,
+      "standardRecommendation": null,
+      "nonstandardReason": "客户要求自提取回，标准销毁或上架产品不覆盖自提流程。",
+      "followUpQuestion": null
+    },
+    "forbiddenOutputs": [
+      "推荐上架前销毁",
+      "承诺可以直接取货",
+      "推荐候选外退货服务"
+    ]
+  },
+  {
+    "caseId": "B-EDGE-001",
+    "input": {
+      "eventCode": "B0102E23",
+      "exceptionContext": {
+        "exceptionNode": "IN_BOUND",
+        "exceptionObject": "包裹"
+      },
+      "systemScopedVascList": [
+        {
+          "vascCode": "VASC202407031503503",
+          "vascName": "原单上架",
+          "vascType": "standard",
+          "description": "使用原入库单继续承接上架，可选更换包装、补贴条码等处理"
+        },
+        {
+          "vascCode": "VASC202407161056217",
+          "vascName": "新单上架（客户创建入库单）",
+          "vascType": "standard",
+          "description": "客户新建入库单，将异常货物挂到新单下上架"
+        },
+        {
+          "vascCode": "VASC202409121753076",
+          "vascName": "上架前销毁",
+          "vascType": "standard",
+          "description": "客户不要该批货物，仓库安排销毁"
+        },
+        {
+          "vascCode": "VASC202411192246131",
+          "vascName": "入库非标增值（特批）",
+          "vascType": "nonstandard",
+          "description": "标准增值无法覆盖的特殊处理需求"
+        }
+      ],
+      "customerInput": "帮我处理一下"
+    },
+    "expected": {
+      "routeDecision": "need_more_info",
+      "confidence": 0.55,
+      "standardRecommendation": null,
+      "nonstandardReason": null,
+      "followUpQuestion": "请问您希望这批货物怎么处理？比如继续上架、销毁、自提取回、先拍照确认，或者有其他特殊处理需求？"
+    },
+    "forbiddenOutputs": [
+      "直接推荐原单上架",
+      "直接推荐非标特批",
+      "追问多个问题"
+    ]
+  },
+  {
+    "caseId": "B-EDGE-002",
+    "input": {
+      "eventCode": "B0102E23",
+      "exceptionContext": {
+        "exceptionNode": "IN_BOUND",
+        "exceptionObject": "包裹"
+      },
+      "systemScopedVascList": [
+        {
+          "vascCode": "VASC202407031503503",
+          "vascName": "原单上架",
+          "vascType": "standard",
+          "description": "使用原入库单继续承接上架，可选更换包装、补贴条码等处理"
+        },
+        {
+          "vascCode": "VASC202407161056217",
+          "vascName": "新单上架（客户创建入库单）",
+          "vascType": "standard",
+          "description": "客户新建入库单，将异常货物挂到新单下上架"
+        }
+      ],
+      "customerInput": "重新上架吧"
+    },
+    "expected": {
+      "routeDecision": "need_more_info",
+      "confidence": 0.62,
+      "standardRecommendation": null,
+      "nonstandardReason": null,
+      "followUpQuestion": "请问您希望用原入库单继续上架，还是已经创建了新的入库单来承接上架？"
+    },
+    "forbiddenOutputs": [
+      "在原单上架和新单上架之间强行二选一",
+      "引导非标跳转",
+      "要求客户提供非必要仓内信息"
+    ]
+  },
+  {
+    "caseId": "B-EDGE-003",
+    "input": {
+      "eventCode": "B0102E23",
+      "exceptionContext": {
+        "exceptionNode": "IN_BOUND",
+        "exceptionObject": "包裹"
+      },
+      "systemScopedVascList": [
+        {
+          "vascCode": "VASC202411192246131",
+          "vascName": "入库非标增值（特批）",
+          "vascType": "nonstandard",
+          "description": "标准增值无法覆盖的特殊处理需求"
+        }
+      ],
+      "customerInput": "商品没问题，换个包装后用原入库单继续上架"
+    },
+    "expected": {
+      "routeDecision": "nonstandard",
+      "confidence": 0.78,
+      "standardRecommendation": null,
+      "nonstandardReason": "客户需求本可对应原单上架，但当前候选清单内没有可推荐的标准增值候选，不能推荐候选外产品。",
+      "followUpQuestion": null
+    },
+    "forbiddenOutputs": [
+      "推荐不在 systemScopedVascList 内的原单上架",
+      "编造标准候选",
+      "承诺可按标准路径处理"
+    ]
+  }
+]
