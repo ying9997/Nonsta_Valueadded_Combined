@@ -24,6 +24,13 @@
 | `userInput.text` | string | 是 | 用户输入 | Agent | 意图与候选匹配输入 |
 | `userInput.inputSource` | string | 是 | 前端 | 中间层 | 如 `ai_inline_panel` |
 | `userInput.submittedAt` | string | 是 | 前端 | 中间层 | ISO 8601 时间 |
+| `popupContext` | object | 否 | 标准页弹窗 / 前端 | 中间层、Agent | 弹窗跳转非标页时透传的入口上下文；缺失不阻塞主模块 |
+| `popupContext.conversationId` | string | 否 | 标准页弹窗 | 中间层、Agent | 弹窗会话 ID |
+| `popupContext.customerInput` | string | 否 | 标准页弹窗 | Agent | 弹窗中客户描述，可作为非标页承接输入 |
+| `popupContext.routeDecision` | string/null | 否 | 标准页弹窗 | Agent | `nonstandard` / `standard` / null；为 `nonstandard` 时 Agent 跳过 2d |
+| `popupContext.systemScopedVascList` | array | 否 | 标准页弹窗 | 中间层、Agent | 弹窗时的候选快照，用于一致性校验 |
+| `popupContext.exceptionContext` | object | 否 | 标准页弹窗 | Agent | 弹窗采集的异常单上下文 |
+| `popupContext.dialogHistory` | array | 否 | 标准页弹窗 | Agent | 弹窗多轮对话记录 |
 | `attachmentMetas` | array | 否 | 前端上传控件 | 中间层、Agent | 仅附件元数据，不读取附件内容 |
 | `attachmentMetas[].attachmentId` | string | 否 | 前端 / 上传服务 | 中间层 | 附件 ID |
 | `attachmentMetas[].fileName` | string | 是 | 前端 | Agent | 文件名 |
@@ -54,6 +61,13 @@
 | `userInput.text` | string | 是 | 用户 | Agent | 匹配输入 |
 | `userInput.inputSource` | string | 是 | 前端 | Agent | 输入来源 |
 | `userInput.submittedAt` | string | 是 | 前端 | Agent | 提交时间 |
+| `conversationHistory` | array | 否 | 中间层 | Agent | 多轮对话历史；首轮为空数组 |
+| `conversationHistory[].turnId` | string | 是 | 中间层 | Agent | 历史轮次 ID |
+| `conversationHistory[].role` | string | 是 | 中间层 | Agent | `user` / `agent` |
+| `conversationHistory[].content` | string | 是 | 中间层 | Agent | 该轮用户输入或 Agent `customerMessage` |
+| `conversationHistory[].timestamp` | string | 是 | 中间层 | Agent | ISO 8601 时间 |
+| `conversationHistory[].route` | string | 否 | 中间层 | Agent | 该轮 Agent 输出的 `route`，仅 `role=agent` 时有值 |
+| `conversationHistory[].matchState` | string | 否 | 中间层 | Agent | 该轮匹配状态，仅 `role=agent` 时有值 |
 | `candidateSnapshot` | object | 是 | 中间层归一化 | Agent | 候选快照 |
 | `candidateSnapshot.candidateListVersion` | string | 是 | 中间层 | Agent | 候选契约版本 |
 | `candidateSnapshot.normalizationGeneratedAt` | string | 是 | 中间层 | Agent | 归一化生成时间 |
@@ -74,6 +88,15 @@
 | `candidateSnapshot.systemScopedVascList[].confidence` | number | 否 | 中间层 | Agent | 中间层归一置信度，不由 Agent 改写 |
 | `candidateSnapshot.systemScopedVascList[].isCandidateSelectable` | boolean | 否 | 中间层 / 页面 | Agent | 是否可选择 |
 | `candidateSnapshot.systemScopedVascList[].candidateScope` | string | 否 | 中间层 | Agent | 候选作用域 |
+| `sopContext` | object | 否 | 中间层 | Agent | SOP 模板注入上下文；2d/2a 不需要，2b 模板库超 token 限时可注入 |
+| `sopContext.injectionMode` | string | 否 | 中间层 | Agent | `prompt_embedded` / `middleware_filtered` |
+| `sopContext.filteredTemplates` | array | 否 | 中间层 | Agent | 中间层预过滤后的 top-N 匹配模板 |
+| `sopContext.filteredTemplates[].templateId` | string | 是 | 中间层 | Agent | SOP 模板 ID |
+| `sopContext.filteredTemplates[].title` | string | 是 | 中间层 | Agent | SOP 模板标题 |
+| `sopContext.filteredTemplates[].matchScore` | number | 是 | 中间层 | Agent | 0 到 1 的模板匹配分 |
+| `sopContext.filteredTemplates[].templateContent` | string | 是 | 中间层 | Agent | 模板全文或摘要 |
+| `sopContext.totalTemplateCount` | number | 否 | 中间层 | Agent | 模板库总数 |
+| `sopContext.tokenBudgetExceeded` | boolean | 否 | 中间层 | Agent | 是否因 token 限制而走预过滤 |
 | `runtimePolicy` | object | 是 | 中间层 | Agent | 运行策略 |
 | `runtimePolicy.matchThresholds` | object | 是 | 中间层 | Agent | 匹配阈值 |
 | `runtimePolicy.matchThresholds.matchedMin` | number | 是 | 中间层 | Agent | 默认 `0.8` |
@@ -88,6 +111,13 @@
 | `sessionState.createdAt` | string | 是 | 中间层 | Agent | 会话创建时间 |
 | `sessionState.lastActiveAt` | string | 是 | 中间层 | Agent | 最近活跃时间 |
 | `sessionState.turnCount` | number | 是 | 中间层 | Agent | 当前轮次数 |
+| `popupContext` | object | 否 | 前端透传 / 中间层会话服务 | Agent | 弹窗传入上下文；缺失时 Agent 正常执行 2d |
+| `popupContext.conversationId` | string | 否 | 前端透传 / 中间层会话服务 | Agent | 弹窗会话 ID |
+| `popupContext.customerInput` | string | 否 | 前端透传 / 中间层会话服务 | Agent | 弹窗中客户描述 |
+| `popupContext.routeDecision` | string/null | 否 | 前端透传 / 中间层会话服务 | Agent | `nonstandard` / `standard` / null；为 `nonstandard` 时跳过 2d |
+| `popupContext.systemScopedVascList` | array | 否 | 前端透传 / 中间层会话服务 | Agent | 弹窗时的候选快照，用于一致性校验 |
+| `popupContext.exceptionContext` | object | 否 | 前端透传 / 中间层会话服务 | Agent | 弹窗采集的异常单上下文 |
+| `popupContext.dialogHistory` | array | 否 | 前端透传 / 中间层会话服务 | Agent | 弹窗多轮对话记录 |
 
 ## 2. Response 字段清单
 
@@ -115,6 +145,12 @@
 | `fieldSuggestions` | object | 是 | Agent | 中间层、前端 | 字段建议；低置信时为空字符串 |
 | `fieldSuggestions.background` | string | 是 | Agent | 前端 | 需求背景说明建议 |
 | `fieldSuggestions.description` | string | 是 | Agent | 前端 | 需求描述建议 |
+| `confirmationSummary` | string/null | 条件必填 | Agent | 中间层、前端 | `route=2b_other_service_sop` 且 `matchState=matched` 时必填，必须包含“客户确认不等于审核通过”；2d/2a 为空字符串或 null |
+| `missingFields` | array | 是 | Agent | 中间层、前端 | 追问清单；无追问时为空数组，非空时 `pageActions` 同时含 `ask_followup` |
+| `missingFields[].fieldKey` | string | 是 | Agent | 前端 | 缺失信息类型标识 |
+| `missingFields[].displayLabel` | string | 是 | Agent | 前端 | 前端展示的追问文案 |
+| `missingFields[].priority` | string | 是 | Agent | 前端 | `required` / `recommended` |
+| `missingFields[].relatedSopSection` | string | 否 | Agent | 前端 | 对应 SOP 模板章节 |
 | `attachmentRequirements` | array | 否 | Agent | 前端 | 附件要求提示 |
 | `attachmentRequirements[].name` | string | 是 | Agent | 前端 | 附件名称 |
 | `attachmentRequirements[].required` | boolean | 是 | Agent | 前端 | 是否必需 |
@@ -153,6 +189,12 @@
 | `fieldSuggestions` | object | 是 | Agent 校验后透传 | 前端 | 字段建议 |
 | `fieldSuggestions.background` | string | 是 | Agent | 前端 | 需求背景说明 |
 | `fieldSuggestions.description` | string | 是 | Agent | 前端 | 需求描述 |
+| `confirmationSummary` | string/null | 条件必填 | Agent 校验后透传 | 前端 | `route=2b_other_service_sop` 且 `matchState=matched` 时必填，必须包含“客户确认不等于审核通过”；2d/2a 为空字符串或 null |
+| `missingFields` | array | 是 | Agent 校验后透传 | 前端 | 追问清单；无追问时为空数组，非空时 `pageActions` 同时含 `ask_followup` |
+| `missingFields[].fieldKey` | string | 是 | Agent | 前端 | 缺失信息类型标识 |
+| `missingFields[].displayLabel` | string | 是 | Agent | 前端 | 前端展示的追问文案 |
+| `missingFields[].priority` | string | 是 | Agent | 前端 | `required` / `recommended` |
+| `missingFields[].relatedSopSection` | string | 否 | Agent | 前端 | 对应 SOP 模板章节 |
 | `attachmentRequirements` | array | 是 | Agent 校验后透传 | 前端 | 附件要求 |
 | `attachmentCheck` | object | 是 | Agent 校验后透传 | 前端 | 附件检查 |
 | `pageActions` | array | 是 | Agent 输出 + 中间层过滤 | 前端 | 前端唯一可执行动作来源 |
@@ -187,4 +229,3 @@
 | `CANDIDATE_SNAPSHOT_MISSING` | 中间层候选快照缺失 | 提示稍后重试或人工处理 | 是 |
 | `CANDIDATE_CONFLICT` | 中间层或 Agent 检测候选冲突 | 提示人工确认 | 否 |
 | `LOW_CONFIDENCE` | Agent 低置信输出 | 展示追问 | 是 |
-
