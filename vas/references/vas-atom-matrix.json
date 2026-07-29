@@ -1,0 +1,1699 @@
+{
+  "scope": {
+    "pscgCode": "OW01",
+    "pscgName": "海外仓入库",
+    "excludes": [
+      "OW02",
+      "OW03"
+    ],
+    "productListParams": {
+      "where[code]": "",
+      "where[pscgCode]": "OW01"
+    },
+    "shelveWayVerification": "shelveWay 不可用，按产品名称归类",
+    "omittedRuntimeFields": [
+      "isDisable",
+      "disableReason",
+      "isShow"
+    ]
+  },
+  "generatedAt": "2026-07-29T15:28:28.862Z",
+  "dataSources": {
+    "productList": "pms.VascService_queryVascList",
+    "atomConfig": [
+      "pms.VascTomService_queryVascPage / VASC detail page detail_items",
+      "pms.VascTomService_queryVascItemTypes probe"
+    ],
+    "supplemental": "DBHub PMS tables allowed by decision, not needed for primary atom fields"
+  },
+  "products": [
+    {
+      "vascCode": "VASC202407012141008",
+      "vascName": "新单上架（WINIT创建入库单）",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "万邑通使用商品明细自动生成入库单，仓库使用系统生成的入库单操作上架",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "USE_NEW_INBOUND_ORDER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "上架",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1561",
+          "name": "入库-更换商品包装",
+          "vasEventDesc": "客户要求增加、更换商品包装",
+          "mutexGroup": "入库-更换商品包装",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1559",
+          "name": "入库-更换新商品条码",
+          "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原商品标签，使用原入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+          "mutexGroup": "贴商品标",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1558",
+          "name": "入库-补贴原商品条码",
+          "vasEventDesc": "\"客户货物入库商品条码异常（不含无条码），生成新商品标签并覆盖原商品标签，且使用新入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+          "mutexGroup": "贴商品标",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1572",
+          "name": "入库-第三方商品条码关联",
+          "vasEventDesc": "货物入库时未进行第三方条码关联，但实际物品贴有第三方条码。现在需要进行条码关联，并将货物上架至仓库。",
+          "mutexGroup": "贴商品标",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1560",
+          "name": "入库-补贴包裹条码",
+          "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原包裹标签，且使用原/新入库单上架 - 包裹标签：含包裹标签，第三方包裹标签（例如FBA箱唛，客户需要关联）\"",
+          "mutexGroup": "入库-补贴包裹条码",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202407031503503",
+      "vascName": "原单上架",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "客户提供入库单，万邑通使用客户提供的入库单操作上架",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "USE_ORIGIN_INBOUND_ORDER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "上架",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1561",
+          "name": "入库-更换商品包装",
+          "vasEventDesc": "客户要求增加、更换商品包装",
+          "mutexGroup": "入库-更换商品包装",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1559",
+          "name": "入库-更换新商品条码",
+          "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原商品标签，使用原入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+          "mutexGroup": "贴商品标",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1558",
+          "name": "入库-补贴原商品条码",
+          "vasEventDesc": "\"客户货物入库商品条码异常（不含无条码），生成新商品标签并覆盖原商品标签，且使用新入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+          "mutexGroup": "贴商品标",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1572",
+          "name": "入库-第三方商品条码关联",
+          "vasEventDesc": "货物入库时未进行第三方条码关联，但实际物品贴有第三方条码。现在需要进行条码关联，并将货物上架至仓库。",
+          "mutexGroup": "贴商品标",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1825",
+          "name": "入库-补贴原商品条码（带示例图）",
+          "vasEventDesc": "客户货物入库商品条码异常（不含无条码），生成新商品标签并覆盖原商品标签，且使用原入库单上架 - 商品标签：含商品条码，商品条码贴标示例图",
+          "mutexGroup": "贴商品标",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1573",
+          "name": "入库-商品其他标签（非商品条码）",
+          "vasEventDesc": "卖家商品入库时，要求仓库针对商品粘贴标签（不含商品条码），这些标签通常包含有关商品的详细描述、用途等信息，例如含英代标签、欧代标签、尺寸标签、环保标签、产地标签、使用说明标签等。",
+          "mutexGroup": "入库-商品附加标签",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1560",
+          "name": "入库-补贴包裹条码",
+          "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原包裹标签，且使用原/新入库单上架 - 包裹标签：含包裹标签，第三方包裹标签（例如FBA箱唛，客户需要关联）\"",
+          "mutexGroup": "入库-补贴包裹条码",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202407161056217",
+      "vascName": "新单上架（客户创建入库单）",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "客户提供入库单，万邑通使用客户提供的入库单操作上架",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "INBOUND_ORDER_OF_CUSTOMER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "上架",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1561",
+          "name": "入库-更换商品包装",
+          "vasEventDesc": "客户要求增加、更换商品包装",
+          "mutexGroup": "入库-更换商品包装",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1560",
+          "name": "入库-补贴包裹条码",
+          "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原包裹标签，且使用原/新入库单上架 - 包裹标签：含包裹标签，第三方包裹标签（例如FBA箱唛，客户需要关联）\"",
+          "mutexGroup": "入库-补贴包裹条码",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1558",
+          "name": "入库-补贴原商品条码",
+          "vasEventDesc": "\"客户货物入库商品条码异常（不含无条码），生成新商品标签并覆盖原商品标签，且使用新入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1559",
+          "name": "入库-更换新商品条码",
+          "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原商品标签，使用原入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202411192232522",
+      "vascName": "优先上架",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "优先上架",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "DR",
+          "OD",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "USE_ORIGIN_INBOUND_ORDER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "上架",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1632",
+          "name": "优先上架",
+          "vasEventDesc": "",
+          "mutexGroup": "优先上架",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202412111831129",
+      "vascName": "新单上架（客户提供预报单）",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "产品说明：客户使用无箱单预报单入库，但是货物到仓后发现无箱单识别标识丢失，导致仓库无法正常上架，客户需提供原始无箱单信息，以便仓库能够正确处理货物并完成上架操作。\r\n产品归属：入库非标增值（免审核）",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PS",
+          "PEWC",
+          "STOP",
+          "SHD",
+          "EWC"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "INBOUND_ORDER_OF_CUSTOMER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "上架",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1622",
+          "name": "入库-提供无箱单预报单上架",
+          "vasEventDesc": "客户使用无箱单预报单入库，但是货物到仓后发现无箱单识别标识丢失，导致仓库无法正常上架，客户需提供原始无箱单信息，以便仓库能够正确处理货物并完成上架操作。",
+          "mutexGroup": "入库-提供无箱单预报单上架",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202504251617529",
+      "vascName": "原单上架（直接上架）",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "针对部分海外仓异常情况，若客户实际包裹或商品上已具备清晰可扫描的条码，且客户已提交增值确认，仓库可直接使用原入库单上架，无需额外粘贴标签",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "SHD",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "Y"
+        ],
+        "VASC_LISTING": [
+          "USE_ORIGIN_INBOUND_ORDER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "上架",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1708",
+          "name": "直接上架",
+          "vasEventDesc": "对于入库状态异常、包裹质量异常或商品质量异常的包裹，不进行补贴且直接上架处理。",
+          "mutexGroup": "直接上架",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1559",
+          "name": "入库-更换新商品条码",
+          "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原商品标签，使用原入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1736",
+          "name": "入库-覆盖包裹标签",
+          "vasEventDesc": "入库覆盖A+/A包的包裹标签，包括但不限于DG标签、UN标签、禁止空运标签等",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1560",
+          "name": "入库-补贴包裹条码",
+          "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原包裹标签，且使用原/新入库单上架 - 包裹标签：含包裹标签，第三方包裹标签（例如FBA箱唛，客户需要关联）\"",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202505282347101",
+      "vascName": "新单上架（直接上架）",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "针对部分海外仓异常情况，若客户实际包裹或商品上已具备清晰可扫描的条码，且客户已提交增值确认，仓库可直接新入库单上架，无需额外粘贴标签",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "Y"
+        ],
+        "VASC_LISTING": [
+          "INBOUND_ORDER_OF_CUSTOMER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "上架",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1708",
+          "name": "直接上架",
+          "vasEventDesc": "对于入库状态异常、包裹质量异常或商品质量异常的包裹，不进行补贴且直接上架处理。",
+          "mutexGroup": "直接上架",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202512101928588",
+      "vascName": "原单上架（100%A+包无包裹条码订单）",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "支持包裹条码异常客户可使用100%A+包裹无包裹条码订单原单上架",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PS",
+          "PEWC",
+          "TS"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "Y"
+        ],
+        "VASC_LISTING": [
+          "USE_ORIGIN_INBOUND_ORDER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "WINIT_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "上架",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1782",
+          "name": "A+包裹条码异常直接上架",
+          "vasEventDesc": "100%A+包裹无包裹条码入库订单，当客户发生商品条码未关联问题时，系统流程缺失，只能登记包裹条码异常（需客户处理），这时候客户重新关联新的条码到原入库单，客户可使用此增值告知仓库已做好关联，要求异常包裹直接上架到原入库单",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202409121753076",
+      "vascName": "上架前销毁",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "异常货物，货物到海外仓后客户要求上架前销毁",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "DESTRUCTION"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "销毁",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1703",
+          "name": "上架前包裹销毁",
+          "vasEventDesc": "\"针对异常包裹，到仓后上架前，Winit提供将包裹销毁的服务\r\n注：此销毁服务无法提供销毁证明\"",
+          "mutexGroup": "上架前销毁",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1563",
+          "name": "上架前商品销毁",
+          "vasEventDesc": "货物到海外仓后，已卸货未上架，客户要求销毁",
+          "mutexGroup": "上架前销毁",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202412111833485",
+      "vascName": "上架前异常包裹销毁",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "产品场景：入库发生包裹及订单类异常单，需要将包裹/订单在上架前销毁\r\n产品归属：入库非标增值（免审核）",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PS",
+          "PEWC",
+          "STOP",
+          "EWC",
+          "TS"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "DESTRUCTION"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "销毁",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": []
+    },
+    {
+      "vascCode": "VASC202503241916527",
+      "vascName": "上架前异常销毁",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "此场景仅针对坏账客户超时异常单据销毁",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "EWC",
+          "PS",
+          "RE",
+          "PEWC",
+          "STOP",
+          "OD",
+          "VO",
+          "IC",
+          "SHO",
+          "SHD",
+          "DR",
+          "TS",
+          "SB"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "Y"
+        ],
+        "VASC_LISTING": [
+          "DESTRUCTION"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "销毁",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": []
+    },
+    {
+      "vascCode": "VASC202411192240522",
+      "vascName": "上架前自提",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "产品说明：上架前自提\r\n产品归属：入库非标增值（免审核）",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PS",
+          "PEWC",
+          "SHD",
+          "EWC",
+          "TS"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "SELF_PICKUP"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "自提",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1594",
+          "name": "上架前自提（无需WINIT打托）",
+          "vasEventDesc": "此增值服务仅支持异常货物，货物到海外仓后客户要求按照包裹提货",
+          "mutexGroup": "上架前自提（无需WINIT打托）",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1604",
+          "name": "上架前自提（需WINIT打托）",
+          "vasEventDesc": "此增值服务仅支持异常货物，货物到海外仓后客户要求打托后提货",
+          "mutexGroup": "上架前自提-托盘",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202407031507376",
+      "vascName": "入库商品拍照",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "上架前拍照",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "STORAGE"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "暂存/拍照辨识",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1562",
+          "name": "入库-商品开箱拍照",
+          "vasEventDesc": "客户指定商品SKU，仓库将商品外包装及销售包装拆开，对商品裸货及单品拍照。（拆包前拍照）提供外箱条码1张+外包装全览图，（拆包后）提供商品条码照片1张，商品实物照3~4张（商品全览图、商品细节图等）；",
+          "mutexGroup": "商品拍照辨识",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202411271721537",
+      "vascName": "入库非标拍照或提供视频",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "产品说明：入库非标提供视频或者针对商品指定位置拍照\r\n产品归属：入库非标增值（免审核）",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PS",
+          "PEWC",
+          "STOP",
+          "SHD",
+          "DR",
+          "SB",
+          "EWC",
+          "RE",
+          "OD",
+          "VO",
+          "IC",
+          "SHO",
+          "TS"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "STORAGE"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "暂存/拍照辨识",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1610",
+          "name": "入库-单品指定位置开箱拍照",
+          "vasEventDesc": "指定异常或入库单某个商品，开箱后指定位置拍照",
+          "mutexGroup": "入库-单品指定位置开箱拍照",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1674",
+          "name": "入库-异常包裹开箱拍照",
+          "vasEventDesc": "针对入库包裹类异常，开箱后指定位置拍照",
+          "mutexGroup": "入库-异常包裹开箱拍照",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1599",
+          "name": "提供海外仓监控视频-少包裹调查",
+          "vasEventDesc": "针对上架异常商品，客户需要查询视频监控，需要海外仓提供监控视频进行佐证：\r\n WINIT海外仓提供以下监控视频服务范围：\r\n 1.少包裹调查：\r\n 1.1整柜到仓：客户提供入库单号和POD；海外仓提供开柜到关柜期间视频，但客户无法通过视频清点具体数据\r\n 1.2散货到仓：客户提供入库单号和POD；海外仓提供卸货过程/包裹分堆过程视频，但可能无法确定具体的送仓包裹数量\r\n 1.3快递到仓：\r\n 1.3.1当面交付的快递包裹：客户提供包裹对应的快递单号及快递供应商名称；海外仓提供当天供应商送货，卸货和扫描视频并结合扫描记录告知调查结果。可支持的供应商参考《海外仓收货面签供应商》；若供应商将快递包裹使用整柜投递drop到仓，海外仓无法提供包裹卸货视频",
+          "mutexGroup": "提供海外仓监控视频-少包裹调查",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1600",
+          "name": "提供海外仓监控视频-少单品调查",
+          "vasEventDesc": "针对上架异常商品，客户需要查询视频监控，需要海外仓提供监控视频进行佐证：\r\n WINIT海外仓提供以下监控视频服务范围：\r\n 少单品调查: \r\n1.B/C包裹：客户提供入库单号和包裹号；海外仓提供商品预分拣视频和调查结果\r\n2.上架数量与验货数量一致的A包：海外仓不提供视频服务，客户需提交库内盘点增值，增值单提交需要A包上架的商品做盘点\r\n3.上架数量与验货数量不一致的A包：客户提供入库单号和包裹号；海外仓提供商品预分拣视频和调查结果\"",
+          "mutexGroup": "提供海外仓监控视频-少单品调查",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202410291838066",
+      "vascName": "入库增值",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "随入库单下发的标准增值",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "USE_ORIGIN_INBOUND_ORDER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1593",
+          "name": "校验A+包商品条码与包裹条码是否一致",
+          "vasEventDesc": "校验A+包裹的第三方包裹条码与第三方商品条码是否一致",
+          "mutexGroup": "校验A+包商品条码与包裹条码是否一致",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1736",
+          "name": "入库-覆盖包裹标签",
+          "vasEventDesc": "入库覆盖A+/A包的包裹标签，包括但不限于DG标签、UN标签、禁止空运标签等",
+          "mutexGroup": "入库覆盖包裹标签",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202411192246131",
+      "vascName": "入库非标增值（特批）",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "此增值产品提交后，由万邑通审核并报价，客户确认报价后，下发仓库执行操作",
+      "listing": null,
+      "vascAttributeMap": {
+        "VASC_ALLOW_CHANGE_WHEN_AUDIT": [
+          "Y"
+        ],
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PS",
+          "PEWC",
+          "STOP",
+          "SHD",
+          "DR",
+          "SB",
+          "EWC",
+          "RE",
+          "OD",
+          "VO",
+          "IC",
+          "SHO",
+          "TS"
+        ],
+        "VASC_AUDIT_DEPARTMENT": [
+          "PD"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "Y"
+        ],
+        "VASC_REQUIRE_CUSTOMER_CONFIRM": [
+          "Y"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "STORAGE",
+          "USE_ORIGIN_INBOUND_ORDER",
+          "DESTRUCTION",
+          "SELF_PICKUP",
+          "INBOUND_ORDER_OF_CUSTOMER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_special_approval",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1654",
+          "name": "包裹串仓异常调拨",
+          "vasEventDesc": "针对包裹直发串仓异常，客户要求在仓群内调拨（仅支持DE/DEBR2、USWC/USWC2）",
+          "mutexGroup": "包裹串仓异常调拨",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1602",
+          "name": "入库其他服务需求",
+          "vasEventDesc": "万邑通除基本入库增值服务外，还提供特殊定制服务。客户提交需求后，我们将根据客户提供的需求内容进行定制化报价。",
+          "mutexGroup": "入库其他服务需求",
+          "required": "N",
+          "branchClassification": "2b_catchall",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202411271744362",
+      "vascName": "入库非标增值（免审核）",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "此增值产品提交后，直接下发仓库执行操作",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PS",
+          "PEWC",
+          "STOP",
+          "SHD",
+          "SB",
+          "EWC",
+          "OD",
+          "TS"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "STORAGE",
+          "USE_ORIGIN_INBOUND_ORDER",
+          "DESTRUCTION",
+          "SELF_PICKUP",
+          "INBOUND_ORDER_OF_CUSTOMER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1610",
+          "name": "入库-单品指定位置开箱拍照",
+          "vasEventDesc": "指定异常或入库单某个商品，开箱后指定位置拍照",
+          "mutexGroup": "商品拍照辨识",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1674",
+          "name": "入库-异常包裹开箱拍照",
+          "vasEventDesc": "针对入库包裹类异常，开箱后指定位置拍照",
+          "mutexGroup": "商品拍照辨识",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1652",
+          "name": "入库-清除商品标签",
+          "vasEventDesc": "入库清除标签",
+          "mutexGroup": "标签类",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1622",
+          "name": "入库-提供无箱单预报单上架",
+          "vasEventDesc": "客户使用无箱单预报单入库，但是货物到仓后发现无箱单识别标识丢失，导致仓库无法正常上架，客户需提供原始无箱单信息，以便仓库能够正确处理货物并完成上架操作。",
+          "mutexGroup": "提供无箱单预报单上架",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1600",
+          "name": "提供海外仓监控视频-少单品调查",
+          "vasEventDesc": "针对上架异常商品，客户需要查询视频监控，需要海外仓提供监控视频进行佐证：\r\n WINIT海外仓提供以下监控视频服务范围：\r\n 少单品调查: \r\n1.B/C包裹：客户提供入库单号和包裹号；海外仓提供商品预分拣视频和调查结果\r\n2.上架数量与验货数量一致的A包：海外仓不提供视频服务，客户需提交库内盘点增值，增值单提交需要A包上架的商品做盘点\r\n3.上架数量与验货数量不一致的A包：客户提供入库单号和包裹号；海外仓提供商品预分拣视频和调查结果\"",
+          "mutexGroup": "提供海外仓监控视频",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1599",
+          "name": "提供海外仓监控视频-少包裹调查",
+          "vasEventDesc": "针对上架异常商品，客户需要查询视频监控，需要海外仓提供监控视频进行佐证：\r\n WINIT海外仓提供以下监控视频服务范围：\r\n 1.少包裹调查：\r\n 1.1整柜到仓：客户提供入库单号和POD；海外仓提供开柜到关柜期间视频，但客户无法通过视频清点具体数据\r\n 1.2散货到仓：客户提供入库单号和POD；海外仓提供卸货过程/包裹分堆过程视频，但可能无法确定具体的送仓包裹数量\r\n 1.3快递到仓：\r\n 1.3.1当面交付的快递包裹：客户提供包裹对应的快递单号及快递供应商名称；海外仓提供当天供应商送货，卸货和扫描视频并结合扫描记录告知调查结果。可支持的供应商参考《海外仓收货面签供应商》；若供应商将快递包裹使用整柜投递drop到仓，海外仓无法提供包裹卸货视频",
+          "mutexGroup": "提供海外仓监控视频",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1604",
+          "name": "上架前自提（需WINIT打托）",
+          "vasEventDesc": "此增值服务仅支持异常货物，货物到海外仓后客户要求打托后提货",
+          "mutexGroup": "上架前自提",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1594",
+          "name": "上架前自提（无需WINIT打托）",
+          "vasEventDesc": "此增值服务仅支持异常货物，货物到海外仓后客户要求按照包裹提货",
+          "mutexGroup": "上架前自提",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202412181841037",
+      "vascName": "入库非标增值-Anker",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "入库非标增值-Anker",
+      "listing": null,
+      "vascAttributeMap": {
+        "VASC_ALLOW_CHANGE_WHEN_AUDIT": [
+          "Y"
+        ],
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PS",
+          "PEWC",
+          "EWC",
+          "TS"
+        ],
+        "VASC_AUDIT_DEPARTMENT": [
+          "PD"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "Y"
+        ],
+        "VASC_REQUIRE_CUSTOMER_CONFIRM": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "INBOUND_ORDER_OF_CUSTOMER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_special_approval",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1653",
+          "name": "Anker异常包裹良品/不良品辨识",
+          "vasEventDesc": "Anker异常包裹良品/不良品辨识",
+          "mutexGroup": "Anker异常包裹良品/不良品辨识",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202504071528233",
+      "vascName": "入库清除标签",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "产品场景：入库清除指定标签\r\n产品归属：入库非标增值（免审核）",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "USE_ORIGIN_INBOUND_ORDER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1652",
+          "name": "入库-清除商品标签",
+          "vasEventDesc": "入库清除标签",
+          "mutexGroup": "入库-清除商品标签",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202504152122014",
+      "vascName": "入库商品查验",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "WINIT针对入库商品发起查验",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PS",
+          "PEWC",
+          "STOP",
+          "SHD",
+          "DR",
+          "SB",
+          "EWC",
+          "RE",
+          "OD",
+          "VO",
+          "IC",
+          "SHO",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "USE_ORIGIN_INBOUND_ORDER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "WINIT_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1494",
+          "name": "入库商品查验",
+          "vasEventDesc": "入库时需检查是否携带DG标签，有则清除",
+          "mutexGroup": "入库商品查验",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202509241832463",
+      "vascName": "采集箱内单品码",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "在入库环节，采集箱产品外箱上的第三方单品码",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "USE_ORIGIN_INBOUND_ORDER"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "standard",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1745",
+          "name": "Capture Unit Codes Inside Carton",
+          "vasEventDesc": "在入库环节，采集箱产品外箱上的第三方单品码",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "standard",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202510211530474",
+      "vascName": "Aiper 运输高低温检验",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "Aiper 运输高低温检验",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "PEWC",
+          "TS"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "STORAGE"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1756",
+          "name": "Aiper辨识包裹外部温度贴纸颜色",
+          "vasEventDesc": "根据客户提供sop检查包裹上的温度贴纸是否变色并根据不同的检查结果操作下一步： ①有贴纸，且温度贴纸变色，需将货物暂存，等待开箱抽查 ②有贴纸，且温度贴纸未变色，需将正常上架 ③无贴纸，将货物暂存，等待抽查",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        },
+        {
+          "eventCode": "OW01V1757",
+          "name": "Aiper开箱检查良品不良品",
+          "vasEventDesc": "根据客户提供的原增值单信息，开箱检查良品与不良品 开箱检查要求： ①有贴纸，且温度贴纸变色，整箱所有单品开箱按照SOP检查 ②无贴纸，整箱抽查10%（四舍五入）单品开箱按照SOP检查",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202510291630196",
+      "vascName": "入库-指定商品质检(TOP GLORY)",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "入库-指定商品质检(TOP GLORY)",
+      "listing": null,
+      "vascAttributeMap": {
+        "VAS_ORDER_STATUS_INBOUND": [
+          "OD",
+          "TS"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "N"
+        ],
+        "VASC_EXECUTOR": [
+          "WAREHOUSE"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "Y"
+        ],
+        "VASC_LISTING": [
+          "STOCK_SHELVES"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER",
+          "CUSTOMER_SERVICE"
+        ]
+      },
+      "productType": "nonstandard_no_review",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1760",
+          "name": "入库-指定商品质检(TOP GLORY)",
+          "vasEventDesc": "入库-指定商品质检(TOP GLORY)",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    },
+    {
+      "vascCode": "VASC202607072041193",
+      "vascName": "WINIT头程海外揽收服务",
+      "pscgCode": "OW01",
+      "pscgName": "海外仓入库",
+      "vascDesc": "WINIT头程海外揽收服务",
+      "listing": null,
+      "vascAttributeMap": {
+        "VASC_ALLOW_CHANGE_WHEN_AUDIT": [
+          "Y"
+        ],
+        "VAS_ORDER_STATUS_INBOUND": [
+          "OD",
+          "IC",
+          "TS"
+        ],
+        "VASC_AUDIT_DEPARTMENT": [
+          "FIRST_LEG_QUOTATION_MANAGER"
+        ],
+        "VASC_REQUIRE_REVIEW": [
+          "Y"
+        ],
+        "VASC_REQUIRE_CUSTOMER_CONFIRM": [
+          "Y"
+        ],
+        "VASC_EXECUTOR": [
+          "FIRST_LEG_QUOTATION_MANAGER"
+        ],
+        "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+          "N"
+        ],
+        "VASC_LISTING": [
+          "NO_WAREHOUSE_PROCESSING"
+        ],
+        "VASC_PRODUCT_TYPE": [
+          "NON_STANDARD_VASC"
+        ],
+        "VASC_ISSUANCE_TYPE": [
+          "CUSTOMER_INITIATE"
+        ],
+        "VASC_SUBMITTER": [
+          "CUSTOMER"
+        ]
+      },
+      "productType": "nonstandard_special_approval",
+      "processGroup": "其他/待确认",
+      "source": {
+        "productListApi": "pms.VascService_queryVascList",
+        "atomConfig": "VASC detail page detail_items",
+        "itemTypesProbe": {
+          "status": "ok"
+        }
+      },
+      "atoms": [
+        {
+          "eventCode": "OW01V1836",
+          "name": "WINIT头程海外揽收服务",
+          "vasEventDesc": "针对大批量货物需要使用托盘、卡车派送的订单，WINIT暂无标准服务支持，需要提供线下询价并安排出库服务",
+          "mutexGroup": "接口无此字段",
+          "required": "N",
+          "branchClassification": "2a_named",
+          "source": "detail_items"
+        }
+      ]
+    }
+  ],
+  "branchSummary": {
+    "standard": 29,
+    "2a_named": 23,
+    "2b_catchall": 1
+  },
+  "productTypeSummary": {
+    "standard": 11,
+    "nonstandard_no_review": 10,
+    "nonstandard_special_approval": 3
+  }
+}
