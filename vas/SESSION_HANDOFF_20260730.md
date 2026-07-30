@@ -140,7 +140,47 @@
 
 ---
 
-## 6. Inheritance Instruction 给新会话强制指令
+## 6. Codex Prompt 模板（给 Codex 出 prompt 时必须包含以下要素）
+
+每次给 Codex 出 prompt 时，必须包含以下 8 项，缺一不可：
+
+```
+## 必填模板
+
+1. 角色定位：
+   "你是执行者，负责 XXX。不做方案决策，遇到歧义标记 [AMBIGUITY] 并停下。"
+
+2. 工作目录：
+   D:\da\vas-nonstandard-guide (main 分支)
+   远端：https://github.com/ying9997/Vas-Nonstandard-Guide
+
+3. 执行前必读文件：
+   列出 Codex 需要读取的所有文件路径（必须是仓库内路径，不能引用仓库外路径如 D:\DA\AI_EXPERT\...）
+
+4. 对话/内容权威来源：
+   明确指定从哪个文件取内容（如"对话内容从 design/方案乙原型_标准增值-非标免审-非标SOP对话示例.md 取"）
+
+5. 文件变更范围约束：
+   "只改/只新建 XXX 文件，不改任何其他文件"
+
+6. Commit message 格式：
+   conventional commits: feat/fix/docs/refactor(scope): description
+
+7. Push 指令 + 失败兜底：
+   "push 到 main；如 push 失败，输出文件完整内容"
+
+8. 歧义处理：
+   "遇到歧义标记 [AMBIGUITY] 并停下，描述哪里不确定，不自行决定"
+```
+
+### 注意事项
+- Codex 无法访问仓库外的本地路径（如 `D:\DA\AI_EXPERT\_workflow\...`、`C:\Users\ying.jin\Downloads\...`）
+- 如果需要引用仓库外文件内容，必须先把内容复制/摘要到仓库内，再让 Codex 读仓库内路径
+- Codex 看不到本会话上下文，prompt 必须完整自包含
+
+---
+
+## 7. Inheritance Instruction 给新会话强制指令
 
 1. 新开对话粘贴本全部内容后，直接加载所有上下文，不再重复询问已知背景、规则、定义
 2. 优先处理 P0 待办与阻塞问题，按顺序执行
@@ -149,7 +189,8 @@
 5. 非平凡任务走 讨论→评估→执行 三阶段
 6. 工作目录：`D:\da\vas-nonstandard-guide`（git 仓库）；参考目录：`D:\da\ai_expert`
 7. Memory 文件在 `C:\Users\ying.jin\.claude\projects\D--da-ai-expert\memory\` — 读取 MEMORY.md 获取用户偏好和项目记忆
-8. 再次临近 Token 上限时，重复执行本次 Handoff 导出流程
+8. **出 Codex prompt 时严格按 §6 模板，8 项必填项缺一不可**
+9. 再次临近 Token 上限时，重复执行本次 Handoff 导出流程
 
 ---
 
