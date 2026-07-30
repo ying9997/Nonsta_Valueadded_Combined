@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>异常单增值客户引导 - 线上三步交互原型</title>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+      color: #262626;
+    }
+
+    .workspace {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      background: #fff;
+    }
+
+    .stage-frame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+      transition: width .18s ease;
+    }
+
+    .workspace.assistant-open .stage-frame {
+      width: calc(100% - 360px);
+    }
+
+    .assistant-panel {
+      position: relative;
+      display: none;
+      width: 360px;
+      height: 100%;
+      border-left: 1px solid #dcdcdc;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .workspace.assistant-open .assistant-panel {
+      display: block;
+    }
+
+    .assistant-frame {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+
+    .assistant-overlay {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 48px;
+      bottom: 0;
+      z-index: 2;
+      display: none;
+      flex-direction: column;
+      background: #fff;
+      color: rgba(0, 0, 0, .88);
+      font-size: 14px;
+      pointer-events: auto;
+    }
+
+    .workspace.assistant-open .assistant-overlay {
+      display: flex;
+    }
+
+    .assistant-overlay-body {
+      flex: 1;
+      padding: 16px 12px 12px;
+      overflow: auto;
+      background: linear-gradient(180deg, #fff 0%, #f3f2ff 100%);
+    }
+
+    .assistant-overlay-body .ant-bubble {
+      display: flex;
+      column-gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .assistant-overlay-body .ant-bubble-end {
+      justify-content: end;
+      flex-direction: row-reverse;
+    }
+
+    .assistant-overlay-body .ant-bubble-content-wrapper {
+      flex: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .assistant-overlay-body .ant-bubble-content {
+      position: relative;
+      box-sizing: border-box;
+      min-width: 0;
+      max-width: 312px;
+      color: rgba(0, 0, 0, .88);
+      font-size: 14px;
+      line-height: 1.5714285714;
+      word-break: break-word;
+    }
+
+    .assistant-overlay-body .prototype-ai-answer p {
+      margin: 0 0 8px;
+    }
+
+    .assistant-overlay-body .prototype-ai-answer p:last-of-type {
+      margin-bottom: 10px;
+    }
+
+    .assistant-overlay-body .prototype-ai-answer button {
+      display: block;
+      width: 100%;
+      margin: 8px 0 0;
+      padding: 7px 8px;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      background: #fafafa;
+      color: rgba(0, 0, 0, .88);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .assistant-overlay-input {
+      flex: 0 0 auto;
+      padding: 10px 12px 12px;
+      border-top: 1px solid #f0f0f0;
+      background: #fff;
+    }
+
+    .assistant-overlay-input-box {
+      min-height: 70px;
+      border: 1px solid #d9d9d9;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .demo-bar {
+      position: fixed;
+      left: 16px;
+      top: 14px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: calc(100vw - 32px);
+      padding: 8px 10px;
+      border: 1px solid #e5e5e5;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, .96);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .10);
+      font-size: 14px;
+    }
+
+    .steps {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .step-chip {
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 9px;
+      border: 1px solid #d9d9d9;
+      border-radius: 2px;
+      background: #fff;
+      color: #262626;
+      white-space: nowrap;
+    }
+
+    .step-chip.active {
+      border-color: #b3926b;
+      background: #fff8f2;
+      color: #8c5f35;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .demo-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button {
+      min-height: 32px;
+      padding: 0 10px;
+      border: 1px solid #d9d9d9;
+      border-radius: 2px;
+      background: #fff;
+      color: #262626;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: #b3926b;
+      background: #b3926b;
+      color: #fff;
+    }
+
+    button.ghost {
+      border-color: #d9d9d9;
+      color: rgba(0, 0, 0, .85);
+      background: #fff;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      color: #bfbfbf;
+      background: #f5f5f5;
+    }
+
+    .coach-card {
+      position: fixed;
+      left: 16px;
+      bottom: 18px;
+      z-index: 28;
+      width: 430px;
+      max-width: calc(100vw - 32px);
+      padding: 12px;
+      border: 1px solid #d9d9d9;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, .97);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .coach-title {
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .coach-text {
+      color: #262626;
+      white-space: pre-line;
+    }
+
+    .coach-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 980px) {
+      .demo-bar {
+        right: 12px;
+        max-width: none;
+      }
+
+      .steps {
+        display: none;
+      }
+
+      .workspace.assistant-open .stage-frame {
+        width: calc(100% - min(360px, 100vw));
+      }
+
+      .assistant-panel {
+        width: min(360px, 100vw);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="workspace" id="workspace">
+    <iframe id="stageFrame" class="stage-frame" src="../../../../增值配置AI化/增值单ai指引助手/参考线上页面/step0异常单列表.html" title="线上导出页面"></iframe>
+    <aside class="assistant-panel" aria-label="在线咨询 AI 侧栏">
+      <iframe id="assistantFrame" class="assistant-frame" src="about:blank" title="在线咨询 AI"></iframe>
+      <div id="assistantOverlay" class="assistant-overlay" aria-label="自动代发后的在线咨询对话">
+        <div id="assistantOverlayBody" class="assistant-overlay-body"></div>
+        <div class="assistant-overlay-input"><div class="assistant-overlay-input-box"></div></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="demo-bar" aria-label="原型步骤控制">
+    <div class="steps">
+      <span class="step-chip active" data-step-label="0"><span class="dot"></span>Step 0 异常单列表</span>
+      <span class="step-chip" data-step-label="1"><span class="dot"></span>Step 1 基本信息</span>
+      <span class="step-chip" data-step-label="2"><span class="dot"></span>Step 2 增值产品信息</span>
+    </div>
+    <div class="demo-actions">
+      <button type="button" id="backBtn">上一步</button>
+      <button class="primary" type="button" id="nextBtn">模拟点击：处理异常</button>
+    </div>
+  </div>
+
+  <section class="coach-card" id="coach">
+    <div class="coach-title" id="coachTitle">Step 0：异常单列表</div>
+    <div class="coach-text" id="coachText">当前展示线上导出的异常单列表。点击“模拟点击：处理异常”，进入客户处理异常的第一步基本信息。</div>
+    <div class="coach-actions">
+      <button class="primary" type="button" id="coachNext">模拟点击：处理异常</button>
+      <button class="ghost" type="button" id="skipStep2">直接看 Step 2 + 在线咨询 AI</button>
+    </div>
+  </section>
+
+  <script>
+    const eventNo = "EB0326062258";
+    const autoPrompt = `请根据异常单号 ${eventNo}  的当前异常情况，帮我判断应该选择哪个增值服务；如果有多个标准增值都可以，请先 问我想怎么处理，再推荐合适产品；如果需要走非标，请告诉我必须补充哪些信息，避免提交后被驳回`;
+    const pages = [
+      "../../../../增值配置AI化/增值单ai指引助手/参考线上页面/step0异常单列表.html",
+      "../../../../增值配置AI化/增值单ai指引助手/参考线上页面/step1点击处理异常跳转基本信息.html",
+      "../../../../增值配置AI化/增值单ai指引助手/参考线上页面/step2下一步填增值产品信息.html"
+    ];
+    const assistantPage = "../../../../增值配置AI化/增值单ai指引助手/ai助手单独页面.html";
+
+    const stepCopy = [
+      {
+        title: "Step 0：异常单列表",
+        text: "当前展示线上导出的异常单列表。点击“模拟点击：处理异常”，进入客户处理异常的第一步基本信息。",
+        action: "模拟点击：处理异常"
+      },
+      {
+        title: "Step 1：基本信息",
+        text: "客户在这一步确认异常事实。点击“模拟点击：下一步”，进入 Step 2 增值产品信息；此时系统自动打开右侧在线咨询 AI，并由前端代发异常单判断问题。",
+        action: "模拟点击：下一步"
+      },
+      {
+        title: "Step 2：增值产品信息",
+        text: "已进入线上导出的增值产品信息页面。右侧为线上在线咨询 AI 侧栏，历史内容已清空，并展示前端一键代发的问题和 AI 首轮追问。",
+        action: "重新播放自动代发"
+      }
+    ];
+
+    const workspace = document.getElementById("workspace");
+    const stageFrame = document.getElementById("stageFrame");
+    const assistantFrame = document.getElementById("assistantFrame");
+    const assistantOverlayBody = document.getElementById("assistantOverlayBody");
+    const coach = document.getElementById("coach");
+    const coachTitle = document.getElementById("coachTitle");
+    const coachText = document.getElementById("coachText");
+    const nextBtn = document.getElementById("nextBtn");
+    const backBtn = document.getElementById("backBtn");
+    const coachNext = document.getElementById("coachNext");
+    const skipStep2 = document.getElementById("skipStep2");
+    const stepChips = document.querySelectorAll("[data-step-label]");
+
+    let currentStep = 0;
+    let assistantLoadedOnce = false;
+
+    function setStep(step) {
+      currentStep = Math.max(0, Math.min(2, step));
+      stageFrame.src = pages[currentStep];
+      stepChips.forEach(chip => {
+        chip.classList.toggle("active", Number(chip.dataset.stepLabel) === currentStep);
+      });
+      coachTitle.textContent = stepCopy[currentStep].title;
+      coachText.textContent = stepCopy[currentStep].text;
+      nextBtn.textContent = stepCopy[currentStep].action;
+      coachNext.textContent = stepCopy[currentStep].action;
+      backBtn.disabled = currentStep === 0;
+      coach.style.display = currentStep === 2 ? "none" : "block";
+      workspace.classList.toggle("assistant-open", currentStep === 2);
+
+      if (currentStep === 2) {
+        openAssistant();
+      } else {
+        assistantFrame.src = "about:blank";
+        assistantOverlayBody.innerHTML = "";
+        assistantLoadedOnce = false;
+      }
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function buildConversationHtml() {
+      return `
+        <div class="ant-bubble css-ejgvwb ant-bubble-end" role="user" data-prototype-autosent="true">
+          <div class="ant-bubble-content ant-bubble-content-outlined" style="background:linear-gradient(270deg,rgb(241,230,255) 0%,rgb(221,224,255) 100%);border-radius:8px 8px 0 8px;border-color:rgb(240,240,240);padding:8px;min-height:36px">${escapeHtml(autoPrompt)}</div>
+        </div>
+        <div class="ant-bubble css-ejgvwb ant-bubble-start" role="assistant" data-prototype-autosent="true">
+          <div class="ant-bubble-content-wrapper">
+            <div class="ant-bubble-content ant-bubble-content-outlined prototype-ai-answer" style="border-radius:8px 8px 8px 0;background:#fff;border-color:rgb(240,240,240);padding:8px;min-height:36px">
+            <p>我先根据异常单号识别当前异常情况，再判断是否有明确标准增值可选。</p>
+            <p>如果多个标准增值都可以，我会先确认你的处理意图，再推荐合适产品。请先选择你想怎么处理：</p>
+            <button type="button">想重新建单上架，新单上架</button>
+            <button type="button">不想建新单，原单上架</button>
+            <button type="button">不要货，上架前销毁或上架前自提</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function injectIntoOnlineAssistant(doc) {
+      const style = doc.createElement("style");
+      style.id = "prototypeAssistantStyle";
+      style.textContent = `
+        html, body { width:100% !important; height:100% !important; margin:0 !important; overflow:hidden !important; background:#fff !important; }
+        #aiChatbotRoot { display:block !important; position:static !important; width:360px !important; height:100vh !important; border-left:0 !important; overflow:hidden !important; }
+        #aiChatbotRoot > div { width:360px !important; height:100vh !important; }
+        #aiChatbotRoot .ant-welcome,
+        #aiChatbotRoot .ant-divider,
+        #aiChatbotRoot [role="thinking"],
+        #aiChatbotRoot .ant-thought-chain { display:none !important; }
+        #aiChatbotRoot .acss-1rpaczy { background:linear-gradient(180deg,#fff 0%,#f3f2ff 100%) !important; }
+        #aiChatbotRoot .acss-10cqvkt { display:flex !important; flex-direction:column !important; gap:16px !important; }
+        #aiChatbotRoot .prototype-ai-answer p { margin:0 0 8px; }
+        #aiChatbotRoot .prototype-ai-answer p:last-of-type { margin-bottom:10px; }
+        #aiChatbotRoot .prototype-ai-answer button { display:block; width:100%; margin:8px 0 0; padding:7px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; color:rgba(0,0,0,.88); font:inherit; text-align:left; cursor:pointer; }
+      `;
+      doc.getElementById("prototypeAssistantStyle")?.remove();
+      doc.head.appendChild(style);
+
+      const root = doc.getElementById("aiChatbotRoot");
+      const chatList = doc.querySelector("#aiChatbotRoot .acss-10cqvkt");
+      if (!root || !chatList) {
+        return false;
+      }
+
+      doc.body.classList.add("aiChatbot_open");
+      chatList.innerHTML = buildConversationHtml();
+      doc.querySelectorAll("#aiChatbotRoot textarea, #aiChatbotRoot input[type='text'], #aiChatbotRoot [contenteditable='true']").forEach(el => {
+        if ("value" in el) {
+          el.value = "";
+        } else {
+          el.textContent = "";
+        }
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+
+      const scrollBody = doc.querySelector("#aiChatbotRoot .acss-1rpaczy");
+      if (scrollBody) {
+        scrollBody.scrollTop = scrollBody.scrollHeight;
+      }
+      return true;
+    }
+
+    function ensureFallbackAssistantShell(doc) {
+      const style = doc.createElement("style");
+      style.id = "prototypeFallbackAssistantStyle";
+      style.textContent = `
+        html, body { width:100% !important; height:100% !important; margin:0 !important; overflow:hidden !important; background:#fff !important; }
+        #prototypeAssistantRoot { display:flex; flex-direction:column; width:100%; height:100%; background:#fff; color:rgba(0,0,0,.88); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Arial,sans-serif; font-size:14px; }
+        #prototypeAssistantRoot .prototype-title { height:48px; flex:0 0 48px; display:flex; align-items:center; padding:0 16px; border-bottom:1px solid #f0f0f0; font-weight:600; }
+        #prototypeAssistantRoot .prototype-body { flex:1; overflow:auto; padding:16px 12px 12px; background:linear-gradient(180deg,#fff 0%,#faf7ff 100%); }
+        #prototypeAssistantRoot .prototype-body .ant-bubble { display:flex; column-gap:12px; margin-bottom:12px; }
+        #prototypeAssistantRoot .prototype-body .ant-bubble-end { justify-content:end; flex-direction:row-reverse; }
+        #prototypeAssistantRoot .prototype-body .ant-bubble-content { max-width:312px; box-sizing:border-box; color:rgba(0,0,0,.88); font-size:14px; line-height:1.5714285714; word-break:break-word; }
+        #prototypeAssistantRoot .prototype-ai-answer p { margin:0 0 8px; }
+        #prototypeAssistantRoot .prototype-ai-answer button { display:block; width:100%; margin:8px 0 0; padding:7px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; color:rgba(0,0,0,.88); font:inherit; text-align:left; cursor:pointer; }
+        #prototypeAssistantRoot .prototype-input { flex:0 0 auto; padding:10px 12px 12px; border-top:1px solid #f0f0f0; background:#fff; }
+        #prototypeAssistantRoot .prototype-input-box { min-height:70px; border:1px solid #d9d9d9; border-radius:8px; background:#fff; }
+      `;
+      doc.getElementById("prototypeFallbackAssistantStyle")?.remove();
+      doc.head.appendChild(style);
+
+      let root = doc.getElementById("prototypeAssistantRoot");
+      if (!root) {
+        root = doc.createElement("div");
+        root.id = "prototypeAssistantRoot";
+        doc.body.appendChild(root);
+      }
+      root.innerHTML = `
+        <div class="prototype-title">在线咨询</div>
+        <div class="prototype-body">${buildConversationHtml()}</div>
+        <div class="prototype-input"><div class="prototype-input-box"></div></div>
+      `;
+    }
+
+    function injectAssistantConversation() {
+      if (currentStep !== 2) {
+        return;
+      }
+
+      assistantOverlayBody.innerHTML = buildConversationHtml();
+      assistantOverlayBody.scrollTop = assistantOverlayBody.scrollHeight;
+
+      try {
+        const doc = assistantFrame.contentDocument || assistantFrame.contentWindow.document;
+        if (!injectIntoOnlineAssistant(doc)) {
+          ensureFallbackAssistantShell(doc);
+        }
+      } catch (error) {
+        // 原型文件与参考快照均为本地 file，同源时会直接注入；异常时保留原 AI 快照展示。
+      }
+    }
+
+    function openAssistant() {
+      assistantOverlayBody.innerHTML = buildConversationHtml();
+      assistantOverlayBody.scrollTop = assistantOverlayBody.scrollHeight;
+
+      if (!assistantLoadedOnce || !assistantFrame.src.includes("ai助手单独页面.html")) {
+        assistantLoadedOnce = true;
+        assistantFrame.src = assistantPage;
+      } else {
+        injectAssistantConversation();
+      }
+    }
+
+    assistantFrame.addEventListener("load", () => {
+      if (currentStep === 2) {
+        [200, 700, 1300].forEach(delay => {
+          window.setTimeout(injectAssistantConversation, delay);
+        });
+      }
+    });
+
+    function nextStep() {
+      if (currentStep < 2) {
+        setStep(currentStep + 1);
+      } else {
+        assistantLoadedOnce = false;
+        openAssistant();
+      }
+    }
+
+    function previousStep() {
+      setStep(currentStep - 1);
+    }
+
+    nextBtn.addEventListener("click", nextStep);
+    coachNext.addEventListener("click", nextStep);
+    backBtn.addEventListener("click", previousStep);
+    skipStep2.addEventListener("click", () => setStep(2));
+    setStep(0);
+  </script>
+</body>
+</html>
