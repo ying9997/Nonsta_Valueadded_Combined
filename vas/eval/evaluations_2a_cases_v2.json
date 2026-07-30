@@ -1,0 +1,155 @@
+[
+  {
+    "caseId": "C-2a-v2-2026W30-001",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "omt_1906b2094d8f1b86",
+    "vascNumber": "VASC000000324477",
+    "customerCode": "15908221",
+    "customerName": "上海门达科技有限公司",
+    "warehouse": "DEBR2 Warehouse",
+    "matchedAtom": {
+      "eventCode": "OW01V1622",
+      "name": "入库-提供无箱单预报单上架"
+    },
+    "evidenceSnippets": [
+      "2026-07-24 18:20 许晓妍: @吴洛锌 @吴爱红 VASC000000324477 IH000000107052 DEBR2 Warehouse 15908221 上海门达科技有限公司，不良品上架需要提供无箱单预报单，新单入库；原来在库的下出库单下架，再按不良品上架",
+      "2026-07-24 19:39 吴洛锌: 新增入库单单号WI51339338 出库单单号WO12120399145 增值单单号IH000000107052",
+      "2026-07-24 19:40 吴洛锌: 无箱单必须要填快递单号，我让客户随便填了个",
+      "2026-07-24 21:16 许晓妍: @吴洛锌 已审批，客户确认报价后告诉我，我批下出库单"
+    ],
+    "needsEnrichment": [
+      "无法从消息确定客户在非标页输入的原始自然语言",
+      "无法从消息确定该增值单最终提交页面所选原子字段截图"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "customerInput": "需要提供无箱单预报单，新单入库，把不良品上架到不良品库位。",
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedAtom": {
+          "eventCode": "OW01V1622",
+          "name": "入库-提供无箱单预报单上架"
+        },
+        "confirmationSummary": null
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问",
+        "不得推荐'入库其他服务需求'兜底项"
+      ]
+    }
+  },
+  {
+    "commentType": "extraction_note",
+    "message": "未找到 3 条真正 2a 场景；以下关键词在原始群聊消息中未找到满足“真实客户下单且最终选择该具体命名原子提交”的案例，或命中内容被规则排除。",
+    "unmatchedKeywords": [
+      {
+        "eventCode": "OW01V1594",
+        "name": "上架前自提（无需WINIT打托）",
+        "keywords": [
+          "自提",
+          "提货"
+        ],
+        "reason": "命中内容为出库自提、物流自提点或系统可选项问题，不是入库上架前自提增值下单。"
+      },
+      {
+        "eventCode": "OW01V1604",
+        "name": "上架前自提（需WINIT打托）",
+        "keywords": [
+          "自提",
+          "打托",
+          "提货"
+        ],
+        "reason": "命中内容为出库打托/提货或托盘材质审批，不是入库上架前自提且需 WINIT 打托的原子选择。"
+      },
+      {
+        "eventCode": "OW01V1654",
+        "name": "包裹串仓异常调拨",
+        "keywords": [
+          "串仓",
+          "调拨"
+        ],
+        "reason": "命中线程出现串仓描述，但最终消息显示原 VASC000000324507 被取消，未形成选择该命名原子提交的有效案例。"
+      },
+      {
+        "eventCode": "OW01V1610",
+        "name": "入库-单品指定位置开箱拍照",
+        "keywords": [
+          "开箱拍照",
+          "指定位置拍照"
+        ],
+        "reason": "命中内容主要是在讨论客户选不到该增值、异常单入口配置及系统支持范围，按规则排除配置/bug 场景。"
+      },
+      {
+        "eventCode": "OW01V1674",
+        "name": "入库-异常包裹开箱拍照",
+        "keywords": [
+          "异常包裹拍照",
+          "开箱拍照"
+        ],
+        "reason": "命中内容与开箱拍照配置/可选项问题重叠，无法确认最终选择的是该具体原子。"
+      },
+      {
+        "eventCode": "OW01V1599",
+        "name": "提供海外仓监控视频-少包裹调查",
+        "keywords": [
+          "监控视频",
+          "少包裹"
+        ],
+        "reason": "未找到真实客户提交该命名原子的入库增值案例。"
+      },
+      {
+        "eventCode": "OW01V1600",
+        "name": "提供海外仓监控视频-少单品调查",
+        "keywords": [
+          "监控视频",
+          "少单品"
+        ],
+        "reason": "命中“多少单品”等非服务语义，未找到监控视频少单品调查的真实下单案例。"
+      },
+      {
+        "eventCode": "OW01V1782",
+        "name": "A+包裹条码异常直接上架",
+        "keywords": [
+          "条码异常直接上架",
+          "A+包"
+        ],
+        "reason": "命中内容为 A+ 包条码识别/第三方条码填写咨询，没有 VASC 下单及选择该原子的结果。"
+      },
+      {
+        "eventCode": "OW01V1652",
+        "name": "入库-清除商品标签",
+        "keywords": [
+          "清除标签"
+        ],
+        "reason": "未找到真实客户提交该命名原子的入库增值案例。"
+      },
+      {
+        "eventCode": "OW01V1653",
+        "name": "Anker异常包裹良品/不良品辨识",
+        "keywords": [
+          "Anker",
+          "辨识"
+        ],
+        "reason": "Anker 命中为出库物流问题；“辨识”命中为泛化辨识或其他客户场景，无法映射到 Anker 专属原子。"
+      },
+      {
+        "eventCode": "OW01V1756",
+        "name": "Aiper辨识包裹外部温度贴纸颜色",
+        "keywords": [
+          "Aiper",
+          "温度贴纸"
+        ],
+        "reason": "未找到真实客户提交该命名原子的入库增值案例。"
+      },
+      {
+        "eventCode": "OW01V1760",
+        "name": "入库-指定商品质检(TOP GLORY)",
+        "keywords": [
+          "TOP GLORY",
+          "质检"
+        ],
+        "reason": "TOP GLORY 命中为出库非标增值，不是入库段 2a 命名原子下单。"
+      }
+    ]
+  }
+]
