@@ -133,7 +133,143 @@ Agent 输出结构化 JSON 并展示客户可见文案，建议客户取消当�
 
 ---
 
-## 示例二：非标SOP（其他服务需求 + 追问）
+## 示例二：非标免审（命名服务直选）
+
+### 场景说明
+
+| 字段 | 值 |
+|------|-----|
+| 案例编号 | C-2a-v2-2026W30-001 |
+| 客户 | 上海门达科技有限公司（15908221） |
+| 仓库 | DEBR2 Warehouse |
+| 异常单号 | VASC000000324477 / IH000000107052 |
+| 客户进入页面 | 非标增值提交页（入库） |
+| 客户原始需求 | 需要提供无箱单预报单，新单入库，把不良品上架到不良品库位 |
+| 命中原子 | OW01V1622「入库-提供无箱单预报单上架」 |
+| 判定结论 | 需求精确命中候选内具体非标服务项，直接指引选择，不进入 SOP 追问 |
+
+### 完整对话流
+
+#### Turn 1：客户输入
+
+```
+客户在非标增值提交页的智能引导输入框描述：
+"需要提供无箱单预报单，新单入库，把不良品上架到不良品库位。"
+```
+
+#### Turn 2：Agent 判定过程
+
+```text
+1. 检查 popupContext：无 popupContext，执行 2d 标准增值纠偏检查
+2. 2d 检查结果：候选内标准增值无法覆盖"无箱单预报单上架"需求 → 跳过 2d
+3. 2a 判定：
+   - 候选 systemScopedVascList 中存在原子 OW01V1622「入库-提供无箱单预报单上架」
+   - 原子描述："客户使用无箱单预报单入库，但是货物到仓后发现无箱单识别标识丢失，
+     导致仓库无法正常上架，客户需提供原始无箱单信息，以便仓库能够正确处理货物并完成上架操作。"
+   - 客户输入关键词"无箱单预报单"+"上架"精确命中该原子
+   - 该原子属于产品"新单上架（客户提供预报单）"（VASC202412111831129），productType = nonstandard_no_review
+   - 该原子不是"入库其他服务需求"兜底项
+4. 判定结果：route = 2a_named_nonstandard_direct
+   - 直接指引选择该增值产品和服务项
+   - 不进入 SOP 长追问
+```
+
+#### Turn 3：Agent 输出
+
+Agent 直接输出匹配结果，指引客户在页面选择对应产品和原子。
+
+### Agent 输出的结构化 JSON（AgentGuideResult）
+
+```json
+{
+  "requestId": "req_20260724_C2a001",
+  "conversationId": "conv_VASC000000324477",
+  "turnId": "turn_0001",
+  "route": "2a_named_nonstandard_direct",
+  "matchState": "matched",
+  "matchConfidence": 0.95,
+  "matchedCandidateId": "VASC202412111831129:OW01V1622",
+  "selectedVasc": {
+    "candidateId": "VASC202412111831129:OW01V1622",
+    "vascCode": "VASC202412111831129",
+    "vascName": "新单上架（客户提供预报单）",
+    "vascType": "nonstandard"
+  },
+  "selectedService": {
+    "serviceCode": "OW01V1622",
+    "serviceName": "入库-提供无箱单预报单上架",
+    "serviceKind": "named_nonstandard",
+    "serviceDomain": "inbound"
+  },
+  "fieldSuggestions": {},
+  "confirmationSummary": "",
+  "missingFields": [],
+  "attachmentRequirements": [],
+  "attachmentCheck": {
+    "state": "not_checked",
+    "missingRequired": [],
+    "warnings": []
+  },
+  "pageActions": [
+    {
+      "action": "select_service",
+      "target": "vasc_product_selector",
+      "valueRef": "selectedVasc.vascCode",
+      "label": "选择增值产品「新单上架（客户提供预报单）」",
+      "enabled": true
+    },
+    {
+      "action": "select_service",
+      "target": "vasc_atom_selector",
+      "valueRef": "selectedService.serviceCode",
+      "label": "选择服务项「入库-提供无箱单预报单上架」",
+      "enabled": true
+    },
+    {
+      "action": "copy_text",
+      "target": "aiResult",
+      "valueRef": "customerMessage",
+      "label": "复制建议",
+      "enabled": true
+    }
+  ],
+  "displayText": "已匹配具体非标服务项「入库-提供无箱单预报单上架」，请直接选择该服务项。",
+  "customerMessage": "您的需求已精确匹配到非标增值服务：\n\n增值产品：新单上架（客户提供预报单）\n服务项：入库-提供无箱单预报单上架\n\n请在页面【增值产品】中选择上述产品，并在服务项中勾选「入库-提供无箱单预报单上架」。\n\n该服务适用于：客户使用无箱单预报单入库，货物到仓后无箱单识别标识丢失，需提供原始无箱单信息以便仓库完成上架。\n\n选择后请按页面提示填写必要字段并提交。",
+  "decisionTrace": {
+    "intentMatched": true,
+    "candidateMatched": true,
+    "routeSource": "selectedCandidate.routeBranch",
+    "routeRewriteApplied": false
+  }
+}
+```
+
+### 客户看到的展示文案（customerMessage）
+
+> 您的需求已精确匹配到非标增值服务：
+>
+> **增值产品**：新单上架（客户提供预报单）  
+> **服务项**：入库-提供无箱单预报单上架
+>
+> 请在页面【增值产品】中选择上述产品，并在服务项中勾选「入库-提供无箱单预报单上架」。
+>
+> 该服务适用于：客户使用无箱单预报单入库，货物到仓后无箱单识别标识丢失，需提供原始无箱单信息以便仓库完成上架。
+>
+> 选择后请按页面提示填写必要字段并提交。
+
+### 页面动作（pageActions）
+
+| 序号 | action | target | label | enabled |
+|------|--------|--------|-------|---------|
+| 1 | `select_service` | `vasc_product_selector` | 选择增值产品「新单上架（客户提供预报单）」 | true |
+| 2 | `select_service` | `vasc_atom_selector` | 选择服务项「入库-提供无箱单预报单上架」 | true |
+| 3 | `copy_text` | `aiResult` | 复制建议 | true |
+
+**注意**：2a 分支直接指引选择，不生成 SOP 长文，不进入多轮追问，不启用 `fill_field` 写入"需求背景说明"/"需求描述"字段（该分支由具体原子自身的必填字段驱动）。
+
+---
+
+## 示例三：非标SOP（其他服务需求 + 追问）
 
 ### 场景说明
 
@@ -318,142 +454,6 @@ Agent 输出结构化 JSON 并展示客户可见文案，建议客户取消当�
 | 3 | `copy_text` | `aiResult` | 复制建议 | true |
 
 **注意**：2b 分支经过 SOP 追问补齐信息后才启用 `fill_field`；确认摘要必须包含"客户确认不等于审核通过"。
-
----
-
-## 示例三：非标免审（命名服务直选）
-
-### 场景说明
-
-| 字段 | 值 |
-|------|-----|
-| 案例编号 | C-2a-v2-2026W30-001 |
-| 客户 | 上海门达科技有限公司（15908221） |
-| 仓库 | DEBR2 Warehouse |
-| 异常单号 | VASC000000324477 / IH000000107052 |
-| 客户进入页面 | 非标增值提交页（入库） |
-| 客户原始需求 | 需要提供无箱单预报单，新单入库，把不良品上架到不良品库位 |
-| 命中原子 | OW01V1622「入库-提供无箱单预报单上架」 |
-| 判定结论 | 需求精确命中候选内具体非标服务项，直接指引选择，不进入 SOP 追问 |
-
-### 完整对话流
-
-#### Turn 1：客户输入
-
-```
-客户在非标增值提交页的智能引导输入框描述：
-"需要提供无箱单预报单，新单入库，把不良品上架到不良品库位。"
-```
-
-#### Turn 2：Agent 判定过程
-
-```text
-1. 检查 popupContext：无 popupContext，执行 2d 标准增值纠偏检查
-2. 2d 检查结果：候选内标准增值无法覆盖"无箱单预报单上架"需求 → 跳过 2d
-3. 2a 判定：
-   - 候选 systemScopedVascList 中存在原子 OW01V1622「入库-提供无箱单预报单上架」
-   - 原子描述："客户使用无箱单预报单入库，但是货物到仓后发现无箱单识别标识丢失，
-     导致仓库无法正常上架，客户需提供原始无箱单信息，以便仓库能够正确处理货物并完成上架操作。"
-   - 客户输入关键词"无箱单预报单"+"上架"精确命中该原子
-   - 该原子属于产品"新单上架（客户提供预报单）"（VASC202412111831129），productType = nonstandard_no_review
-   - 该原子不是"入库其他服务需求"兜底项
-4. 判定结果：route = 2a_named_nonstandard_direct
-   - 直接指引选择该增值产品和服务项
-   - 不进入 SOP 长追问
-```
-
-#### Turn 3：Agent 输出
-
-Agent 直接输出匹配结果，指引客户在页面选择对应产品和原子。
-
-### Agent 输出的结构化 JSON（AgentGuideResult）
-
-```json
-{
-  "requestId": "req_20260724_C2a001",
-  "conversationId": "conv_VASC000000324477",
-  "turnId": "turn_0001",
-  "route": "2a_named_nonstandard_direct",
-  "matchState": "matched",
-  "matchConfidence": 0.95,
-  "matchedCandidateId": "VASC202412111831129:OW01V1622",
-  "selectedVasc": {
-    "candidateId": "VASC202412111831129:OW01V1622",
-    "vascCode": "VASC202412111831129",
-    "vascName": "新单上架（客户提供预报单）",
-    "vascType": "nonstandard"
-  },
-  "selectedService": {
-    "serviceCode": "OW01V1622",
-    "serviceName": "入库-提供无箱单预报单上架",
-    "serviceKind": "named_nonstandard",
-    "serviceDomain": "inbound"
-  },
-  "fieldSuggestions": {},
-  "confirmationSummary": "",
-  "missingFields": [],
-  "attachmentRequirements": [],
-  "attachmentCheck": {
-    "state": "not_checked",
-    "missingRequired": [],
-    "warnings": []
-  },
-  "pageActions": [
-    {
-      "action": "select_service",
-      "target": "vasc_product_selector",
-      "valueRef": "selectedVasc.vascCode",
-      "label": "选择增值产品「新单上架（客户提供预报单）」",
-      "enabled": true
-    },
-    {
-      "action": "select_service",
-      "target": "vasc_atom_selector",
-      "valueRef": "selectedService.serviceCode",
-      "label": "选择服务项「入库-提供无箱单预报单上架」",
-      "enabled": true
-    },
-    {
-      "action": "copy_text",
-      "target": "aiResult",
-      "valueRef": "customerMessage",
-      "label": "复制建议",
-      "enabled": true
-    }
-  ],
-  "displayText": "已匹配具体非标服务项「入库-提供无箱单预报单上架」，请直接选择该服务项。",
-  "customerMessage": "您的需求已精确匹配到非标增值服务：\n\n增值产品：新单上架（客户提供预报单）\n服务项：入库-提供无箱单预报单上架\n\n请在页面【增值产品】中选择上述产品，并在服务项中勾选「入库-提供无箱单预报单上架」。\n\n该服务适用于：客户使用无箱单预报单入库，货物到仓后无箱单识别标识丢失，需提供原始无箱单信息以便仓库完成上架。\n\n选择后请按页面提示填写必要字段并提交。",
-  "decisionTrace": {
-    "intentMatched": true,
-    "candidateMatched": true,
-    "routeSource": "selectedCandidate.routeBranch",
-    "routeRewriteApplied": false
-  }
-}
-```
-
-### 客户看到的展示文案（customerMessage）
-
-> 您的需求已精确匹配到非标增值服务：
->
-> **增值产品**：新单上架（客户提供预报单）  
-> **服务项**：入库-提供无箱单预报单上架
->
-> 请在页面【增值产品】中选择上述产品，并在服务项中勾选「入库-提供无箱单预报单上架」。
->
-> 该服务适用于：客户使用无箱单预报单入库，货物到仓后无箱单识别标识丢失，需提供原始无箱单信息以便仓库完成上架。
->
-> 选择后请按页面提示填写必要字段并提交。
-
-### 页面动作（pageActions）
-
-| 序号 | action | target | label | enabled |
-|------|--------|--------|-------|---------|
-| 1 | `select_service` | `vasc_product_selector` | 选择增值产品「新单上架（客户提供预报单）」 | true |
-| 2 | `select_service` | `vasc_atom_selector` | 选择服务项「入库-提供无箱单预报单上架」 | true |
-| 3 | `copy_text` | `aiResult` | 复制建议 | true |
-
-**注意**：2a 分支直接指引选择，不生成 SOP 长文，不进入多轮追问，不启用 `fill_field` 写入"需求背景说明"/"需求描述"字段（该分支由具体原子自身的必填字段驱动）。
 
 ---
 
