@@ -141,7 +141,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 
         <div class="nonstd-area" id="nonstdArea">
           <section class="ai-panel show" id="ai-window-2">
-            <div class="ai-title"><span class="ai-title-main"><span>🤖 AI SOP 生成窗口</span><span>入库其他服务需求 OW01V1602</span></span><button class="ai-collapse-btn" id="toggle-window-2">收起</button></div>
+            <div class="ai-title"><span class="ai-title-main"><span>🤖 AI 特批非标增值指引助手</span><span>入库其他服务需求 OW01V1602</span></span><button class="ai-collapse-btn" id="toggle-window-2">收起</button></div>
             <div class="ai-window-2-body" id="ai-window-2-body">
               <div class="chat tall" id="chat-window-2"></div>
               <div id="sop-container"></div>
@@ -412,21 +412,26 @@ function bootWindow2() {
 
 function renderSopCard(orderNo) {
   document.getElementById("sop-container").innerHTML = `
-  <div class="sop-card">
-    <div class="sop-title">📋 操作 SOP — 入库条码换标后上架</div>
-    <div class="sop-section"><h4>一、操作目的</h4><p>按条码对应关系将原商品条码替换为新条码，换标完成后上架到新入库单。</p></div>
-    <div class="sop-section"><h4>二、适用范围</h4><p>入库单 WI51339338 内全部包裹。</p></div>
-    <div class="sop-section">
-      <h4>三、操作步骤</h4>
-      <div class="sop-step"><strong>第 1 步：</strong><ul><li><b>操作说明：</b>核对附件中的条码对应关系表，确认原条码与新条码映射。</li><li><b>注意事项：</b>逐件核对，不可批量替换未确认的条码。</li><li><b>工具/材料：</b>条码对应关系文件（您需上传）、标签打印机。</li></ul></div>
-      <div class="sop-step"><strong>第 2 步：</strong><ul><li><b>操作说明：</b>撕除原商品条码，粘贴新条码至相同位置。</li><li><b>注意事项：</b>确保新标签平整无气泡，位置与原标签一致。</li><li><b>工具/材料：</b>新条码标签、刮板。</li></ul></div>
-      <div class="sop-step"><strong>第 3 步：</strong><ul><li><b>操作说明：</b>换标完成后扫描新条码确认系统识别，上架到新入库单 ${orderNo}。</li><li><b>注意事项：</b>上架前拍照留存换标前后对比。</li><li><b>工具/材料：</b>扫码枪。</li></ul></div>
+  <div class="msg ai">
+    <div class="avatar">AI</div>
+    <div class="bubble" style="padding:0; border:none; background:transparent;">
+      <div class="sop-card">
+        <div class="sop-title">📋 操作 SOP — 入库条码换标后上架</div>
+        <div class="sop-section"><h4>一、操作目的</h4><p>按条码对应关系将原商品条码替换为新条码，换标完成后上架到新入库单。</p></div>
+        <div class="sop-section"><h4>二、适用范围</h4><p>入库单 WI51339338 内全部包裹。</p></div>
+        <div class="sop-section">
+          <h4>三、操作步骤</h4>
+          <div class="sop-step"><strong>第 1 步：</strong><ul><li><b>操作说明：</b>核对附件中的条码对应关系表，确认原条码与新条码映射。</li><li><b>注意事项：</b>逐件核对，不可批量替换未确认的条码。</li><li><b>工具/材料：</b>条码对应关系文件（您需上传）、标签打印机。</li></ul></div>
+          <div class="sop-step"><strong>第 2 步：</strong><ul><li><b>操作说明：</b>撕除原商品条码，粘贴新条码至相同位置。</li><li><b>注意事项：</b>确保新标签平整无气泡，位置与原标签一致。</li><li><b>工具/材料：</b>新条码标签、刮板。</li></ul></div>
+          <div class="sop-step"><strong>第 3 步：</strong><ul><li><b>操作说明：</b>换标完成后扫描新条码确认系统识别，上架到新入库单 ${orderNo}。</li><li><b>注意事项：</b>上架前拍照留存换标前后对比。</li><li><b>工具/材料：</b>扫码枪。</li></ul></div>
+        </div>
+        <div class="sop-section"><h4>四、关键输出</h4><p>操作完成后仓库会提供：每件商品换标前后对比照片、上架确认记录。</p></div>
+        <div class="sop-section"><h4>五、异常处理</h4><ul><li><b>条码无法识别：</b>暂停该件操作，拍照留存，等待您确认后续处理。</li><li><b>对应关系文件有误：</b>暂停操作，联系您核实正确映射关系。</li></ul></div>
+        <div class="sop-section"><h4>六、附件要求</h4><p>您需要准备以下资料：</p><ul><li>✅ 条码对应关系文件（必需，Excel/PDF 格式）</li><li>⬜ 换标位置示意图（建议提供，便于仓库准确操作）</li></ul></div>
+        <div class="sop-footer">⚠️ 客户确认不等于审核通过，最终以审核结果为准。</div>
+        <div class="sop-actions"><button class="btn btn-primary" onclick="confirmSop()">✅ 确认 SOP</button><button class="btn btn-default" onclick="editSop()">✏️ 我要修改</button></div>
+      </div>
     </div>
-    <div class="sop-section"><h4>四、关键输出</h4><p>操作完成后仓库会提供：每件商品换标前后对比照片、上架确认记录。</p></div>
-    <div class="sop-section"><h4>五、异常处理</h4><ul><li><b>条码无法识别：</b>暂停该件操作，拍照留存，等待您确认后续处理。</li><li><b>对应关系文件有误：</b>暂停操作，联系您核实正确映射关系。</li></ul></div>
-    <div class="sop-section"><h4>六、附件要求</h4><p>您需要准备以下资料：</p><ul><li>✅ 条码对应关系文件（必需，Excel/PDF 格式）</li><li>⬜ 换标位置示意图（建议提供，便于仓库准确操作）</li></ul></div>
-    <div class="sop-footer">⚠️ 客户确认不等于审核通过，最终以审核结果为准。</div>
-    <div class="sop-actions"><button class="btn btn-primary" onclick="confirmSop()">✅ 确认 SOP</button><button class="btn btn-default" onclick="editSop()">✏️ 我要修改</button></div>
   </div>`;
   document.getElementById("fill-actions").classList.remove("show");
   resetNonstandardFee();
