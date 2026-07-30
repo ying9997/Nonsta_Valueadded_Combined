@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>方案乙演示 - 对话流原型</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#f5f6f8;color:#1f2329;font:14px/1.5 Arial,"Microsoft YaHei",sans-serif}
+    button,input,textarea,select{font:inherit}
+    .page{max-width:1240px;margin:0 auto;padding:16px 20px 40px}
+    .notice{background:#fff7e6;border:1px solid #ffd591;padding:8px 12px;border-radius:4px;margin-bottom:10px}
+    .steps{display:flex;gap:8px;margin:8px 0 12px;flex-wrap:wrap}
+    .step{padding:6px 12px;border-radius:16px;background:#e8eaed;color:#646a73}
+    .step.active{background:#8a5a2b;color:#fff}
+    .card{background:#fff;border:1px solid #dee0e3;border-radius:6px;margin-bottom:10px}
+    .card-h{padding:10px 12px;border-bottom:1px solid #eff0f1;font-weight:700}
+    .card-b{padding:12px}
+    .compact-grid{display:grid;grid-template-columns:220px 1fr 260px 120px;gap:10px;align-items:start}
+    .field{display:grid;grid-template-columns:120px 1fr;gap:6px;align-items:start;margin-bottom:8px}
+    .field label{font-weight:600;color:#4e5969}
+    .field input,.field textarea{width:100%;border:1px solid #c9cdd4;border-radius:4px;padding:6px 8px;background:#fff}
+    .field textarea{min-height:70px;resize:vertical}
+    .service-list label{display:block;margin-bottom:8px}
+    .file-btn{display:block;width:100%;margin-bottom:6px;border:1px solid #c9cdd4;background:#fff;border-radius:4px;padding:6px;text-align:left}
+    .hint{font-size:12px;color:#d46b08}
+    .price{color:#7b4d24;font-size:13px}
+    .bottom{display:flex;gap:8px;justify-content:center;margin-top:12px}
+    .btn{border:1px solid #c9cdd4;background:#fff;border-radius:4px;padding:6px 12px;cursor:pointer;color:#1f2329}
+    .btn.primary{background:#8a5a2b;color:#fff;border-color:#8a5a2b}
+    .btn.text{border-color:#ead8c4;color:#8a5a2b;background:#fffaf3}
+    .btn.active{background:#8a5a2b;color:#fff;border-color:#8a5a2b}
+    .btn[disabled]{opacity:.48;cursor:not-allowed}
+    .ai-panel{border:1px solid #8a5a2b;background:#fffaf3;border-radius:6px;margin-bottom:10px}
+    .ai-head{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid #ead8c4}
+    .ai-title{font-weight:700}
+    .ai-body{padding:12px;display:grid;gap:10px}
+    .route-tabs{display:flex;gap:6px;flex-wrap:wrap}
+    .tag{display:inline-block;padding:2px 8px;border-radius:12px;background:#f5eadc;color:#8a5a2b;font-size:12px}
+    .dialog-shell{background:#fff;border:1px solid #ead8c4;border-radius:6px;min-height:360px;max-height:520px;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+    .msg{display:flex;gap:8px;align-items:flex-start;max-width:82%;opacity:0;transform:translateY(8px);animation:rise .22s ease forwards}
+    .msg.agent{align-self:flex-start}
+    .msg.customer{align-self:flex-end;flex-direction:row-reverse}
+    .avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 28px}
+    .agent .avatar{background:#8a5a2b;color:#fff}
+    .customer .avatar{background:#eef0f3;color:#4e5969}
+    .bubble{border:1px solid #ead8c4;border-radius:6px;padding:9px 10px;background:#fffaf3;white-space:pre-line}
+    .customer .bubble{background:#fff;border-color:#dee0e3}
+    .cardlet{background:#fff;border:1px solid #ead8c4;border-radius:6px;margin-top:8px;overflow:hidden;white-space:normal}
+    .cardlet-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid #f3e5d6;font-weight:700;color:#7b4d24;background:#fffaf3}
+    .cardlet-b{padding:10px;display:grid;gap:8px}
+    .kv{display:grid;grid-template-columns:112px 1fr;gap:6px}
+    .kv span:first-child{color:#646a73}
+    .mini-list{margin:0;padding-left:18px}
+    .ai-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .json-box{background:#282c34;color:#f3f4f6;border-radius:4px;padding:9px;overflow:auto;max-height:180px;font:12px/1.45 Consolas,"Courier New",monospace;white-space:pre}
+    .requirement{background:#fffbe6;border:1px solid #ffe58f;border-radius:4px;padding:8px;margin-top:6px}
+    .meta{font-size:12px;color:#646a73}
+    .filled{outline:2px solid rgba(138,90,43,.28)}
+    @keyframes rise{to{opacity:1;transform:none}}
+    @media(max-width:768px){
+      .page{padding:12px 10px 32px}
+      .compact-grid{grid-template-columns:1fr}
+      .field{grid-template-columns:1fr}
+      .ai-head{flex-direction:column}
+      .msg{max-width:100%}
+      .kv{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="notice">检测到您的账号未绑定微信账号，为给您提供更便捷的服务，请尽快绑定微信。</div>
+    <div class="steps">
+      <span class="step">1 基础信息</span>
+      <span class="step active">2 增值产品信息</span>
+      <span class="step">3 确认提交</span>
+    </div>
+
+    <section class="ai-panel" data-guide-point="ai-top-inline-panel">
+      <div class="ai-head">
+        <div>
+          <div class="ai-title">AI 非标需求引导</div>
+          <div class="meta">方案乙演示：按文档中的 2d、2a、2b 三个分支自动播放对话流。</div>
+        </div>
+        <span class="tag">方案乙</span>
+      </div>
+      <div class="ai-body">
+        <div class="route-tabs" role="tablist" aria-label="演示分支">
+          <button class="btn active" data-demo="2d" role="tab" aria-selected="true">演示 2d</button>
+          <button class="btn" data-demo="2a" role="tab" aria-selected="false">演示 2a</button>
+          <button class="btn" data-demo="2b" role="tab" aria-selected="false">演示 2b</button>
+        </div>
+        <div id="dialog" class="dialog-shell" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-h">增值产品信息</div>
+      <div class="card-b compact-grid">
+        <div data-guide-point="vasc-selector">
+          <div class="meta">增值产品</div>
+          <select id="vascProduct" style="width:100%;border:1px solid #c9cdd4;border-radius:4px;padding:6px 8px;margin:4px 0 10px">
+            <option>入库非标增值（特批）</option>
+            <option>新单上架（客户提供预报单）</option>
+            <option>出库-包裹开箱拍照（标准增值）</option>
+          </select>
+          <div class="service-list">
+            <label><input type="checkbox" value="OW01V1622" id="svc1622"> 入库-提供无箱单预报单上架</label>
+            <label><input type="checkbox" value="OW01V1602" id="svc1602" checked> 入库其他服务需求</label>
+          </div>
+        </div>
+        <div data-guide-point="service-requirements">
+          <div class="field"><label>包裹条码</label><input placeholder="请输入"></div>
+          <div class="field"><label>商品条码</label><input placeholder="请输入"></div>
+          <div class="field"><label>上架入库单号</label><input placeholder="请输入"></div>
+          <div class="field"><label>需求背景说明</label><textarea id="vaAtoms_OW01V1602_attributes_BEOR_attributeValue" placeholder="请输入"></textarea></div>
+          <div class="field"><label>需求描述</label><textarea id="vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_RD_attributeValue" placeholder="请输入"></textarea></div>
+        </div>
+        <div data-guide-point="attachment-area">
+          <button class="file-btn" id="vaAtoms_OW01V1602_vasFiles_VAS_ATTR_REL_TCRBCAL">操作说明附件</button>
+          <div id="attachmentHint" class="requirement">附件提示将在 AI 确认后展示。</div>
+          <button class="file-btn">商品和标签的对应关系</button>
+          <button class="file-btn">包裹和标签的对应关系</button>
+          <button class="file-btn">标签文件</button>
+          <div class="hint">仅支持 DOC、PDF、XLS、XLSX、图片或压缩包等格式。</div>
+        </div>
+        <div class="price">以实际报价为准，审核完成后请确认报价。</div>
+      </div>
+    </section>
+    <div class="bottom" data-guide-point="bottom-actions">
+      <button class="btn">上一步</button>
+      <button class="btn">保存草稿</button>
+      <button class="btn primary">提交</button>
+    </div>
+  </main>
+
+  <script>
+    const fields = {
+      background: document.getElementById("vaAtoms_OW01V1602_attributes_BEOR_attributeValue"),
+      description: document.getElementById("vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_RD_attributeValue"),
+      attachmentHint: document.getElementById("attachmentHint"),
+      product: document.getElementById("vascProduct"),
+      svc1602: document.getElementById("svc1602"),
+      svc1622: document.getElementById("svc1622")
+    };
+
+    const data = {
+      "2d": {
+        steps: [
+          {
+            role: "customer",
+            text: "包裹出库时需要将文件放置在箱内，并要求仓库做完增值后拍照确认，确认文件已经放入。"
+          },
+          {
+            role: "agent",
+            text: "您的需求可由标准增值「包裹开箱拍照」覆盖，无需提交非标增值。",
+            cards: [
+              {
+                title: "建议返回标准增值路径",
+                rows: [
+                  ["route", "2d_standard_redirect"],
+                  ["建议选择", "出库-包裹开箱拍照（标准增值）"],
+                  ["服务项", "包裹开箱拍照"],
+                  ["页面动作", "返回标准增值页面，选择「包裹开箱拍照」"]
+                ],
+                body: "您好，您描述的需求（做完增值后拍照确认文件放入）可以通过标准增值服务「包裹开箱拍照」实现。\n\n1. 取消当前非标增值单 VASC000000321777\n2. 返回标准增值页面，选择「包裹开箱拍照」提交\n3. 提交前请确认：标准服务定义中开箱拍照是否能覆盖您需要拍到的「箱内文件放置」场景\n\n如标准服务定义不支持拍到箱内文件，请再回到非标页面提交。",
+                actions: [
+                  {label: "返回标准增值页面，选择「包裹开箱拍照」", kind: "hint"}
+                ],
+                json: {
+                  route: "2d_standard_redirect",
+                  matchState: "matched",
+                  matchConfidence: 0.88,
+                  selectedVasc: {vascName: "出库-包裹开箱拍照（标准增值）", vascType: "standard"},
+                  selectedService: {serviceName: "包裹开箱拍照"},
+                  fieldSuggestions: {},
+                  confirmationSummary: "",
+                  pageActions: [{action: "navigate_hint", label: "返回标准增值页面，选择「包裹开箱拍照」"}]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "2a": {
+        steps: [
+          {
+            role: "customer",
+            text: "需要提供无箱单预报单，新单入库，把不良品上架到不良品库位。"
+          },
+          {
+            role: "agent",
+            text: "已匹配具体非标服务项「入库-提供无箱单预报单上架」，请直接选择该服务项。",
+            cards: [
+              {
+                title: "推荐结果",
+                rows: [
+                  ["route", "2a_named_nonstandard_direct"],
+                  ["增值产品", "新单上架（客户提供预报单）"],
+                  ["服务项", "入库-提供无箱单预报单上架"],
+                  ["原子编码", "OW01V1622"]
+                ],
+                body: "您的需求已精确匹配到非标增值服务：\n\n增值产品：新单上架（客户提供预报单）\n服务项：入库-提供无箱单预报单上架\n\n请在页面【增值产品】中选择上述产品，并在服务项中勾选「入库-提供无箱单预报单上架」。\n\n该服务适用于：客户使用无箱单预报单入库，货物到仓后无箱单识别标识丢失，需提供原始无箱单信息以便仓库完成上架。\n\n选择后请按页面提示填写必要字段并提交。",
+                actions: [
+                  {label: "选择增值产品「新单上架（客户提供预报单）」", kind: "select2a"},
+                  {label: "选择服务项「入库-提供无箱单预报单上架」", kind: "select2a"}
+                ],
+                json: {
+                  route: "2a_named_nonstandard_direct",
+                  matchState: "matched",
+                  matchConfidence: 0.95,
+                  selectedVasc: {vascCode: "VASC202412111831129", vascName: "新单上架（客户提供预报单）", vascType: "nonstandard"},
+                  selectedService: {serviceCode: "OW01V1622", serviceName: "入库-提供无箱单预报单上架"},
+                  fieldSuggestions: {},
+                  confirmationSummary: "",
+                  pageActions: [
+                    {action: "select_service", label: "选择增值产品「新单上架（客户提供预报单）」"},
+                    {action: "select_service", label: "选择服务项「入库-提供无箱单预报单上架」"}
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "2b": {
+        final: {
+          background: "客户 CREALITY 3D TECHNOLOGY LLC（16585492）USTX Warehouse，客户同事已到仓库完成维修和不良品标记，现需仓库按照标记对指定不良品做销毁处理。",
+          description: "请按照附件中的销毁指示照片，对照片中标记的不良品进行销毁。销毁对象以客户上传的照片标记为准。客户确认不等于审核通过。",
+          attachment: "附件要求：请将销毁对象照片（含标记指示）上传到【操作说明附件】。"
+        },
+        steps: [
+          {
+            role: "customer",
+            text: "我们需要销毁部分不良品，之前客户同事已经去仓库维修过，有拍照标记了哪些要销毁。"
+          },
+          {
+            role: "agent",
+            text: "已识别为销毁需求。为了帮您完善提交信息，需要补充以下内容：",
+            cards: [
+              {
+                title: "追问卡片",
+                rows: [
+                  ["route", "2b_other_service_sop"],
+                  ["matchState", "partial"],
+                  ["matchConfidence", "0.72"],
+                  ["命中服务项", "入库其他服务需求（OW01V1602）"]
+                ],
+                listTitle: "请补充",
+                list: ["请上传销毁对象的照片指示（标记哪些产品需要销毁）", "请提供操作SOP或书面指示文档"],
+                body: "您提到客户同事已去仓库拍照标记，请将这些照片上传到增值单附件中。",
+                json: {
+                  route: "2b_other_service_sop",
+                  matchState: "partial",
+                  matchConfidence: 0.72,
+                  missingFields: ["销毁对象照片指示（哪些产品需要销毁）", "操作SOP或书面指示文档"]
+                }
+              }
+            ]
+          },
+          {
+            role: "customer",
+            text: "照片在客户和仓库的维修群里，我让客户把照片发给我上传。SOP 的话就是按照片标记的产品做销毁就行。"
+          },
+          {
+            role: "agent",
+            text: "已为您匹配「入库其他服务需求」，处理方式为销毁。",
+            cards: [
+              {
+                title: "确认摘要",
+                rows: [
+                  ["route", "2b_other_service_sop"],
+                  ["matchState", "matched"],
+                  ["matchConfidence", "0.82"],
+                  ["服务项", "入库其他服务需求"]
+                ],
+                body: "客户 CREALITY 3D TECHNOLOGY LLC（16585492）需要仓库按照附件照片标记对不良品做销毁处理。操作依据：客户同事到仓库维修时拍照标记的产品。客户确认不等于审核通过。",
+                actions: [
+                  {label: "填入需求背景说明", kind: "fillBackground"},
+                  {label: "填入需求描述", kind: "fillDescription"}
+                ],
+                extra: "附件要求：请将销毁对象照片（含标记指示）上传到【操作说明附件】。\n\n提示：字段建议仅用于创建申请，客户确认不等于审核通过。",
+                json: {
+                  route: "2b_other_service_sop",
+                  matchState: "matched",
+                  matchConfidence: 0.82,
+                  selectedVasc: {vascCode: "VASC202411192246131", vascName: "入库非标增值（特批）", vascType: "nonstandard"},
+                  selectedService: {serviceCode: "OW01V1602", serviceName: "入库其他服务需求"},
+                  fieldSuggestions: {
+                    background: "客户 CREALITY 3D TECHNOLOGY LLC（16585492）USTX Warehouse，客户同事已到仓库完成维修和不良品标记，现需仓库按照标记对指定不良品做销毁处理。",
+                    description: "请按照附件中的销毁指示照片，对照片中标记的不良品进行销毁。销毁对象以客户上传的照片标记为准。客户确认不等于审核通过。"
+                  },
+                  confirmationSummary: "客户 CREALITY 3D TECHNOLOGY LLC（16585492）需要仓库按照附件照片标记对不良品做销毁处理。操作依据：客户同事到仓库维修时拍照标记的产品。客户确认不等于审核通过。",
+                  attachmentRequirements: ["销毁对象照片（含标记指示）", "操作SOP文档（可选，如有书面说明）"],
+                  pageActions: [
+                    {action: "fill_field", label: "填入需求背景说明"},
+                    {action: "fill_field", label: "填入需求描述"}
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    };
+
+    let timers = [];
+    const dialog = document.getElementById("dialog");
+    document.querySelectorAll("[data-demo]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-demo]").forEach(x => {
+          x.classList.toggle("active", x === btn);
+          x.setAttribute("aria-selected", x === btn ? "true" : "false");
+        });
+        play(btn.dataset.demo);
+      });
+    });
+
+    function play(key){
+      timers.forEach(clearTimeout);
+      timers = [];
+      dialog.innerHTML = "";
+      resetFormHints();
+      data[key].steps.forEach((step, i) => {
+        timers.push(setTimeout(() => addMessage(step, key), i * 800));
+      });
+    }
+
+    function addMessage(step, key){
+      const msg = document.createElement("div");
+      msg.className = "msg " + step.role;
+      msg.innerHTML = `<div class="avatar">${step.role === "agent" ? "AI" : "客"}</div><div class="bubble"></div>`;
+      const bubble = msg.querySelector(".bubble");
+      bubble.append(document.createTextNode(step.text));
+      (step.cards || []).forEach(card => bubble.appendChild(renderCard(card, key)));
+      dialog.appendChild(msg);
+      dialog.scrollTop = dialog.scrollHeight;
+    }
+
+    function renderCard(card, key){
+      const wrap = document.createElement("div");
+      wrap.className = "cardlet";
+      const rows = (card.rows || []).map(row => `<div class="kv"><span>${escapeHtml(row[0])}</span><strong>${escapeHtml(row[1])}</strong></div>`).join("");
+      const list = card.list ? `<div><strong>${escapeHtml(card.listTitle || "清单")}</strong><ul class="mini-list">${card.list.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul></div>` : "";
+      const actions = (card.actions || []).map(a => `<button class="btn ${a.kind === "hint" ? "text" : "primary"}" data-action="${a.kind}">${escapeHtml(a.label)}</button>`).join("");
+      wrap.innerHTML = `
+        <div class="cardlet-h"><span>${escapeHtml(card.title)}</span><span class="tag">${escapeHtml(key)}</span></div>
+        <div class="cardlet-b">
+          ${rows}
+          ${card.body ? `<div>${escapeHtml(card.body)}</div>` : ""}
+          ${list}
+          ${card.extra ? `<div class="requirement">${escapeHtml(card.extra)}</div>` : ""}
+          ${actions ? `<div class="ai-actions">${actions}</div>` : ""}
+          ${card.json ? `<details><summary class="meta">结构化 JSON</summary><pre class="json-box">${escapeHtml(JSON.stringify(card.json, null, 2))}</pre></details>` : ""}
+        </div>`;
+      wrap.querySelectorAll("[data-action]").forEach(btn => btn.addEventListener("click", () => consume(btn.dataset.action, key)));
+      return wrap;
+    }
+
+    function consume(action, key){
+      if(action === "select2a"){
+        fields.product.value = "新单上架（客户提供预报单）";
+        fields.svc1622.checked = true;
+        fields.svc1602.checked = false;
+        flash(fields.product);
+        flash(fields.svc1622.closest("label"));
+        return;
+      }
+      if(action === "fillBackground"){
+        fields.background.value = data[key].final.background;
+        flash(fields.background);
+        return;
+      }
+      if(action === "fillDescription"){
+        fields.description.value = data[key].final.description;
+        fields.attachmentHint.textContent = data[key].final.attachment;
+        flash(fields.description);
+        flash(fields.attachmentHint);
+        return;
+      }
+    }
+
+    function resetFormHints(){
+      fields.background.classList.remove("filled");
+      fields.description.classList.remove("filled");
+      fields.attachmentHint.classList.remove("filled");
+    }
+
+    function flash(el){
+      el.classList.add("filled");
+      setTimeout(() => el.classList.remove("filled"), 1200);
+    }
+
+    function escapeHtml(value){
+      return String(value).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    }
+
+    play("2d");
+  </script>
+</body>
+</html>
