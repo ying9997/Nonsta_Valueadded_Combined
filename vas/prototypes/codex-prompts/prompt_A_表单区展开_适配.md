@@ -4,46 +4,47 @@
 
 - 仓库：https://github.com/ying9997/Vas-Nonstandard-Guide
 - 分支：main
-- 目标文件：`prototypes/A_特批指引-表单区展开.html`
+- 产出文件：`prototypes/A_特批指引-表单区展开.html`（覆盖现有）
 
 ## §1 任务
 
-参照 `prototypes/C_特批指引-独立弹窗.html` 的最新实现，对版本 A 做相同逻辑的适配。版本 A 的 AI 容器是 inline 面板（非弹窗），差异见 §3。
+参照 `prototypes/C_特批指引-独立弹窗.html` 的最新实现，产出版本 A。版本 A 的 AI 容器是 inline 面板（嵌在页面内），其余逻辑与 C 完全一致。
 
 ## §2 前置阅读
 
-- 先读 `prototypes/C_特批指引-独立弹窗.html` 理解已实现的完整逻辑（演示控制台、AI 对话流、费用占位、审核模态框）
-- 再读 `prototypes/A_特批指引-表单区展开.html` 作为修改对象
-- 读 `prototypes/demo-vas-exception-config.html` 理解推荐数据来源
+- 先读 `prototypes/C_特批指引-独立弹窗.html` 理解完整实现（V4 底座 + AI 对话 + 多轮追问 + 联动 + 费用占位 + 审核模态框 + 演示控制台）
+- 读 `prototypes/demo-vas-order-page-v4(2).html` 理解 V4 底座原始结构
+- 读 `prototypes/demo-vas-exception-config.html` 理解推荐数据
 
-## §3 版本 A 的差异适配
-
-### 演示控制台
-- 同 C：页面顶部 `position:fixed` 独立横条，深灰背景，场景按钮 + 重置
-- A 的 AI inline 面板内移除所有演示按钮（preset-row）
+## §3 版本 A 与 C 的差异
 
 ### AI 容器形式
-- A 的 AI 面板是 inline 嵌在表单区（class `ai-panel`），不是弹窗
-- 主动弹出 = 页面加载后 AI 面板自动添加 `show` class 展开
-- 偏好设置 checkbox 放在面板标题栏右侧
+- C 是独立悬浮弹窗（右下角 420px）
+- A 是 **inline 面板**，嵌在 V4 页面 question-title 下方、处理方式卡片上方
+- inline 面板样式：`background:#fffaf3; border:1px solid #f0e4c0; border-radius:8px; padding:16px; margin:16px 0`
+- 面板内部结构与 C 的弹窗对话区完全一致（对话气泡 + 输入框）
 
-### 对话内容
-- AI 首条消息内容与 C 完全一致（基于异常配置推荐增值服务原子）
-- 演示场景流程与 C 一致
-- 费用预估占位与 C 一致
-- "模拟审核视角"按钮和模态框与 C 一致（展示审核表单 + SOP textarea 预填）
+### 主动展开
+- 页面加载后 inline 面板自动展开（display:block）
+- 偏好 checkbox 放在面板标题栏右侧
+- 标题栏有收起按钮（▽），点击可折叠面板
 
-### 推荐选中逻辑
-- A 的卡片选中通过 `selectFirstLevelCard()` / `selectQ2()` / `selectQ3()` 函数
-- AI 推荐后自动调用这些函数选中对应卡片
+### SVG AI Icon
+- 同 C，用金色渐变 SVG inline icon
+
+### 其他
+- V4 底座、数据补充、演示控制台、多轮对话流、自动联动 select 链路、费用占位、SOP 卡片（只保留一键填入）、审核模态框 — 全部与 C 一致
+- 唯一区别是 AI 面板的位置从"悬浮弹窗"变为"页面内嵌展开"
 
 ## §4 约束
 
-- **只修改** `prototypes/A_特批指引-表单区展开.html`
-- 其他约束同版本 C prompt
+- **产出一个文件**：`prototypes/A_特批指引-表单区展开.html`
+- 单 HTML，所有 CSS/JS 内联，不引入第三方库
+- 底座基于 V4，叠加 inline AI 面板
+- 如有歧义标记 `[AMBIGUITY]`
 
 ## §5 Git 规范
 
-- commit message：`feat(prototype-A): unified AI dialog, demo console, fee placeholder, audit SOP preview`
+- commit message：`feat(prototype-A): rebuild on V4 base with inline AI panel`
 - push 到 main 分支
 - 如果 push 失败，直接输出文件完整内容
