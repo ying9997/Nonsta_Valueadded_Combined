@@ -80,32 +80,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
                 <button class="btn btn-default" data-demo="sop">演示 非标SOP</button>
               </div>
             </section>
-            <div class="q-options" id="q1-options">
+            <div class="q-options q-options-4" id="q1-options">
               <div class="q-opt recommended" data-product="上架" onclick="selectFirstLevelCard('上架')"><span class="rec-badge">推荐</span><div class="icon">📦</div><div class="name">上架</div><div class="desc">处理后继续上架入库</div></div>
               <div class="q-opt" data-product="销毁" onclick="selectFirstLevelCard('销毁')"><div class="icon">🗑️</div><div class="name">销毁</div><div class="desc">仓库执行销毁</div></div>
               <div class="q-opt" data-product="自提" onclick="selectFirstLevelCard('自提')"><div class="icon">🚚</div><div class="name">自提</div><div class="desc">客户自行取回</div></div>
-              <div class="q-opt" data-product="拍照辨识" onclick="selectFirstLevelCard('拍照辨识')"><div class="icon">📷</div><div class="name">拍照辨识</div><div class="desc">先拍照确认再决定</div></div>
-              <div class="q-opt nonstandard-card" data-product="入库非标增值(特批)" onclick="selectFirstLevelCard('入库非标增值(特批)')"><div class="icon">📋</div><div class="name">入库非标增值</div><div class="desc">(特批)</div></div>
+              <div class="q-opt" data-product="展存" onclick="selectFirstLevelCard('展存')"><div class="icon">🏬</div><div class="name">展存</div><div class="desc">暂存仓库待处理</div></div>
             </div>
+            <!-- 非标特批不再作为第一层卡片，由 AI 判定后引导进入 -->
           </div>
 
           <div id="q2" class="hidden">
-            <div class="q-title">是否需要重新贴标？</div>
-            <div class="q-hint">当前为包裹条码异常，通常需要贴标处理</div>
+            <div class="q-title">选择上架方式</div>
+            <div class="q-hint">系统检测到原入库单 WI46673588 状态有效</div>
             <div class="q-options q-options-4">
-              <div class="q-opt" data-q2="贴包裹标" onclick="selectQ2('贴包裹标')"><div class="icon">📋</div><div class="name">贴包裹标</div><div class="desc">重新粘贴包裹条码</div></div>
-              <div class="q-opt" data-q2="贴商品标" onclick="selectQ2('贴商品标')"><div class="icon">🏷️</div><div class="name">贴商品标</div><div class="desc">重新粘贴商品条码</div></div>
-              <div class="q-opt" data-q2="贴双标" onclick="selectQ2('贴双标')"><div class="icon">🏷️📋</div><div class="name">贴双标</div><div class="desc">商品+包裹都贴</div></div>
-              <div class="q-opt" data-q2="直接上架" onclick="selectQ2('直接上架')"><div class="icon">✅</div><div class="name">直接上架（不贴标）</div><div class="desc">条码仍可扫描识别</div></div>
+              <div class="q-opt" data-q2="原单上架" onclick="selectQ2('原单上架')"><div class="icon">📄</div><div class="name">原单上架</div><div class="desc">上架到 WI46673588<br><span style="color:#52c41a;font-size:11px;">✓ 推荐</span></div></div>
+              <div class="q-opt" data-q2="万邑通创建新单上架" onclick="selectQ2('万邑通创建新单上架')"><div class="icon">📝</div><div class="name">万邑通创建新单上架</div><div class="desc">系统自动创建新入库单</div></div>
+              <div class="q-opt" data-q2="客户创建新单上架" onclick="selectQ2('客户创建新单上架')"><div class="icon">📋</div><div class="name">客户创建新单上架</div><div class="desc">客户自行提供新单号</div></div>
             </div>
           </div>
 
           <div id="q3" class="hidden">
-            <div class="q-title">上架到哪个入库单？</div>
-            <div class="q-hint">系统检测到原入库单 WI46673588 状态有效</div>
-            <div class="q-options q-options-2">
-              <div class="q-opt" data-q3="原单上架" onclick="selectQ3('原单上架')"><div class="icon">📄</div><div class="name">原单上架</div><div class="desc">上架到 WI46673588<br><span style="color:#52c41a;font-size:11px;">✓ 推荐</span></div></div>
-              <div class="q-opt" data-q3="新单上架" onclick="selectQ3('新单上架')"><div class="icon">📝</div><div class="name">新单上架</div><div class="desc">需提供新单号</div></div>
+            <div class="q-title">是否需要重新贴标？</div>
+            <div class="q-hint">当前为包裹条码异常，通常需要贴标处理</div>
+            <div class="q-options q-options-4">
+              <div class="q-opt" data-q3="贴包裹标" onclick="selectQ3('贴包裹标')"><div class="icon">📋</div><div class="name">贴包裹标</div><div class="desc">重新粘贴包裹条码</div></div>
+              <div class="q-opt" data-q3="贴商品标" onclick="selectQ3('贴商品标')"><div class="icon">🏷️</div><div class="name">贴商品标</div><div class="desc">重新粘贴商品条码</div></div>
+              <div class="q-opt" data-q3="贴双标" onclick="selectQ3('贴双标')"><div class="icon">🏷️📋</div><div class="name">贴双标</div><div class="desc">商品+包裹都贴</div></div>
+              <div class="q-opt" data-q3="直接上架" onclick="selectQ3('直接上架')"><div class="icon">✅</div><div class="name">直接上架（不贴标）</div><div class="desc">条码仍可扫描识别</div></div>
             </div>
           </div>
 
