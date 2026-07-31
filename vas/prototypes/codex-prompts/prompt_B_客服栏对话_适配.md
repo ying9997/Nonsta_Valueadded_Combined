@@ -8,7 +8,7 @@
 
 ## §1 任务
 
-参照 `prototypes/C_特批指引-独立弹窗.html` 的最新实现，对版本 B 做相同逻辑的适配。版本 B 的 AI 容器是右侧在线客服侧栏，差异如下：
+参照 `prototypes/C_特批指引-独立弹窗.html` 的最新实现，对版本 B 做相同逻辑的适配。版本 B 的 AI 容器是右侧在线客服侧栏，差异见 §3。
 
 ## §2 前置阅读
 
@@ -18,6 +18,10 @@
 
 ## §3 版本 B 的差异适配
 
+### 演示控制台
+- 同 C：页面顶部独立横条
+- 侧栏内不再有演示按钮
+
 ### AI 容器形式
 - B 是右侧 360px 侧栏，线上客服风格（紫色渐变背景、白色 AI 气泡）
 - 主动弹出 = 页面加载后侧栏自动滑出
@@ -26,11 +30,11 @@
 ### 气泡样式
 - AI 气泡：白色背景 + `border: 1px solid #f0f0f0` + `border-radius: 8px 8px 8px 0`
 - 用户气泡：紫色渐变
-- 费用预估占位气泡：用虚线边框 `border: 1px dashed #d9d9d9` + 浅灰背景 `#f9f9f9`
+- 费用预估占位气泡：虚线边框 `border: 1px dashed #d9d9d9` + 浅灰背景 `#f9f9f9`
 - SOP 卡片在侧栏内需适配 320px 宽度（垂直堆叠）
 
 ### 其他
-- 对话内容、演示流程、"模拟审核视角"模态框与 C 完全一致
+- 对话内容、演示场景流程、"模拟审核视角"模态框与 C 完全一致
 - 推荐选中逻辑：自动选中左侧页面的卡片
 
 ## §4 约束
@@ -40,6 +44,6 @@
 
 ## §5 Git 规范
 
-- commit message：`feat(prototype-B): unified AI dialog, fee estimate placeholder, audit SOP preview`
+- commit message：`feat(prototype-B): unified AI dialog, demo console, fee placeholder, audit SOP preview`
 - push 到 main 分支
 - 如果 push 失败，直接输出文件完整内容

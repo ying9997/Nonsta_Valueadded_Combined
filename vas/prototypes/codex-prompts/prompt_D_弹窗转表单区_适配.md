@@ -18,11 +18,15 @@
 
 ## §3 版本 D 的差异适配
 
+### 演示控制台
+- 同 C：页面顶部独立横条
+- 弹窗和 inline 面板内均不再有演示按钮
+
 ### AI 容器形式（两阶段）
 - 阶段 1（决策）：悬浮弹窗，自动弹出，承载 AI 首条推荐消息 + 用户选择
-- 阶段 2（非标SOP填写）：弹窗自动关闭后，表单区 inline 面板展开
+- 阶段 2（非标特批填写）：弹窗自动关闭后，表单区 inline 面板展开
 - 标准增值/免审路径：全在弹窗内完成，弹窗显示结论后自动选中卡片
-- 非标SOP路径：弹窗判定后关闭 → inline 面板展开 → SOP + 费用占位 + 一键填入 + 审核模拟
+- 非标特批路径：弹窗判定后关闭 → inline 面板展开 → SOP + 费用占位 + 一键填入 + 审核模拟
 
 ### 费用预估和审核模拟的位置
 - 费用预估占位：展示在 inline 面板内（阶段 2）
@@ -40,6 +44,6 @@
 
 ## §5 Git 规范
 
-- commit message：`feat(prototype-D): unified AI dialog, fee estimate placeholder, audit SOP preview`
+- commit message：`feat(prototype-D): unified AI dialog, demo console, fee placeholder, audit SOP preview`
 - push 到 main 分支
 - 如果 push 失败，直接输出文件完整内容
