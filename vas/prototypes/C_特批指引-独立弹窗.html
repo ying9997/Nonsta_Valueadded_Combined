@@ -32,6 +32,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 .nonstd-area{display:none;margin-top:12px;padding:14px;border:1px solid #f0e4c0;border-radius:6px;background:#fffaf3}.nonstd-area.show{display:block}.section-divider{margin-top:20px;margin-bottom:14px;border-bottom:1px dashed #d9d9d9;line-height:0}.divider-label{background:#fffaf3;color:#8c8c8c;font-size:12px;padding-right:10px}.form-row{display:flex;align-items:flex-start;margin-bottom:12px}.form-label{width:118px;text-align:right;color:#666;margin-right:12px;padding-top:6px}.textarea{flex:1;min-height:72px;border:1px solid #d9d9d9;border-radius:4px;padding:8px;resize:vertical}
 .sop-card{background:#fff;border:1px solid #f0e4c0;border-radius:6px;margin-top:12px;overflow:hidden}.sop-title{background:#fffaf3;border-bottom:1px solid #f0e4c0;color:#8B6914;font-size:15px;font-weight:700;padding:10px 12px}.sop-section{padding:12px;border-bottom:1px solid #f7eed6}.sop-section h4{font-size:14px;margin-bottom:8px}.sop-section ul{margin-left:20px}.sop-step{background:#fffdf8;border:1px solid #f0e4c0;border-radius:6px;padding:10px;margin-bottom:10px}.sop-footer{background:#fff7e6;color:#8c6e14;padding:10px 12px;border-bottom:1px solid #f0e4c0;font-weight:600}.sop-actions{padding:12px;display:flex;gap:8px}.fill-actions{display:none;gap:8px;margin:10px 0}.fill-actions.show{display:flex}.prototype-note{margin-top:10px;color:#8c6e14;background:#fff7e6;border:1px solid #ffe58f;border-radius:4px;padding:8px;font-size:12px}
 .floating-ai{display:none;position:fixed;right:24px;bottom:80px;width:400px;max-height:70vh;background:#fffaf3;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:1000;overflow:hidden;flex-direction:column}.floating-ai.show{display:flex}.floating-ai-header{background:linear-gradient(135deg,#8B6914,#A0792A);color:#fff;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;cursor:move;user-select:none}.floating-ai-title{font-weight:700}.floating-ai-actions{display:flex;gap:6px}.floating-ai-icon{width:24px;height:24px;border:1px solid rgba(255,255,255,.45);border-radius:4px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;line-height:20px}.floating-ai-body{padding:10px;display:flex;flex-direction:column;min-height:0}.floating-ai .chat{background:#fffaf3;border:none;border-radius:0;min-height:170px;max-height:none;flex:1;overflow:auto;padding:4px 0 8px}.floating-ai .msg{max-width:92%}.floating-ai .msg.ai .bubble{background:#fffaf3;border-color:#d8a841}.ai-preference{margin-top:8px;color:#8B6914;font-size:12px;display:flex;align-items:center;gap:6px;user-select:none}.ai-preference input{width:14px;height:14px;accent-color:#A0792A}.floating-ai-min{position:fixed;right:24px;bottom:80px;width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,#8B6914,#A0792A);color:white;box-shadow:0 8px 32px rgba(0,0,0,0.18);font-size:20px;cursor:pointer;z-index:1001}
+.msg.ai.pending-fee .bubble{background:#f7f7f7;border:1px dashed #bfbfbf;color:#555}.msg.audit-action .bubble{background:#f6ffed;border-color:#b7eb8f;color:#237804}.audit-preview-button{margin-top:8px}.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:2000;display:none;align-items:center;justify-content:center;padding:24px}.modal-mask.show{display:flex}.audit-modal{width:700px;max-width:100%;max-height:80vh;background:#fff;border-radius:8px;box-shadow:0 16px 48px rgba(0,0,0,.22);display:flex;flex-direction:column;overflow:hidden}.audit-modal-header{padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:16px;font-weight:700}.audit-modal-body{padding:16px 18px;overflow:auto}.audit-modal-tip{color:#8c6e14;background:#fff7e6;border:1px solid #ffe58f;border-radius:4px;padding:8px 10px;margin-bottom:10px}.audit-sop-textarea{width:100%;min-height:360px;border:1px solid #d9d9d9;border-radius:4px;padding:10px;font-size:12px;line-height:1.6;resize:vertical}.audit-modal-footer{padding:12px 18px;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:8px}
 .page-footer{background:white;border-top:1px solid #f0f0f0;padding:12px 24px;display:flex;justify-content:space-between;align-items:center}.footer-tip{font-size:11px;color:#999;max-width:520px}.footer-btns{display:flex;gap:10px}.btn{padding:6px 16px;border-radius:4px;font-size:13px;cursor:pointer;border:1px solid}.btn-default{background:white;color:#333;border-color:#d9d9d9}.btn-primary{background:#A0792A;color:white;border-color:#A0792A}.btn-submit{background:#ff4d4f;color:white;border-color:#ff4d4f}.filled{outline:2px solid rgba(160,121,42,.3)}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 </style>
@@ -70,7 +71,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
               <div class="q-title">这批异常货物，你希望怎么处理？</div>
               <button class="ai-toggle" id="toggleAi">🤖 AI 下单指引</button>
             </div>
-            <div class="q-hint">异常类型：包裹条码异常(需客户处理) ｜ 入库单：WI46673588</div>
+            <div class="q-hint">异常类型：商品条码异常(需客户处理) ｜ 入库单：WI46673588 ｜ 入库类型：有箱单</div>
             <div class="q-options" id="q1-options">
               <div class="q-opt recommended" data-product="上架" onclick="selectFirstLevelCard('上架')"><span class="rec-badge">推荐</span><div class="icon">📦</div><div class="name">上架</div><div class="desc">处理后继续上架入库</div></div>
               <div class="q-opt" data-product="销毁" onclick="selectFirstLevelCard('销毁')"><div class="icon">🗑️</div><div class="name">销毁</div><div class="desc">仓库执行销毁</div></div>
@@ -91,12 +92,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
           </div>
 
           <div id="q3" class="hidden">
-            <div class="q-title">是否需要重新贴标？</div>
-            <div class="q-hint">当前为包裹条码异常，通常需要贴标处理</div>
+            <div class="q-title">选择增值服务原子</div>
+            <div class="q-hint">当前为商品条码异常 + 有箱单场景，以下原子来自异常配置</div>
             <div class="q-options q-options-4">
-              <div class="q-opt" data-q3="贴包裹标" onclick="selectQ3('贴包裹标')"><div class="icon">📋</div><div class="name">贴包裹标</div><div class="desc">重新粘贴包裹条码</div></div>
-              <div class="q-opt" data-q3="贴商品标" onclick="selectQ3('贴商品标')"><div class="icon">🏷️</div><div class="name">贴商品标</div><div class="desc">重新粘贴商品条码</div></div>
-              <div class="q-opt" data-q3="贴双标" onclick="selectQ3('贴双标')"><div class="icon">🏷️📋</div><div class="name">贴双标</div><div class="desc">商品+包裹都贴</div></div>
+              <div class="q-opt" data-q3="补贴原商品条码" onclick="selectQ3('补贴原商品条码')"><div class="icon">🏷️</div><div class="name">补贴原商品条码</div><div class="desc">原单上架推荐原子</div></div>
+              <div class="q-opt" data-q3="更换新商品条码" onclick="selectQ3('更换新商品条码')"><div class="icon">🏷️</div><div class="name">更换新商品条码</div><div class="desc">替换为新商品条码</div></div>
+              <div class="q-opt" data-q3="补贴包裹条码+补贴原商品条码" onclick="selectQ3('补贴包裹条码+补贴原商品条码')"><div class="icon">🏷️📋</div><div class="name">补贴包裹条码+补贴原商品条码</div><div class="desc">包裹+商品条码都补贴</div></div>
               <div class="q-opt" data-q3="直接上架" onclick="selectQ3('直接上架')"><div class="icon">✅</div><div class="name">直接上架（不贴标）</div><div class="desc">条码仍可扫描识别</div></div>
             </div>
           </div>
@@ -171,6 +172,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
     <div class="chat tall" id="floating-chat"></div>
     <div id="sop-container"></div>
     <div class="fill-actions" id="fill-actions">
+      <button class="btn btn-primary" id="fill-all">一键填入表单</button>
       <button class="btn btn-primary" id="fill-background">一键填入需求背景说明</button>
       <button class="btn btn-primary" id="fill-description">一键填入需求描述</button>
     </div>
@@ -188,6 +190,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 </section>
 <button class="floating-ai-min hidden" id="restoreAi" title="恢复 AI 助手">🤖</button>
 
+<div class="modal-mask" id="auditSopModal">
+  <div class="audit-modal">
+    <div class="audit-modal-header">审核后台 - 操作SOP（模拟）</div>
+    <div class="audit-modal-body">
+      <div class="audit-modal-tip">以下 SOP 由 AI 生成并经客户确认，审核人员可在此基础上修改</div>
+      <textarea class="audit-sop-textarea" id="auditSopTextarea"></textarea>
+    </div>
+    <div class="audit-modal-footer">
+      <button class="btn btn-default" id="closeAuditSop">关闭模拟</button>
+      <button class="btn btn-primary" id="approveAuditSop">确认审核通过（模拟）</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let currentQ2 = "";
 let currentQ3 = "";
@@ -196,25 +212,44 @@ let window2Booted = false;
 let dragState = null;
 let firstGuideMessageStarted = false;
 let initialGuideTimer = null;
+let feeEstimateMessageShown = false;
+let auditPreviewMessageShown = false;
 const autoPopupStorageKey = "ai-guide-auto-popup";
-const firstGuideMessage = `我看到您的异常单 WI46673588 是【包裹条码异常】。
+const firstGuideMessage = `我看到您的异常单 WI46673588 是【商品条码异常(需客户处理)】，当前为有箱单入库。
 
-基于当前情况，建议以下处理方式：
-① 原单上架（贴标后继续入库）⭐推荐
-② 万邑通创建新单上架
-③ 客户创建新单上架
-④ 销毁
-⑤ 自提
-⑥ 展存
+基于当前场景，建议选择以下增值服务：
 
-如果以上标准方式都无法满足，我可以帮您走非标特批流程，生成 SOP 并预估费用。
+📦 上架方向：
+  · 原单上架 - 补贴原商品条码 ⭐推荐
+  · 原单上架 - 更换新商品条码
+  · 原单上架 - 补贴包裹条码+补贴原商品条码
+  · 原单上架 - 直接上架
+  · 新单上架(Winit创建) - 补贴原商品条码
+  · 新单上架(客户创建) - 补贴包裹条码+补贴原商品条码
 
-请告诉我您想怎么处理，或直接选择页面上的卡片。`;
+🗑️ 销毁方向：
+  · 上架前销毁
+
+🚚 自提方向：
+  · 上架前自提
+
+📷 暂存辨识：
+  · 入库-商品开箱拍照
+
+如果以上服务都无法满足您的需求，我可以帮您走非标特批流程。
+
+请告诉我您想怎么处理？`;
+const feeEstimatePlaceholder = `💰 费用预估（基于 SOP 动作拆解）：
+[待知识库接入] 当前无法自动预估费用。
+接入报价知识库后，将基于以下逻辑计算：
+SOP 动作 → 匹配仓库动作库(hours管理) → 工时×单价 = 预估费用
+
+您提交后，审核人员会给出正式报价。`;
 const fillContent = {
-  background: "入库单 WI51339338 商品条码与系统登记不一致，需按客户提供的条码对应关系换标后上架到新入库单 WI51340001。",
-  backgroundEdited: "入库单 WI51339338 商品条码与系统登记不一致，需按客户提供的条码对应关系换标后上架到新入库单 WI51340002。",
-  description: "请按附件中的条码对应关系表逐件核对原条码与新条码映射，撕除原商品条码并粘贴新条码，换标完成后扫描新条码确认系统识别，上架到新入库单 WI51340001；上架前拍照留存换标前后对比。客户确认不等于审核通过，最终以审核结果为准。",
-  descriptionEdited: "请按附件中的条码对应关系表逐件核对原条码与新条码映射，撕除原商品条码并粘贴新条码，换标完成后扫描新条码确认系统识别，上架到新入库单 WI51340002；上架前拍照留存换标前后对比。客户确认不等于审核通过，最终以审核结果为准。"
+  background: "入库单 WI51339338 内部分包裹需要拆开重新分装，并在分装完成后按客户提供的标签重新贴标，上架到新入库单 WI51340001。该需求超出当前标准增值服务范围，需走非标特批。",
+  backgroundEdited: "入库单 WI51339338 内部分包裹需要拆开重新分装，并在分装完成后按客户提供的标签重新贴标，上架到新入库单 WI51340002。该需求超出当前标准增值服务范围，需走非标特批。",
+  description: "请按客户提供的分装规则拆开原包裹，核对商品数量和标签信息后重新分装；分装完成后粘贴客户提供的新标签，扫描确认系统可识别，并上架到新入库单 WI51340001；操作前后需拍照留存。客户确认不等于审核通过，最终以审核结果为准。",
+  descriptionEdited: "请按客户提供的分装规则拆开原包裹，核对商品数量和标签信息后重新分装；分装完成后粘贴客户提供的新标签，扫描确认系统可识别，并上架到新入库单 WI51340002；操作前后需拍照留存。客户确认不等于审核通过，最终以审核结果为准。"
 };
 
 document.getElementById("toggleAi").onclick = openFloatingAi;
@@ -226,14 +261,18 @@ document.getElementById("minimizeAi").onclick = minimizeFloatingAi;
 document.getElementById("restoreAi").onclick = restoreFloatingAi;
 document.getElementById("floatingAiHeader").onmousedown = startDragFloatingAi;
 document.getElementById("autoPopupOptOut").onchange = updateAutoPopupPreference;
+document.getElementById("closeAuditSop").onclick = closeAuditSopModal;
+document.getElementById("approveAuditSop").onclick = closeAuditSopModal;
+document.getElementById("auditSopModal").onclick = e => { if (e.target.id === "auditSopModal") closeAuditSopModal(); };
 document.addEventListener("mousemove", dragFloatingAi);
 document.addEventListener("mouseup", stopDragFloatingAi);
-document.getElementById("mock-supplement").onclick = () => processWindow2Input("操作对象是 WI51339338 入库单的全部包裹，按附件中的条码对应关系换标后上架到新入库单 WI51340001，我会上传条码对应关系的 Excel 文件");
+document.getElementById("mock-supplement").onclick = () => processWindow2Input("操作对象是 WI51339338 入库单的全部包裹，按附件中的分装规则拆开重新分装，分装后贴客户提供的新标签并上架到新入库单 WI51340001，我会上传分装规则和标签文件");
 document.getElementById("mock-edit").onclick = () => {
   addMessage("floating-chat", "user", "第 3 步新入库单号应该是 WI51340002");
   activeSopOrder = "WI51340002";
   renderSopCard(activeSopOrder);
 };
+document.getElementById("fill-all").onclick = () => fillOne("all");
 document.getElementById("fill-background").onclick = () => fillOne("background");
 document.getElementById("fill-description").onclick = () => fillOne("description");
 initializeAutoPopup();
@@ -317,18 +356,18 @@ function runDemo(type) {
   openFloatingAi();
   const demos = {
     standard: {
-      input: "帮我换个包装用原来的入库单上架",
-      reply: "根据您的描述，建议走【上架】→【原单上架】→【贴包裹标】路径。已为您选中对应选项。",
-      output: { path: ["上架", "原单上架", "贴包裹标"] }
+      input: "我想原单上架，贴回原来的商品条码",
+      reply: "好的，为您推荐【原单上架 - 补贴原商品条码】",
+      output: { path: ["上架", "原单上架", "补贴原商品条码"] }
     },
     "no-review": {
-      input: "这批货按免审方式继续上架",
-      reply: "已匹配非标免审处理建议。已为您选中【上架】，请继续确认上架方式。",
-      output: { selectCard: "上架" }
+      input: "帮我看看货物状态，拍个照",
+      reply: "为您推荐【入库-商品开箱拍照】，这是免审服务，提交后无需等待审核",
+      output: { selectCard: "暂存" }
     },
     sop: {
-      input: "需要按条码对应关系换标后上架到新入库单",
-      reply: "您的需求需要走非标增值（特批），请在下方窗口中详细描述操作需求，我来帮您梳理 SOP。",
+      input: "我要把包裹拆开重新分装再贴标",
+      reply: "您的需求超出当前标准服务范围，需要走非标特批流程，我来帮您生成 SOP",
       output: { openWindow2: true }
     }
   };
@@ -356,11 +395,11 @@ function sendWindow1() {
 }
 
 function routeWindow1(text) {
-  if (hasAny(text, ["换标", "条码对应", "SOP", "特殊"])) return { text: "您的需求需要走非标增值（特批），请在下方窗口中详细描述操作需求，我来帮您梳理 SOP。", openWindow2: true };
+  if (hasAny(text, ["拆开", "分装", "换标", "条码对应", "SOP", "特殊"])) return { text: "您的需求超出当前标准服务范围，需要走非标特批流程，我来帮您生成 SOP", openWindow2: true };
   if (hasAny(text, ["自提", "取货", "拿回来"])) return { text: "已匹配非标免审服务「上架前自提（无需WINIT打托）」。已为您选中对应选项，请补充提货信息。", selectCard: "自提", pickup: "无需WINIT打托" };
-  if (hasAny(text, ["拍照", "确认状态", "看看"])) return { text: "已匹配标准拍照服务「入库-商品开箱拍照」。已为您选中「拍照辨识」并展示补充信息。", selectCard: "拍照辨识" };
+  if (hasAny(text, ["拍照", "确认状态", "看看"])) return { text: "为您推荐【入库-商品开箱拍照】，这是免审服务，提交后无需等待审核", selectCard: "暂存" };
   if (hasAny(text, ["销毁", "不要了", "报废"])) return { text: "已匹配标准销毁服务「上架前销毁」。已为您选中「销毁」并展示补充信息。", selectCard: "销毁" };
-  if (hasAny(text, ["上架", "贴标", "换包装"])) return { text: "根据您的描述，建议走【上架】→【原单上架】→【贴包裹标】路径。已为您选中对应选项。", path: ["上架", "原单上架", "贴包裹标"] };
+  if (hasAny(text, ["原单上架", "贴回", "商品条码", "贴标", "上架"])) return { text: "好的，为您推荐【原单上架 - 补贴原商品条码】", path: ["上架", "原单上架", "补贴原商品条码"] };
   return { text: "请描述您希望仓库怎么处理这批异常货物？比如：继续上架、销毁、自提，或者有特殊操作需求。" };
 }
 
@@ -374,8 +413,8 @@ function selectFirstLevelCard(name) {
     showOnly("pickupPanel");
   } else if (name === "销毁") {
     showStandardResult("上架前销毁", "销毁", "上架前包裹销毁 / 上架前商品销毁", ["grade"], { name: "销毁服务费", amt: "20.00 CNY", usd: "2.76 USD" });
-  } else if (name === "拍照辨识") {
-    showStandardResult("入库商品拍照", "拍照辨识", "入库-商品开箱拍照", ["grade"], { name: "拍照服务费", amt: "10.00 CNY", usd: "1.38 USD" });
+  } else if (name === "暂存") {
+    showStandardResult("拍照辨识", "暂存", "入库-商品开箱拍照", ["grade"], { name: "拍照服务费", amt: "10.00 CNY", usd: "1.38 USD" });
   } else if (name === "入库非标增值(特批)") {
     showWindow2();
   }
@@ -396,8 +435,13 @@ function selectQ3(name) {
   dimSiblings("#q3 .q-opt", `[data-q3="${name}"]`);
   const needLabel = name !== "直接上架";
   const needNewOrder = currentQ2 === "客户创建新单上架";
-  const methodMap = { "贴包裹标": "贴标上架（包裹标）", "贴商品标": "贴标上架（商品标）", "贴双标": "贴标上架（包裹标&商品标）", "直接上架": "直接上架" };
-  showStandardResult(currentQ2, methodMap[name] || "贴标上架（包裹标）", currentQ2 === "原单上架" ? "入库-补贴包裹条码" : "客户创建新单上架", ["grade"].concat(needLabel ? ["labelFile"] : [], needNewOrder ? ["newOrder"] : []), { name: "贴标服务费", amt: "2.00 CNY", usd: "0.28 USD" });
+  const methodMap = {
+    "补贴原商品条码": currentQ2,
+    "更换新商品条码": currentQ2,
+    "补贴包裹条码+补贴原商品条码": currentQ2,
+    "直接上架": currentQ2
+  };
+  showStandardResult(currentQ2, methodMap[name] || currentQ2, name, ["grade"].concat(needLabel ? ["labelFile"] : [], needNewOrder ? ["newOrder"] : []), { name: "贴标服务费", amt: "2.00 CNY", usd: "0.28 USD" });
 }
 
 function selectPickup(name) {
@@ -495,7 +539,7 @@ function processWindow2Input(value) {
     setTimeout(() => addMessage("floating-chat", "ai", "费用需要审核后报价，请先完成 SOP 描述。"), 200);
     return;
   }
-  if (!(value.includes("WI") && hasAny(value, ["换标", "上架", "条码", "操作"]))) {
+  if (!(value.includes("WI") && hasAny(value, ["换标", "上架", "条码", "操作", "拆开", "分装", "贴"]))) {
     setTimeout(() => addMessage("floating-chat", "ai", "请具体说明操作对象和步骤，例如入库单/SKU/包裹范围、具体操作动作、是否需要上传附件。"), 200);
     return;
   }
@@ -512,7 +556,10 @@ function bootWindow2() {
 
 function renderSopCard(orderNo) {
   document.querySelectorAll("#floating-chat .sop-message").forEach(el => el.remove());
+  document.querySelectorAll("#floating-chat .pending-fee, #floating-chat .audit-action").forEach(el => el.remove());
   document.getElementById("sop-container").innerHTML = "";
+  feeEstimateMessageShown = false;
+  auditPreviewMessageShown = false;
   const chat = document.getElementById("floating-chat");
   const wrapper = document.createElement("div");
   wrapper.className = "msg ai sop-message";
@@ -520,18 +567,18 @@ function renderSopCard(orderNo) {
     <div class="avatar">AI</div>
     <div class="bubble" style="padding:0; border:none; background:transparent;">
       <div class="sop-card">
-        <div class="sop-title">📋 操作 SOP — 入库条码换标后上架</div>
-        <div class="sop-section"><h4>一、操作目的</h4><p>按条码对应关系将原商品条码替换为新条码，换标完成后上架到新入库单。</p></div>
+        <div class="sop-title">📋 操作 SOP — 拆包重新分装并贴标上架</div>
+        <div class="sop-section"><h4>一、操作目的</h4><p>按客户提供的分装规则拆开原包裹，重新分装并贴标后上架到指定新入库单。</p></div>
         <div class="sop-section"><h4>二、适用范围</h4><p>入库单 WI51339338 内全部包裹。</p></div>
         <div class="sop-section">
           <h4>三、操作步骤</h4>
-          <div class="sop-step"><strong>第 1 步：</strong><ul><li><b>操作说明：</b>核对附件中的条码对应关系表，确认原条码与新条码映射。</li><li><b>注意事项：</b>逐件核对，不可批量替换未确认的条码。</li><li><b>工具/材料：</b>条码对应关系文件（您需上传）、标签打印机。</li></ul></div>
-          <div class="sop-step"><strong>第 2 步：</strong><ul><li><b>操作说明：</b>撕除原商品条码，粘贴新条码至相同位置。</li><li><b>注意事项：</b>确保新标签平整无气泡，位置与原标签一致。</li><li><b>工具/材料：</b>新条码标签、刮板。</li></ul></div>
-          <div class="sop-step"><strong>第 3 步：</strong><ul><li><b>操作说明：</b>换标完成后扫描新条码确认系统识别，上架到新入库单 ${orderNo}。</li><li><b>注意事项：</b>上架前拍照留存换标前后对比。</li><li><b>工具/材料：</b>扫码枪。</li></ul></div>
+          <div class="sop-step"><strong>第 1 步：</strong><ul><li><b>操作说明：</b>核对客户上传的分装规则和标签文件，确认每个原包裹对应的拆分数量、目标组合和新标签。</li><li><b>注意事项：</b>规则不清晰或标签缺失时暂停操作并反馈客户确认。</li><li><b>工具/材料：</b>分装规则文件、标签文件、扫码枪。</li></ul></div>
+          <div class="sop-step"><strong>第 2 步：</strong><ul><li><b>操作说明：</b>逐包裹拆开，按规则核对商品数量、SKU 和外观状态后重新分装。</li><li><b>注意事项：</b>不得混放不同目标组合，分装过程中需保持商品与标签一一对应。</li><li><b>工具/材料：</b>周转箱、包装材料、分装清单。</li></ul></div>
+          <div class="sop-step"><strong>第 3 步：</strong><ul><li><b>操作说明：</b>分装完成后粘贴客户提供的新标签，扫描确认系统可识别，上架到新入库单 ${orderNo}。</li><li><b>注意事项：</b>贴标前后拍照留存，异常件单独标记并等待客户确认。</li><li><b>工具/材料：</b>标签打印机、新标签、扫码枪。</li></ul></div>
         </div>
-        <div class="sop-section"><h4>四、关键输出</h4><p>操作完成后仓库会提供：每件商品换标前后对比照片、上架确认记录。</p></div>
-        <div class="sop-section"><h4>五、异常处理</h4><ul><li><b>条码无法识别：</b>暂停该件操作，拍照留存，等待您确认后续处理。</li><li><b>对应关系文件有误：</b>暂停操作，联系您核实正确映射关系。</li></ul></div>
-        <div class="sop-section"><h4>六、附件要求</h4><p>您需要准备以下资料：</p><ul><li>✅ 条码对应关系文件（必需，Excel/PDF 格式）</li><li>⬜ 换标位置示意图（建议提供，便于仓库准确操作）</li></ul></div>
+        <div class="sop-section"><h4>四、关键输出</h4><p>操作完成后仓库会提供：拆包前照片、分装后照片、贴标后照片、上架确认记录。</p></div>
+        <div class="sop-section"><h4>五、异常处理</h4><ul><li><b>数量不一致：</b>暂停该包裹操作，拍照留存并等待客户确认。</li><li><b>标签无法识别：</b>暂停贴标和上架，反馈客户重新提供标签或确认处理方式。</li></ul></div>
+        <div class="sop-section"><h4>六、附件要求</h4><p>您需要准备以下资料：</p><ul><li>✅ 分装规则文件（必需，Excel/PDF 格式）</li><li>✅ 新标签文件（必需，PDF/PNG/JPG 格式）</li><li>⬜ 分装示意图（建议提供，便于仓库准确操作）</li></ul></div>
         <div class="sop-footer">⚠️ 客户确认不等于审核通过，最终以审核结果为准。</div>
         <div class="sop-actions"><button class="btn btn-primary" onclick="confirmSop()">✅ 确认 SOP</button><button class="btn btn-default" onclick="editSop()">✏️ 我要修改</button></div>
       </div>
@@ -542,8 +589,34 @@ function renderSopCard(orderNo) {
   resetNonstandardFee();
 }
 
+function getSopText(orderNo) {
+  return `一、操作目的
+按客户提供的分装规则拆开原包裹，重新分装并贴标后上架到指定新入库单。
+
+二、适用范围
+入库单 WI51339338 内全部包裹。
+
+三、操作步骤
+第 1 步：核对客户上传的分装规则和标签文件，确认每个原包裹对应的拆分数量、目标组合和新标签。规则不清晰或标签缺失时暂停操作并反馈客户确认。
+第 2 步：逐包裹拆开，按规则核对商品数量、SKU 和外观状态后重新分装。不得混放不同目标组合，分装过程中需保持商品与标签一一对应。
+第 3 步：分装完成后粘贴客户提供的新标签，扫描确认系统可识别，上架到新入库单 ${orderNo}。贴标前后拍照留存，异常件单独标记并等待客户确认。
+
+四、关键输出
+操作完成后仓库会提供：拆包前照片、分装后照片、贴标后照片、上架确认记录。
+
+五、异常处理
+1. 数量不一致：暂停该包裹操作，拍照留存并等待客户确认。
+2. 标签无法识别：暂停贴标和上架，反馈客户重新提供标签或确认处理方式。
+
+六、附件要求
+1. 分装规则文件（必需，Excel/PDF 格式）
+2. 新标签文件（必需，PDF/PNG/JPG 格式）
+3. 分装示意图（建议提供，便于仓库准确操作）`;
+}
+
 function confirmSop() {
   addMessage("floating-chat", "ai", "SOP 已确认，已生成可填入的字段内容。");
+  addFeeEstimateMessage();
   document.getElementById("fill-actions").classList.add("show");
   document.getElementById("mock-edit").classList.add("hidden");
   renderNonstandardFee();
@@ -554,16 +627,7 @@ function resetNonstandardFee() {
 }
 
 function renderNonstandardFee() {
-  document.getElementById("nonstdFee").innerHTML = `
-    <div>🏷 服务时效(工作日)：<b>1</b></div>
-    <div class="fee-title">预估费用</div>
-    <table class="fee-table">
-      <tr><th>费用名称</th><th>计费单位</th><th style="text-align:right;">数量</th><th style="text-align:right;">单价(CNY)</th><th style="text-align:right;">小计(CNY)</th></tr>
-      <tr><td>条码换标服务费</td><td>件</td><td style="text-align:right;">50</td><td style="text-align:right;">1.50</td><td style="text-align:right;">75.00</td></tr>
-      <tr><td>拍照留存费</td><td>次</td><td style="text-align:right;">50</td><td style="text-align:right;">0.50</td><td style="text-align:right;">25.00</td></tr>
-    </table>
-    <div class="fee-footer">合计(CNY) <b>100.00</b> | 合计(USD) <b>13.80</b></div>
-    <div class="fee-tip">以上为基于 SOP 内容的预估费用，最终以审核报价为准。</div>`;
+  document.getElementById("nonstdFee").innerHTML = `<div class="fee-tip">[待知识库接入] 当前无法自动预估费用，提交后由审核人员给出正式报价。</div>`;
 }
 
 function editSop() {
@@ -584,10 +648,28 @@ function fillOne(kind) {
   handleAiOutput(output);
 }
 
-function addMessage(boxId, role, text) {
+function addMessage(boxId, role, text, extraClass) {
   const box = document.getElementById(boxId);
   const msg = createMessageElement(role);
+  if (extraClass) msg.classList.add(extraClass);
   msg.querySelector(".bubble").textContent = text;
+  box.appendChild(msg);
+  box.scrollTop = box.scrollHeight;
+}
+
+function addFeeEstimateMessage() {
+  if (feeEstimateMessageShown) return;
+  feeEstimateMessageShown = true;
+  addMessage("floating-chat", "ai", feeEstimatePlaceholder, "pending-fee");
+}
+
+function addAuditPreviewEntry() {
+  if (auditPreviewMessageShown) return;
+  auditPreviewMessageShown = true;
+  const box = document.getElementById("floating-chat");
+  const msg = createMessageElement("ai");
+  msg.classList.add("audit-action");
+  msg.querySelector(".bubble").innerHTML = `✅  已成功填入表单。提交后 SOP 将自动同步至审核后台。<div class="audit-preview-button"><button class="btn btn-primary" onclick="openAuditSopModal()">模拟审核视角</button></div>`;
   box.appendChild(msg);
   box.scrollTop = box.scrollHeight;
 }
@@ -616,6 +698,15 @@ function createMessageElement(role) {
   return msg;
 }
 
+function openAuditSopModal() {
+  document.getElementById("auditSopTextarea").value = getSopText(activeSopOrder);
+  document.getElementById("auditSopModal").classList.add("show");
+}
+
+function closeAuditSopModal() {
+  document.getElementById("auditSopModal").classList.remove("show");
+}
+
 function hasAny(text, words) { return words.some(word => text.includes(word)); }
 function flash(el) { el.classList.add("filled"); setTimeout(() => el.classList.remove("filled"), 1000); }
 
@@ -633,7 +724,7 @@ function handleAiOutput(output) {
 
   // 按 output.path 走完决策树
   if (output.path) {
-    // path 示例: ["上架", "原单上架", "贴包裹标"]
+    // path 示例: ["上架", "原单上架", "补贴原商品条码"]
     animateDecisionPath(output.path);
   }
 
@@ -660,6 +751,7 @@ function handleAiOutput(output) {
     desc.value = output.fillFields.description;
     flash(bg);
     flash(desc);
+    addAuditPreviewEntry();
   }
 }
 </script>
