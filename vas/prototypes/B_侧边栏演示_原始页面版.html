@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AI 增值指引 - 侧边栏演示（原始线上页面）</title>
+  <title>AI 增值指引 - 侧边栏演示（库内增值单）</title>
   <style>
     html, body {
       width: 100%;
@@ -196,6 +196,70 @@
     .modal-footer button { padding: 8px 20px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; font-size: 13px; cursor: pointer; }
     .modal-footer button:hover { border-color: #A0792A; color: #A0792A; }
 
+    /* 填充效果模拟层 */
+    .fill-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255,255,255,0.95);
+      z-index: 5;
+      overflow-y: auto;
+      padding: 24px 32px;
+      animation: fadeIn 0.3s ease;
+    }
+    .fill-overlay.show { display: block; }
+    .fill-overlay-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .fill-overlay-header h3 { font-size: 15px; font-weight: 600; color: #333; }
+    .fill-overlay-header .close-fill { border: 1px solid #d9d9d9; border-radius: 4px; padding: 4px 12px; font-size: 12px; cursor: pointer; background: #fff; }
+    .fill-overlay-header .close-fill:hover { border-color: #A0792A; color: #A0792A; }
+    .fill-overlay .form-group { margin-bottom: 18px; }
+    .fill-overlay .form-label { font-size: 13px; font-weight: 500; color: #333; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+    .fill-overlay .form-label .req { color: #ff4d4f; }
+    .fill-overlay .form-label .filled-badge { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; border-radius: 3px; padding: 1px 6px; font-size: 10px; font-weight: 400; }
+    .fill-overlay .form-select {
+      width: 100%;
+      max-width: 400px;
+      height: 36px;
+      border: 2px solid #52c41a;
+      border-radius: 4px;
+      padding: 0 12px;
+      font-size: 13px;
+      background: #f6ffed;
+      color: #333;
+      outline: none;
+    }
+    .fill-overlay .form-textarea {
+      width: 100%;
+      min-height: 100px;
+      border: 2px solid #52c41a;
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      background: #f6ffed;
+      color: #333;
+      resize: vertical;
+    }
+    .fill-overlay .fill-note {
+      margin-top: 16px;
+      padding: 10px 14px;
+      background: #fffbe6;
+      border: 1px solid #ffe58f;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #ad6800;
+    }
+
     @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
@@ -204,15 +268,59 @@
 <div class="demo-console">
   <div class="demo-console-title">🎬 原型演示控制台（仅开发/评审可见，非线上真实界面）</div>
   <div class="demo-console-actions">
-    <button onclick="runDemo('standard')">标准增值场景</button>
-    <button onclick="runDemo('noReview')">非标免审场景</button>
-    <button onclick="runDemo('special')">非标特批场景</button>
+    <button onclick="runDemo('special')">演示：非标特批场景</button>
     <button onclick="resetDemo()">重置</button>
   </div>
 </div>
 
 <div class="workspace sidebar-open" id="workspace">
-  <iframe class="stage-frame" src="references/线上非标增值页面快照.html" title="线上增值下单页面（非标增值）"></iframe>
+  <div style="position:relative;flex:1;min-width:0;">
+    <iframe class="stage-frame" style="width:100%;height:100%;position:absolute;top:0;left:0;" src="references/线上库内增值单页面快照.html" title="线上新增库内增值单页面"></iframe>
+    <!-- 一键填入后的模拟填充效果层 -->
+    <div class="fill-overlay" id="fillOverlay">
+      <div class="fill-overlay-header">
+        <h3>✅ 表单已填充（模拟效果）</h3>
+        <button class="close-fill" onclick="closeFillOverlay()">返回原页面</button>
+      </div>
+      <div class="form-group">
+        <div class="form-label"><span class="req">*</span> 增值产品名称 <span class="filled-badge">AI 已选中</span></div>
+        <select class="form-select" disabled>
+          <option selected>库内非标增值（特批）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label"><span class="req">*</span> 增值服务 <span class="filled-badge">AI 已选中</span></div>
+        <select class="form-select" disabled>
+          <option selected>库内其他服务需求</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label"><span class="req">*</span> 需求背景说明 <span class="filled-badge">AI 已填入</span></div>
+        <textarea class="form-textarea" readonly>客户反馈入库商品的实际尺寸和重量与系统登记数据不符，需要仓库重新测量确认后更换标签再上架。该批商品目前在库位暂存中，客户希望尽快处理完成上架。</textarea>
+      </div>
+      <div class="form-group">
+        <div class="form-label"><span class="req">*</span> 需求描述 <span class="filled-badge">AI 已填入</span></div>
+        <textarea class="form-textarea" style="min-height:160px;" readonly>操作需求：尺重/标签辨识后换标上架
+
+具体要求：
+1. 从库位取出指定异常包裹
+2. 使用仓库测量设备重新测量商品实际尺寸和重量
+3. 将测量结果与系统登记数据对比，确认差异数据
+4. 根据实际尺重数据打印新的商品标签
+5. 移除原有商品标签，在商品外包装正面粘贴新标签
+6. 更新系统中该商品的尺重登记信息
+7. 完成贴标后拍照留存（正面全貌照 + 标签特写照）
+8. 重新上架到原库位
+
+上架方式：原单上架
+入库单号：WI46673588</textarea>
+      </div>
+      <div class="fill-note">
+        📋 以上内容由 AI 根据客户确认的 SOP 提炼生成。客户可在提交前自行修改。<br>
+        提交后，SOP 将自动同步至审核后台【场景概述】+【操作SOP】字段。
+      </div>
+    </div>
+  </div>
 
   <aside class="ai-sidebar" id="aiSidebar">
     <div class="sidebar-header">
@@ -334,7 +442,14 @@ function addFeePlaceholder(delay) {
 }
 
 function onFillForm() {
-  addMsg('ai', '✅ 已成功填入表单。提交后 SOP 将自动同步至审核后台的【操作SOP】字段。\n\n<button class="audit-preview-btn" onclick="openAuditModal()">模拟审核视角 →</button>', 0);
+  // 显示填充效果层
+  document.getElementById('fillOverlay').classList.add('show');
+  // 侧栏提示
+  addMsg('ai', '✅ 已成功填入表单：\n· 增值产品 → 库内非标增值（特批）\n· 增值服务 → 库内其他服务需求\n· 需求背景说明 → 已填入\n· 需求描述 → 已填入\n\n提交后 SOP 将自动同步至审核后台。\n\n<button class="audit-preview-btn" onclick="openAuditModal()">模拟审核视角 →</button>', 0);
+}
+
+function closeFillOverlay() {
+  document.getElementById('fillOverlay').classList.remove('show');
 }
 
 function sendMessage() {
@@ -348,37 +463,25 @@ function sendMessage() {
 function resetDemo() {
   document.getElementById('chatArea').innerHTML = '';
   document.getElementById('workspace').classList.add('sidebar-open');
+  document.getElementById('fillOverlay').classList.remove('show');
 }
 
 async function runDemo(scenario) {
   resetDemo();
-  await addMsg('ai', '我看到您的异常单 WI46673588 是【商品条码异常(需客户处理)】，当前为有箱单入库。\n\n基于当前场景，建议选择以下增值服务：\n\n📦 上架方向：\n  · 原单上架 - 补贴原商品条码 ⭐推荐\n  · 原单上架 - 更换新商品条码\n  · 原单上架 - 直接上架\n  · 新单上架 - 补贴原商品条码\n\n🗑️ 销毁 · 🚚 自提 · 📷 暂存拍照\n\n如果以上都无法满足，我可以帮您走非标特批流程。\n\n请告诉我您想怎么处理？', 500);
-
-  if (scenario === 'standard') {
-    await addMsg('user', '条码扫不了 帮我处理下', 1500);
-    await addMsg('ai', '收到。您希望怎么处理这批货？是想继续上架（需要重新贴条码），还是不要了（销毁/自提）？', 1500);
-    await addMsg('user', '上架吧 贴回原来那个码就行', 1500);
-    await addMsg('ai', '好的，为您推荐【原单上架 - 补贴原商品条码】。\n\n已帮您选中增值产品和服务，请确认后提交。', 1500);
-  } else if (scenario === 'noReview') {
-    await addMsg('user', '这个货有问题 我想看看里面什么情况', 1500);
-    await addMsg('ai', '您是想让仓库开箱拍照确认货物状态吗？还是需要其他处理？', 1500);
-    await addMsg('user', '对 拍个照给我看看', 1500);
-    await addMsg('ai', '为您推荐【入库-商品开箱拍照】，这是免审服务，提交后仓库会直接执行并上传照片。\n\n已帮您选中。', 1500);
-  } else if (scenario === 'special') {
-    await addMsg('user', '这批货尺寸跟系统登记的对不上 要重新量一下再换标签上架', 1500);
-    await addMsg('ai', '收到。您的意思是需要仓库重新测量尺重，然后根据实际情况更换标签后上架？请确认：\n- 是否需要更换商品标签？\n- 换标后上架到原入库单还是新单？', 1500);
-    await addMsg('user', '对 量完换标签 上原单就行', 1500);
-    await addMsg('ai', '您的需求是【尺重/标签辨识后换标上架】，这超出当前标准服务范围，需要走非标特批流程。\n\n我来帮您生成操作 SOP：', 1500);
-    await addSopCard(1500);
-    await addFeePlaceholder(1000);
-  }
+  await addMsg('ai', '您好，我看到您正在新增库内增值单。\n\n请描述您希望仓库如何处理库内的这批货物，我来帮您生成 SOP 并填入表单。', 500);
+  await addMsg('user', '这批货尺寸跟系统登记的对不上 要重新量一下再换标签上架', 1500);
+  await addMsg('ai', '收到。您的意思是需要仓库重新测量尺重，然后根据实际情况更换标签后上架？请确认：\n\n- 是否需要更换商品标签？\n- 换标后上架到原入库单还是新单？', 1500);
+  await addMsg('user', '对 量完换标签 上原单就行', 1500);
+  await addMsg('ai', '您的需求是【尺重/标签辨识后换标上架】，这超出当前标准服务范围，需要走非标特批流程。\n\n我来帮您生成操作 SOP：', 1500);
+  await addSopCard(1500);
+  await addFeePlaceholder(1000);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   const pref = localStorage.getItem('ai-guide-auto-popup');
   if (pref === 'false') { document.getElementById('workspace').classList.remove('sidebar-open'); return; }
   setTimeout(() => {
-    addMsg('ai', '我看到您的异常单 WI46673588 是【商品条码异常(需客户处理)】，当前为有箱单入库。\n\n基于当前场景，建议选择以下增值服务：\n\n📦 上架方向：\n  · 原单上架 - 补贴原商品条码 ⭐推荐\n  · 原单上架 - 更换新商品条码\n  · 原单上架 - 直接上架\n\n🗑️ 销毁 · 🚚 自提 · 📷 暂存拍照\n\n请告诉我您想怎么处理？', 0);
+    addMsg('ai', '您好，我是增值下单 AI 指引助手。\n\n我看到您正在新增库内增值单，请描述您希望仓库如何处理这批货物，我来帮您：\n· 判断应选择哪个增值服务\n· 生成操作 SOP\n· 一键填入表单字段\n\n请输入您的需求，或点击上方演示按钮查看完整流程。', 0);
   }, 800);
 });
 
