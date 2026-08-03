@@ -8,18 +8,18 @@
 
 ## §1 任务
 
-参照 `prototypes/C_特批指引-独立弹窗.html` 的最新实现，产出版本 A。版本 A 的 AI 容器是 inline 面板（嵌在页面内），其余逻辑与 C 完全一致。
+参照 `prototypes/B_特批指引-客服栏对话.html` 的最新实现，产出版本 A。版本 A 的 AI 容器是 inline 面板（嵌在页面内），其余逻辑与 C 完全一致。
 
 ## §2 前置阅读
 
-- 先读 `prototypes/C_特批指引-独立弹窗.html` 理解完整实现（V4 底座 + AI 对话 + 多轮追问 + 联动 + 费用占位 + 审核模态框 + 演示控制台）
+- 先读 `prototypes/B_特批指引-客服栏对话.html` 理解完整实现（V4 底座 + AI 对话 + 多轮追问 + 联动 + 费用占位 + 审核模态框 + 演示控制台）
 - 读 `prototypes/demo-vas-order-page-v4(2).html` 理解 V4 底座原始结构
 - 读 `prototypes/demo-vas-exception-config.html` 理解推荐数据
 
-## §3 版本 A 与 C 的差异
+## §3 版本 A 与 B 的差异
 
 ### AI 容器形式
-- C 是独立悬浮弹窗（右下角 420px）
+- B 是右侧 360px 侧边栏（线上客服风格）
 - A 是 **inline 面板**，嵌在 V4 页面 question-title 下方、处理方式卡片上方
 - inline 面板样式：`background:#fffaf3; border:1px solid #f0e4c0; border-radius:8px; padding:16px; margin:16px 0`
 - 面板内部结构与 C 的弹窗对话区完全一致（对话气泡 + 输入框）
@@ -30,11 +30,11 @@
 - 标题栏有收起按钮（▽），点击可折叠面板
 
 ### SVG AI Icon
-- 同 C，用金色渐变 SVG inline icon
+- 同 B，用金色渐变 SVG inline icon
 
 ### 其他
-- V4 底座、数据补充、演示控制台、多轮对话流、自动联动 select 链路、费用占位、SOP 卡片（只保留一键填入）、审核模态框 — 全部与 C 一致
-- 唯一区别是 AI 面板的位置从"悬浮弹窗"变为"页面内嵌展开"
+- V4 底座、数据补充、演示控制台、多轮对话流、自动联动 select 链路、费用占位、SOP 卡片（只保留一键填入）、审核模态框 — 全部与 B 一致
+- 唯一区别是 AI 面板的位置从"右侧侧边栏"变为"页面内嵌展开"
 
 ## §4 约束
 

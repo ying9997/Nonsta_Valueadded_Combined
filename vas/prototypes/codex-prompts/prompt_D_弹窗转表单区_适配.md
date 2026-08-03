@@ -8,11 +8,11 @@
 
 ## §1 任务
 
-参照 `prototypes/C_特批指引-独立弹窗.html` 的最新实现，产出版本 D。版本 D 的 AI 容器分两阶段：决策阶段用悬浮弹窗，非标 SOP 填写阶段切换到页面内 inline 面板。
+参照 `prototypes/B_特批指引-客服栏对话.html` 的最新实现，产出版本 D。版本 D 的 AI 容器分两阶段：决策阶段用悬浮弹窗，非标 SOP 填写阶段切换到页面内 inline 面板。
 
 ## §2 前置阅读
 
-- 先读 `prototypes/C_特批指引-独立弹窗.html` 理解完整实现
+- 先读 `prototypes/B_特批指引-客服栏对话.html` 理解完整实现
 - 读 `prototypes/demo-vas-order-page-v4(2).html` 理解 V4 底座
 - 读 `prototypes/demo-vas-exception-config.html` 理解推荐数据
 
