@@ -1,0 +1,77 @@
+{
+  "id": "arithmetic-formula",
+  "domain": "_template",
+  "name": "四则运算公式（模板示例）",
+  "description": "解析并计算仅含加、减、乘、除与括号的数值算式，并由 LLM 对计算结果做简短点评，最终合并输出。Use when 需要执行纯算术、校验算式、或作为「代码+LLM+format-output」模板参考。",
+  "capabilities": [
+    "算术计算",
+    "表达式求值",
+    "结果点评",
+    "模板参考"
+  ],
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "expression": {
+        "type": "string",
+        "description": "待计算的算式；推荐使用 SKU_QTY(wh=仓库编码, sku=商品编码) 在式内声明仓与 SKU。无括号 SKU_QTY 时可选传 merchandiseCode 供与前置拉数结果对齐；库存数量由工作流内 fetch 节点/插件注入，不作为专家对外字段。不支持幂、函数及其它变量名",
+        "default": ""
+      },
+      "merchandiseCode": {
+        "type": "string",
+        "description": "可选。无括号 SKU_QTY 时用于与 fetch 产出的 skuResolutions 按商品编码匹配（括号式在算式内已含 sku）"
+      },
+      "warehouseCodes": {
+        "type": "string",
+        "description": "可选。无括号 SKU_QTY 时作为 id/58 的 warehouseCode；与 build-winit-inventory-data / fetch-sku-inventory 一致"
+      },
+      "inventoryType": {
+        "type": "string",
+        "description": "可选，万邑通 queryProductInventoryList4Page（id/58）：Country / Warehouse，默认 Warehouse",
+        "default": "Warehouse"
+      },
+      "isActive": {
+        "type": "string",
+        "description": "可选，id/58 商品是否有效 Y/N，默认 Y",
+        "default": "Y"
+      },
+      "pageNo": {
+        "type": "integer",
+        "description": "可选，id/58 分页页码 pageNum，默认 1",
+        "default": 1,
+        "minimum": 1
+      },
+      "pageSize": {
+        "type": "integer",
+        "description": "可选，id/58 每页条数 pageSize，默认 100",
+        "default": 100,
+        "minimum": 1
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "format-output 合并后的结构：computation=代码求值；review=LLM 点评",
+        "properties": {
+          "computation": {
+            "type": "object",
+            "description": "evaluate-expression 产出（valid、value、expressionNormalized、errorCode、skuUsableQtyUsed?、skuResolutions?；含 SKU_QTY 时可有 inventory_* 错误码）"
+          },
+          "review": {
+            "type": "object",
+            "description": "llm-comment 产出（如 highlights、caveats、confidence）"
+          }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "合并展示：计算结论文案 + 模型点评（由 format-output 拼接）"
+      }
+    }
+  }
+}

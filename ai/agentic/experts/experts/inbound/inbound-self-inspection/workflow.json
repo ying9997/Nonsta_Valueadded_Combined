@@ -1,0 +1,336 @@
+{
+  "nodes": [
+    {
+      "id": "validate-intent",
+      "file": "nodes/validate-intent.ts",
+      "inputs": [
+        "intent",
+        "subTopic",
+        "inboundOrderNos",
+        "inboundOrderNo",
+        "phase",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "error",
+        "intent",
+        "subTopic",
+        "phase",
+        "inboundOrderNos",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "subTopic": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "inboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "query": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "route-intent",
+      "file": "nodes/route-intent.ts",
+      "inputs": [
+        "validationOk",
+        "intent",
+        "subTopic",
+        "phase"
+      ],
+      "outputs": [
+        "routePath",
+        "skipOms",
+        "fetchExceptions",
+        "normalizedSubTopic",
+        "normalizedPhase"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "routePath": {
+            "type": "string"
+          },
+          "skipOms": {
+            "type": "boolean"
+          },
+          "fetchExceptions": {
+            "type": "boolean"
+          },
+          "normalizedSubTopic": {
+            "type": "string"
+          },
+          "normalizedPhase": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "resolve-inbound-lookup",
+      "file": "nodes/resolve-inbound-lookup.ts",
+      "inputs": [
+        "skipOms",
+        "inboundOrderNos"
+      ],
+      "outputs": [
+        "wiOrderNos",
+        "customerRefNos",
+        "inboundOrderNos",
+        "lookupMeta"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "wiOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerRefNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lookupMeta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-winit-inbound-detail",
+      "file": "nodes/build-winit-inbound-detail.ts",
+      "inputs": [
+        "skipOms",
+        "wiOrderNos",
+        "customerRefNos"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount",
+        "actionName",
+        "skipOms"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "winitPluginBatchActionsCount": {
+            "type": "integer"
+          },
+          "actionName": {
+            "type": "string"
+          },
+          "skipOms": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-inbound-order",
+      "file": "nodes/fetch-inbound-order.ts",
+      "inputs": [
+        "skipOms",
+        "actions",
+        "actionPlans",
+        "winitPluginOutputList"
+      ],
+      "outputs": [
+        "rawOrderData"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-exception-list-request",
+      "file": "nodes/build-exception-list-request.ts",
+      "inputs": [
+        "skipOms",
+        "fetchExceptions",
+        "wiOrderNos"
+      ],
+      "outputs": [
+        "actions",
+        "skipExceptionApi"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "skipExceptionApi": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-exception-list",
+      "file": "nodes/fetch-exception-list.ts",
+      "inputs": [
+        "skipExceptionApi",
+        "actions",
+        "winitExceptionPluginOutputList"
+      ],
+      "outputs": [
+        "samplingExceptions"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "samplingExceptions": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          }
+        }
+      }
+    },
+    {
+      "id": "load-self-inspection-kb",
+      "file": "nodes/load-self-inspection-kb.ts",
+      "inputs": [
+        "intent",
+        "subTopic",
+        "normalizedSubTopic",
+        "normalizedPhase",
+        "routePath",
+        "rawOrderData",
+        "kbSubmitGuide",
+        "kbQsiGuide",
+        "kbSamplingRules",
+        "kbExemptionConditions"
+      ],
+      "outputs": [
+        "kbContent",
+        "kbScope",
+        "inspectionProduct"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "kbContent": {
+            "type": "string"
+          },
+          "kbScope": {
+            "type": "string"
+          },
+          "inspectionProduct": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "intent",
+        "subTopic",
+        "normalizedPhase",
+        "routePath",
+        "inboundOrderNos",
+        "rawOrderData",
+        "samplingExceptions",
+        "kbContent",
+        "kbScope",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

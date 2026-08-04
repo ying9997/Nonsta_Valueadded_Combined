@@ -1,0 +1,278 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "claimIds",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputs": [
+        "valid",
+        "branch",
+        "error",
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "claimIds",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "claimIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "outputs": {
+          "valid": {
+            "type": "boolean"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "claimIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "id": "build-compensate-list-data",
+      "file": "nodes/build-compensate-list-data.ts",
+      "inputs": [
+        "branch",
+        "trackingIds",
+        "outboundOrderNos",
+        "claimIds"
+      ],
+      "outputs": [
+        "winitRequestData"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "branch": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "claimIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "outputs": {
+          "winitRequestData": {
+            "type": "string",
+            "description": "JSON.stringify 后的 afs.customer.compensate.pageList 请求体"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-compensate-list",
+      "file": "nodes/fetch-compensate-list.ts",
+      "inputs": [
+        "branch",
+        "trackingIds",
+        "outboundOrderNos",
+        "claimIds",
+        "winitOpenapiData",
+        "winitRequestData",
+        "customerCode",
+        "customerName",
+        "username"
+      ],
+      "outputs": [
+        "compensateListFacts"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "branch": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "claimIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "winitOpenapiData": {
+            "type": "string",
+            "description": "插件响应 data"
+          },
+          "winitRequestData": {
+            "type": "string"
+          },
+          "customerCode": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "compensateListFacts": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "branch",
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "claimIds",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext",
+        "compensateListFacts"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "compensateListFacts",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object"
+          },
+          "compensateListFacts": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

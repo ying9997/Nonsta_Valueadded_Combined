@@ -1,0 +1,1011 @@
+schema_version: 1.0.0
+name: carrier_contact
+id: 7801779415164381267
+description: 尾程承运商/自提点联系方式（KB + LLM）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      trackingIds:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 轨迹单号
+                      carrierCode:
+                          type: string
+                          value: null
+                          description: 承运商代码，与主数据或轨迹 summary 一致
+                      region:
+                          type: string
+                          value: null
+                          description: 区域（国家/州省/城市等）
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 上游合并上下文（推荐由 delivery-status 提供 carrierHints、trajectories 等）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163003"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163003"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163003"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163003"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 校验是否具备启动「承运商/自提点联系方式」分析的最小事实
+               * FaaS 单文件闭环，无外部 import。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输入】params：query, trackingIds, carrierCode, region, customerIntent, enrichedContext, inputContext
+               * 【输出】透传；valid 表示至少有一种定位线索；enrichedContext 合并 analysisClock（UTC）。
+               * enrichedContext 可为编排侧「域索引」，本节点取 `last-mile/delivery-status` 最新一条并展开；亦可为旧版扁平对象。
+               */
+
+              const EC_IDX_KEY_DS_CC = "last-mile/delivery-status";
+
+              function extractDomainEntryCc(ecIndex: unknown, domainKey: string): Record<string, unknown> {
+                if (!ecIndex || typeof ecIndex !== "object" || Array.isArray(ecIndex)) return {};
+                const entries = (ecIndex as Record<string, unknown>)[domainKey];
+                if (!Array.isArray(entries) || entries.length === 0) return {};
+                const last = entries[entries.length - 1];
+                if (!last || typeof last !== "object" || Array.isArray(last)) return {};
+                const { _meta: _m, ...rest } = last as Record<string, unknown>;
+                return rest;
+              }
+
+              function resolveFlatEnrichedContextCc(raw: unknown): Record<string, unknown> {
+                const fromDomain = extractDomainEntryCc(raw, EC_IDX_KEY_DS_CC);
+                if (Object.keys(fromDomain).length > 0) return fromDomain;
+                if (raw !== undefined && raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+                  const o = raw as Record<string, unknown>;
+                  const looksLikeDomainIndex = Object.keys(o).some((k) => k.includes("/") && Array.isArray(o[k]));
+                  if (looksLikeDomainIndex) return {};
+                  return { ...o };
+                }
+                return {};
+              }
+
+              interface AnalysisClock {
+                utcIso: string;
+                timezoneLabel: string;
+                note: string;
+              }
+
+              function buildAnalysisClock(): AnalysisClock {
+                return {
+                  utcIso: new Date().toISOString(),
+                  timezoneLabel: "UTC",
+                  note: "参考时钟为服务端 UTC（ISO8601）。",
+                };
+              }
+
+              function withAnalysisClock(ec: unknown): Record<string, unknown> {
+                const base =
+                  ec !== undefined && ec !== null && typeof ec === "object" && !Array.isArray(ec)
+                    ? { ...(ec as Record<string, unknown>) }
+                    : {};
+                base.analysisClock = buildAnalysisClock();
+                return base;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const carrierCode = String(params.carrierCode ?? "").trim();
+                const region = String(params.region ?? "").trim();
+                const ci = String(params.customerIntent ?? "").trim();
+                const q = String(params.query ?? "").trim();
+                const flatEc = resolveFlatEnrichedContextCc(params.enrichedContext);
+                const hasEnriched = Object.keys(flatEc).length > 0;
+
+                const hasIds = trackingIds.length > 0;
+                const hasCarrier = carrierCode.length > 0;
+                const hasRegion = region.length > 0;
+                const hasText = ci.length > 0 || q.length > 0;
+
+                const valid = hasIds || hasCarrier || hasRegion || hasEnriched || hasText;
+                const errMsg =
+                  "请至少提供 trackingIds、carrierCode、region、enrichedContext、customerIntent 或 query 之一";
+                const customerIntentOut = valid ? ci : `[输入校验] ${errMsg}`.trim();
+
+                const ret = {
+                  valid,
+                  error: valid ? "" : errMsg,
+                  query: q,
+                  trackingIds,
+                  carrierCode,
+                  region,
+                  customerIntent: customerIntentOut,
+                  enrichedContext: withAnalysisClock(hasEnriched ? flatEc : {}),
+                  inputContext: params.inputContext && typeof params.inputContext === "object" ? params.inputContext : {},
+                };
+                return ret;
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: inputs.trackingIds
+                        ref_node: "100001"
+              - name: carrierCode
+                input:
+                    value:
+                        path: inputs.carrierCode
+                        ref_node: "100001"
+              - name: region
+                input:
+                    value:
+                        path: inputs.region
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              carrierCode:
+                  type: string
+                  value: null
+              region:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: load-carrier-knowledge
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 节点：load-carrier-knowledge — 组装注入 LLM 的 kbMd（与 prompts/kb.md 正文一致，须同步维护）
+               * FaaS 单文件闭环，无外部 import。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输出】kbMd：解析侧重前缀 + CARRIER_KB_MARKDOWN；并透传 validate 产出供 llm 使用。
+               */
+              const CARRIER_KB_MARKDOWN: string = "# 承运商 / 自提点联系方式 — 内置知识库（KB）\n\n> **溯源（维护者）**：内部 SOP《（海外仓）各供应商的客服电话》；完整链接见 **design.md**。本文件为运营整理版，与 `nodes/load-carrier-knowledge.ts` 内嵌 `CARRIER_KB_MARKDOWN` **须保持同步**。对客回复**仅可使用**下文明示号码、邮箱与 URL；**禁止**向客户提供文档标注为「限 Winit 拨打 / 切勿给到客户」的内部号码；**禁止**在对客句中口述「内部文档名」或内部协作文档链接。\n\n---\n\n## 国际件 — 目的地供应商电话无法直接提供时\n\n- 目的地国家分散，无法保证表中已覆盖全部末端承运商。\n- 建议客户先在 **Google** 搜索该承运商官方客服电话。\n- 若仍无法获得：引导 **万邑联 → 索赔/查件 → 新增尾程查件**，异常类型按实际选择，**备注中写明需要目的地国家供应商联系电话**。\n- **时效说明**：工作日 **16:00 前**成功提交的申请，Winit 当天代为向尾程供应商发起咨询；超过 16:00 顺延至下一工作日。供应商反馈时间通常约 **5 个工作日**（以实际为准）。\n- **内部口径**：可尝试协助查询当地联系方式；查不到则仍建议走查件。\n\n---\n\n## US — 尾程派送方式与客服电话（节选）\n\n| 派送方式 / 渠道 | 联系方式 |\n|-----------------|----------|\n| US USPS | 001-800-275-8777 |\n| US UPS（含 UPS Mail Innovations Lightweight / Heavyweight） | 001-800-877-1497 或 001-800-742-5877 |\n| US FedEx | 001-800-463-3339 |\n| US DHL EXPRESS | 001-800-225-5345 |\n| US DHLe（DHL eCommerce 等） | +1 317-554-5191；亦可 [webtrack.dhlglobalmail.com](https://webtrack.dhlglobalmail.com/home) 联系客服 |\n| US Western Post | +1 (859) 809-2258 |\n| US GOFO | 1 (949) 688-6032 |\n| Winit Shipping - Big&Bulky | +1 (859) 809-2258 |\n| DGF（美西 LAX Hub） | 001-800-426-5962 或 +1 310-536-5400（接通后按 3 选 domestic air/ground 转 DHL Global Forwarding，再按 4 或 0 转人工） |\n| DGF（美东 CVG Hub） | 001-888-376-7432 |\n| DGF（美南 DFW Hub） | 001-469-586-3159 |\n| Amazon Logistics - Shipping with Amazon | 无公开电话；[track.amazon.com 联系页](https://track.amazon.com/contact-us?trackingId)（需 trackingId） |\n| Ontrac Ground | 无公开电话；短信发 **track my package** 至 **5878172380** |\n| SpeedX | 无公开电话；[SpeedX 支持中心](https://support.speedx.io/hc/en-us/articles/27523827848717-How-can-I-contact-SpeedX) |\n| yanwen（燕文） | 无电话；客诉邮箱 [service@yanwenexpress.com](mailto:service@yanwenexpress.com) |\n\n---\n\n## AU — 节选\n\n| 派送方式 / 渠道 | 联系方式 |\n|-----------------|----------|\n| AU POST（MCS 转 AU POST 等） | 澳洲本地 **13 POST (13 7678)**；境外 +61 3 8847 9045 |\n| Allied Express | **13 13 73** |\n| AU Toll Priority | **13 15 31** |\n| AU Toll IPEC | 1300 865 547 Option 5；境外 +61 1300 865 547 Option 5 |\n| AU Direct Freight | **1300 347 397** |\n| AU Mix Shipping Economy（AU CP） | **1300 361 000** |\n| TNT | **13 11 50** |\n| AU MCS 转 PFL | +61 2 8355 1956；网站 [pflogistics.com.au](http://www.pflogistics.com.au/) |\n| Fastway / Aramex（按站点） | 用 [Aramex 追踪](https://www.aramex.com.au/tools/track/) 查站点后，官网 **Contact us → Aramex depot** 按州查站点电话（内部 SOP 含站点示意与附件索引，勿对客户复述）。 |\n\n---\n\n## DE — 节选\n\n| 派送方式 / 渠道 | 联系方式 |\n|-----------------|----------|\n| DE DHL Packet | 0049 228 4333112（**注意**：文档中 **+49 228 76369697** 等为 **Winit 内部拨打限制号，禁止给终端客户**） |\n| DE Deutsche Post | 国内 0049 228 4333112；国际 0049 228 4333118 |\n| DE Europe Freight (DHL Freight) | 0049 421 52 38-112 |\n| DE UPS | 0049 01806 882663 |\n| DE DPD | +49 6021 150415 或 +49 (0)6021 / 150410 |\n| DE DB SCHENKER | [sims.dbschenker.com/support](https://sims.dbschenker.com/support) 选 phone、输入国家查当地电话 |\n| DE YunExpress 转 GOFO FR | +33 970709065 |\n| GLS（表中与 DE 相关条目） | 以内部最新维护表及德区派送合同为准；北美常用 1-800-322-5555 为 GLS 美国客服示例（以德区实际派送合同为准） |\n\n---\n\n## UK — 节选\n\n| 派送方式 / 渠道 | 联系方式 |\n|-----------------|----------|\n| UK DPD | 0044 121 275 0500 |\n| UK Royal Mail | 08457 950 950 或 03457 740 740 |\n| UK XDP | 01675 477165 |\n| UK Yodel | 0344 755 0117 |\n| EVRi（原 Hermes） | 0330 808 5456；可配合官方 App |\n| UK P2P | 01268 533114 |\n| UK Parcelforce | 03448 006205 或 0344 800 4466 |\n| UK UPS FREIGHT | 03457 877 877 |\n| UK DHL | 02476 937 770（服务时间以承运商公布为准） |\n\n---\n\n## BE — 节选\n\n| 派送方式 / 渠道 | 联系方式 |\n|-----------------|----------|\n| BE UPS | 078-250-877 |\n| BE Deutsche Post | 0228 4333112 |\n\n---\n\n## DE DHL 国际件 — 目的国末端（节选表）\n\n以下用于 **DHL International Paket** 等经德国仓出发、目的国为当地的场景；完整列以内部维护表为准（维护者按 design.md 同步）。\n\n| 国家 | 供应商 | 联系方式 |\n|------|--------|----------|\n| AT | Austrian Post | 0800 010 100 或 +43 0800 212 212 |\n| CZ | PPL | 420 954 292 102 |\n| FR | Laposte | 33 810 82 18 21 |\n| IT | DHL Italia | 199.199.345 |\n| IT | Poste Italiane | 199.113366 |\n| ES | Correos | 902 197 197 |\n| ES | DHL Espana | 902 12 24 24 或 902 12 30 30 |\n| UK | Royal Mail | 08448 00 44 66 |\n| NL | DHL Nederland | (31) 0900 2222 120 |\n\n西班牙 DHL 客户服务入口示例：[dhl.com/es-en 客户服务](https://www.dhl.com/es-en/home/customer-service.html)\n\n---\n\n## UPS International Standard Parcel\n\n末端为当地 UPS 时，可引导客户在 **UPS 官网** 按国家/服务查询当地客服（内部操作指引含截图路径，勿对客户复述文档来源）。\n\n---\n\n## DHL International Paket (DE 出发)\n\n可引导客户在 **DHL 官网** 切换至目的国站点查询当地热线（内部指引含多国跳转说明，勿对客户复述）。\n\n---\n\n## 输出约束（给模型）\n\n- 号码、邮箱、URL **须来自上文或 enrichedContext 中已出现的字段**；不得臆造区号或分机。\n- **不得**输出标注为内部/Winit 专用的电话号码给客户。\n- 无表内覆盖的渠道：诚实说明，并给 **国际件查件** 或 **官网自助** 路径，不承诺供应商回电时间。\n";
+
+              function pickHints(ec: unknown, carrierCode: string, region: string): { lines: string[]; tags: string[] } {
+                const lines: string[] = [];
+                const tags: string[] = [];
+                const r = (region + " " + carrierCode).toUpperCase();
+                if (/\bUS\b|UNITED STATES|USA|CALIFORNIA|LAX|\bNY\b/.test(r)) tags.push("US");
+                if (/\bAU\b|AUSTRALIA|SYDNEY|MELBOURNE/.test(r)) tags.push("AU");
+                if (/\bDE\b|GERMANY|DEUTSCH/.test(r)) tags.push("DE");
+                if (/\bUK\b|\bGB\b|UNITED KINGDOM|LONDON/.test(r)) tags.push("UK");
+                if (/\bBE\b|BELGIUM/.test(r)) tags.push("BE");
+                if (ec && typeof ec === "object" && !Array.isArray(ec)) {
+                  const o = ec as Record<string, unknown>;
+                  const ch = o.carrierHints;
+                  if (ch && typeof ch === "object") {
+                    lines.push("- enrichedContext.carrierHints: " + JSON.stringify(ch).slice(0, 1200));
+                  }
+                  const tr = o.trajectories;
+                  if (Array.isArray(tr) && tr[0] && typeof tr[0] === "object") {
+                    const s = (tr[0] as { summary?: unknown }).summary;
+                    if (s && typeof s === "object") {
+                      lines.push("- trajectories[0].summary: " + JSON.stringify(s).slice(0, 800));
+                    }
+                  }
+                }
+                if (carrierCode) lines.push("- 入参 carrierCode: " + carrierCode);
+                if (region) lines.push("- 入参 region: " + region);
+                return { lines, tags };
+              }
+
+              function buildFocusBlock(carrierCode: string, region: string, ec: unknown): string {
+                const { lines, tags } = pickHints(ec, carrierCode, region);
+                return [
+                  "## 本次解析侧重（系统生成，非客户原文）",
+                  tags.length ? "- 关键词命中区域标签: " + tags.join(", ") : "- 未从 region/carrierCode 解析到国家标签（仍输出全量 KB 表供核对）",
+                  ...lines,
+                  "",
+                ].join("\n");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const query = String(params.query ?? "");
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const carrierCode = String(params.carrierCode ?? "").trim();
+                const region = String(params.region ?? "").trim();
+                const customerIntent = String(params.customerIntent ?? "").trim();
+                const enrichedContext =
+                  params.enrichedContext && typeof params.enrichedContext === "object" && !Array.isArray(params.enrichedContext)
+                    ? params.enrichedContext
+                    : {};
+                const inputContext =
+                  params.inputContext && typeof params.inputContext === "object" && !Array.isArray(params.inputContext)
+                    ? params.inputContext
+                    : {};
+                const valid = params.valid === true;
+                const error = String(params.error ?? "");
+
+                const focus = buildFocusBlock(carrierCode, region, enrichedContext);
+                const kbMd = focus + "\n---\n\n" + CARRIER_KB_MARKDOWN;
+
+                return {
+                  kbMd,
+                  valid,
+                  error,
+                  query,
+                  trackingIds,
+                  carrierCode,
+                  region,
+                  customerIntent,
+                  enrichedContext,
+                  inputContext,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-carrier-knowledge")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: valid
+                input:
+                    value:
+                        path: valid
+                        ref_node: "163000"
+              - name: error
+                input:
+                    value:
+                        path: error
+                        ref_node: "163000"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163000"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "163000"
+              - name: carrierCode
+                input:
+                    value:
+                        path: carrierCode
+                        ref_node: "163000"
+              - name: region
+                input:
+                    value:
+                        path: region
+                        ref_node: "163000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163000"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              kbMd:
+                  type: string
+                  value: null
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              carrierCode:
+                  type: string
+                  value: null
+              region:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 947
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 服务商 / 承运商联系方式专家 — LLM Prompt
+
+                        ## 角色
+
+                        你是**海外仓尾程承运商与自提点联系方式**专家。根据客户/客服提供的线索，从下方 **KB（`kbMd`）** 与 **`enrichedContext`** 中抽取**可核验**的客服电话、官网/邮箱/短信入口与**国际件兜底路径**，输出结构化分支与对客话术。
+
+                        - **禁止编造**：不得写出 KB 与 enrichedContext 中均未出现的电话号码、分机、URL 或邮箱。
+                        - **内部号码**：KB 中明确标注为「Winit 内部 / 禁止给终端客户」的号码，**不得**在对客 `analysis` 中出现。
+                        - **前置轨迹**：若 `enrichedContext` 来自 `delivery-status`（含 `carrierHints`、`trajectories[].summary`），**优先**用其中的 `carrierCode` / `standardCarrier` 与 KB 表对照；与用户口述的承运商不一致时，以系统事实为准并礼貌说明。
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **trackingIds**：`{{trackingIds}}`
+                        - **carrierCode**：`{{carrierCode}}`
+                        - **region**：`{{region}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **enrichedContext**：`{{enrichedContext}}`（JSON；可选，含 carrierHints、trajectories 等）
+                        - **inputContext**：`{{inputContext}}`（JSON；可选，含 `previousOutput`）
+                        - **kbMd**（完整知识库 Markdown，含区域侧重前缀 + 全表）：
+
+                        # 承运商 / 自提点联系方式 — 内置知识库（KB）
+
+                        > **溯源（维护者）**：内部 SOP《（海外仓）各供应商的客服电话》；完整链接见 **design.md**。本文件为运营整理版，与 `nodes/load-carrier-knowledge.ts` 内嵌 `CARRIER_KB_MARKDOWN` **须保持同步**。对客回复**仅可使用**下文明示号码、邮箱与 URL；**禁止**向客户提供文档标注为「限 Winit 拨打 / 切勿给到客户」的内部号码；**禁止**在对客句中口述「内部文档名」或内部协作文档链接。
+
+                        ---
+
+                        ## 国际件 — 目的地供应商电话无法直接提供时
+
+                        - 目的地国家分散，无法保证表中已覆盖全部末端承运商。
+                        - 建议客户先在 **Google** 搜索该承运商官方客服电话。
+                        - 若仍无法获得：引导 **万邑联 → 索赔/查件 → 新增尾程查件**，异常类型按实际选择，**备注中写明需要目的地国家供应商联系电话**。
+                        - **时效说明**：工作日 **16:00 前**成功提交的申请，Winit 当天代为向尾程供应商发起咨询；超过 16:00 顺延至下一工作日。供应商反馈时间通常约 **5 个工作日**（以实际为准）。
+                        - **内部口径**：可尝试协助查询当地联系方式；查不到则仍建议走查件。
+
+                        ---
+
+                        ## US — 尾程派送方式与客服电话（节选）
+
+                        | 派送方式 / 渠道 | 联系方式 |
+                        |-----------------|----------|
+                        | US USPS | 001-800-275-8777 |
+                        | US UPS（含 UPS Mail Innovations Lightweight / Heavyweight） | 001-800-877-1497 或 001-800-742-5877 |
+                        | US FedEx | 001-800-463-3339 |
+                        | US DHL EXPRESS | 001-800-225-5345 |
+                        | US DHLe（DHL eCommerce 等） | +1 317-554-5191；亦可 [webtrack.dhlglobalmail.com](https://webtrack.dhlglobalmail.com/home) 联系客服 |
+                        | US Western Post | +1 (859) 809-2258 |
+                        | US GOFO | 1 (949) 688-6032 |
+                        | Winit Shipping - Big&Bulky | +1 (859) 809-2258 |
+                        | DGF（美西 LAX Hub） | 001-800-426-5962 或 +1 310-536-5400（接通后按 3 选 domestic air/ground 转 DHL Global Forwarding，再按 4 或 0 转人工） |
+                        | DGF（美东 CVG Hub） | 001-888-376-7432 |
+                        | DGF（美南 DFW Hub） | 001-469-586-3159 |
+                        | Amazon Logistics - Shipping with Amazon | 无公开电话；[track.amazon.com 联系页](https://track.amazon.com/contact-us?trackingId)（需 trackingId） |
+                        | Ontrac Ground | 无公开电话；短信发 **track my package** 至 **5878172380** |
+                        | SpeedX | 无公开电话；[SpeedX 支持中心](https://support.speedx.io/hc/en-us/articles/27523827848717-How-can-I-contact-SpeedX) |
+                        | yanwen（燕文） | 无电话；客诉邮箱 [service@yanwenexpress.com](mailto:service@yanwenexpress.com) |
+
+                        ---
+
+                        ## AU — 节选
+
+                        | 派送方式 / 渠道 | 联系方式 |
+                        |-----------------|----------|
+                        | AU POST（MCS 转 AU POST 等） | 澳洲本地 **13 POST (13 7678)**；境外 +61 3 8847 9045 |
+                        | Allied Express | **13 13 73** |
+                        | AU Toll Priority | **13 15 31** |
+                        | AU Toll IPEC | 1300 865 547 Option 5；境外 +61 1300 865 547 Option 5 |
+                        | AU Direct Freight | **1300 347 397** |
+                        | AU Mix Shipping Economy（AU CP） | **1300 361 000** |
+                        | TNT | **13 11 50** |
+                        | AU MCS 转 PFL | +61 2 8355 1956；网站 [pflogistics.com.au](http://www.pflogistics.com.au/) |
+                        | Fastway / Aramex（按站点） | 用 [Aramex 追踪](https://www.aramex.com.au/tools/track/) 查站点后，官网 **Contact us → Aramex depot** 按州查站点电话（内部 SOP 含站点示意与附件索引，勿对客户复述）。 |
+
+                        ---
+
+                        ## DE — 节选
+
+                        | 派送方式 / 渠道 | 联系方式 |
+                        |-----------------|----------|
+                        | DE DHL Packet | 0049 228 4333112（**注意**：文档中 **+49 228 76369697** 等为 **Winit 内部拨打限制号，禁止给终端客户**） |
+                        | DE Deutsche Post | 国内 0049 228 4333112；国际 0049 228 4333118 |
+                        | DE Europe Freight (DHL Freight) | 0049 421 52 38-112 |
+                        | DE UPS | 0049 01806 882663 |
+                        | DE DPD | +49 6021 150415 或 +49 (0)6021 / 150410 |
+                        | DE DB SCHENKER | [sims.dbschenker.com/support](https://sims.dbschenker.com/support) 选 phone、输入国家查当地电话 |
+                        | DE YunExpress 转 GOFO FR | +33 970709065 |
+                        | GLS（表中与 DE 相关条目） | 以内部最新维护表及德区派送合同为准；北美常用 1-800-322-5555 为 GLS 美国客服示例（以德区实际派送合同为准） |
+
+                        ---
+
+                        ## UK — 节选
+
+                        | 派送方式 / 渠道 | 联系方式 |
+                        |-----------------|----------|
+                        | UK DPD | 0044 121 275 0500 |
+                        | UK Royal Mail | 08457 950 950 或 03457 740 740 |
+                        | UK XDP | 01675 477165 |
+                        | UK Yodel | 0344 755 0117 |
+                        | EVRi（原 Hermes） | 0330 808 5456；可配合官方 App |
+                        | UK P2P | 01268 533114 |
+                        | UK Parcelforce | 03448 006205 或 0344 800 4466 |
+                        | UK UPS FREIGHT | 03457 877 877 |
+                        | UK DHL | 02476 937 770（服务时间以承运商公布为准） |
+
+                        ---
+
+                        ## BE — 节选
+
+                        | 派送方式 / 渠道 | 联系方式 |
+                        |-----------------|----------|
+                        | BE UPS | 078-250-877 |
+                        | BE Deutsche Post | 0228 4333112 |
+
+                        ---
+
+                        ## DE DHL 国际件 — 目的国末端（节选表）
+
+                        以下用于 **DHL International Paket** 等经德国仓出发、目的国为当地的场景；完整列以内部维护表为准（维护者按 design.md 同步）。
+
+                        | 国家 | 供应商 | 联系方式 |
+                        |------|--------|----------|
+                        | AT | Austrian Post | 0800 010 100 或 +43 0800 212 212 |
+                        | CZ | PPL | 420 954 292 102 |
+                        | FR | Laposte | 33 810 82 18 21 |
+                        | IT | DHL Italia | 199.199.345 |
+                        | IT | Poste Italiane | 199.113366 |
+                        | ES | Correos | 902 197 197 |
+                        | ES | DHL Espana | 902 12 24 24 或 902 12 30 30 |
+                        | UK | Royal Mail | 08448 00 44 66 |
+                        | NL | DHL Nederland | (31) 0900 2222 120 |
+
+                        西班牙 DHL 客户服务入口示例：[dhl.com/es-en 客户服务](https://www.dhl.com/es-en/home/customer-service.html)
+
+                        ---
+
+                        ## UPS International Standard Parcel
+
+                        末端为当地 UPS 时，可引导客户在 **UPS 官网** 按国家/服务查询当地客服（内部操作指引含截图路径，勿对客户复述文档来源）。
+
+                        ---
+
+                        ## DHL International Paket (DE 出发)
+
+                        可引导客户在 **DHL 官网** 切换至目的国站点查询当地热线（内部指引含多国跳转说明，勿对客户复述）。
+
+                        ---
+
+                        ## 输出约束（给模型）
+
+                        - 号码、邮箱、URL **须来自上文或 enrichedContext 中已出现的字段**；不得臆造区号或分机。
+                        - **不得**输出标注为内部/Winit 专用的电话号码给客户。
+                        - 无表内覆盖的渠道：诚实说明，并给 **国际件查件** 或 **官网自助** 路径，不承诺供应商回电时间。
+
+
+                        ## 分支与 `structured.branch`（命中即停，择一）
+
+                        1. **缺定位线索**：无可用单号/承运商/区域且 `enrichedContext` 也无法识别承运商 → `need_info`；`suggestedNextExperts` 建议包含 **`delivery-status`**（若缺轨迹事实）。
+                        2. **KB 中有明确公开联系方式**（电话/官网/邮箱/短信路径之一）→ `has_contact`；在 `analysis` 中清晰列出，并注明是否需 trackingId、是否仅英文入口等。
+                        3. **渠道无公开电话、仅官网/邮件/短信** → `no_public_phone`；如实说明并给出 KB 中的自助路径。
+                        4. **国际末端、表中未覆盖的目的国承运商**：走 **Google 自查 + 万邑联尾程查件备注要当地电话** → `international_escalate`；不得承诺具体回电时点。
+                        5. **事实冲突、KB 未覆盖且无法安全推断** → `need_human`。
+
+                        ## 输出格式（仅输出一个 JSON 对象，无围栏外文字）
+
+                        **硬性要求**：只输出 **一个** JSON 对象，顶层 **仅有** `analysisResult`（与 workflow LLM 节点 `outputs[0]` 一致），其内包含 `structured` 与 `analysis`；不要用 Markdown 代码围栏包裹。
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "branch": "has_contact | need_info | international_escalate | no_public_phone | need_human",
+                              "carrierCode": "",
+                              "standardCarrier": "",
+                              "pickupPointIds": [],
+                              "suggestedNextExperts": [],
+                              "missingFacts": [],
+                              "contactSummary": "一句话摘要：渠道 + 主要号码或入口类型"
+                            },
+                            "analysis": "面向客服/卖家的完整回复：号码与入口须与 KB 一致；国际件说明时效与查件路径（不写具体工单 URL 除非输入已给出）。"
+                          }
+                        }
+                        ```
+
+                        ## 自检
+
+                        - `structured.branch` 与 `analysis` 一致。
+                        - 所有号码、链接、邮箱可在 **kbMd** 或 **enrichedContext** 中逐字找到来源。
+                        - `suggestedNextExperts` 仅填合理专家 id，如：`delivery-status`、`tracking-inquiry`；可为空数组。
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "163001"
+              - name: carrierCode
+                input:
+                    value:
+                        path: carrierCode
+                        ref_node: "163001"
+              - name: region
+                input:
+                    value:
+                        path: region
+                        ref_node: "163001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163001"
+              - name: kbMd
+                input:
+                    value:
+                        path: kbMd
+                        ref_node: "163001"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163003"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 的 analysisResult，生成 result / outputContext
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输入】analysisResult（object|string）、inputContext（可选）
+               * 【输出】result: { structured, analysis }；outputContext: expertId carrier-contact
+               */
+
+              const BRANCHES = new Set([
+                "has_contact",
+                "need_info",
+                "international_escalate",
+                "need_human",
+                "no_public_phone",
+              ]);
+
+              interface CcStructured {
+                branch?: string;
+                carrierCode?: string;
+                standardCarrier?: string;
+                pickupPointIds?: string[];
+                suggestedNextExperts?: string[];
+                missingFacts?: string[];
+                contactSummary?: string;
+              }
+
+              interface CcAnalysisResult {
+                structured?: CcStructured;
+                analysis?: string;
+              }
+
+              interface CcInputContext {
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): { structured: CcStructured; analysis: string } {
+                if (raw == null) {
+                  return {
+                    structured: {
+                      branch: "need_human",
+                      carrierCode: "",
+                      standardCarrier: "",
+                      pickupPointIds: [],
+                      suggestedNextExperts: [],
+                      missingFacts: [],
+                      contactSummary: "",
+                    },
+                    analysis: "未收到模型输出。",
+                  };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as CcAnalysisResult;
+                    if (parsed && typeof parsed === "object" && ("structured" in parsed || "analysis" in parsed)) {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch {
+                    /* fall through */
+                  }
+                  return {
+                    structured: {
+                      branch: "need_human",
+                      carrierCode: "",
+                      standardCarrier: "",
+                      pickupPointIds: [],
+                      suggestedNextExperts: [],
+                      missingFacts: [],
+                      contactSummary: "",
+                    },
+                    analysis: s || "解析失败，请人工查看原始模型输出。",
+                  };
+                }
+                const o = raw as CcAnalysisResult;
+                const st = o.structured ?? {};
+                const branchRaw = typeof st.branch === "string" ? st.branch.trim() : "";
+                const branch = BRANCHES.has(branchRaw) ? branchRaw : "need_human";
+
+                const pickupPointIds = Array.isArray(st.pickupPointIds)
+                  ? st.pickupPointIds.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const suggestedNextExperts = Array.isArray(st.suggestedNextExperts)
+                  ? st.suggestedNextExperts.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const missingFacts = Array.isArray(st.missingFacts)
+                  ? st.missingFacts.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+
+                return {
+                  structured: {
+                    branch,
+                    carrierCode: typeof st.carrierCode === "string" ? st.carrierCode.trim() : "",
+                    standardCarrier: typeof st.standardCarrier === "string" ? st.standardCarrier.trim() : "",
+                    pickupPointIds,
+                    suggestedNextExperts,
+                    missingFacts,
+                    contactSummary: typeof st.contactSummary === "string" ? st.contactSummary.trim() : "",
+                  },
+                  analysis: typeof o.analysis === "string" ? o.analysis : "（无 analysis 字段）",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as CcInputContext | undefined;
+                const summary = coerced.analysis.slice(0, 200) || "承运商联系方式分析完成";
+                const outputContext = {
+                  expertId: "carrier-contact",
+                  resultSummary: summary,
+                  chainId: inputContext?.chainId ?? "",
+                };
+                return {
+                  structured: coerced.structured,
+                  analysis: coerced.analysis,
+                  outputContext,
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163002"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "900001"

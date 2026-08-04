@@ -1,0 +1,2490 @@
+schema_version: 1.0.0
+name: inbound_customs_doc_manage
+id: 7527979687280810387
+description: 清关资料与进口商（validate → TMS queryPage + UMS getVendorInfo → KB → LLM）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      intent:
+                          type: string
+                          value: null
+                          description: 操作意图：upload / register_importer / query_importer / general
+                          required: true
+                      country:
+                          type: string
+                          value: null
+                          description: 目的国（UK / EU / DE / BE 等）
+                          required: true
+                      inboundOrderNo:
+                          type: string
+                          value: null
+                          description: 关联入库单号（可选；有则查 TMS 待上传状态）
+                      transportOrderNo:
+                          type: string
+                          value: null
+                          description: 运输单号 TO（可选，优先用于 TMS queryPage）
+                      importerCode:
+                          type: string
+                          value: null
+                          description: 进口商编码（query_importer 时可选，用于过滤 vendor）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163016"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163016"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163016"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163016"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-doc-intent
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：校验清关资料管理意图与必填参数
+               */
+
+              const VALID_INTENTS = new Set(["upload", "register_importer", "query_importer", "general"]);
+
+              const COUNTRY_ALIASES: Record<string, string> = {
+                GB: "UK",
+                USA: "US",
+                UNITEDSTATES: "US",
+                UNITEDKINGDOM: "UK",
+                GERMANY: "DE",
+                DEU: "DE",
+                BELGIUM: "BE",
+                BEL: "BE",
+                EUROPE: "EU",
+                英国: "UK",
+                美国: "US",
+                德国: "DE",
+                比利时: "BE",
+                欧盟: "EU",
+              };
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function normalizeCountry(raw: unknown): string {
+                const u = str(raw).toUpperCase().replace(/\s+/g, "");
+                if (!u) return "";
+                if (COUNTRY_ALIASES[u]) return COUNTRY_ALIASES[u];
+                if (/^[A-Z]{2}$/.test(u)) return u;
+                return "";
+              }
+
+              function normalizeIntent(raw: unknown): string {
+                const t = str(raw).toLowerCase();
+                return VALID_INTENTS.has(t) ? t : "";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intent = normalizeIntent(params.intent);
+                const country = normalizeCountry(params.country);
+                const inboundOrderNo = str(params.inboundOrderNo);
+                const transportOrderNo = str(params.transportOrderNo);
+                const importerCode = str(params.importerCode);
+                const customerIntent = str(params.customerIntent);
+                const inputContext = params.inputContext ?? {};
+
+                if (!intent) {
+                  return {
+                    validationOk: false,
+                    error: "intent 必填：upload / register_importer / query_importer / general",
+                    intent: "",
+                    country,
+                    inboundOrderNo,
+                    transportOrderNo,
+                    importerCode,
+                    customerIntent,
+                    inputContext,
+                  };
+                }
+
+                if (!country) {
+                  return {
+                    validationOk: false,
+                    error: "country 必填（UK / EU / DE / BE 等）",
+                    intent,
+                    country: "",
+                    inboundOrderNo,
+                    transportOrderNo,
+                    importerCode,
+                    customerIntent,
+                    inputContext,
+                  };
+                }
+
+                if (intent === "query_importer" && !importerCode) {
+                  // importerCode 可选：无则返回该国全部 IOR 列表（getVendorInfo）
+                }
+
+                return {
+                  validationOk: true,
+                  intent,
+                  country,
+                  inboundOrderNo,
+                  transportOrderNo,
+                  importerCode,
+                  customerIntent,
+                  inputContext,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-doc-intent")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intent
+                input:
+                    value:
+                        path: inputs.intent
+                        ref_node: "100001"
+              - name: country
+                input:
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: inboundOrderNo
+                input:
+                    value:
+                        path: inputs.inboundOrderNo
+                        ref_node: "100001"
+              - name: importerCode
+                input:
+                    value:
+                        path: inputs.importerCode
+                        ref_node: "100001"
+              - name: transportOrderNo
+                input:
+                    value:
+                        path: inputs.transportOrderNo
+                        ref_node: "100001"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              validationOk:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              intent:
+                  type: string
+                  value: null
+              country:
+                  type: string
+                  value: null
+              inboundOrderNo:
+                  type: string
+                  value: null
+              transportOrderNo:
+                  type: string
+                  value: null
+                  description: 运输单号 TO（可选，优先用于 TMS queryPage）
+              importerCode:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: prepare-tms-doc-lookup
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 节点：清关资料场景 TMS 查询前置（有 WI/TO 才查待上传状态）
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validationOk = params.validationOk === true;
+                const inboundOrderNo = str(params.inboundOrderNo).toUpperCase();
+                const transportOrderNo = str(params.transportOrderNo).toUpperCase();
+                const hasLookup = Boolean(inboundOrderNo || transportOrderNo);
+                const skipTms = !validationOk || !hasLookup;
+
+                return {
+                  skipApi: skipTms,
+                  skipTms,
+                  wiOrderNos: inboundOrderNo ? [inboundOrderNo] : [],
+                  customerRefNos: [],
+                  transportOrderNo,
+                  lookupMeta: { hasLookup, skipTms },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("prepare-tms-doc-lookup")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: inboundOrderNo
+                input:
+                    value:
+                        path: inboundOrderNo
+                        ref_node: "163000"
+              - name: transportOrderNo
+                input:
+                    value:
+                        path: transportOrderNo
+                        ref_node: "163000"
+          node_outputs:
+              skipApi:
+                  type: boolean
+                  value: null
+              skipTms:
+                  type: boolean
+                  value: null
+              wiOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerRefNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              transportOrderNo:
+                  type: string
+                  value: null
+              lookupMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: code
+      title: build-tms-transport-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 947
+      parameters:
+          code: |-
+              /**
+               * 节点：组装 tms.transportorder.queryPage 请求
+               * 规格：docs/plan/inbound-tms-transportorder-queryPage.md
+               */
+
+              const TMS_QUERY_PAGE_ACTION =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_TMS_QUERY_PAGE_ACTION?.trim()) ||
+                "tms.transportorder.queryPage";
+
+              const DEFAULT_WI_KEYWORD_TYPE =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_TMS_KEYWORD_TYPE?.trim()) ||
+                "inboundOrderNo";
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function isTransportOrderNo(token: string): boolean {
+                return /^TO/i.test(token.trim());
+              }
+
+              function basePageData(extra: Record<string, unknown>): Record<string, unknown> {
+                return { pageNo: 1, pageSize: 10, ...extra };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipApi === true || params.skipTms === true) {
+                  return { actions: [], tmsActionName: TMS_QUERY_PAGE_ACTION, skipTms: true };
+                }
+
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).map((o) => str(o)).filter(Boolean);
+                const customerRefNos = ((params.customerRefNos as string[]) ?? []).map((o) => str(o)).filter(Boolean);
+                const transportOrderNo = str(params.transportOrderNo);
+                const containerNo = str(params.containerNo);
+
+                const actions: Array<{ action: string; data: string }> = [];
+                const seen = new Set<string>();
+
+                const push = (keywordType: string, content: string) => {
+                  const key = `${keywordType}|${content}`;
+                  if (!content || seen.has(key)) return;
+                  seen.add(key);
+                  actions.push({
+                    action: TMS_QUERY_PAGE_ACTION,
+                    data: JSON.stringify(basePageData({ keywordType, content })),
+                  });
+                };
+
+                if (transportOrderNo) push("orderNo", transportOrderNo.toUpperCase());
+                for (const token of [...wiOrderNos, ...customerRefNos]) {
+                  if (isTransportOrderNo(token)) push("orderNo", token.toUpperCase());
+                }
+                for (const wi of wiOrderNos) push(DEFAULT_WI_KEYWORD_TYPE, wi);
+                for (const ref of customerRefNos) push("customerOrderNo", ref);
+                if (containerNo) push("containerNo", containerNo);
+
+                if (actions.length === 0) {
+                  return { actions: [], tmsActionName: TMS_QUERY_PAGE_ACTION, skipTms: true };
+                }
+
+                return { actions: actions, tmsActionName: TMS_QUERY_PAGE_ACTION, skipTms: false };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-tms-transport-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163001"
+              - name: skipTms
+                input:
+                    value:
+                        path: skipTms
+                        ref_node: "163001"
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163001"
+              - name: customerRefNos
+                input:
+                    value:
+                        path: customerRefNos
+                        ref_node: "163001"
+              - name: transportOrderNo
+                input:
+                    value:
+                        path: transportOrderNo
+                        ref_node: "163001"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              tmsActionName:
+                  type: string
+                  value: null
+              skipTms:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163003"
+      type: plugin
+      title: winit_tms_transport_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 10
+              concurrentSize: 5
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163002"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163003"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163003"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163004"
+      type: code
+      title: fetch-tms-transport-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          code: |-
+              /**
+               * 节点：拉取 TMS 运输单 queryPage
+               */
+
+              const TMS_QUERY_PAGE_ACTION =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_TMS_QUERY_PAGE_ACTION?.trim()) ||
+                "tms.transportorder.queryPage";
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  return JSON.parse(data) as unknown;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceList(parsed: unknown): unknown[] {
+                if (parsed == null) return [];
+                if (Array.isArray(parsed)) return parsed;
+                if (typeof parsed !== "object") return [];
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coerceList(o.output);
+                if (o.code === "0" || o.code === 0) return coerceList(o.data);
+                return Array.isArray(o.list) ? o.list : [];
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipTms === true) {
+                  return { tmsRawList: [] };
+                }
+
+                const pluginList = params.winitTmsPluginOutputList;
+                let list: unknown[] = [];
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  for (const item of pluginList as Array<{ data?: unknown }>) {
+                    list.push(...coerceList(parseCozeWorkflowDataField(item?.data)));
+                  }
+                } else {
+                  const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                    action: string;
+                    data: string;
+                  }>;
+                  const env = getCozeWinitEnv();
+                  if (env && actions.length > 0) {
+                    try {
+                      for (const act of actions) {
+                        const data = JSON.parse(act.data) as Record<string, unknown>;
+                        const parsed = await runCozeWinitWorkflow(env, act.action || TMS_QUERY_PAGE_ACTION, data);
+                        list.push(...coerceList(parsed));
+                      }
+                    } catch {
+                      list = [];
+                    }
+                  }
+                }
+
+                return { tmsRawList: list };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-tms-transport-order")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipTms
+                input:
+                    value:
+                        path: skipTms
+                        ref_node: "163002"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163002"
+              - name: winitTmsPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163003"
+          node_outputs:
+              tmsRawList:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163005"
+      type: code
+      title: summarize-tms-transport
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化 TMS TransportOrderVo 摘要
+               */
+
+              type TmsTransportRecord = {
+                transportOrderNo: string;
+                customerOrderNo: string;
+                status: string;
+                winitProductCode: string;
+                estimateVolume: number | null;
+                estimatePackageQty: number | null;
+                containerNo: string;
+                cartonType: string;
+                sendPortType: string;
+                cutoffCabinetDate: string;
+                importDeclarationRuleCode: string;
+                importerCode: string;
+                exportDeclarationType: string;
+                isWaitDataFile: string;
+                isWaitPackageList: string;
+                logisticsPlanId: string;
+                source: string;
+              };
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function numOrNull(v: unknown): number | null {
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+              }
+
+              function obj(v: unknown): Record<string, unknown> {
+                return v != null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+              }
+
+              function normalizeRow(raw: unknown): TmsTransportRecord | null {
+                if (!raw || typeof raw !== "object") return null;
+                const o = raw as Record<string, unknown>;
+                const transportOrderNo = str(o.orderNo);
+                if (!transportOrderNo && !o.customerOrderNo && !o.status) return null;
+
+                const send = obj(o.sendPortInfoVo);
+                const imported = obj(o.importedInfoVo);
+                const exported = obj(o.exportedInfoVo);
+                const logistics = obj(o.logisticsInfoVo);
+
+                return {
+                  transportOrderNo,
+                  customerOrderNo: str(o.customerOrderNo),
+                  status: str(o.status),
+                  winitProductCode: str(o.winitProductCode),
+                  estimateVolume: numOrNull(o.estimateVolume),
+                  estimatePackageQty: numOrNull(o.estimatePackageQty),
+                  containerNo: str(send.containerNo),
+                  cartonType: str(send.cartonType),
+                  sendPortType: str(send.sendPortType),
+                  cutoffCabinetDate: str(send.cutoffCabinetDate),
+                  importDeclarationRuleCode: str(imported.importDeclarationRuleCode),
+                  importerCode: str(imported.importerCode),
+                  exportDeclarationType: str(exported.exportDeclarationType),
+                  isWaitDataFile: str(o.isWaitDataFile),
+                  isWaitPackageList: str(o.isWaitPackageList),
+                  logisticsPlanId: str(logistics.estimateLogisticsPlanId),
+                  source: "tms_query_page",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawList = Array.isArray(params.tmsRawList) ? params.tmsRawList : [];
+                const seen = new Set<string>();
+                const records: TmsTransportRecord[] = [];
+
+                for (const raw of rawList) {
+                  const row = normalizeRow(raw);
+                  if (!row || !row.transportOrderNo) continue;
+                  if (seen.has(row.transportOrderNo)) continue;
+                  seen.add(row.transportOrderNo);
+                  records.push(row);
+                }
+
+                const primary = records[0] ?? null;
+                const dataQuality = records.length > 0 ? "tms_api" : params.skipTms === true ? "skipped" : "missing";
+
+                return {
+                  tmsTransportSummary: {
+                    records,
+                    recordCount: records.length,
+                    dataQuality,
+                    primary,
+                    trackingNote:
+                      records.length > 0
+                        ? "运输单表头可查；离港/到港里程碑须 tms.transportorder.queryTrackingList（本期未接入）"
+                        : "未查到运输单；请确认 TO 号或 WI↔TO 关联 keywordType",
+                  },
+                  tmsTransportRecords: records,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("summarize-tms-transport")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipTms
+                input:
+                    value:
+                        path: skipTms
+                        ref_node: "163002"
+              - name: tmsRawList
+                input:
+                    value:
+                        path: tmsRawList
+                        ref_node: "163004"
+          node_outputs:
+              tmsTransportSummary:
+                  type: object
+                  value: null
+              tmsTransportRecords:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163006"
+      type: code
+      title: build-vendor-info-request
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          code: |-
+              /**
+               * 节点：为 winit.ums.getVendorInfo 组装请求
+               * 文档：https://developer.winit.com.cn/document/detail/id/33.html
+               */
+
+              const GET_VENDOR_INFO_ACTION = "winit.ums.getVendorInfo";
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              /** 目的国 → API countryCode（进口商 IOR） */
+              function toVendorCountryCode(country: string): string {
+                const u = country.toUpperCase();
+                if (u === "EU") return "DE";
+                if (u === "GB") return "UK";
+                return u;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validationOk = params.validationOk === true;
+                const intent = str(params.intent);
+                const country = str(params.country);
+
+                const skipUmsApi = !validationOk || !country || intent === "upload";
+
+                if (skipUmsApi) {
+                  return {
+                    actions: [],
+                    umsActionName: GET_VENDOR_INFO_ACTION,
+                    skipUmsApi: true,
+                    vendorCountryCode: "",
+                    vendorType: "IOR",
+                  };
+                }
+
+                const countryCode = toVendorCountryCode(country);
+                const data = { countryCode, vendorType: "IOR" };
+
+                return {
+                  actions: [{ action: GET_VENDOR_INFO_ACTION, data: JSON.stringify(data) }],
+                  umsActionName: GET_VENDOR_INFO_ACTION,
+                  skipUmsApi: false,
+                  vendorCountryCode: countryCode,
+                  vendorType: "IOR",
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-vendor-info-request")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              umsActionName:
+                  type: string
+                  value: null
+              skipUmsApi:
+                  type: boolean
+                  value: null
+              vendorCountryCode:
+                  type: string
+                  value: null
+              vendorType:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163007"
+      type: plugin
+      title: winit_vendor_info_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 5
+              concurrentSize: 3
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163006"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163007"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163007"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163008"
+      type: code
+      title: fetch-vendor-info
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          code: |-
+              /**
+               * 节点：拉取 winit.ums.getVendorInfo
+               */
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const GET_VENDOR_INFO_ACTION = "winit.ums.getVendorInfo";
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceVendorList(parsed: unknown): unknown[] {
+                if (parsed == null) return [];
+                if (Array.isArray(parsed)) return parsed;
+                if (typeof parsed !== "object") return [];
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coerceVendorList(o.output);
+                if (o.code === "0" || o.code === 0) return coerceVendorList(o.data);
+                if (Array.isArray(o.list)) return o.list;
+                if (Array.isArray(o.data)) return o.data;
+                return [];
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipUmsApi === true) {
+                  return { rawVendorData: { list: [], _fetchMeta: { strategy: "skipped" } } };
+                }
+
+                const pluginList = params.winitUmsPluginOutputList;
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  const list: unknown[] = [];
+                  for (const item of pluginList as Array<{ data?: unknown }>) {
+                    list.push(...coerceVendorList(parseCozeWorkflowDataField(item?.data)));
+                  }
+                  return {
+                    rawVendorData: {
+                      list,
+                      _fetchMeta: { strategy: "plugin-batch", resolvedCount: list.length },
+                    },
+                  };
+                }
+
+                const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                  action: string;
+                  data: string;
+                }>;
+                const env = getCozeWinitEnv();
+                if (!env || actions.length === 0) {
+                  return { rawVendorData: { list: [], _fetchMeta: { strategy: "skipped" } } };
+                }
+
+                const errors: string[] = [];
+                const list: unknown[] = [];
+                for (const act of actions) {
+                  try {
+                    const data = JSON.parse(act.data) as Record<string, unknown>;
+                    const parsed = await runCozeWinitWorkflow(env, act.action || GET_VENDOR_INFO_ACTION, data);
+                    list.push(...coerceVendorList(parsed));
+                  } catch (e) {
+                    errors.push(String(e instanceof Error ? e.message : e));
+                  }
+                }
+
+                return {
+                  rawVendorData: {
+                    list,
+                    _fetchMeta: {
+                      strategy: "local-proxy",
+                      resolvedCount: list.length,
+                      errors: errors.length ? errors : undefined,
+                    },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-vendor-info")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipUmsApi
+                input:
+                    value:
+                        path: skipUmsApi
+                        ref_node: "163006"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163006"
+              - name: winitUmsPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163007"
+          node_outputs:
+              rawVendorData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163009"
+      type: code
+      title: merge-vendor-info
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2627
+      parameters:
+          code: |-
+              /**
+               * 节点：解析 getVendorInfo 响应，匹配 importerCode，输出 vendorFacts
+               */
+
+              const GET_VENDOR_INFO_ACTION = "winit.ums.getVendorInfo";
+
+              const REGISTER_GAP_NOTE = `进口商注册为写操作，须通过万邑联 → 进口商管理自行提交；本专家不代客注册。
+              查询已配置的进出口商可使用 API 返回的 vendorCode 在入库单中选择。`;
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              type VendorRow = {
+                vendorCode: string;
+                vendorName: string;
+                isWinit: boolean;
+                isWinitLabel: string;
+              };
+
+              function normalizeVendor(raw: unknown): VendorRow | null {
+                if (!raw || typeof raw !== "object") return null;
+                const o = raw as Record<string, unknown>;
+                const vendorCode = str(o.vendorCode ?? o.importerCode);
+                if (!vendorCode) return null;
+                const isWinitLabel = str(o.isWinit).toUpperCase();
+                return {
+                  vendorCode,
+                  vendorName: str(o.vendorName ?? o.importerName),
+                  isWinit: isWinitLabel === "Y" || isWinitLabel === "YES" || isWinitLabel === "TRUE",
+                  isWinitLabel: isWinitLabel || "N",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intent = str(params.intent);
+                const importerCode = str(params.importerCode);
+                const vendorCountryCode = str(params.vendorCountryCode);
+                const skipUmsApi = params.skipUmsApi === true;
+
+                if (skipUmsApi) {
+                  return {
+                    umsDataAvailable: false,
+                    vendorList: [],
+                    matchedVendor: null,
+                    vendorFacts: {
+                      umsDataAvailable: false,
+                      vendorList: [],
+                      matchedVendor: null,
+                      apiAction: GET_VENDOR_INFO_ACTION,
+                      registerGapNote: intent === "register_importer" ? REGISTER_GAP_NOTE : "",
+                    },
+                    gapNote: intent === "register_importer" ? REGISTER_GAP_NOTE : "",
+                    registerGapNote: REGISTER_GAP_NOTE,
+                  };
+                }
+
+                const rawVendorData = (params.rawVendorData ?? {}) as Record<string, unknown>;
+                const rawList = Array.isArray(rawVendorData.list) ? rawVendorData.list : [];
+                const allVendors = rawList.map(normalizeVendor).filter((v): v is VendorRow => v != null);
+
+                const fetchMeta = (rawVendorData._fetchMeta ?? {}) as Record<string, unknown>;
+                const apiCalled =
+                  fetchMeta.strategy === "plugin-batch" || fetchMeta.strategy === "local-proxy";
+
+                let vendorList = allVendors;
+                let matchedVendor: VendorRow | null = null;
+                if (importerCode) {
+                  matchedVendor =
+                    allVendors.find(
+                      (v) => v.vendorCode === importerCode || v.vendorCode.toUpperCase() === importerCode.toUpperCase()
+                    ) ?? null;
+                  if (matchedVendor) vendorList = [matchedVendor];
+                }
+
+                const umsDataAvailable = apiCalled && allVendors.length >= 0;
+
+                return {
+                  umsDataAvailable: umsDataAvailable && allVendors.length > 0,
+                  vendorList: vendorList.map((v) => ({
+                    vendorCode: v.vendorCode,
+                    vendorName: v.vendorName,
+                    isWinit: v.isWinit,
+                    isWinitLabel: v.isWinitLabel,
+                  })),
+                  matchedVendor: matchedVendor
+                    ? {
+                        vendorCode: matchedVendor.vendorCode,
+                        vendorName: matchedVendor.vendorName,
+                        isWinit: matchedVendor.isWinit,
+                      }
+                    : importerCode
+                      ? null
+                      : null,
+                  vendorFacts: {
+                    umsDataAvailable: umsDataAvailable && allVendors.length > 0,
+                    vendorList: allVendors,
+                    matchedVendor,
+                    importerCodeFilter: importerCode || undefined,
+                    vendorCountryCode,
+                    totalVendors: allVendors.length,
+                    apiAction: GET_VENDOR_INFO_ACTION,
+                    registerGapNote: intent === "register_importer" ? REGISTER_GAP_NOTE : "",
+                    importerNotFound: importerCode ? !matchedVendor && allVendors.length > 0 : false,
+                  },
+                  gapNote: intent === "register_importer" ? REGISTER_GAP_NOTE : "",
+                  registerGapNote: REGISTER_GAP_NOTE,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("merge-vendor-info")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipUmsApi
+                input:
+                    value:
+                        path: skipUmsApi
+                        ref_node: "163006"
+              - name: rawVendorData
+                input:
+                    value:
+                        path: rawVendorData
+                        ref_node: "163008"
+              - name: importerCode
+                input:
+                    value:
+                        path: importerCode
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: vendorCountryCode
+                input:
+                    value:
+                        path: vendorCountryCode
+                        ref_node: "163006"
+          node_outputs:
+              umsDataAvailable:
+                  type: boolean
+                  value: null
+              vendorList:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              matchedVendor:
+                  type: object
+                  value: null
+              vendorFacts:
+                  type: object
+                  value: null
+              gapNote:
+                  type: string
+                  value: null
+              registerGapNote:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163010"
+      type: text
+      title: kb-upload-guide
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2867
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 清关文件上传指引
+
+                        ## 通用原则
+
+                        - 清关资料须在货物发运前或到港前完成上传
+                        - 客户须在**万邑联平台**自行上传，本专家不代客操作
+                        - 上传 API：`wh.inbound.order.uploadCustomsDeclareDocs`（端点已确认，Coze action 注册待研发确认）
+
+                        ## 万邑联平台操作路径
+
+                        1. 登录万邑联 → 入库管理 → 选择入库单
+                        2. 进入「清关资料」/「报关文件」页签
+                        3. 按目的国要求上传对应文件（PDF/JPG 等）
+                        4. 提交后等待关务审核
+
+                        ## UK 英国清关资料
+
+                        - 商业发票（含产品描述、数量、价值、EORI）
+                        - 装箱单（Packing List）
+                        - 进口商资质文件（自有进口商或 Winit 进口商）
+                        - 递延清关（DDP 包税）：需提前注册进口商
+
+                        ## EU / BE / DE 欧盟清关资料
+
+                        - 商业发票 + 装箱单
+                        - 进口商 VAT 注册证明
+                        - EORI 号码
+                        - 比利时递延清关：材料要求与英国略有差异，需进口商在欧盟注册
+
+                        ## 注意事项
+
+                        - 文件须清晰可读，中英文均可（以目的国海关要求为准）
+                        - 特殊货型（超限/敏感品类）材料可能需人工确认
+                        - 关税费用以清关实际账单为准，本专家不提供关税核算
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163011"
+      type: text
+      title: kb-importer-register
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3107
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 自有进口商注册指引
+
+                        ## 适用场景
+
+                        客户希望使用**自有进口商**（非 Winit 平台进口商）进行递延清关。
+
+                        ## 注册方式（写操作）
+
+                        `winit.ums.getVendorInfo` **仅查询**已有进出口商，**不能**提交注册。
+
+                        新进口商须通过**万邑联平台**自行提交：
+
+                        1. 万邑联 → 进口商管理 → 新增进口商
+                        2. 填写公司信息与 EORI/VAT，上传资质文件
+                        3. 提交审核（通常 3-7 个工作日）
+
+                        注册成功后，该进口商会出现在 `getVendorInfo` 返回列表中（`isWinit=N`）。
+
+                        ## UK 英国所需材料
+
+                        - 公司营业执照（中英文）
+                        - EORI 号码
+                        - VAT 注册证明（如适用）
+
+                        ## EU / BE 欧盟所需材料
+
+                        - 欧盟 VAT + EORI
+                        - 公司注册文件
+                        - 比利时递延：进口商须在欧盟有有效 VAT
+
+                        ## 对客约束
+
+                        - 不代客提交注册申请
+                        - 进口商审核被拒 → 建议复核材料或联系客服
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163012"
+      type: text
+      title: kb-importer-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3347
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 进口商查询指引
+
+                        ## API
+
+                        `winit.ums.getVendorInfo`（[查询进/出口供应商](https://developer.winit.com.cn/document/detail/id/33.html)）
+
+                        - 入参：`countryCode`（目的国二字码）+ `vendorType=IOR`
+                        - 返回：`vendorCode`、`vendorName`、`isWinit`（Y=Winit 供应商，N=客户自有）
+
+                        ## 说明
+
+                        - 本接口返回**当前 app_key 可用的进出口商列表**，用于入库单选择 IOR。
+                        - **不包含**审核状态（待审核/已通过等）；审核进度仍须在万邑联 → 进口商管理查看。
+                        - 指定 `importerCode` 时，在 API 结果中匹配编码；未找到则提示客户核对编码或联系客服。
+
+                        ## 万邑联自助查询（审核状态）
+
+                        1. 登录万邑联 → 进口商管理
+                        2. 搜索进口商编码或公司名称
+                        3. 查看审核状态：待审核 / 审核中 / 已通过 / 已拒绝
+
+                        ## 对客约束
+
+                        - 不代客注册或修改进口商
+                        - 审核被拒需客户自行复核材料
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163013"
+      type: text
+      title: kb-general
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3587
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 清关资料与进口商管理 - 通用咨询
+
+                        ## 专家职责
+
+                        本专家覆盖清关**准备阶段**操作指引：
+                        - 清关文件上传（英国/欧盟递延清关）
+                        - 自有进口商注册
+                        - 进口商审核进度查询
+
+                        清关**进度追踪**见 `inbound-customs-clearance` 专家。
+
+                        ## 目的国差异概览
+
+                        | 目的国 | 核心要求 |
+                        |--------|----------|
+                        | UK | EORI + 商业发票/箱单 + 进口商资质 |
+                        | EU/BE/DE | 欧盟 VAT + EORI + 递延清关进口商注册 |
+
+                        ## 安全约束
+
+                        - **不代客上传**清关文件
+                        - **不代客注册**进口商
+                        - 所有写操作须在万邑联平台由客户自行完成
+                        - 关税以实际账单为准
+
+                        ## 升级人工
+
+                        - 进口商审核被拒需复核
+                        - 特殊货型（超限/敏感品类）清关文件要求
+                        - 递延清关资质不符合条件
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163014"
+      type: code
+      title: load-customs-doc-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3827
+      parameters:
+          code: |-
+              /**
+               * 节点：按 intent 分支加载清关资料/进口商 KB，并按 country 过滤
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function filterByCountry(content: string, country: string): string {
+                if (!content || !country) return content;
+                const lines = content.split("\n");
+                const hits = new Set<number>();
+                const targets = [country.toLowerCase(), "eu", "通用", "general"];
+                if (country === "UK") targets.push("英国", "gb");
+                if (country === "DE" || country === "BE" || country === "EU") {
+                  targets.push("欧盟", "比利时", "德国", "eu");
+                }
+
+                for (let i = 0; i < lines.length; i++) {
+                  const line = lines[i].toLowerCase();
+                  if (targets.some((t) => line.includes(t))) {
+                    for (let j = Math.max(0, i - 1); j <= Math.min(lines.length - 1, i + 6); j++) {
+                      hits.add(j);
+                    }
+                  }
+                }
+
+                if (hits.size === 0) return content;
+                return Array.from(hits)
+                  .sort((a, b) => a - b)
+                  .map((i) => lines[i])
+                  .join("\n");
+              }
+
+              function pickGuide(
+                intent: string,
+                kbUpload: string,
+                kbRegister: string,
+                kbQuery: string,
+                kbGeneral: string
+              ): { content: string; scope: string; uploadAction: string } {
+                switch (intent) {
+                  case "upload":
+                    return {
+                      content: kbUpload,
+                      scope: "upload",
+                      uploadAction: "wh.inbound.order.uploadCustomsDeclareDocs",
+                    };
+                  case "register_importer":
+                    return { content: kbRegister, scope: "register_importer", uploadAction: "" };
+                  case "query_importer":
+                    return { content: kbQuery, scope: "query_importer", uploadAction: "" };
+                  default:
+                    return { content: kbGeneral || [kbUpload, kbRegister, kbQuery].join("\n\n---\n\n"), scope: "general", uploadAction: "" };
+                }
+              }
+
+              function formatVendorSection(vendorFacts: Record<string, unknown>): string {
+                const list = Array.isArray(vendorFacts.vendorList) ? vendorFacts.vendorList : [];
+                if (list.length === 0) return "";
+                const lines = list.slice(0, 30).map((v) => {
+                  const row = v as Record<string, unknown>;
+                  const code = String(row.vendorCode ?? "");
+                  const name = String(row.vendorName ?? "");
+                  const winit = String(row.isWinitLabel ?? row.isWinit ?? "");
+                  return `- ${code} | ${name} | isWinit=${winit}`;
+                });
+                const matched = vendorFacts.matchedVendor as Record<string, unknown> | null;
+                const matchLine = matched
+                  ? `\n\n**匹配进口商**：${matched.vendorCode} — ${matched.vendorName}`
+                  : vendorFacts.importerNotFound
+                    ? `\n\n**未找到编码 ${vendorFacts.importerCodeFilter}** 于当前国家可用列表中`
+                    : "";
+                return `\n\n## UMS 进出口商（getVendorInfo）\n\n共 ${vendorFacts.totalVendors ?? list.length} 条 IOR：\n${lines.join("\n")}${matchLine}`;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validationOk = params.validationOk === true;
+                const intent = str(params.intent) || "general";
+                const country = str(params.country);
+                const inboundOrderNo = str(params.inboundOrderNo);
+                const importerCode = str(params.importerCode);
+                const registerGapNote = str(params.registerGapNote);
+                const vendorFacts = (params.vendorFacts ?? {}) as Record<string, unknown>;
+                const umsDataAvailable = params.umsDataAvailable === true;
+                const tmsSummary = (params.tmsTransportSummary ?? {}) as Record<string, unknown>;
+                const tmsPrimary = (tmsSummary.primary ?? null) as Record<string, unknown> | null;
+
+                const kbUpload = str(params.kbUploadGuide);
+                const kbRegister = str(params.kbImporterRegister);
+                const kbQuery = str(params.kbImporterQuery);
+                const kbGeneral = str(params.kbGeneral);
+
+                if (!validationOk) {
+                  return {
+                    kbContent: "",
+                    kbScope: "invalid",
+                    countrySpecificGuide: "",
+                    uploadAction: "",
+                    umsGapNote: "",
+                    umsDataAvailable: false,
+                    vendorList: [],
+                  };
+                }
+
+                const { content, scope, uploadAction } = pickGuide(intent, kbUpload, kbRegister, kbQuery, kbGeneral);
+                const countryFiltered = filterByCountry(content, country);
+                const contextNote = inboundOrderNo ? `\n\n## 关联入库单\n\n${inboundOrderNo}（仅上下文，不触发写操作）` : "";
+
+                const vendorSection =
+                  intent !== "upload" && umsDataAvailable ? formatVendorSection(vendorFacts) : "";
+                const registerSection =
+                  intent === "register_importer" && registerGapNote
+                    ? `\n\n## 注册说明\n\n${registerGapNote}`
+                    : "";
+
+                let tmsSection = "";
+                if (tmsPrimary) {
+                  const waitFile = String(tmsPrimary.isWaitDataFile ?? "");
+                  const waitPkg = String(tmsPrimary.isWaitPackageList ?? "");
+                  tmsSection = `\n\n## TMS 运输单待办（queryPage）\n\n运输单：${String(tmsPrimary.transportOrderNo ?? "")}\n待上传报关资料：${waitFile || "未知"}\n待上传装箱单：${waitPkg || "未知"}\n进口报关规则：${String(tmsPrimary.importDeclarationRuleCode ?? "")}`;
+                }
+
+                const kbContent = `${countryFiltered}${contextNote}${vendorSection}${registerSection}${tmsSection}`.trim();
+                const tmsDataAvailable = Number(tmsSummary.recordCount ?? 0) > 0;
+                const vendorList = Array.isArray(vendorFacts.vendorList) ? vendorFacts.vendorList : [];
+
+                return {
+                  kbContent,
+                  kbScope: `${scope}${country ? `:${country}` : ""}${umsDataAvailable ? ":ums" : ""}${tmsDataAvailable ? ":tms" : ""}`,
+                  countrySpecificGuide: countryFiltered,
+                  uploadAction,
+                  documentChecklist: [],
+                  operationSteps: [],
+                  umsGapNote: registerGapNote,
+                  umsDataAvailable,
+                  vendorList,
+                  matchedVendor: vendorFacts.matchedVendor ?? null,
+                  tmsDataAvailable,
+                  tmsTransportSummary: tmsSummary,
+                  apiAction: umsDataAvailable ? "winit.ums.getVendorInfo" : "",
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-customs-doc-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: inboundOrderNo
+                input:
+                    value:
+                        path: inboundOrderNo
+                        ref_node: "163000"
+              - name: importerCode
+                input:
+                    value:
+                        path: importerCode
+                        ref_node: "163000"
+              - name: registerGapNote
+                input:
+                    value:
+                        path: registerGapNote
+                        ref_node: "163009"
+              - name: vendorFacts
+                input:
+                    value:
+                        path: vendorFacts
+                        ref_node: "163009"
+              - name: umsDataAvailable
+                input:
+                    value:
+                        path: umsDataAvailable
+                        ref_node: "163009"
+              - name: tmsTransportSummary
+                input:
+                    value:
+                        path: tmsTransportSummary
+                        ref_node: "163005"
+              - name: kbUploadGuide
+                input:
+                    value:
+                        path: output
+                        ref_node: "163010"
+              - name: kbImporterRegister
+                input:
+                    value:
+                        path: output
+                        ref_node: "163011"
+              - name: kbImporterQuery
+                input:
+                    value:
+                        path: output
+                        ref_node: "163012"
+              - name: kbGeneral
+                input:
+                    value:
+                        path: output
+                        ref_node: "163013"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              countrySpecificGuide:
+                  type: string
+                  value: null
+              uploadAction:
+                  type: string
+                  value: null
+              documentChecklist:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              operationSteps:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              umsGapNote:
+                  type: string
+                  value: null
+              umsDataAvailable:
+                  type: boolean
+                  value: null
+              vendorList:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              matchedVendor:
+                  type: object
+                  value: null
+              apiAction:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163015"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 4067
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 清关资料与进口商管理专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是清关资料与进口商管理专家。按 `intent` 与 `country` 输出材料清单与操作步骤；有 WI/TO 时引用 TMS `tmsTransportSummary`；有 UMS 数据时列举 `vendorList`。**不调用写接口**。
+
+                        ## 禁止项
+
+                        - 不代客上传清关文件、不代客注册进口商
+                        - 不引用飞书或内部 URL
+                        - 不虚构 `vendorCode`；`umsDataAvailable=true` 时仅使用 KB 中 vendor 列表
+
+                        ## 输入
+
+                        - **intent**：`{{intent}}`（upload | register_importer | query_importer | general）
+                        - **country**：`{{country}}`
+                        - **importerCode**：`{{importerCode}}`（可选，用于过滤 vendor）
+                        - **umsDataAvailable**：`{{umsDataAvailable}}`
+                        - **tmsDataAvailable**：`{{tmsDataAvailable}}`
+                        - **kbContent**：`{{kbContent}}`（含 vendor 列表与 TMS 段落）
+
+                        ## 输出 structured 要点
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "intent": "",
+                              "country": "",
+                              "documentChecklist": [],
+                              "operationSteps": [],
+                              "vendorList": [
+                                {
+                                  "vendorCode": "",
+                                  "vendorName": "",
+                                  "isWinit": false
+                                }
+                              ],
+                              "matchedVendor": null,
+                              "importerStatus": "",
+                              "umsDataAvailable": true,
+                              "apiAction": "winit.ums.getVendorInfo",
+                              "tmsDataAvailable": false
+                            },
+                            "analysis": "..."
+                          }
+                        }
+                        ```
+
+                        ## 分 intent 说明
+
+                        - **upload**：清关资料清单 + 万邑联上传步骤；引用 TMS 待上传标志
+                        - **register_importer**：注册材料 + 万邑联路径；可展示已有 vendor 供参考；说明注册须平台操作
+                        - **query_importer**：列举 API 返回的 vendor；有 importerCode 时说明是否匹配；审核状态引导万邑联
+                        - **general**：综合材料与进出口商说明
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: inboundOrderNo
+                input:
+                    value:
+                        path: inboundOrderNo
+                        ref_node: "163000"
+              - name: importerCode
+                input:
+                    value:
+                        path: importerCode
+                        ref_node: "163000"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163014"
+              - name: uploadAction
+                input:
+                    value:
+                        path: uploadAction
+                        ref_node: "163014"
+              - name: umsDataAvailable
+                input:
+                    value:
+                        path: umsDataAvailable
+                        ref_node: "163014"
+              - name: tmsDataAvailable
+                input:
+                    value:
+                        path: tmsDataAvailable
+                        ref_node: "163014"
+              - name: tmsTransportSummary
+                input:
+                    value:
+                        path: tmsTransportSummary
+                        ref_node: "163005"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163016"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 4307
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw.trim() || "解析失败。" };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const umsDataAvailable = params.umsDataAvailable === true;
+                const vendorList = Array.isArray(params.vendorList) ? params.vendorList : [];
+
+                const structured: Record<string, unknown> = {
+                  ...(coerced.structured ?? {}),
+                  umsDataAvailable,
+                };
+                if (vendorList.length > 0 && !structured.vendorList) {
+                  structured.vendorList = vendorList;
+                }
+                if (umsDataAvailable && !structured.apiAction) {
+                  structured.apiAction = "winit.ums.getVendorInfo";
+                }
+
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "清关资料与进口商管理指引完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {
+                    expertId: "inbound-customs-doc-manage",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "",
+                  },
+                  enrichedContext: {
+                    intent: structured.intent,
+                    country: structured.country,
+                    inboundOrderNo: structured.inboundOrderNo,
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "163015"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+              - name: umsDataAvailable
+                input:
+                    value:
+                        path: umsDataAvailable
+                        ref_node: "163009"
+              - name: vendorList
+                input:
+                    value:
+                        path: vendorList
+                        ref_node: "163009"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "163014"
+    - source_node: "163014"
+      target_node: "163015"
+    - source_node: "163015"
+      target_node: "163016"
+    - source_node: "163016"
+      target_node: "900001"

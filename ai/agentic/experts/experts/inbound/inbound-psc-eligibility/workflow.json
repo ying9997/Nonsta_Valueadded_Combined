@@ -1,0 +1,237 @@
+{
+  "nodes": [
+    {
+      "id": "validate-psc-query",
+      "file": "nodes/validate-psc-query.ts",
+      "inputs": [
+        "warehouseCode",
+        "country",
+        "productLine",
+        "filterCodes",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "error",
+        "warehouseCode",
+        "country",
+        "productLine",
+        "filterCodes",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "warehouseCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "productLine": {
+            "type": "string"
+          },
+          "filterCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "query": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-available-product-request",
+      "file": "nodes/build-available-product-request.ts",
+      "inputs": [
+        "validationOk",
+        "filterCodes",
+        "productLine"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount",
+        "actionName",
+        "skipApi"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "winitPluginBatchActionsCount": {
+            "type": "integer"
+          },
+          "actionName": {
+            "type": "string"
+          },
+          "skipApi": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-available-product",
+      "file": "nodes/fetch-available-product.ts",
+      "inputs": [
+        "skipApi",
+        "actions",
+        "actionPlans",
+        "winitPluginOutputList"
+      ],
+      "outputs": [
+        "rawPscData"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawPscData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "merge-available-product",
+      "file": "nodes/merge-available-product.ts",
+      "inputs": [
+        "skipApi",
+        "rawPscData",
+        "filterCodes",
+        "productLine",
+        "warehouseCode",
+        "country"
+      ],
+      "outputs": [
+        "pscList",
+        "pscFacts",
+        "apiAvailable"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "pscList": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "pscFacts": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "apiAvailable": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "load-psc-kb",
+      "file": "nodes/load-psc-kb.ts",
+      "inputs": [
+        "validationOk",
+        "productLine",
+        "country",
+        "kbPscProducts"
+      ],
+      "outputs": [
+        "pscCodeMap",
+        "kbScope"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "pscCodeMap": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "kbScope": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "warehouseCode",
+        "country",
+        "productLine",
+        "filterCodes",
+        "pscList",
+        "pscFacts",
+        "pscCodeMap",
+        "apiAvailable",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

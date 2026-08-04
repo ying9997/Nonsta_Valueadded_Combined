@@ -1,0 +1,155 @@
+schema_version: 1.0.0
+name: winit_openapi_call
+id: 7623329033350168611
+description: "call_winit_api"
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: "工作流的起始节点，用于设定启动工作流需要的信息"
+      position:
+        x: 17
+        y: 2.4994999999999976
+      parameters:
+        node_outputs:
+            action:
+                type: string
+                value: null
+            customerCode:
+                type: string
+                value: null
+            customerName:
+                type: string
+                value: null
+            data:
+                type: string
+                value: null
+            language:
+                type: string
+                value: null
+            username:
+                type: string
+                value: null
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: "工作流的最终节点，用于返回工作流运行后的结果信息"
+      position:
+        x: 893
+        y: -10.500500000000002
+      parameters:
+        node_inputs:
+            - name: code
+              input:
+                type: string
+                value:
+                    path: code
+                    ref_node: "115282"
+            - name: data
+              input:
+                type: string
+                value:
+                    path: data
+                    ref_node: "115282"
+            - name: msg
+              input:
+                type: string
+                value:
+                    path: msg
+                    ref_node: "115282"
+        terminatePlan: returnVariables
+    - id: "115282"
+      type: plugin
+      title: cobra_winit_openapi_request
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: "Winit openapi 透传请求"
+      position:
+        x: 459
+        y: -10.500500000000002
+      parameters:
+        apiParam:
+            - name: apiID
+              input:
+                type: string
+                value: "7618114590886379526"
+            - name: apiName
+              input:
+                type: string
+                value: "cobra_winit_openapi_request"
+            - name: pluginID
+              input:
+                type: string
+                value: "7473322438084935720"
+            - name: pluginName
+              input:
+                type: string
+                value: "cobra_agent_http"
+            - name: pluginVersion
+              input:
+                type: string
+                value: "0"
+            - name: tips
+              input:
+                type: string
+                value: ""
+            - name: outDocLink
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: action
+              input:
+                value:
+                    path: action
+                    ref_node: "100001"
+            - name: customerCode
+              input:
+                value:
+                    path: customerCode
+                    ref_node: "100001"
+            - name: customerName
+              input:
+                value:
+                    path: customerName
+                    ref_node: "100001"
+            - name: data
+              input:
+                value:
+                    path: data
+                    ref_node: "100001"
+            - name: username
+              input:
+                value:
+                    path: username
+                    ref_node: "100001"
+            - name: language
+              input:
+                value:
+                    path: language
+                    ref_node: "100001"
+        node_outputs:
+            code:
+                type: integer
+                required: true
+                value: null
+            data:
+                type: string
+                required: true
+                value: null
+            msg:
+                type: string
+                required: true
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 180000
+edges:
+    - source_node: "100001"
+      target_node: "115282"
+    - source_node: "115282"
+      target_node: "900001"

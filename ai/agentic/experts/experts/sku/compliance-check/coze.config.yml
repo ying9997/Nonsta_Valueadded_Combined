@@ -1,0 +1,233 @@
+yamlBasename: sku_compliance_check-draft.yaml
+packageMainName: sku_compliance_check
+packageDescription: SKU 合规深判（validate → optional page.list → KB → LLM → format）
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-compliance-snapshot
+    logicalId: winit_item_page_list_compliance
+    pluginBatch:
+      enabled: true
+      batchSize: 5
+      concurrentSize: 3
+      actionsFrom:
+        logicalId: build-compliance-page-list
+        path: actions
+
+textNodes:
+  - logicalId: kb-carriability-deep-text
+    title: kb-carriability-deep
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-carriability-deep.md
+  - logicalId: kb-restricted-text
+    title: kb-restricted
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-restricted.md
+  - logicalId: kb-certificates-text
+    title: kb-certificates
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-certificates.md
+  - logicalId: kb-weee-text
+    title: kb-weee
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-weee.md
+  - logicalId: kb-ecommerce-text
+    title: kb-ecommerce
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-ecommerce.md
+  - logicalId: kb-brand-text
+    title: kb-brand
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-brand-fumigation.md
+  - logicalId: kb-unban-deep-text
+    title: kb-unban-deep
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-unban-deep.md
+  - logicalId: kb-declaration-text
+    title: kb-declaration
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-declaration.md
+
+inputBindings:
+  validate-intent:
+    topic:
+      ref: __start__
+      path: inputs.topic
+    intentType:
+      ref: __start__
+      path: inputs.intentType
+    skuCode:
+      ref: __start__
+      path: inputs.skuCode
+    importCountryCode:
+      ref: __start__
+      path: inputs.importCountryCode
+    productLink:
+      ref: __start__
+      path: inputs.productLink
+    categoryHint:
+      ref: __start__
+      path: inputs.categoryHint
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: __start__
+      path: customerIntent
+    inputContext:
+      ref: __start__
+      path: inputContext
+  resolve-compliance-fetch:
+    intentType:
+      ref: validate-intent
+      path: intentType
+    skuCode:
+      ref: validate-intent
+      path: skuCode
+    importCountryCode:
+      ref: validate-intent
+      path: importCountryCode
+    profileSnapshot:
+      ref: validate-intent
+      path: profileSnapshot
+  build-compliance-page-list:
+    shouldFetch:
+      ref: resolve-compliance-fetch
+      path: shouldFetch
+    skipApi:
+      ref: resolve-compliance-fetch
+      path: skipApi
+    skuCode:
+      ref: resolve-compliance-fetch
+      path: skuCode
+    importCountryCode:
+      ref: resolve-compliance-fetch
+      path: importCountryCode
+    fetchProfile:
+      ref: resolve-compliance-fetch
+      path: fetchProfile
+  fetch-compliance-snapshot:
+    skuCode:
+      ref: resolve-compliance-fetch
+      path: skuCode
+    importCountryCode:
+      ref: resolve-compliance-fetch
+      path: importCountryCode
+    skipApi:
+      ref: build-compliance-page-list
+      path: skipApi
+    reuseProfileSnapshot:
+      ref: resolve-compliance-fetch
+      path: reuseProfileSnapshot
+    profileSnapshot:
+      ref: validate-intent
+      path: profileSnapshot
+    winitPluginOutputList:
+      ref: winit_item_page_list_compliance
+      path: outputList
+  load-compliance-kb:
+    validationOk:
+      ref: validate-intent
+      path: validationOk
+    intentType:
+      ref: validate-intent
+      path: intentType
+    normalizedTopic:
+      ref: validate-intent
+      path: normalizedTopic
+    needInfoHint:
+      ref: validate-intent
+      path: needInfoHint
+    kbCarriabilityDeep:
+      ref: kb-carriability-deep-text
+      path: output
+    kbRestricted:
+      ref: kb-restricted-text
+      path: output
+    kbCertificates:
+      ref: kb-certificates-text
+      path: output
+    kbWeee:
+      ref: kb-weee-text
+      path: output
+    kbEcommerce:
+      ref: kb-ecommerce-text
+      path: output
+    kbBrand:
+      ref: kb-brand-text
+      path: output
+    kbUnbanDeep:
+      ref: kb-unban-deep-text
+      path: output
+    kbDeclaration:
+      ref: kb-declaration-text
+      path: output
+  llm-analyze:
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: validate-intent
+      path: customerIntent
+    intentType:
+      ref: validate-intent
+      path: intentType
+    normalizedTopic:
+      ref: validate-intent
+      path: normalizedTopic
+    skuCode:
+      ref: validate-intent
+      path: skuCode
+    importCountryCode:
+      ref: validate-intent
+      path: importCountryCode
+    productLink:
+      ref: validate-intent
+      path: productLink
+    categoryHint:
+      ref: validate-intent
+      path: categoryHint
+    needInfoHint:
+      ref: validate-intent
+      path: needInfoHint
+    profileSnapshot:
+      ref: validate-intent
+      path: profileSnapshot
+    complianceSnapshotText:
+      ref: fetch-compliance-snapshot
+      path: complianceSnapshotText
+    kbContent:
+      ref: load-compliance-kb
+      path: kbContent
+    inputContext:
+      ref: validate-intent
+      path: inputContext
+  format-output:
+    analysisResult:
+      ref: llm-analyze
+      path: analysisResult
+    intentType:
+      ref: validate-intent
+      path: intentType
+    needInfoHint:
+      ref: validate-intent
+      path: needInfoHint
+    complianceSnapshotText:
+      ref: fetch-compliance-snapshot
+      path: complianceSnapshotText
+    inputContext:
+      ref: validate-intent
+      path: inputContext
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext

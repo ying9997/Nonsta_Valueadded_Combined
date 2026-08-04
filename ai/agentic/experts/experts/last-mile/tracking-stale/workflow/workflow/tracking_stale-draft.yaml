@@ -1,0 +1,1453 @@
+schema_version: 1.0.0
+name: tracking_stale
+id: 7898260983502385237
+description: 轨迹长时间未更新
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。 对本专家为必填时：inputContext 须含 previousOutput，且为上游专家（如 delivery-status）的 result 等价物，并含非空字符串 analysis（轨迹/状态解读）。
+                  required: true
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      trackingIds:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 轨迹单号
+                      outboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 出库单号
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 上游传入的轨迹事实或域索引。保持为不展开子字段的对象，以原样承载 delivery-status 的 computedScanFacts、trajectories、扫描时间以及 last-mile/delivery-status 域快照；字段语义见 design.md。
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163003"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163003"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163003"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163003"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 校验轨迹长时间未更新专家入参
+               * FaaS 单文件闭环，无外部 import。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输入】params：query, trackingIds, outboundOrderNos, customerIntent, enrichedContext, inputContext
+               * 【输出】原字段透传；valid 表示至少有一种事实入口；error 为校验失败说明。
+               * enrichedContext 可为编排侧「域索引」（见 design-spec §8），本节点取 `last-mile/delivery-status` 最新一条快照并展开为扁平对象；亦可为旧版扁平对象。
+               * enrichedContext 始终补齐 analysisClock（当前 UTC）。
+               */
+
+              /** 编排侧域索引键：manifest.domain + "/" + manifest.id（本文件专用命名，避免与其他专家节点 TS 全局合并冲突） */
+              const EC_IDX_KEY_DS_STALE = "last-mile/delivery-status";
+              const EC_IDX_KEY_OUTBOUND_OS = "outbound/outbound-order-status";
+
+              function extractDomainEntryStale(ecIndex: unknown, domainKey: string): Record<string, unknown> {
+                if (!ecIndex || typeof ecIndex !== "object" || Array.isArray(ecIndex)) return {};
+                const entries = (ecIndex as Record<string, unknown>)[domainKey];
+                if (!Array.isArray(entries) || entries.length === 0) return {};
+                const last = entries[entries.length - 1];
+                if (!last || typeof last !== "object" || Array.isArray(last)) return {};
+                const { _meta: _m, ...rest } = last as Record<string, unknown>;
+                return rest;
+              }
+
+              /** 顶层非域索引字段（如 hasClaimService、isPlatformWaybill），与域快照合并时保留 */
+              function extractTopLevelFactFieldsStale(raw: Record<string, unknown>): Record<string, unknown> {
+                const out: Record<string, unknown> = {};
+                for (const [k, v] of Object.entries(raw)) {
+                  if (k.includes("/") && Array.isArray(v)) continue;
+                  out[k] = v;
+                }
+                return out;
+              }
+
+              /** 从 outbound-order-status 域快照或 prunedOrderData 判定平台面单（3PL） */
+              function detectIsPlatformWaybillStale(raw: unknown): boolean {
+                if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+                const o = raw as Record<string, unknown>;
+                if (o.isPlatformWaybill === true) return true;
+
+                const entries = o[EC_IDX_KEY_OUTBOUND_OS];
+                if (!Array.isArray(entries)) return false;
+                for (const entry of entries) {
+                  if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+                  const e = entry as Record<string, unknown>;
+                  if (e.isPlatformWaybill === true) return true;
+                  const pruned = e.prunedOrderData;
+                  if (!pruned || typeof pruned !== "object" || Array.isArray(pruned)) continue;
+                  const list = (pruned as Record<string, unknown>).list;
+                  if (!Array.isArray(list)) continue;
+                  for (const item of list) {
+                    if (item && typeof item === "object" && !Array.isArray(item) && (item as Record<string, unknown>).isPlatformWaybill === true) {
+                      return true;
+                    }
+                  }
+                }
+                return false;
+              }
+
+              /** 上游 previousOutput.analysis 已明确 3PL / 平台面单时兜底标记 */
+              function detectPlatformWaybillFromPreviousOutputStale(inputContext: unknown): boolean {
+                if (!inputContext || typeof inputContext !== "object" || Array.isArray(inputContext)) return false;
+                const prev = (inputContext as Record<string, unknown>).previousOutput;
+                if (!prev || typeof prev !== "object" || Array.isArray(prev)) return false;
+                const analysis = String((prev as Record<string, unknown>).analysis ?? "");
+                return /3PL|平台面单/i.test(analysis);
+              }
+
+              /** 域快照与顶层事实字段合并；兼容旧版纯扁平 enrichedContext */
+              function resolveFlatEnrichedContextStale(raw: unknown): Record<string, unknown> {
+                const fromDomain = extractDomainEntryStale(raw, EC_IDX_KEY_DS_STALE);
+                const fromOutbound = extractDomainEntryStale(raw, EC_IDX_KEY_OUTBOUND_OS);
+                if (Object.keys(fromDomain).length > 0) {
+                  const topFacts =
+                    raw !== undefined && raw !== null && typeof raw === "object" && !Array.isArray(raw)
+                      ? extractTopLevelFactFieldsStale(raw as Record<string, unknown>)
+                      : {};
+                  return { ...fromOutbound, ...topFacts, ...fromDomain };
+                }
+                if (raw !== undefined && raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+                  const o = raw as Record<string, unknown>;
+                  const looksLikeDomainIndex = Object.keys(o).some((k) => k.includes("/") && Array.isArray(o[k]));
+                  if (looksLikeDomainIndex) return {};
+                  return { ...o };
+                }
+                return {};
+              }
+
+              interface StaleOutboundOrderFact {
+                outboundOrderNo?: string;
+                effectiveProductCode?: string;
+                effectiveProductName?: string;
+                isPlatformWaybill?: boolean;
+              }
+
+              function selectOutboundOrderFactStale(
+                ec: Record<string, unknown>,
+                outboundOrderNos: string[]
+              ): StaleOutboundOrderFact | undefined {
+                const facts = Array.isArray(ec.orderFacts) ? ec.orderFacts : [];
+                const rows = facts.filter(
+                  (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item)
+                );
+                if (rows.length === 0) return undefined;
+                const wanted = new Set(outboundOrderNos.map((item) => item.toUpperCase()));
+                const selected =
+                  rows.find((item) => wanted.has(String(item.outboundOrderNo ?? "").trim().toUpperCase())) ??
+                  (rows.length === 1 ? rows[0] : undefined);
+                if (!selected) return undefined;
+                return {
+                  outboundOrderNo: String(selected.outboundOrderNo ?? "").trim() || undefined,
+                  effectiveProductCode: String(selected.effectiveProductCode ?? "").trim() || undefined,
+                  effectiveProductName: String(selected.effectiveProductName ?? "").trim() || undefined,
+                  isPlatformWaybill: selected.isPlatformWaybill === true,
+                };
+              }
+
+              /** 当前仓库权威赔付表：美国 Winit Fulfillment 7 日达（含分区/定制变体）支持丢失类代客索赔。 */
+              function isKnownUsSevenDayClaimProductStale(name: unknown): boolean {
+                return /Winit\s*Fulfillment\s*-?\s*7日达/i.test(String(name ?? ""));
+              }
+
+              function applyDeterministicClaimFactsStale(
+                ec: Record<string, unknown>,
+                outboundOrderNos: string[]
+              ): Record<string, unknown> {
+                const out = { ...ec };
+                const orderFact = selectOutboundOrderFactStale(out, outboundOrderNos);
+                if (orderFact) {
+                  out.effectiveProductCode = orderFact.effectiveProductCode;
+                  out.effectiveProductName = orderFact.effectiveProductName;
+                  if (orderFact.isPlatformWaybill === true) out.isPlatformWaybill = true;
+                }
+
+                if (out.isPlatformWaybill === true) {
+                  out.hasClaimService = false;
+                  out.claimFactSource = "platform_waybill";
+                  return out;
+                }
+                if (typeof out.hasClaimService === "boolean") {
+                  out.claimFactSource = "upstream_explicit";
+                  return out;
+                }
+                if (isKnownUsSevenDayClaimProductStale(out.effectiveProductName)) {
+                  out.hasClaimService = true;
+                  out.isDomestic = true;
+                  out.claimFactSource = "policy_us_fulfillment_7day";
+                }
+                return out;
+              }
+
+              interface AnalysisClock {
+                utcIso: string;
+                timezoneLabel: string;
+                note: string;
+              }
+
+              function buildAnalysisClock(): AnalysisClock {
+                return {
+                  utcIso: new Date().toISOString(),
+                  timezoneLabel: "UTC",
+                  note:
+                    "参考时钟为服务端 UTC（ISO8601）。轨迹节点时间可能为承运商本地时间，与当前时刻比较时请先统一时区。",
+                };
+              }
+
+              function withAnalysisClock(ec: unknown): Record<string, unknown> {
+                const base =
+                  ec !== undefined && ec !== null && typeof ec === "object" && !Array.isArray(ec)
+                    ? { ...(ec as Record<string, unknown>) }
+                    : {};
+                base.analysisClock = buildAnalysisClock();
+                return base;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(params.outboundOrderNos)
+                  ? (params.outboundOrderNos as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+
+                const query = String(params.query ?? "").trim();
+                const customerIntent = String(params.customerIntent ?? "").trim();
+
+                let flatEc = resolveFlatEnrichedContextStale(params.enrichedContext);
+                const inputContext =
+                  params.inputContext && typeof params.inputContext === "object" && !Array.isArray(params.inputContext)
+                    ? params.inputContext
+                    : {};
+                if (
+                  detectIsPlatformWaybillStale(params.enrichedContext) ||
+                  detectPlatformWaybillFromPreviousOutputStale(inputContext)
+                ) {
+                  flatEc.isPlatformWaybill = true;
+                  flatEc.hasClaimService = false;
+                }
+                flatEc = applyDeterministicClaimFactsStale(flatEc, outboundOrderNos);
+                const hasEnriched = Object.keys(flatEc).length > 0;
+
+                const hasIds = trackingIds.length > 0 || outboundOrderNos.length > 0;
+                const valid = hasIds || hasEnriched || query.length > 0 || customerIntent.length > 0;
+                const error = valid
+                  ? ""
+                  : "请至少提供 trackingIds、outboundOrderNos、enrichedContext、customerIntent 或 query 之一";
+
+                return {
+                  valid,
+                  error,
+                  query,
+                  trackingIds,
+                  outboundOrderNos,
+                  customerIntent: valid ? customerIntent : `[输入校验] ${error}`,
+                  enrichedContext: withAnalysisClock(hasEnriched ? flatEc : {}),
+                  inputContext,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inputs.trackingIds
+                        ref_node: "100001"
+              - name: outboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inputs.outboundOrderNos
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              outboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: derive-stale-facts
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 节点：derive-stale-facts — 确定性计算停更天数阈值（3天/10天）
+               * FaaS 单文件闭环，无外部 import。
+               *
+               * 输入：valid, error, query, trackingIds, outboundOrderNos, customerIntent, enrichedContext, inputContext
+               * 输出：透传 query/trackingIds/outboundOrderNos/customerIntent/inputContext，并回写 enrichedContext.staleFacts
+               */
+
+              interface StaleFacts {
+                source: "upstream_noUpdateDays" | "computed_lastTrackingAt" | "unavailable";
+                computedNoUpdateDays?: number;
+                isOver3Days?: boolean;
+                isOver10Days?: boolean;
+                thresholdRule: "strict_gt";
+                calcStatus: "ok" | "insufficient_data" | "invalid_date";
+                calcNote: string;
+                /** 当 computedScanFacts 中存在 Dscan/RDscan 且其时间与 lastTrackingAt 吻合时为 true；此时 isOver3Days / isOver10Days 被强制置为 false */
+                isDelivered?: boolean;
+                /** 3PL / 平台面单：此类订单不支持索赔，与停更天数无关 */
+                isPlatformWaybill?: boolean;
+                scanStateSummary?: "all_ascan" | "all_no_ascan" | "all_delivered" | "mixed" | "unknown";
+                scanStates?: Array<{ trackingNo: string; state: "ascan" | "no_ascan" | "delivered" | "unknown" }>;
+              }
+
+              function asFiniteNumber(v: unknown): number | undefined {
+                if (typeof v === "number" && Number.isFinite(v)) return v;
+                if (typeof v === "string" && v.trim()) {
+                  const n = Number(v.trim());
+                  if (Number.isFinite(n)) return n;
+                }
+                return undefined;
+              }
+
+              function parseMillis(v: unknown): number | undefined {
+                if (typeof v !== "string" || !v.trim()) return undefined;
+                const ms = Date.parse(v);
+                return Number.isFinite(ms) ? ms : undefined;
+              }
+
+              function clampNonNegativeInt(v: number): number {
+                if (!Number.isFinite(v)) return 0;
+                return Math.max(0, Math.floor(v));
+              }
+
+              /**
+               * 防御性检查：若 computedScanFacts 中存在 Dscan / RDscan 妥投事件，
+               * 且其时间与停更判定的参考时间（lastTrackingAt 或由 noUpdateDays 反推）接近（< 24h），
+               * 则认为轨迹已妥投，不应按停更处理。
+               */
+              function checkDeliverySuppression(ec: Record<string, unknown>): { isDelivered: boolean; deliveryNote?: string } {
+                const scanFacts = ec.computedScanFacts;
+                if (!Array.isArray(scanFacts) || scanFacts.length === 0) return { isDelivered: false };
+
+                // 收集所有 Dscan / RDscan 事件，找到最晚的那条
+                let latestDeliveryMs = -Infinity;
+                let deliveryType = "";
+                for (const sf of scanFacts) {
+                  if (!sf || typeof sf !== "object") continue;
+                  const s = sf as Record<string, unknown>;
+                  for (const key of ["dscanEvents", "rdscanEvents"]) {
+                    const events = s[key];
+                    if (!Array.isArray(events)) continue;
+                    for (const ev of events) {
+                      if (!ev || typeof ev !== "object") continue;
+                      const time = (ev as Record<string, unknown>).time;
+                      if (typeof time !== "string") continue;
+                      const ms = Date.parse(time);
+                      if (Number.isFinite(ms) && ms > latestDeliveryMs) {
+                        latestDeliveryMs = ms;
+                        deliveryType = key === "rdscanEvents" ? "RDscan（退回妥投）" : "Dscan（妥投）";
+                      }
+                    }
+                  }
+                }
+
+                if (latestDeliveryMs < 0) return { isDelivered: false };
+
+                // 找出停更判定所用的参考时间
+                let referenceMs: number | undefined;
+
+                const lastTrackingAtMs = parseMillis(ec.lastTrackingAt);
+                if (lastTrackingAtMs !== undefined) {
+                  referenceMs = lastTrackingAtMs;
+                } else {
+                  // 没有 lastTrackingAt 时，尝试从 noUpdateDays + analysisClock 反推
+                  const noUpdateDays = asFiniteNumber(ec.noUpdateDays);
+                  const clock = ec.analysisClock && typeof ec.analysisClock === "object" && !Array.isArray(ec.analysisClock)
+                    ? (ec.analysisClock as Record<string, unknown>)
+                    : {};
+                  const nowMs = parseMillis(clock.utcIso);
+                  if (noUpdateDays !== undefined && nowMs !== undefined) {
+                    referenceMs = nowMs - noUpdateDays * 86400000;
+                  }
+                }
+
+                if (referenceMs === undefined) return { isDelivered: false };
+
+                const diffHours = Math.abs(referenceMs - latestDeliveryMs) / 3600000;
+                const ONE_DAY_MS = 86400000;
+                if (Math.abs(referenceMs - latestDeliveryMs) < ONE_DAY_MS) {
+                  return {
+                    isDelivered: true,
+                    deliveryNote:
+                      `检测到最新${deliveryType}事件时间与停更参考时间接近（差约 ${Math.round(diffHours)}h < 24h），` +
+                      `轨迹已妥投，豁免停更判定。`,
+                  };
+                }
+
+                return { isDelivered: false };
+              }
+
+              function buildFacts(ec: Record<string, unknown>): StaleFacts {
+                const noUpdateDays = asFiniteNumber(ec.noUpdateDays);
+                if (noUpdateDays !== undefined) {
+                  const d = clampNonNegativeInt(noUpdateDays);
+                  const base: StaleFacts = {
+                    source: "upstream_noUpdateDays",
+                    computedNoUpdateDays: d,
+                    isOver3Days: d > 3,
+                    isOver10Days: d > 10,
+                    thresholdRule: "strict_gt",
+                    calcStatus: "ok",
+                    calcNote: "使用上游 noUpdateDays 作为阈值判断依据（strict > 3 / > 10）。",
+                  };
+                  const delivery = checkDeliverySuppression(ec);
+                  if (delivery.isDelivered) {
+                    return {
+                      ...base,
+                      isDelivered: true,
+                      isOver3Days: false,
+                      isOver10Days: false,
+                      computedNoUpdateDays: 0,
+                      calcNote: (base.calcNote + " " + (delivery.deliveryNote ?? "")).trim(),
+                    };
+                  }
+                  return { ...base, isDelivered: false };
+                }
+
+                const lastTrackingAt = parseMillis(ec.lastTrackingAt);
+                const analysisClock =
+                  ec.analysisClock && typeof ec.analysisClock === "object" && !Array.isArray(ec.analysisClock)
+                    ? (ec.analysisClock as Record<string, unknown>)
+                    : {};
+                const nowMs = parseMillis(analysisClock.utcIso);
+
+                if (lastTrackingAt === undefined || nowMs === undefined) {
+                  return {
+                    source: "unavailable",
+                    thresholdRule: "strict_gt",
+                    calcStatus: "insufficient_data",
+                    calcNote: "缺少可计算字段（noUpdateDays 或 lastTrackingAt + analysisClock.utcIso）。",
+                  };
+                }
+
+                if (nowMs < lastTrackingAt) {
+                  return {
+                    source: "computed_lastTrackingAt",
+                    thresholdRule: "strict_gt",
+                    calcStatus: "invalid_date",
+                    calcNote: "analysisClock.utcIso 早于 lastTrackingAt，日期数据异常。",
+                  };
+                }
+
+                const days = clampNonNegativeInt((nowMs - lastTrackingAt) / 86400000);
+                const base: StaleFacts = {
+                  source: "computed_lastTrackingAt",
+                  computedNoUpdateDays: days,
+                  isOver3Days: days > 3,
+                  isOver10Days: days > 10,
+                  thresholdRule: "strict_gt",
+                  calcStatus: "ok",
+                  calcNote: "由 lastTrackingAt 与 analysisClock.utcIso 计算停更天数（strict > 3 / > 10）。",
+                };
+                const delivery = checkDeliverySuppression(ec);
+                if (delivery.isDelivered) {
+                  return {
+                    ...base,
+                    isDelivered: true,
+                    isOver3Days: false,
+                    isOver10Days: false,
+                    computedNoUpdateDays: 0,
+                    calcNote: (base.calcNote + " " + (delivery.deliveryNote ?? "")).trim(),
+                  };
+                }
+                return { ...base, isDelivered: false };
+              }
+
+              type ScanStateKind = "ascan" | "no_ascan" | "delivered" | "unknown";
+
+              function eventCount(row: Record<string, unknown>, key: string): number {
+                return Array.isArray(row[key]) ? (row[key] as unknown[]).length : 0;
+              }
+
+              function statePriority(state: ScanStateKind): number {
+                if (state === "delivered") return 4;
+                if (state === "ascan") return 3;
+                if (state === "no_ascan") return 2;
+                return 1;
+              }
+
+              function scanStateFromRow(row: Record<string, unknown>): ScanStateKind {
+                if (eventCount(row, "dscanEvents") > 0 || eventCount(row, "rdscanEvents") > 0) return "delivered";
+                if (eventCount(row, "ascanEvents") > 0) return "ascan";
+                const hasStructuredArrays = ["ascanEvents", "dscanEvents", "rdscanEvents"].every((key) => Array.isArray(row[key]));
+                if (hasStructuredArrays && row.dataSourceNote !== "no_nodes") return "no_ascan";
+                return "unknown";
+              }
+
+              function buildScanStateFacts(
+                ec: Record<string, unknown>,
+                trackingIds: string[]
+              ): Pick<StaleFacts, "scanStateSummary" | "scanStates"> {
+                const byTracking = new Map<string, { trackingNo: string; state: ScanStateKind }>();
+                const rows = Array.isArray(ec.computedScanFacts) ? ec.computedScanFacts : [];
+                for (const raw of rows) {
+                  if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+                  const row = raw as Record<string, unknown>;
+                  const trackingNo = String(row.trackingNo ?? "").trim();
+                  if (!trackingNo) continue;
+                  const state = scanStateFromRow(row);
+                  const key = trackingNo.toUpperCase();
+                  const current = byTracking.get(key);
+                  if (!current || statePriority(state) > statePriority(current.state)) {
+                    byTracking.set(key, { trackingNo, state });
+                  }
+                }
+
+                let fallbackSummary: StaleFacts["scanStateSummary"];
+                if (byTracking.size === 0 && typeof ec.ascanDetected === "boolean") {
+                  const state: ScanStateKind = ec.ascanDetected ? "ascan" : "no_ascan";
+                  fallbackSummary = state === "ascan" ? "all_ascan" : "all_no_ascan";
+                  for (const trackingNo of trackingIds) byTracking.set(trackingNo.toUpperCase(), { trackingNo, state });
+                }
+
+                for (const trackingNo of trackingIds) {
+                  const key = trackingNo.toUpperCase();
+                  if (!byTracking.has(key)) byTracking.set(key, { trackingNo, state: "unknown" });
+                }
+
+                const scanStates = [...byTracking.values()];
+                const distinct = new Set(scanStates.map((item) => item.state));
+                let scanStateSummary: StaleFacts["scanStateSummary"] = fallbackSummary ?? "unknown";
+                if (distinct.size > 1) scanStateSummary = "mixed";
+                else if (distinct.has("ascan")) scanStateSummary = "all_ascan";
+                else if (distinct.has("no_ascan")) scanStateSummary = "all_no_ascan";
+                else if (distinct.has("delivered")) scanStateSummary = "all_delivered";
+
+                return { scanStateSummary, scanStates };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const ec =
+                  params.enrichedContext && typeof params.enrichedContext === "object" && !Array.isArray(params.enrichedContext)
+                    ? ({ ...(params.enrichedContext as Record<string, unknown>) } as Record<string, unknown>)
+                    : {};
+
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                ec.staleFacts = { ...buildFacts(ec), ...buildScanStateFacts(ec, trackingIds) };
+                if (ec.isPlatformWaybill === true) {
+                  const sf = ec.staleFacts as StaleFacts;
+                  ec.staleFacts = { ...sf, isPlatformWaybill: true };
+                }
+                if (ec.claimFactSource === "policy_us_fulfillment_7day" && typeof ec.claimWindowStatus !== "string") {
+                  const days = (ec.staleFacts as StaleFacts).computedNoUpdateDays;
+                  if (typeof days === "number") {
+                    ec.claimWindowStatus = days < 11 ? "not_open_yet" : days <= 45 ? "in_window" : "out_of_window";
+                  }
+                }
+
+                return {
+                  query: String(params.query ?? "").trim(),
+                  trackingIds,
+                  outboundOrderNos: Array.isArray(params.outboundOrderNos)
+                    ? (params.outboundOrderNos as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                    : [],
+                  customerIntent: String(params.customerIntent ?? "").trim(),
+                  enrichedContext: ec,
+                  inputContext: params.inputContext && typeof params.inputContext === "object" ? params.inputContext : {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("derive-stale-facts")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: valid
+                input:
+                    type: boolean
+                    value:
+                        path: valid
+                        ref_node: "163000"
+              - name: error
+                input:
+                    type: string
+                    value:
+                        path: error
+                        ref_node: "163000"
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "163000"
+              - name: trackingIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: trackingIds
+                        ref_node: "163000"
+              - name: outboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163000"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163000"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              outboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 947
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 轨迹长时间未更新专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是轨迹长时间未更新处理专家。基于上游提供的事实数据，按固定分支输出标准化结论与客服话术。
+
+                        ## 硬性规则
+
+                        - 以 `enrichedContext` 与 `inputContext.previousOutput` 为事实优先来源，不可脱离事实臆断。
+                        - 命中分支后立即停止，不要混合多个分支结论。
+                        - 禁止输出内部链接（winitlink、飞书 Wiki、内部系统 URL）。
+                        - 对缺失事实要在 `missingFacts` 标出，必要时使用 `need_info` 或 `need_human`。
+                        - `hasClaimService` 必须是明确布尔事实。除平台面单和代码节点已维护的确定性产品规则外，字段缺失时禁止推断为 `false`；超过 10 天必须走 `need_human` 并在 `missingFacts` 标注 `hasClaimService`。
+                        - 分支最终由 `format-output` 基于确定性事实复核；模型不得用常识覆盖事实。
+                        - `enrichedContext.staleFacts.isDelivered` **仅由代码节点**依据 `computedScanFacts`（Dscan/RDscan）与参考时间写入；**禁止**自行根据轨迹「推断」改写。当其为 `true` 时，**不得**再按「长时间停更、丢件高风险、建议查件定位包裹」等话术处理。
+                        - 必须先看 `staleFacts.scanStateSummary`：`all_no_ascan` 不属于本专家，固定转 `tracking-no-scan`；`mixed` 必须按 `scanStates` 拆票，禁止让一票状态覆盖整批。
+
+                        ## 内置知识库（KB）
+
+                        # 轨迹长时间未更新 — 内置知识库（KB）
+
+                        > 维护说明：内容基于 `docs/experts/last-mile/tracking-stale.md` 与内部材料《尾程派送常见问题》相关章节提炼。对客输出禁止附内部链接。
+
+                        ---
+
+                        ## KB-1 核心判定要点
+
+                        - 先复用系统异常识别结果：若已命中异常处理路径，直接使用对应结果，不重复推理。
+                        - **`staleFacts.isDelivered === true`（代码节点写入）**：轨迹已判定为妥投/派送完成终态；**不适用**「运输中长时间停更」「丢件高风险查件」话术。对客应说明末条有效轨迹为妥投类事件，后续无新扫描为常态；若用户纠结「查不到」，引导核对承运商展示与系统轨迹一致性，必要时转 `delivery-status` 解读，**勿**与「停更丢件」混谈。
+                        - 再看扫描与停滞时间：
+                          - 有 ascan 且停滞在 3 天阈值分支：按“ascan 停滞”话术处理。**严禁在此分支判断或提及索赔服务是否可用**（距离 10 天索赔阈值尚远，不适用索赔判定逻辑）。
+                          - **3PL / 平台面单**（`isPlatformWaybill === true` 或 `staleFacts.isPlatformWaybill === true`）：**不支持索赔**（与停更天数无关）；须说明尾程轨迹通常不回传万邑通，**禁止**引用「10 天索赔阈值」「满 10 天后可索赔/提交索赔」等表述。
+                          - 超过 10 天未更新（非平台面单）：进入索赔服务判定。
+                          - “无索赔服务”必须有 `hasClaimService === false` 的明确事实；字段缺失表示未知，必须转人工核实，禁止按无索赔回复。
+                          - 未达 10 天（非平台面单）：按“暂不满足索赔阈值”安抚并建议继续观察。**严禁**提前断言渠道有无索赔服务。
+
+                        ---
+
+                        ## KB-2 超过 10 天后分支
+
+                        ### 3PL / 平台面单（优先于天数阈值）
+
+                        - 判定：`enrichedContext.isPlatformWaybill === true` 或上游已明确「3PL / 平台面单」。
+                        - **此类订单不支持万邑通侧索赔/代客索赔**，无论停更多少天。
+                        - 须客观说明：尾程物流轨迹通常**不会同步**到万邑通系统，出库后长时间无新节点可能属数据特性，**不等同于**可主张索赔或「满 10 天即可索赔」。
+                        - 对客建议：结合已知的出库/末条轨迹说明现状，建议持续观察或与买家沟通预期；若仍担心包裹去向可提交**查件**定位，**勿**引导 `substitute-claim` 或任何索赔流程。
+                        - **禁止**在 analysis 中出现：索赔阈值、10 天后索赔、提交索赔、代客索赔等暗示可索赔的表述。
+
+                        ### 无索赔服务
+
+                        - 仅当 `hasClaimService === false` 或已确认平台面单时适用；未知不适用。
+                        - 说明该渠道无索赔服务。
+                        - 建议提交查件，由供应商定位包裹。
+                        - 提醒可与买家协商补发或退款。
+
+                        ### 有索赔服务
+
+                        - 美国 Winit Fulfillment 7 日达包含一口价、分区价和定制价变体；丢失未妥投场景在 A-scan 后 11–45 天内支持代客索赔。
+                        - 国内件：倾向建议尽快提交索赔，避免超过时效。
+                        - 国际件：可提示存在清关/跨国转运造成的停滞场景，结合事实建议观察或后续索赔。
+
+                        ### 索赔时效细分
+
+                        - 在时效内：建议提交索赔。
+                        - 已超时效：建议查件 + 与买家协商方案。
+                        - 未到可索赔时间：给出可提交日期前的过渡建议（查件并持续跟进）。
+
+                        ---
+
+                        ## KB-3 话术关键信息点
+
+                        - 有 ascan 且仅 1 天未更新：通常仍可视为正常中转。
+                        - 有 ascan 且超 3 天未更新：按国内/国际及是否有索赔服务分流。
+                        - 超 10 天未更新：丢失风险显著升高，优先引导风险控制动作。
+
+                        ---
+
+                        ## KB-4 原因解释（断更 FAQ）
+
+                        可在说明原因时使用以下常见因素：
+
+                        1. 目的国邮政不回传完整轨迹；
+                        2. 面单磨损导致扫描失败；
+                        3. 地址信息不全或有误；
+                        4. 清关受阻；
+                        5. 包裹丢失。
+
+                        ---
+
+                        ## KB-5 输出约束
+
+                        - `structured.branch` 必须与 `analysis` 一致。
+                        - 无法判定时，明确所缺事实并进入 `need_human`。
+                        - 仅建议可执行下一步，不承诺超出事实范围的结果。
+
+
+                        ## 输入
+
+                        - `query`: `{{query}}`
+                        - `trackingIds`: `{{trackingIds}}`
+                        - `outboundOrderNos`: `{{outboundOrderNos}}`
+                        - `customerIntent`: `{{customerIntent}}`
+                        - `enrichedContext`: `{{enrichedContext}}`
+                        - `inputContext`: `{{inputContext}}`
+                        - `inputContext.previousOutput`: `{{inputContext.previousOutput}}`
+
+                        ## 分支顺序（命中即停）
+
+                        1. 输入不足：无单号且 `enrichedContext` 无有效事实 -> `need_info`
+                        2. 已命中系统异常识别（`recognizedException`/`exceptionResult` 明确）-> `recognized_exception`
+                        3. 必须优先读取 `enrichedContext.staleFacts`（由代码节点计算）：若 `calcStatus != "ok"`，在 `missingFacts` 标注后走 `need_human`；禁止自行重算天数。
+                        4. **`staleFacts.isDelivered === true`**（系统已判定轨迹妥投/派送完成终态，停更阈值已被豁免）-> `terminal_delivered_not_stale`  
+                           - `analysis` 须明确：**不适用**「长时间无更新 = 运输中停更/丢件」类结论；妥投后轨迹不再更新属常见情况。  
+                           - 若用户表述为「查不到信息 / 轨迹异常」而事实为已妥投：说明应以系统轨迹与妥投类节点为准，区分「承运商前端展示延迟」与「实际未妥投」；可按需将 `suggestedNextExperts` 设为 `["delivery-status"]`（勿编造单号外的链接）。  
+                           - **禁止**建议因「停更」去提交查件、按丢件协商补发/退款等与妥投事实矛盾的下一步。
+                        5. **`staleFacts.isPlatformWaybill === true` 或 `enrichedContext.isPlatformWaybill === true`（3PL / 平台面单；亦可能由上游 `previousOutput.analysis` 明确）** -> `no_claim_service`  
+                           - 此类订单**不支持**万邑通侧索赔/代客索赔，**与停更天数无关**。  
+                           - `analysis` 须说明尾程轨迹通常不回传万邑通；出库后无新节点可能属数据同步特性。  
+                           - **禁止**引用「10 天索赔阈值」「未达到/超过 10 天可索赔」「后续可提交索赔」等表述；**禁止**建议 `substitute-claim`。  
+                           - 可建议持续观察、与买家沟通预期；若仍担心包裹去向可提交查件，**勿**与索赔混谈。
+                        6. `staleFacts.scanStateSummary === "all_no_ascan"` -> `handoff_no_ascan`，`suggestedNextExperts=["tracking-no-scan"]`；禁止读取 `hasClaimService` 后继续判断代客索赔。
+                        7. `staleFacts.scanStateSummary === "mixed"` -> `mixed_scan_state`，按 `scanStates` 拆票；无 Ascan 票转 `tracking-no-scan`。
+                        8. 有 ascan 且 `staleFacts.isOver3Days === true` 且 `staleFacts.isOver10Days === false` -> `ascan_stale_within_3_days`
+                           - 处于停更 3-10 天区间，**不涉及索赔阈值判定**。`analysis` 中只应说明停更天数、可能原因、建议查件与观察。**严禁**提及「索赔服务是否可用」「渠道有无索赔」「是否可索赔」等索赔相关内容；此时距 10 天阈值尚远，索赔分支不在本路径范围内。
+                        9. `staleFacts.isOver10Days === false` -> `below_claim_threshold`（**仅当非平台面单**；平台面单已在步骤 5 处理）
+                        10. `staleFacts.isOver10Days === true` 且 `hasClaimService === false` -> `no_claim_service`
+                        11. `staleFacts.isOver10Days === true` 且 `hasClaimService === true`：
+                           - 国内件 -> `domestic_claim_recommended`
+                           - 国际件 -> `international_wait_recommended`
+                        12. 客户确认提交索赔 -> `claim_handoff`（建议 `substitute-claim`）
+                        13. 未确认索赔但已超 10 天 -> `stale_over_10_days`
+                        14. `staleFacts.isOver10Days === true` 且 `hasClaimService` 缺失，或关键字段冲突 -> `need_human`；`missingFacts` 必须包含 `hasClaimService`
+
+                        ## 输出格式（仅 JSON）
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "branch": "need_info | recognized_exception | terminal_delivered_not_stale | handoff_no_ascan | mixed_scan_state | ascan_stale_within_3_days | below_claim_threshold | no_claim_service | domestic_claim_recommended | international_wait_recommended | stale_over_10_days | claim_handoff | need_human",
+                              "trackingIds": [],
+                              "outboundOrderNos": [],
+                              "suggestedNextExperts": [],
+                              "missingFacts": [],
+                              "scanStates": []
+                            },
+                            "analysis": "给客服或客户的结论与下一步，和 branch 严格一致。"
+                          }
+                        }
+                        ```
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "163001"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163001"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163003"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 的 analysisResult，生成 result / outputContext
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输入】analysisResult（object|string）、inputContext（可选）、enrichedContext（确定性事实）
+               * 【输出】result: { structured, analysis }；outputContext: expertId tracking-stale
+               */
+
+              const BRANCHES = new Set([
+                "need_info",
+                "recognized_exception",
+                "terminal_delivered_not_stale",
+                "handoff_no_ascan",
+                "mixed_scan_state",
+                "ascan_stale_within_3_days",
+                "below_claim_threshold",
+                "no_claim_service",
+                "domestic_claim_recommended",
+                "international_wait_recommended",
+                "stale_over_10_days",
+                "claim_handoff",
+                "need_human",
+              ]);
+
+              interface StaleStructured {
+                branch?: string;
+                trackingIds?: string[];
+                outboundOrderNos?: string[];
+                suggestedNextExperts?: string[];
+                missingFacts?: string[];
+                scanStates?: Array<{ trackingNo: string; state: string }>;
+              }
+
+              interface StaleAnalysisResult {
+                structured?: StaleStructured;
+                analysis?: string;
+              }
+
+              interface StaleInputContext {
+                chainId?: string;
+              }
+
+              interface StaleSemanticFacts {
+                calcStatus?: string;
+                computedNoUpdateDays?: number;
+                isOver3Days?: boolean;
+                isOver10Days?: boolean;
+                isDelivered?: boolean;
+                isPlatformWaybill?: boolean;
+                scanStateSummary?: string;
+                scanStates?: Array<{ trackingNo: string; state: string }>;
+              }
+
+              function coerceAnalysisResult(raw: unknown): { structured: StaleStructured; analysis: string } {
+                if (raw == null) {
+                  return {
+                    structured: { branch: "need_human", trackingIds: [], outboundOrderNos: [], suggestedNextExperts: [], missingFacts: [] },
+                    analysis: "未收到模型输出。",
+                  };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as StaleAnalysisResult;
+                    if (parsed && typeof parsed === "object" && ("structured" in parsed || "analysis" in parsed)) {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch {
+                    // fall through
+                  }
+                  return {
+                    structured: { branch: "need_human", trackingIds: [], outboundOrderNos: [], suggestedNextExperts: [], missingFacts: [] },
+                    analysis: s || "解析失败，请人工查看原始模型输出。",
+                  };
+                }
+
+                const o = raw as StaleAnalysisResult;
+                const st = o.structured ?? {};
+                const branchRaw = typeof st.branch === "string" ? st.branch.trim() : "";
+                const branch = BRANCHES.has(branchRaw) ? branchRaw : "need_human";
+
+                const trackingIds = Array.isArray(st.trackingIds)
+                  ? st.trackingIds.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(st.outboundOrderNos)
+                  ? st.outboundOrderNos.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const suggestedNextExperts = Array.isArray(st.suggestedNextExperts)
+                  ? st.suggestedNextExperts.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const missingFacts = Array.isArray(st.missingFacts)
+                  ? st.missingFacts.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+
+                return {
+                  structured: {
+                    branch,
+                    trackingIds,
+                    outboundOrderNos,
+                    suggestedNextExperts,
+                    missingFacts,
+                  },
+                  analysis: typeof o.analysis === "string" ? o.analysis : "（无 analysis 字段）",
+                };
+              }
+
+              function addMissingFact(items: string[], fact: string): string[] {
+                return items.includes(fact) ? items : [...items, fact];
+              }
+
+              function enforceSemanticBranch(
+                result: { structured: StaleStructured; analysis: string },
+                enrichedRaw: unknown
+              ): { structured: StaleStructured; analysis: string } {
+                const ec =
+                  enrichedRaw && typeof enrichedRaw === "object" && !Array.isArray(enrichedRaw)
+                    ? (enrichedRaw as Record<string, unknown>)
+                    : {};
+                const staleFacts =
+                  ec.staleFacts && typeof ec.staleFacts === "object" && !Array.isArray(ec.staleFacts)
+                    ? (ec.staleFacts as StaleSemanticFacts)
+                    : {};
+                const base: StaleStructured = {
+                  trackingIds:
+                    result.structured.trackingIds?.length
+                      ? result.structured.trackingIds
+                      : Array.isArray(ec.trackingIds)
+                        ? ec.trackingIds.map(String)
+                        : [],
+                  outboundOrderNos:
+                    result.structured.outboundOrderNos?.length
+                      ? result.structured.outboundOrderNos
+                      : Array.isArray(ec.outboundOrderNos)
+                        ? ec.outboundOrderNos.map(String)
+                        : [],
+                  suggestedNextExperts: result.structured.suggestedNextExperts ?? [],
+                  missingFacts: result.structured.missingFacts ?? [],
+                  scanStates: Array.isArray(staleFacts.scanStates) ? staleFacts.scanStates : [],
+                };
+                const branchResult = (
+                  branch: string,
+                  analysis: string,
+                  extra?: Partial<StaleStructured>
+                ): { structured: StaleStructured; analysis: string } => ({
+                  structured: { ...base, ...extra, branch },
+                  analysis,
+                });
+
+                if (result.structured.branch === "recognized_exception") return result;
+                if (!ec.staleFacts || staleFacts.calcStatus !== "ok") {
+                  return branchResult("need_human", "缺少可验证的停更时间事实，暂不能判断索赔处理路径。", {
+                    missingFacts: addMissingFact(base.missingFacts ?? [], "staleFacts"),
+                    suggestedNextExperts: [],
+                  });
+                }
+                if (staleFacts.isDelivered === true || staleFacts.scanStateSummary === "all_delivered") {
+                  return branchResult("terminal_delivered_not_stale", "轨迹事实显示包裹已妥投，不适用运输中长时间停更处理。", {
+                    suggestedNextExperts: [],
+                  });
+                }
+                const isPlatformWaybill = ec.isPlatformWaybill === true || staleFacts.isPlatformWaybill === true;
+                if (isPlatformWaybill) {
+                  return branchResult("no_claim_service", "该订单已确认属于3PL平台面单，不支持万邑通侧尾程索赔；如需定位包裹可提交查件。", {
+                    suggestedNextExperts: [],
+                  });
+                }
+                if (staleFacts.scanStateSummary === "all_no_ascan") {
+                  return branchResult(
+                    "handoff_no_ascan",
+                    "承运商轨迹未检测到 Ascan，属于尾程无上网场景，不应按已有 Ascan 后停滞判断渠道索赔；请转无上网流程核实查件及标准赔付条件。",
+                    { suggestedNextExperts: ["tracking-no-scan"], missingFacts: [] }
+                  );
+                }
+                if (staleFacts.scanStateSummary === "mixed") {
+                  return branchResult(
+                    "mixed_scan_state",
+                    "同批运单的扫描状态不一致：部分已有承运商扫描，部分仍无 Ascan。请按 scanStates 拆票处理，无 Ascan 运单转无上网流程。",
+                    {
+                      suggestedNextExperts: ["tracking-no-scan"],
+                      missingFacts: addMissingFact(base.missingFacts ?? [], "splitByTrackingScanState"),
+                    }
+                  );
+                }
+                if (staleFacts.isOver3Days === true && staleFacts.isOver10Days === false) {
+                  return branchResult("ascan_stale_within_3_days", "轨迹已停更超过3天但尚未超过10天，建议先提交查件并继续观察物流动态。", {
+                    suggestedNextExperts: [],
+                  });
+                }
+                if (staleFacts.isOver10Days === false) {
+                  return branchResult("below_claim_threshold", "当前停更时长尚未超过10天，建议继续观察物流动态。", {
+                    suggestedNextExperts: [],
+                  });
+                }
+
+                const hasClaimService = typeof ec.hasClaimService === "boolean" ? ec.hasClaimService : undefined;
+                if (hasClaimService === undefined) {
+                  return branchResult("need_human", "当前缺少该渠道是否支持索赔的权威事实，不能据此断言无索赔服务，请人工核实。", {
+                    missingFacts: addMissingFact(base.missingFacts ?? [], "hasClaimService"),
+                    suggestedNextExperts: [],
+                  });
+                }
+                if (hasClaimService === false) {
+                  return branchResult("no_claim_service", "当前事实已明确该渠道无索赔服务，建议提交查件定位包裹，并与买家协商后续方案。", {
+                    suggestedNextExperts: [],
+                  });
+                }
+                if (ec.claimWindowStatus === "out_of_window") {
+                  return branchResult("stale_over_10_days", "该渠道支持丢失类索赔，但当前事实显示已超过提交窗口；建议先查件并人工核实时效。", {
+                    suggestedNextExperts: [],
+                  });
+                }
+                const days = staleFacts.computedNoUpdateDays;
+                const dayText = typeof days === "number" ? `已停更${days}天，` : "";
+                if (typeof ec.claimWindowStatus !== "string") {
+                  return branchResult(
+                    ec.isDomestic === false ? "international_wait_recommended" : "domestic_claim_recommended",
+                    `${dayText}该渠道支持丢失类索赔，但当前缺少索赔窗口事实；建议先查件并人工核实是否仍在提交时效内。`,
+                    {
+                      suggestedNextExperts: [],
+                      missingFacts: addMissingFact(base.missingFacts ?? [], "claimWindowStatus"),
+                    }
+                  );
+                }
+                if (ec.isDomestic === false) {
+                  return branchResult(
+                    "international_wait_recommended",
+                    `${dayText}该渠道支持索赔；国际运输仍可能受清关或转运影响，建议先查件并同步核实索赔窗口。`,
+                    { suggestedNextExperts: ["substitute-claim"], missingFacts: [] }
+                  );
+                }
+                return branchResult(
+                  "domestic_claim_recommended",
+                  `${dayText}该渠道支持丢失类代客索赔，建议立即提交查件并尽快发起索赔，避免超过时效。`,
+                  { suggestedNextExperts: ["substitute-claim"], missingFacts: [] }
+                );
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const guarded = enforceSemanticBranch(coerced, params.enrichedContext);
+                const inputContext = params.inputContext as StaleInputContext | undefined;
+                const summary = guarded.analysis.slice(0, 200) || "轨迹停滞分析完成";
+
+                return {
+                  structured: guarded.structured,
+                  analysis: guarded.analysis,
+                  outputContext: {
+                    expertId: "tracking-stale",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "",
+                  },
+                  enrichedContext: {
+                    scanRouting:
+                      params.enrichedContext && typeof params.enrichedContext === "object" && !Array.isArray(params.enrichedContext)
+                        ? (params.enrichedContext as Record<string, unknown>).staleFacts
+                        : undefined,
+                    claimDecision: {
+                      hasClaimService:
+                        params.enrichedContext && typeof params.enrichedContext === "object" && !Array.isArray(params.enrichedContext)
+                          ? (params.enrichedContext as Record<string, unknown>).hasClaimService
+                          : undefined,
+                      claimFactSource:
+                        params.enrichedContext && typeof params.enrichedContext === "object" && !Array.isArray(params.enrichedContext)
+                          ? (params.enrichedContext as Record<string, unknown>).claimFactSource
+                          : undefined,
+                    },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163002"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "900001"

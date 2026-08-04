@@ -1,0 +1,163 @@
+# 代客索赔进度 — Coze 工作流包导出
+# 导出：npm run export:coze -- experts/last-mile/substitute-claim
+
+yamlBasename: substitute_claim-draft.yaml
+packageMainName: substitute_claim
+packageDescription: 代客索赔（validate 分流 → compensate.pageList 插件 → fetch → LLM → format）
+
+winitOpenapiPlugin:
+  enabled: true
+  insertBefore: fetch-compensate-list
+  logicalId: winit_openapi_plugin
+  openapiAction: afs.customer.compensate.pageList
+
+nodeIds:
+  validate-input: "166000"
+  route-by-branch: "166001"
+  build-compensate-list-data: "166002"
+  winit_openapi_plugin: "115282"
+  fetch-compensate-list: "166003"
+  llm-analyze: "166004"
+  format-output: "166005"
+
+inputBindings:
+  build-compensate-list-data:
+    branch:
+      ref: validate-input
+      path: branch
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    claimIds:
+      ref: validate-input
+      path: claimIds
+  fetch-compensate-list:
+    branch:
+      ref: validate-input
+      path: branch
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    claimIds:
+      ref: validate-input
+      path: claimIds
+    customerCode:
+      ref: __start__
+      path: customerCode
+    customerName:
+      ref: __start__
+      path: customerName
+    username:
+      ref: __start__
+      path: username
+    winitRequestData:
+      ref: build-compensate-list-data
+      path: winitRequestData
+    winitOpenapiData:
+      ref: winit_openapi_plugin
+      path: data
+  llm-analyze:
+    branch:
+      ref: validate-input
+      path: branch
+    query:
+      ref: __start__
+      path: query
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    claimIds:
+      ref: validate-input
+      path: claimIds
+    customerIntent:
+      ref: __start__
+      path: customerIntent
+    enrichedContext:
+      ref: validate-input
+      path: enrichedContext
+    inputContext:
+      ref: __start__
+      path: inputContext
+    compensateListFacts:
+      ref: fetch-compensate-list
+      path: compensateListFacts
+  format-output:
+    analysisResult:
+      ref: llm-analyze
+      path: analysisResult
+    compensateListFacts:
+      ref: fetch-compensate-list
+      path: compensateListFacts
+    inputContext:
+      ref: __start__
+      path: inputContext
+
+branching:
+  after: validate-input
+  logicalId: route-by-branch
+  title: 按 branch 分流
+  routes:
+    - port: "true"
+      target: build-compensate-list-data
+      whenEquals:
+        path: branch
+        value: "query"
+    - port: "true_1"
+      target: fetch-compensate-list
+      whenEquals:
+        path: branch
+        value: "guidance"
+    - port: "false"
+      target: fetch-compensate-list
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: 0
+    y: 200
+  __end__:
+    x: 900
+    y: 200
+  validate-input:
+    x: 120
+    y: 120
+  route-by-branch:
+    x: 120
+    y: 240
+  build-compensate-list-data:
+    x: 360
+    y: 80
+  winit_openapi_plugin:
+    x: 520
+    y: 80
+  fetch-compensate-list:
+    x: 680
+    y: 120
+  llm-analyze:
+    x: 840
+    y: 120
+  format-output:
+    x: 840
+    y: 280

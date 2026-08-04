@@ -1,0 +1,182 @@
+{
+  "nodes": [
+    {
+      "id": "validate-warehouse-query",
+      "file": "nodes/validate-warehouse-query.ts",
+      "inputs": [
+        "warehouseCode",
+        "country",
+        "topic",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "error",
+        "queryType",
+        "warehouseCode",
+        "country",
+        "topic",
+        "customerIntent",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "queryType": {
+            "type": "string"
+          },
+          "warehouseCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "topic": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-warehouse-kb",
+      "file": "nodes/load-warehouse-kb.ts",
+      "inputs": [
+        "validationOk",
+        "queryType",
+        "warehouseCode",
+        "country",
+        "topic",
+        "kbWarehouse"
+      ],
+      "outputs": [
+        "kbChunks",
+        "kbScope",
+        "warehouseCode",
+        "country",
+        "topic"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "kbChunks": {
+            "type": "string"
+          },
+          "kbScope": {
+            "type": "string"
+          },
+          "warehouseCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "topic": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "extract-warehouse-profile",
+      "file": "nodes/extract-warehouse-profile.ts",
+      "inputs": [
+        "kbChunks",
+        "warehouseCode",
+        "country",
+        "topic",
+        "queryType"
+      ],
+      "outputs": [
+        "warehouseProfile",
+        "matched",
+        "queryType"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "warehouseProfile": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "matched": {
+            "type": "boolean"
+          },
+          "queryType": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "warehouseCode",
+        "country",
+        "topic",
+        "queryType",
+        "warehouseProfile",
+        "kbChunks",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

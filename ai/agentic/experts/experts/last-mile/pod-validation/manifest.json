@@ -1,0 +1,43 @@
+{
+  "id": "pod-validation",
+  "name": "vPOD/ePOD 校验",
+  "description": "实时校验是否符合规范。Use when 用户咨询 POD 是否合规、vPOD/ePOD 校验。",
+  "capabilities": [
+    "POD校验",
+    "合规校验"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号"
+      },
+      "podIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "POD ID"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "校验结果与说明"
+      }
+    }
+  }
+}

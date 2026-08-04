@@ -1,0 +1,59 @@
+{
+  "id": "compliance-check",
+  "domain": "sku",
+  "name": "SKU 合规深判",
+  "description": "对海外仓商品做合规深判：新品承运深判、禁限运细则、申报要素争议、证书/GPSR/WEEE、电清关链接、品牌备案与解禁条件判定。KB+LLM 为主；有商品编码时可只读档案合规切片。不代客上传证书或写入解禁。Use when registration-guide 转出 handoff_compliance，或客户问禁限运深判、缺什么证、WEEE 类别、GPSR、销售链接是否合规、解禁条件是否满足。",
+  "capabilities": [
+    "承运深判",
+    "禁限运细则",
+    "证书齐备判定",
+    "WEEE/GPSR",
+    "电清关链接",
+    "解禁条件深判"
+  ],
+  "version": "0.1.0",
+  "x_recaller_propagate_previous_enriched_context": true,
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "topic": {
+        "type": "string",
+        "description": "咨询主题关键词（与 intentType 至少填一个）"
+      },
+      "intentType": {
+        "type": "string",
+        "description": "carriability_deep / restricted / certificates / weee / ecommerce / brand / unban_deep / declaration / general"
+      },
+      "skuCode": {
+        "type": "string",
+        "description": "商品编码（可选；有则尝试只读合规切片）"
+      },
+      "importCountryCode": {
+        "type": "string",
+        "description": "进口国/目的国二字码（合规因国别而异，建议提供）"
+      },
+      "productLink": {
+        "type": "string",
+        "description": "商品链接（承运/电清关场景）"
+      },
+      "categoryHint": {
+        "type": "string",
+        "description": "品类或客户自述类别（可选）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "branch、complianceVerdict、missingDocuments、sopSteps、confidence 等"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客合规说明与下一步"
+      }
+    }
+  }
+}

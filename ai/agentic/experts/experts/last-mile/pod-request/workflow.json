@@ -1,0 +1,369 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputs": [
+        "valid",
+        "branch",
+        "error",
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "outputs": {
+          "valid": {
+            "type": "boolean"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "id": "build-verify-outbound-winit-data",
+      "file": "nodes/build-verify-outbound-winit-data.ts",
+      "inputs": [
+        "branch",
+        "outboundOrderNos"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "branch": {
+            "type": "string"
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "verify-outbound-ownership",
+      "file": "nodes/verify-outbound-ownership.ts",
+      "inputs": [
+        "branch",
+        "outboundOrderNos",
+        "actionPlans",
+        "winitPluginOutputList",
+        "customerCode",
+        "customerName",
+        "username"
+      ],
+      "outputs": [
+        "verifiedOutboundOrderNos",
+        "rejectedOutboundOrderNos",
+        "ownershipStatus",
+        "ownershipNotes",
+        "ownershipFacts"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "branch": {
+            "type": "string"
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "winitPluginOutputList": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "customerCode": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "verifiedOutboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rejectedOutboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ownershipStatus": {
+            "type": "string"
+          },
+          "ownershipNotes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ownershipFacts": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-export-pod-winit-data",
+      "file": "nodes/build-export-pod-winit-data.ts",
+      "inputs": [
+        "branch",
+        "verifiedOutboundOrderNos"
+      ],
+      "outputs": [
+        "winitRequestData"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "branch": {
+            "type": "string"
+          },
+          "verifiedOutboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "outputs": {
+          "winitRequestData": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-export-pod",
+      "file": "nodes/fetch-export-pod.ts",
+      "inputs": [
+        "branch",
+        "trackingIds",
+        "outboundOrderNos",
+        "ownershipFacts",
+        "winitOpenapiData",
+        "winitRequestData",
+        "customerCode",
+        "customerName",
+        "username"
+      ],
+      "outputs": [
+        "podExportFacts"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "branch": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ownershipFacts": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "winitOpenapiData": {
+            "type": "string",
+            "description": "插件响应 data"
+          },
+          "winitRequestData": {
+            "type": "string"
+          },
+          "customerCode": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "podExportFacts": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext",
+        "podExportFacts"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "podExportFacts",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object"
+          },
+          "podExportFacts": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

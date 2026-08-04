@@ -1,0 +1,1168 @@
+schema_version: 1.0.0
+name: value_add_guide_20260608_1
+id: 7665289093425578022
+description: "增值服务操作指引（validate → load-kb → 可选 getOrderDetail → LLM → format）"
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: "工作流的起始节点，用于设定启动工作流需要的信息"
+      position:
+        x: -150
+        y: 230
+      parameters:
+        node_outputs:
+            customerCode:
+                type: string
+                value: null
+                description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+            customerIntent:
+                type: string
+                value: null
+                description: 当前正在为客户解决的业务问题或诉求摘要
+            customerName:
+                type: string
+                value: null
+                description: 客户名称（租户展示上下文；可为空）
+            inputContext:
+                type: object
+                value: null
+                description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+            inputs:
+                type: object
+                properties:
+                    inboundOrderNo:
+                        type: string
+                        value: null
+                        description: 入库单号（WI 前缀）；状态查询时提供，触发可选 getOrderDetail 拉取
+                    topic:
+                        type: string
+                        value: null
+                        description: 咨询主题（与 inboundOrderNo 二选一）；如「贴标操作」「拍照服务」
+                    vasType:
+                        type: string
+                        value: null
+                        description: 增值类型：Labeling / Repack / Photo / Measure / QC / Intercept 等
+                value: null
+                description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+            language:
+                type: string
+                value: null
+                description: 语言/区域偏好（如 zh_CN；可为空）
+            query:
+                type: string
+                value: null
+                description: 上游 Agent 委托本专家需要完成的具体任务说明
+            username:
+                type: string
+                value: null
+                description: 操作者用户名（审计上下文；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: "工作流的最终节点，用于返回工作流运行后的结果信息"
+      position:
+        x: 1400
+        y: 310
+      parameters:
+        node_inputs:
+            - name: structured
+              input:
+                type: object
+                value:
+                    path: structured
+                    ref_node: "163007"
+            - name: analysis
+              input:
+                type: string
+                value:
+                    path: analysis
+                    ref_node: "163007"
+            - name: outputContext
+              input:
+                type: object
+                value:
+                    path: outputContext
+                    ref_node: "163007"
+            - name: enrichedContext
+              input:
+                type: object
+                value:
+                    path: enrichedContext
+                    ref_node: "163007"
+        terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-vas-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 200
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：validate-vas-query — 校验 topic 或 inboundOrderNo，识别查询模式
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            const VAS_TYPE_ALIASES: Record<string, string> = {
+              labeling: "Labeling",
+              贴标: "Labeling",
+              换标: "Labeling",
+              repack: "Repack",
+              重新包装: "Repack",
+              包装: "Repack",
+              photo: "Photo",
+              拍照: "Photo",
+              measure: "Measure",
+              测量: "Measure",
+              qc: "QC",
+              质检: "QC",
+              intercept: "Intercept",
+              拦截: "Intercept",
+              premium_booking: "PremiumBooking",
+              增值预约: "PremiumBooking",
+            };
+
+            function str(v: unknown): string {
+              return typeof v === "string" ? v.trim() : "";
+            }
+
+            function normalizeVasType(raw: unknown, topic: string): string {
+              const direct = str(raw);
+              if (direct) {
+                const key = direct.toLowerCase();
+                return VAS_TYPE_ALIASES[key] ?? direct;
+              }
+              const combined = topic.toLowerCase();
+              for (const [alias, canonical] of Object.entries(VAS_TYPE_ALIASES)) {
+                if (combined.includes(alias)) return canonical;
+              }
+              return "";
+            }
+
+            function normalizeInboundOrderNo(raw: unknown): string {
+              const s = str(raw);
+              return s ? s.toUpperCase() : "";
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const topic = str(params.topic);
+              const inboundOrderNo = normalizeInboundOrderNo(params.inboundOrderNo);
+              const vasType = normalizeVasType(params.vasType, topic);
+              const customerIntent = str(params.customerIntent);
+              const inputContext = params.inputContext ?? {};
+
+              const hasTopic = topic.length > 0;
+              const hasOrder = inboundOrderNo.length > 0;
+              const validationOk = hasTopic || hasOrder;
+
+              const queryMode = hasOrder ? (hasTopic ? "status_and_guide" : "status") : "guide";
+              const skipApi = !hasOrder;
+
+              return validationOk
+                ? {
+                    validationOk: true,
+                    queryMode,
+                    topic,
+                    vasType,
+                    inboundOrderNo,
+                    skipApi,
+                    customerIntent,
+                    inputContext,
+                  }
+                : {
+                    validationOk: false,
+                    error: "至少提供 topic 或 inboundOrderNo 之一",
+                    queryMode: "invalid",
+                    topic,
+                    vasType,
+                    inboundOrderNo,
+                    skipApi: true,
+                    customerIntent,
+                    inputContext,
+                  };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("validate-vas-query")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e);
+                  process.exit(1);
+                });
+            }
+        functionID: 3a94r2uet728e
+        language: 5
+        node_inputs:
+            - name: topic
+              input:
+                value:
+                    path: inputs.topic
+                    ref_node: "100001"
+            - name: vasType
+              input:
+                value:
+                    path: inputs.vasType
+                    ref_node: "100001"
+            - name: inboundOrderNo
+              input:
+                value:
+                    path: inputs.inboundOrderNo
+                    ref_node: "100001"
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "100001"
+        node_outputs:
+            customerIntent:
+                type: string
+                value: null
+            error:
+                type: string
+                value: null
+            inboundOrderNo:
+                type: string
+                value: null
+            inputContext:
+                type: object
+                value: null
+            queryMode:
+                type: string
+                value: null
+            skipApi:
+                type: boolean
+                value: null
+            topic:
+                type: string
+                value: null
+            validationOk:
+                type: boolean
+                value: null
+            vasType:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3a953kn22t42c
+    - id: "163001"
+      type: text
+      title: kb-vas
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 200
+        y: 520
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 增值服务（VAS）操作指引知识库\n\n> 来源摘要：product-team vas 文档、上架前拦截/细节拍照/增值预约送仓等客服 KB。\n\n---\n\n## 增值服务总览\n\n| 类型 | 代码 | 典型场景 |\n|------|------|----------|\n| 贴标/换标 | Labeling | FBA 标签、条码更换、合规贴标 |\n| 拍照 | Photo | 新品核实体积重量、质检留档 |\n| 测量 | Measure | 尺寸重量复核 |\n| 重新包装 | Repack | 破损换箱、加固包装 |\n| 质检 | QC | 到仓质检、异常核实 |\n| 上架前拦截 | Intercept | 快到仓拦截、货不对板扣货 |\n| 增值预约送仓 | PremiumBooking | 付费预约审核与改期 |\n\n提交入口：万邑联 → 入库单/增值服务。\n\n---\n\n## 贴标与换标\n\n| 要点 | 说明 |\n|------|------|\n| 申请时限 | 须在货物到仓前或指定节点前提交（以产品价卡为准） |\n| 标签要求 | 尺寸、粘贴位置、条码可读性符合平台规范 |\n| 材料 | 客户提供标签文件或按模板制作 |\n| 费用 | 参考价卡，以实际账单为准 |\n\n**操作步骤**：\n\n1. 万邑联进入对应入库单或增值服务入口。\n2. 选择贴标/换标服务，填写标签规格与数量。\n3. 上传标签样稿（如需要）。\n4. 提交后等待仓库处理；进行中状态以系统为准。\n\n---\n\n## 拍照与测量\n\n| 要点 | 说明 |\n|------|------|\n| 适用场景 | 新品核实体积重量、质检留档、异常核实 |\n| 拍摄要求 | 说明拍摄角度、需覆盖的面（正面/侧面/标签） |\n| 测量精度 | 按仓库标准测量工具复核 |\n\n**操作步骤**：\n\n1. 在增值服务入口选择拍照/测量。\n2. 备注需拍摄/测量的 SKU 与具体要求。\n3. 提交工单，等待仓库执行。\n4. 结果以系统记录/照片回传为准（如有）。\n\n---\n\n## 重新包装与质检\n\n| 要点 | 说明 |\n|------|------|\n| 重新包装 | 破损换箱、加固、更换包材 |\n| 质检 | 到仓抽检、异常核实 |\n| 非标增值 | 超标准范围需走非标申请流程 |\n| 驳回场景 | 材料不齐、超服务范围 → 补充材料或转人工 |\n\n**操作步骤**：\n\n1. 选择重新包装或质检服务。\n2. 描述包装要求或质检标准。\n3. 提交并跟踪工单状态。\n\n---\n\n## 上架前拦截\n\n来源：上架前拦截包裹操作增值服务 SOP。\n\n| 条件 | 对客要点 |\n|------|----------|\n| 快到仓需拦截 | 提前约 2 个工作日提交增值；备注写清拦截需求及拦截后处理方式 |\n| 条码无误但货不对板 | 用「包裹扣货」方式拦截，非条码异常增值 |\n| 整单有问题 | 通过终止入库单拦截 |\n| 拦截失败风险 | 告知可能拦截不成功，需上架后库内增值 |\n| 自验单包裹扣货 | 自验订单可做自验货扣货，仓库登记异常单处理 |\n\n---\n\n## 细节拍照增值\n\n- 用于异常核实留档，与 inbound-exception-check 上架前特殊处理分支衔接。\n- 须通过增值工单提交，写清拍照要求（角度、部位、数量）。\n\n---\n\n## 增值预约送仓\n\n| 要点 | 说明 |\n|------|------|\n| 审核时效 | 付费预约审核约 1 工作日 |\n| 改期规则 | 审批前可多次改时间不收费 |\n| 取消规则 | 审批后取消仍收增值服务费 |\n| 费率 | 因国家/整柜散货而异 |\n\n---\n\n## 增值单状态解读\n\n| 状态 | 对客原则 |\n|------|----------|\n| Pending | 已提交待处理；不承诺完成时间 |\n| InProgress | 仓库处理中；客观说明进度 |\n| Completed | 说明已完成节点 |\n| 长时间 Pending | 建议联系客服核实 |\n\n> 注：完整增值单列表 API（`/wh/vas/order/queryList`）待 Coze action 注册；当前可结合入库单 `getOrderDetail` 上下文与 KB 解读。\n\n---\n\n## 费用口径\n\n- 增值服务费用参考价卡/合同。\n- **以实际账单为准**。\n- 付费预约：审批后取消仍可能收取服务费。\n\n---\n\n## 特殊货型\n\n- 危险品/液体/特殊包装需求需人工评估（本期仅输出通用 SOP）。\n- 升级人工：VAS 单长时间 Pending、状态异常、特殊货型需求。\n\n---\n\n## 其他增值场景\n\n- **无主货找回**：通过增值工单提交找回申请。\n- **上架前自提/销毁**：须提增值工单，写清处理方式（见对应客服 KB）。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163002"
+      type: code
+      title: load-vas-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 450
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：load-vas-kb — 按 vasType / topic 过滤 VAS SOP KB
+             * FaaS 单文件闭环，无外部 import。kbVas 由 coze.config.yml textNode 注入。
+             */
+
+            const VAS_SECTION_MAP: Record<string, string> = {
+              Labeling: "贴标与换标",
+              Repack: "重新包装与质检",
+              Photo: "拍照与测量",
+              Measure: "拍照与测量",
+              QC: "重新包装与质检",
+              Intercept: "上架前拦截",
+              PremiumBooking: "增值预约送仓",
+            };
+
+            function str(v: unknown): string {
+              return typeof v === "string" ? v : "";
+            }
+
+            function extractSection(kb: string, heading: string): string {
+              const pattern = new RegExp(`##\\s+${heading}[\\s\\S]*?(?=\\n##\\s+|$)`, "i");
+              const m = kb.match(pattern);
+              return m ? m[0].trim() : "";
+            }
+
+            function filterByTopic(kb: string, topic: string): string {
+              if (!topic) return kb;
+              const keywords = topic.split(/[\s,，、/]+/).filter((w) => w.length >= 2);
+              if (keywords.length === 0) return kb;
+
+              const lines = kb.split("\n");
+              const hits = new Set<number>();
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].toLowerCase();
+                if (keywords.some((k) => line.includes(k.toLowerCase()))) {
+                  for (let j = Math.max(0, i - 2); j <= Math.min(lines.length - 1, i + 4); j++) {
+                    hits.add(j);
+                  }
+                }
+              }
+              if (hits.size === 0) return kb;
+              return Array.from(hits)
+                .sort((a, b) => a - b)
+                .map((i) => lines[i])
+                .join("\n");
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const validationOk = params.validationOk === true;
+              const queryMode = str(params.queryMode);
+              const topic = str(params.topic);
+              const vasType = str(params.vasType);
+              const kbVas = str(params.kbVas);
+
+              if (!validationOk || !kbVas) {
+                return {
+                  vasSopGuide: kbVas || "",
+                  kbScope: "empty",
+                  vasType,
+                  topic,
+                };
+              }
+
+              const parts: string[] = [];
+              const overview = extractSection(kbVas, "增值服务总览");
+              if (overview) parts.push(overview);
+
+              if (queryMode === "status" || queryMode === "status_and_guide") {
+                const statusSection = extractSection(kbVas, "增值单状态解读");
+                if (statusSection) parts.push(statusSection);
+              }
+
+              const sectionHeading = VAS_SECTION_MAP[vasType];
+              if (sectionHeading) {
+                const section = extractSection(kbVas, sectionHeading);
+                if (section) parts.push(section);
+              } else if (topic) {
+                parts.push(filterByTopic(kbVas, topic));
+              } else {
+                parts.push(kbVas);
+              }
+
+              const feeSection = extractSection(kbVas, "费用口径");
+              if (feeSection && /费用|收费|价格/i.test(`${topic} ${vasType}`)) {
+                parts.push(feeSection);
+              }
+
+              const vasSopGuide = parts.filter(Boolean).join("\n\n---\n\n");
+              const kbScope = vasType ? `vas:${vasType}` : topic ? `topic:${topic.slice(0, 32)}` : "full";
+
+              return {
+                vasSopGuide: vasSopGuide || kbVas,
+                kbScope,
+                vasType,
+                topic,
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("load-vas-kb")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e);
+                  process.exit(1);
+                });
+            }
+        functionID: 3a94r3mmiwipg
+        language: 5
+        node_inputs:
+            - name: validationOk
+              input:
+                value:
+                    path: validationOk
+                    ref_node: "163000"
+            - name: queryMode
+              input:
+                value:
+                    path: queryMode
+                    ref_node: "163000"
+            - name: topic
+              input:
+                value:
+                    path: topic
+                    ref_node: "163000"
+            - name: vasType
+              input:
+                value:
+                    path: vasType
+                    ref_node: "163000"
+            - name: kbVas
+              input:
+                value:
+                    path: output
+                    ref_node: "163001"
+        node_outputs:
+            kbScope:
+                type: string
+                value: null
+            topic:
+                type: string
+                value: null
+            vasSopGuide:
+                type: string
+                value: null
+            vasType:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3a953kn22thfg
+    - id: "163003"
+      type: code
+      title: build-winit-inbound-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 700
+        y: 200
+      parameters:
+        code: |-
+            /**
+             * 节点：为 winit.wh.inbound.getOrderDetail 组装插件批处理动作（单入库单）
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const skipApi = params.skipApi === true;
+              const inboundOrderNo = String(params.inboundOrderNo ?? "").trim().toUpperCase();
+
+              if (skipApi || !inboundOrderNo) {
+                return {
+                  actions: [],
+                  actionPlans: [],
+                  winitPluginBatchActionsCount: 0,
+                  actionName: INBOUND_DETAIL_ACTION,
+                  skipApi: true,
+                };
+              }
+
+              const actionPlans = [{ inputToken: inboundOrderNo, queryBy: "orderNo" as const }];
+              const actions = [
+                {
+                  action: INBOUND_DETAIL_ACTION,
+                  data: JSON.stringify({ orderNo: inboundOrderNo }),
+                },
+              ];
+
+              return {
+                actions,
+                actionPlans,
+                winitPluginBatchActionsCount: actions.length,
+                actionName: INBOUND_DETAIL_ACTION,
+                skipApi: false,
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("build-winit-inbound-detail")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+            }
+        functionID: 3a94r3qcrpp9p
+        language: 5
+        node_inputs:
+            - name: skipApi
+              input:
+                value:
+                    path: skipApi
+                    ref_node: "163000"
+            - name: inboundOrderNo
+              input:
+                value:
+                    path: inboundOrderNo
+                    ref_node: "163000"
+        node_outputs:
+            actionName:
+                type: string
+                value: null
+            actionPlans:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            actions:
+                type: list
+                items:
+                    type: object
+                    properties:
+                        action:
+                            type: string
+                            value: null
+                        data:
+                            type: string
+                            value: null
+                    value: null
+                value: null
+            skipApi:
+                type: boolean
+                value: null
+            winitPluginBatchActionsCount:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3a953kn22tusk
+    - id: "163004"
+      type: plugin
+      title: winit_inbound_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: "Winit openapi 透传请求"
+      position:
+        x: 700
+        y: 400
+      parameters:
+        apiParam:
+            - name: apiID
+              input:
+                type: string
+                value: "7618114590886379526"
+            - name: apiName
+              input:
+                type: string
+                value: "cobra_winit_openapi_request"
+            - name: pluginID
+              input:
+                type: string
+                value: "7473322438084935720"
+            - name: pluginName
+              input:
+                type: string
+                value: "cobra_agent_http"
+            - name: pluginVersion
+              input:
+                type: string
+                value: "0"
+            - name: tips
+              input:
+                type: string
+                value: ""
+            - name: outDocLink
+              input:
+                type: string
+                value: ""
+        batch:
+            batchEnable: true
+            batchSize: 1
+            concurrentSize: 1
+            inputLists:
+                - name: item
+                  input:
+                    value:
+                        path: actions
+                        ref_node: "163003"
+        node_inputs:
+            - name: action
+              input:
+                type: string
+                value:
+                    path: item.action
+                    ref_node: "163004"
+            - name: customerCode
+              input:
+                value:
+                    path: customerCode
+                    ref_node: "100001"
+            - name: customerName
+              input:
+                value:
+                    path: customerName
+                    ref_node: "100001"
+            - name: data
+              input:
+                type: string
+                value:
+                    path: item.data
+                    ref_node: "163004"
+            - name: username
+              input:
+                value:
+                    path: username
+                    ref_node: "100001"
+            - name: language
+              input:
+                value:
+                    path: language
+                    ref_node: "100001"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    properties:
+                        code:
+                            type: integer
+                            required: true
+                            value: null
+                        data:
+                            type: string
+                            required: true
+                            value: null
+                        msg:
+                            type: string
+                            required: true
+                            value: null
+                    value: null
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 180000
+    - id: "163005"
+      type: code
+      title: fetch-inbound-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 950
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：合并 getOrderDetail 插件批处理结果（可选路径）
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+            function parseCozeWorkflowDataField(data: unknown): unknown {
+              if (data == null) return null;
+              if (typeof data !== "string") return data;
+              try {
+                const once = JSON.parse(data) as unknown;
+                if (typeof once === "string") {
+                  try {
+                    return JSON.parse(once) as unknown;
+                  } catch {
+                    return once;
+                  }
+                }
+                return once;
+              } catch {
+                return data;
+              }
+            }
+
+            function coerceDetailPayload(parsed: unknown): Record<string, unknown> | null {
+              if (parsed == null || typeof parsed !== "object") return null;
+              const o = parsed as Record<string, unknown>;
+              if (o.output != null && typeof o.output === "object") return coerceDetailPayload(o.output);
+              if (o.code === "0" || o.code === 0) {
+                const inner = o.data;
+                if (typeof inner === "string") {
+                  try {
+                    return coerceDetailPayload(JSON.parse(inner));
+                  } catch {
+                    return null;
+                  }
+                }
+                if (inner != null && typeof inner === "object") return coerceDetailPayload(inner);
+                return null;
+              }
+              if (o.orderNo != null || o.inboundOrderNum != null || o.inboundOrderNo != null) return o;
+              return null;
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              if (params.skipApi === true) {
+                return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "kb-only" } } };
+              }
+
+              const outputList = (Array.isArray(params.winitPluginOutputList) ? params.winitPluginOutputList : []) as Array<{
+                data?: unknown;
+              }>;
+
+              const list: Record<string, unknown>[] = [];
+              for (const item of outputList) {
+                const row = coerceDetailPayload(parseCozeWorkflowDataField(item?.data));
+                if (row) list.push(row);
+              }
+
+              return {
+                rawOrderData: {
+                  list,
+                  total: list.length,
+                  _fetchMeta: {
+                    strategy: "vas-inbound-context",
+                    action: INBOUND_DETAIL_ACTION,
+                    resolvedCount: list.length,
+                  },
+                },
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-inbound-order")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+            }
+        functionID: 3a94r2bybzztb
+        language: 5
+        node_inputs:
+            - name: skipApi
+              input:
+                value:
+                    path: skipApi
+                    ref_node: "163000"
+            - name: actions
+              input:
+                value:
+                    path: actions
+                    ref_node: "163003"
+            - name: actionPlans
+              input:
+                value:
+                    path: actionPlans
+                    ref_node: "163003"
+            - name: winitPluginOutputList
+              input:
+                value:
+                    path: outputList
+                    ref_node: "163004"
+        node_outputs:
+            rawOrderData:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3a953kn22u96o
+    - id: "163006"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "调用大语言模型,使用变量和提示词生成回复"
+      version: "3"
+      position:
+        x: 1150
+        y: 310
+      parameters:
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: temperature
+              input:
+                type: string
+                value: "0.5"
+            - name: topP
+              input:
+                type: string
+                value: "1"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: disabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: minimal
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: ""
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: false
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "3"
+            - name: systemPrompt
+              input:
+                type: string
+                value: |
+                    # 增值服务操作指引专家 - LLM Prompt
+
+                    将本内容复制到 Coze LLM 节点。上游应先执行 **validate-vas-query**、**load-vas-kb**；有 `inboundOrderNo` 时可选拉取 **getOrderDetail** 上下文。
+
+                    **对客输出**：不引用飞书/TOM 内部 URL；费用标注「以实际账单为准」；不承诺增值完成时效。
+
+                    ---
+
+                    ## 角色
+
+                    你是 **增值服务操作指引专家**（value-add-guide）。根据 VAS KB 与可选入库单数据，回答贴标/换标、拍照/测量、包装、质检、上架前拦截等操作问题，或解读已提交增值单进度。
+
+                    职责：
+
+                    1. `queryMode=guide`：按 `vasType`/`topic` 给出清晰操作步骤与材料要求。
+                    2. `queryMode=status`：结合 `rawOrderData` 与 KB 客观说明进度；无 API 数据时依据 KB 说明查询路径。
+                    3. 不承诺完成时间；长时间 Pending 建议联系客服。
+                    4. 不得编造 KB 中不存在的信息。
+
+                    ---
+
+                    ## 输入
+
+                    - **query**：`{{query}}`
+                    - **customerIntent**：`{{customerIntent}}`
+                    - **queryMode**：`{{queryMode}}`（guide / status / status_and_guide）
+                    - **topic**：`{{topic}}`
+                    - **vasType**：`{{vasType}}`
+                    - **inboundOrderNo**：`{{inboundOrderNo}}`
+                    - **vasSopGuide**：
+
+                    ```
+                    {{vasSopGuide}}
+                    ```
+
+                    - **rawOrderData**（可选，getOrderDetail 上下文）：
+
+                    ```json
+                    {{rawOrderData}}
+                    ```
+
+                    ---
+
+                    ## 工作步骤（体现在 analysis 中）
+
+                    1. **结论**：一句话概括（操作指引或状态说明）。
+                    2. **操作步骤**：按 vasType 分类列出步骤、材料、时限要求。
+                    3. **状态查询**：有 rawOrderData 时引用其中 status/轨迹等字段；说明增值单需在万邑联增值服务查看（queryList API 待注册）。
+                    4. **费用免责**：以实际账单为准。
+                    5. **升级提示**：Pending 异常、危险品/液体、特殊货型 → 人工评估。
+
+                    ---
+
+                    ## 输出格式
+
+                    只输出一个 JSON 对象，顶层仅有 `structured` 与 `analysis`。
+
+                    ```json
+                    {
+                      "structured": {
+                        "vasType": "Labeling",
+                        "operationSteps": ["步骤1", "步骤2"],
+                        "vasStatus": "",
+                        "vasOrderNo": "",
+                        "costSummary": "参考价卡，以实际账单为准",
+                        "specialRequirements": []
+                      },
+                      "analysis": "对客操作指引或状态说明。"
+                    }
+                    ```
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "163000"
+            - name: queryMode
+              input:
+                value:
+                    path: queryMode
+                    ref_node: "163000"
+            - name: topic
+              input:
+                value:
+                    path: topic
+                    ref_node: "163002"
+            - name: vasType
+              input:
+                value:
+                    path: vasType
+                    ref_node: "163002"
+            - name: inboundOrderNo
+              input:
+                value:
+                    path: inboundOrderNo
+                    ref_node: "163000"
+            - name: vasSopGuide
+              input:
+                value:
+                    path: vasSopGuide
+                    ref_node: "163002"
+            - name: rawOrderData
+              input:
+                value:
+                    path: rawOrderData
+                    ref_node: "163005"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163000"
+        node_outputs:
+            analysisResult:
+                type: object
+                properties:
+                    analysis:
+                        type: string
+                        value: null
+                    structured:
+                        type: object
+                        value: null
+                value: null
+            reasoning_content:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 180000
+    - id: "163007"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1300
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：format-output — 归一化 LLM 输出
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            interface AnalysisResult {
+              structured?: Record<string, unknown>;
+              analysis?: string;
+            }
+
+            interface InputContext {
+              chainId?: string;
+            }
+
+            function coerceAnalysisResult(raw: unknown): AnalysisResult {
+              if (raw == null) {
+                return { structured: {}, analysis: "未收到模型输出。" };
+              }
+              if (typeof raw === "string") {
+                const s = raw.trim();
+                try {
+                  const parsed = JSON.parse(s) as AnalysisResult;
+                  if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                } catch {
+                  /* fall through */
+                }
+                return { structured: {}, analysis: s || "解析失败。" };
+              }
+              const o = raw as AnalysisResult;
+              return {
+                structured: o.structured ?? {},
+                analysis: typeof o.analysis === "string" ? o.analysis : "",
+              };
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const coerced = coerceAnalysisResult(params.analysisResult);
+              const inputContext = params.inputContext as InputContext | undefined;
+              const summary = coerced.analysis?.slice(0, 200) || "增值服务指引完成";
+
+              return {
+                structured: coerced.structured,
+                analysis: coerced.analysis || "（无 analysis 字段）",
+                outputContext: {
+                  expertId: "value-add-guide",
+                  resultSummary: summary,
+                  chainId: inputContext?.chainId ?? "",
+                },
+                enrichedContext: {},
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e);
+                  process.exit(1);
+                });
+            }
+        functionID: 3a94pcvwebnbw
+        language: 5
+        node_inputs:
+            - name: analysisResult
+              input:
+                value:
+                    path: analysisResult
+                    ref_node: "163006"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163000"
+        node_outputs:
+            analysis:
+                type: string
+                value: null
+            enrichedContext:
+                type: object
+                value: null
+            outputContext:
+                type: object
+                value: null
+            structured:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3a953kn22umjs
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163007"
+      target_node: "900001"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"

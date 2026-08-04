@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "id": "us-shard-designated",
+      "description": "美国国家分片 + 指定产品语境（UPS Ground）",
+      "params": {
+        "query": "匹配适用赔付条款并说明上限与理赔窗口",
+        "customerIntent": "美国 UPS Ground，有 A-scan 后 20 天无更新，代客索赔上限和窗口？",
+        "country": "US",
+        "enrichedContext": {
+          "destinationCountry": "US",
+          "lastMileProductName": "UPS - Ground",
+          "incidentType": "丢失未妥投"
+        }
+      }
+    },
+    {
+      "id": "de-shard-dhl",
+      "description": "德国国家分片 + DHL Domestic Paket",
+      "params": {
+        "query": "匹配适用赔付条款并说明是否仍可索赔",
+        "customerIntent": "德国 DHL Domestic Paket 破损，妥投后第 5 天，还能索赔吗？",
+        "destinationCountry": "DE",
+        "enrichedContext": {
+          "lastMileProductName": "DHL - Domestic Paket"
+        }
+      }
+    },
+    {
+      "id": "us-combo-fulfillment",
+      "description": "美国 Winit Fulfillment-7日达（组合表 C 段仅 US 行）",
+      "params": {
+        "query": "匹配组合尾程条款并说明理算方式",
+        "customerIntent": "Winit Fulfillment-7日达 丢失，Ascan 后 20 天，怎么赔？",
+        "country": "US",
+        "enrichedContext": {
+          "lastMileProductName": "Winit Fulfillment-7日达（包含一口价，分区价，客户定制价）"
+        }
+      }
+    },
+    {
+      "id": "no-country-index",
+      "description": "未传国家，index 分片 + 全量组合表",
+      "params": {
+        "query": "解释条款概念与政策差异",
+        "customerIntent": "代客索赔和万邑通标准赔有什么区别？A-scan 是什么？",
+        "enrichedContext": {
+          "topic": "概念解释"
+        }
+      }
+    },
+    {
+      "id": "unsupported-fr",
+      "description": "未收录国家 FR → unsupported",
+      "params": {
+        "query": "判断是否收录该国并说明赔付适用性",
+        "customerIntent": "法国尾程丢失能赔吗？",
+        "country": "FR",
+        "enrichedContext": {
+          "destinationCountry": "FR"
+        }
+      }
+    }
+  ]
+}

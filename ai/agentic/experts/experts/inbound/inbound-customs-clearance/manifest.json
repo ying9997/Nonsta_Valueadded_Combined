@@ -1,0 +1,65 @@
+{
+  "id": "inbound-customs-clearance",
+  "domain": "inbound",
+  "name": "清关进度确认",
+  "description": "查询清关所处节点状态、说明延误原因与包税渠道清关规则。OMS getOrderDetail 兜底，TMS 清关节点当前 Gap。Use when 客户询问清关进行到哪了、清关为什么延误、包税渠道有没有清关轨迹、查验进度怎么查。",
+  "capabilities": [
+    "清关状态解读",
+    "OMS 轨迹兜底",
+    "包税渠道规则",
+    "延误原因参考",
+    "TMS Gap 说明"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "inboundOrderNos": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "入库单号（WI 前缀）或客户参考号列表；包税渠道咨询时可空"
+      },
+      "country": {
+        "type": "string",
+        "description": "目的国/地区（UK / US / DE / BE 等），用于匹配国别清关规则"
+      },
+      "containerNo": {
+        "type": "string",
+        "description": "柜号（整柜清关查询补充）"
+      },
+      "transportOrderNo": {
+        "type": "string",
+        "description": "运输单号 TO（可选，优先 TMS 清关查询）"
+      },
+      "maxTrajectoryNodes": {
+        "type": "integer",
+        "description": "轨迹节点保留条数上限；默认 20",
+        "default": 20,
+        "minimum": 1
+      },
+      "focusCustoms": {
+        "type": "boolean",
+        "description": "剪枝时优先保留清关相关轨迹节点；默认 true",
+        "default": true
+      },
+      "dutiableChannelQuery": {
+        "type": "boolean",
+        "description": "true 时走包税渠道规则兜底路径，无需拉单",
+        "default": false
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "清关结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "清关状态客观说明"
+      }
+    }
+  }
+}

@@ -1,0 +1,196 @@
+我：
+【先确认客户走的是哪条路径（staging_D 还是 production）。】这个问题我不认可，因为我去实证找并没有找到这条分流，不排除是coze快照没有记录分流的路径有没有输入导致摸底文件识别错误，这里我现在拿不到所有coze工作流，你可能要思考下我怎么给你实证让你去验证这个问题。不能把参考的项目都搞错了再出题，这就越走越远了。
+但是也暴露了，现有项目【Step 0：确认灰度路径】这里可能coze工作量原始信息不全，有误导可能，要重新探测
+
+claude code：
+你的质疑非常对！暂停预考，先解决这个关键问题
+你说得对，我不能基于可能有误的文档出题，否则会把你带偏。你的实证精神非常好——"看不到分流 = 怀疑文档有误"，这才是正确的工程师思维。
+📋 现在需要做的事
+1. 重新验证灰度分流的真实情况
+你现在看到的  cs_Bot_Client_v2p  工作流（你截图的）确实只有一个 IF A/B 节点，条件是：
+username 含  winit-api 
+或 customerCode =  14132129  /  1000019 
+或 lt =  5  /  6  /  7 
+满足任一条件 → 走上面那条线（ cs_Default_Query_v4_staging_D ）
+
+不满足 → 走下面那条线（另一个  cs_Default_Query_v4_sta... ，名字被截断了）
+问题是：下面那条线到底是不是  cs_Default_Query_v4_production ？
+2. 摸底文档的证据链
+让我回顾一下摸底文档 §3 的证据来源：
+§3.1 统一架构（Coze 平台核实：staging_D + production 画布）
+
+主 Bot：cs_Bot_Client_v2p
+  ↓
+IF 灰度分流条件：
+  │
+  ├─ 命中灰度 ──→ cs_Default_Query_v4_staging_D（wf 7656801894035914792）
+  │
+  └─ 未命中灰度 ──→ cs_Default_Query_v4_production（wf 7629566443147624463）
+
+文档说这是"Coze 平台核实"的，但是：
+你现在看到的 cs_Bot_Client_v2p 工作流画布里，下面那条线的名字被截断了
+摸底文档里确实有 production 的 workflow ID（7629566443147624463），但没有直接截图证明这个 ID 就是主 Bot 下面那条线调的
+
+3. 我需要你帮我实证的事情
+请你做以下操作（5分钟）：
+操作1：看清楚下面那条线到底是什么
+在你的 Coze 画布里：
+点击  cs_Bot_Client_v2p  主 Bot 的 IF A/B 节点
+看"不满足条件"那条线连到的节点（下面那个蓝色框）
+把鼠标悬停在上面，看完整的节点名称
+截图给我，或者直接告诉我那个节点叫什么
+操作2：看 production 工作流是否存在
+在 Coze 的资源库/工作流列表里：
+搜索  cs_Default_Query_v4_production 
+看是否存在这个工作流
+如果存在，它的 workflow ID 是多少？
+操作3：确认 recaller 在哪
+如果你能打开  cs_Default_Query_v4_staging_D  的画布：
+看里面是否有  experts_recaller  节点
+截图给我
+
+🔍 如果证实文档有误，我会怎么做
+如果你的实证发现：
+情况A：下面那条线根本不是 production，而是另一个 staging 变体（比如 staging_A/B/C）
+情况B：production 工作流存在，但没有被主 Bot 调用
+情况C：recaller 只在 staging_D 里，production 里根本没有
+那我会：
+立刻修正摸底文档（标注"经实证，原结论有误"）
+调整预考 Q4 的答案（把"确认灰度路径"改成"确认当前只有 staging_D 有 recaller"）
+调整后续 10 次学习计划（不再强调 production 和 staging_D 的对比，而是聚焦"如何让客户命中灰度条件"）
+
+💡 你的发现已经很有价值
+你现在已经暴露了一个关键的信息缺口：
+摸底文档说"production 也有 recaller"
+但你在 Coze 画布里看不到 production 被调用的证据
+这说明：要么文档基于旧快照（已过期），要么当时核实时遗漏了某些细节。
+请你先做上面 3 个实证操作，把结果告诉我，我再继续出 Q5。
+如果你现在没法登 Coze 平台，也可以直接说，我基于"当前无法验证"的前提继续出题（但我会调整题目，不再依赖这个有争议的点）。
+
+我：
+production 工作流存在，但没有被主 Bot 调用.
+我已经更新了D:\DA\AI_EXPERT\agentic\目录下的
+qa-gen_base.csv；
+qa-gen_expert_system.csv
+智能客服expert沟通会议纪要-0722.md
+Workflow-experts_recaller_v2_staging_D_1-draft-6009
+Chatflow-cs_Default_Query_v4_staging_D_1-draft-5799,
+以及增值相关的expert的知识库value-add-service-guide
+
+可以参考我和负责维护ai智能客服coze的同事的会议纪要和我给你的新的参考文件，修正下当前智能客服项目的摸底。
+我知道的几个关键点：
+同事好像说的是整体的流程只需要了解就好，因为新增expert不需要改动现有的主agent对话流【cs_Bot_Client_v2p】和嵌套的主工作流【cs_Default_Query_v4_staging_D】先重写、意图识别分类等后面的流程流转，细节他也不清楚，不需要花很多时间搞清楚全部流程
+重点是知道工作流里面【experts_recaller_v2_staging_D】expert相关的工作流，例如【experts_recaller_v2_staging_D】底下的agent-loop循环逻辑是啥要关注下是怎么执行的，一个qid可能关联多个expert。以及要新建expert怎么从本地知识库新增工作流以及新增的全链路怎么通。
+qid的知识库来源是qa-gen_base.csv
+如果有新的expert相关的工作流的更新：
+本地流程要让本地ai ide工具从D:\DA\AI_EXPERT\agentic\experts参考schema约束把expert构造出来，然后把工作流打包，人工导入到coze资源。
+智能客服的跑通，一方面依赖知识库，一方面依赖接口
+去qa-gen_expert_system更新workflow id，去qa-gen_base的sys_experts字段填写这个qid是否可以绑定某个expert
+之类的，你再遍历下新增的，改写摸底
+
+claude code：
+好的，我现在理解了真实情况！基于会议纪要和新资料，我暂停预考，先快速更新核心认知：
+🔍 关键发现（基于会议纪要 + 实证）
+你的实证完全正确：
+✅ production 工作流存在，但没有被主 Bot 调用
+✅ 主 Bot（cs_Bot_Client_v2p）只有灰度分流到 staging_D，没有分流到 production
+✅ 原摸底文档的"production 和 staging_D 都含 recaller"结论有误
+
+📝 修正后的核心架构（基于会议纪要）
+
+客户提问
+  ↓
+万邑联侧栏 AI 客服
+  ↓
+主 Bot: cs_Bot_Client_v2p（Chatflow 对话流）
+  ↓
+灰度分流（按用户 ID 尾数）
+  ├─ 30% → cs_Default_Query_v4_staging_D（新版测试）
+  └─ 70% → cs_Default_Query_v4_staging_D（旧版，实际是同一个）
+  ↓
+cs_Default_Query_v4_staging_D 内部节点链（Workflow 编排流）：
+  ① 问题改写（rewrite）
+  ② 意图分类（classification）—— 24类
+  ③ QID 匹配（查知识库 qa-gen_base.csv）
+  ④ 分支判断：
+     - 若 QID 为空 → 走兜底（拼装知识库回答）
+     - 若 QID 非空但 sys_experts 字段为空 → 走知识库回答
+     - 若 QID 非空且 sys_experts 有值 → 进入⑤
+  ⑤ experts_recaller_v2_staging_D（Agent Loop 循环调用）
+     - Planner: 判断需要调用哪些 expert（从 QID 绑定的 expert 列表中选）
+     - Agent Loop: 循环调用 expert（最多20次）
+     - Call Expert: 实际调用单个 expert 工作流
+     - Finalize: 汇总所有 expert 输出
+  ⑥ 用户回复
+
+
+🎯 关键修正点
+1. 没有 production vs staging_D 的对比
+原文档说"两条路径都含 recaller"是错的
+实际只有 staging_D 这一条主路径
+production 存在但未被主 Bot 调用（可能是历史遗留或备用）
+2. Expert 绑定机制是 QID 驱动
+不是通过  pre_get_solution  生成  expert_ids 
+而是通过 QID 匹配 → 查  qa-gen_base.csv  的  sys_experts  字段
+ sys_experts  字段存的是这个 QID 绑定的 expert ID 列表
+3. Expert 注册在两个地方
+飞书多维表（之前文档提到的）
+ qa-gen_expert_system.csv （新发现，包含 workflow_id、inputSchema、outputSchema）
+4. 知识库有两层
+L1:  qa-gen_base.csv （22万+行，QID 知识库，人工撰写 + AI 生成）
+L2: Expert 独立 KB（如  value-add-service-guide/ ，Git 仓库本地维护，打包进 expert 提示词）
+
+📋 现在我需要做的事
+立即行动：
+✅ 承认你的质疑完全正确
+🔄 基于会议纪要重写摸底文档的核心章节（主流程、expert 绑定机制、灰度分流）
+🔄 调整 10 次学习计划（去掉 production vs staging_D 对比，加入 QID 绑定机制）
+🔄 重新设计预考题目（基于修正后的事实）
+
+❓ 在我重写之前，先确认几个细节
+会议纪要中提到的"灰度是按用户 ID 尾数 567"，意思是：
+尾数是 5、6、7 的用户 → 走新版（30%）
+其他尾数（0-4, 8-9）→ 走旧版（70%）
+但实际两个分支都指向同一个  cs_Default_Query_v4_staging_D ？
+你说的"production 存在但未被调用"，是指：
+Coze 资源库里有  cs_Default_Query_v4_production  工作流
+但主 Bot 的 IF A/B 节点没有连到它
+对吗？
+新增 Expert 的完整流程（我根据会议纪要总结的，你确认一下对不对）：
+
+① 本地用 AI IDE（Cursor/Claude Code）开发 expert 工作流
+② Git 仓库维护 expert 知识库（如 value-add-service-guide/）
+③ 本地 AI 把知识库内容打包进 expert 的 LLM 节点提示词
+④ 导出 Coze 工作流压缩包
+⑤ 手动导入到 Coze 平台，发布
+⑥ 拿到 workflow_id
+⑦ 更新 qa-gen_expert_system.csv 注册表（用脚本同步）
+⑧ 在 qa-gen_base.csv 中找到相关 QID，手动填 sys_experts 字段
+⑨ 线上测试（用真实账号在万邑联侧栏提问）
+
+
+请你确认这 3 个问题，我立刻开始重写摸底文档 + 调整学习计划。
+
+我：
+1. 会议纪要中提到的"灰度是按用户 ID 尾数 567"，意思是：
+尾数是 5、6、7 的用户 → 走新版（30%）
+其他尾数（0-4, 8-9）→ 走旧版（70%）
+上述理解是对的，只是现在导出的coze工作流没有需要测试的，如果有expert改动就要实现走新版（30%）去新工作流，现在没有需要灰度的新expert或这个expert改动，已经稳定了，所以实际两个分支都指向同一个 cs_Default_Query_v4_staging_D（不需要灰度的时候，就相当于没有灰度）
+2. 主 Bot 的 IF A/B 节点没有连到它，是的，我看了下确实没有，像是之前没有expert的时候备份工作流，可以先这样记录。
+3. ③ 本地 AI 把知识库内容打包进 expert 的 LLM 节点提示词，这个我还没验证，你考虑下这块我需要提供给你什么？我的思路是去当前agentloop的工作流相关节点：
+
+线上对应是：
+value-add-guide,7649772381074849843
+value-add-exception-diagnosis,7657141939158040618
+value-add-order-status,7657830401780432932
+value-add-product-recommendation,7657143181591642112
+value-add-service-config,7657143966111334434
+本地副本导出是再D:\DA\AI_EXPERT\agentic\Coze工作流导出目录下：
+value-add-guide：Workflow-value_add_guide_20260608_1-draft-4575
+value-add-exception-diagnosis：Workflow-value_add_exception_diagnosis_20260630_1-draft-4581
+value-add-order-status：Workflow-value_add_order_status_20260702_1-draft-4560
+value-add-product-recommendation：Workflow-value_add_product_recommendation_20260630_1-draft-4587
+value-add-service-config：Workflow-value_add_service_config_20260630_1-draft-4606
+这些工作流是让cursor参考【value-add-service-guide】生成的
+你验证下是不是打包进expert的llm节点提示词？
+其他看起来你没问题，或者你可以验证下

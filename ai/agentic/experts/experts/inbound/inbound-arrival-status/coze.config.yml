@@ -1,0 +1,107 @@
+yamlBasename: inbound_arrival_status-draft.yaml
+packageMainName: inbound_arrival_status
+packageDescription: 到仓状态查询（resolve → build(getOrderDetail) → 批处理
+  cobra_winit_openapi_request → fetch → prune → compute-arrival-milestones →
+  LLM）
+
+omitCodeNodeInputs:
+  extract-inbound-detail:
+    - targetPackageNos
+    - maxPackagesPerOrder
+    - maxMerchandisePerPackage
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-inbound-order
+    logicalId: winit_inbound_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-winit-inbound-detail
+        path: actions
+
+inputBindings:
+  build-winit-inbound-detail:
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: resolve-inbound-lookup
+      path: customerRefNos
+    detailLevel:
+      ref: __start__
+      path: inputs.detailLevel
+    includePackageDetails:
+      ref: __start__
+      path: inputs.includePackageDetails
+    checkPackageQty:
+      ref: __start__
+      path: inputs.checkPackageQty
+  fetch-inbound-order:
+    actions:
+      ref: build-winit-inbound-detail
+      path: actions
+    actionPlans:
+      ref: build-winit-inbound-detail
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_inbound_detail_batch
+      path: outputList
+  compute-arrival-milestones:
+    prunedOrderData:
+      ref: prune-inbound-json
+      path: prunedOrderData
+    checkPackageQty:
+      ref: __start__
+      path: inputs.checkPackageQty
+    packagePutawaySummary:
+      ref: aggregate-package-putaway
+      path: packagePutawaySummary
+    requiresNarrowing:
+      ref: extract-inbound-detail
+      path: requiresNarrowing
+  extract-inbound-detail:
+    rawOrderData:
+      ref: fetch-inbound-order
+      path: rawOrderData
+    detailLevel:
+      ref: __start__
+      path: inputs.detailLevel
+    includePackageDetails:
+      ref: __start__
+      path: inputs.includePackageDetails
+    checkPackageQty:
+      ref: __start__
+      path: inputs.checkPackageQty
+  aggregate-package-putaway:
+    rawOrderData:
+      ref: extract-inbound-detail
+      path: rawOrderData
+  prune-inbound-json:
+    rawOrderData:
+      ref: extract-inbound-detail
+      path: rawOrderData
+    includeTrajectory:
+      ref: __start__
+      path: inputs.includeTrajectory
+    focusPod:
+      ref: __start__
+      path: inputs.focusPod
+    maxTrajectoryNodes:
+      ref: __start__
+      path: inputs.maxTrajectoryNodes

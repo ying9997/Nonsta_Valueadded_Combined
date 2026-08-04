@@ -1,0 +1,166 @@
+{
+  "id": "outbound-order-status",
+  "domain": "outbound",
+  "name": "出库单状态解读",
+  "description": "支持识别万邑通出库主单号、快递跟踪号、卖家/平台订单号。先通过 id/54 定位订单；在客户询问发货时效或包裹实际尺寸、重量、体积时，通过 wh.outbound.getPackageDetail 补充子单详情；在客户询问派送失败退回、关联退货单或退回到仓/完成状态时，通过 rma.returnGoodsOrder.queryReturnOderList 查询退货事实；按需通过 id/55 补充实际承运商。可归纳状态、跟踪号、承运商、子单、发货时效、实际测量及关联退货单事实。Use when 用户需要了解出库状态、退货关联与状态、发货时间、包裹实际长宽高/重量/体积、根据物流标识反查出库单，或确认实际承运商。",
+  "capabilities": [
+    "出库单状态",
+    "暂存",
+    "增值",
+    "多标识解析（出库单号 WO / 跟踪号 / 卖家订单号）",
+    "编排前置：可先解析再查轨迹",
+    "应出库时间（仅时效意图调用）",
+    "包裹实际尺寸、重量和体积",
+    "派送失败退回与关联退货单状态"
+  ],
+  "version": "0.4.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "出库相关标识列表（无需事先区分类型）：万邑通出库主单号（WO+数字）、快递跟踪号、或卖家/平台订单号。非 WO 时由工作流按 id/54 先 trackingNo 再 sellerOrderNo 尝试命中同一出库单。编排时可将客户口述的任意单号原样传入；若后续要查物流轨迹，可先调用本专家拿到 WO/tracking 再交给轨迹类专家。"
+      },
+      "maxPackagesPerOrder": {
+        "type": "integer",
+        "description": "剪枝：每单保留包裹数上限；与 prune-outbound-json 默认一致",
+        "default": 10,
+        "minimum": 1
+      },
+      "maxMerchandisePerPackage": {
+        "type": "integer",
+        "description": "剪枝：每包裹保留商品行上限；与 prune-outbound-json 默认一致",
+        "default": 20,
+        "minimum": 1
+      },
+      "includeItemList": {
+        "type": "boolean",
+        "description": "剪枝：是否保留商品明细行；默认 false",
+        "default": false
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化数据",
+        "properties": {
+          "carriers": {
+            "type": "array",
+            "description": "确定性承运商事实；优先来自 id/55 queryOutboundOrder",
+            "items": {
+              "type": "object",
+              "properties": {
+                "trackingNo": { "type": "string" },
+                "outboundOrderNum": { "type": "string" },
+                "carrier": { "type": "string" },
+                "carrierServiceCode": { "type": "string" },
+                "carrierServiceName": { "type": "string" },
+                "carrierHasChange": { "type": "string" },
+                "source": { "type": "string" }
+              }
+            }
+          },
+          "outboundTimings": {
+            "type": "array",
+            "description": "按子单确定性输出的应出库时间事实；来自 wh.outbound.getPackageDetail",
+            "items": {
+              "type": "object",
+              "properties": {
+                "outboundOrderNum": { "type": "string" },
+                "shippingNo": { "type": "string" },
+                "trackingNos": { "type": "array", "items": { "type": "string" } },
+                "status": { "type": "string" },
+                "orderTime": { "type": "string" },
+                "estimateOutWhTimeLocal": { "type": "string" },
+                "estimateOutWhTime": { "type": "string" },
+                "expectedOutboundTime": { "type": "string" },
+                "expectedOutboundTimeBasis": { "type": "string" },
+                "outWhTime": { "type": "string" },
+                "warehouseCode": { "type": "string" },
+                "warehouseName": { "type": "string" },
+                "slaList": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+                "fetchStatus": { "type": "string" },
+                "businessCode": { "type": "string" },
+                "source": { "type": "string" }
+              }
+            }
+          },
+          "packageMeasurements": {
+            "type": "array",
+            "description": "按子单确定性输出的实际测量事实；仅使用 actualWeight、actualVolume、actualContainerList，不以预估值替代",
+            "items": {
+              "type": "object",
+              "properties": {
+                "outboundOrderNum": { "type": "string" },
+                "shippingNo": { "type": "string" },
+                "trackingNos": { "type": "array", "items": { "type": "string" } },
+                "actualWeightKg": { "type": "number" },
+                "actualVolumeM3": { "type": "number" },
+                "actualContainers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "containerNo": { "type": "string" },
+                      "lengthCm": { "type": "number" },
+                      "widthCm": { "type": "number" },
+                      "heightCm": { "type": "number" },
+                      "weightKg": { "type": "number" },
+                      "volumeM3": { "type": "number" }
+                    }
+                  }
+                },
+                "fetchStatus": { "type": "string" },
+                "businessCode": { "type": "string" },
+                "source": { "type": "string" }
+              }
+            }
+          },
+          "returnOrders": {
+            "type": "array",
+            "description": "按出库单精确查询的关联退货单事实；包含退货原因、状态、仓库及完成时间",
+            "items": {
+              "type": "object",
+              "properties": {
+                "returnGoodsOrderNo": { "type": "string" },
+                "outboundOrderNo": { "type": "string" },
+                "returnType": { "type": "string" },
+                "retrunReason": { "type": "string" },
+                "returnReasonName": { "type": "string" },
+                "status": { "type": "string" },
+                "statusName": { "type": "string" },
+                "warehouseCode": { "type": "string" },
+                "createDate": { "type": "string" },
+                "completeTime": { "type": "string" },
+                "qtyItemNum": { "type": "number" },
+                "orderGoodsCount": { "type": "integer" },
+                "shelveGoodsCount": { "type": "integer" },
+                "source": { "type": "string" }
+              }
+            }
+          },
+          "returnLookup": {
+            "type": "object",
+            "description": "退货查询意图与逐出库单成功、空数据、业务失败、分页完整性结果",
+            "additionalProperties": true
+          },
+          "requiresNarrowing": {
+            "type": "boolean",
+            "description": "子单超过批处理上限时为 true，不静默截断"
+          }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "状态解读与说明"
+      }
+    }
+  }
+}

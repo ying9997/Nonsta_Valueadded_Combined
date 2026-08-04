@@ -1,0 +1,2454 @@
+schema_version: 1.0.0
+name: tracking_inquiry
+id: 7626987344207438451
+description: 查件（validate 分流 → TailTrace.getList 网关插件 → fetch → LLM → format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: 0
+          y: 200
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      trackingIds:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 轨迹单号
+                      outboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 出库单号
+                      inquiryIds:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 查件流水号（与 TailTrace serialNumber 对齐，如 TA…）
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 上游专家合并的上下文（可选）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 900
+          y: 200
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "167005"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "167005"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "167005"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "167005"
+          terminatePlan: returnVariables
+    - id: "167000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 120
+          y: 120
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 查件专家入参校验与分流
+               * FaaS 单文件闭环。与 `workflow.json` 一致。
+               *
+               * 【输出】branch：`query`（具备 inquiryIds / trackingIds / outboundOrderNos 至少其一）| `guidance`（仅有文本意图）| `skip`
+               */
+
+              interface AnalysisClock {
+                utcIso: string;
+                timezoneLabel: string;
+                note: string;
+              }
+
+              function buildAnalysisClock(): AnalysisClock {
+                return {
+                  utcIso: new Date().toISOString(),
+                  timezoneLabel: "UTC",
+                  note: "参考时钟为服务端 UTC。",
+                };
+              }
+
+              function stripTrailingAForWoOrder(s: string): string {
+                const t = s.trim();
+                if (!/^WO/i.test(t)) return t;
+                if (/[Aa]$/.test(t)) return t.slice(0, -1);
+                return t;
+              }
+
+              function partitionWoAndTracking(rawList: string[]): { trackingIds: string[]; outboundOrderNos: string[] } {
+                const trackingIds: string[] = [];
+                const outboundOrderNos: string[] = [];
+                const seenT = new Set<string>();
+                const seenO = new Set<string>();
+
+                for (const raw of rawList) {
+                  const s = String(raw ?? "").trim();
+                  if (!s) continue;
+                  if (/^WO/i.test(s)) {
+                    const normalized = stripTrailingAForWoOrder(s);
+                    const u = normalized.toUpperCase();
+                    if (seenO.has(u)) continue;
+                    seenO.add(u);
+                    outboundOrderNos.push(normalized);
+                  } else {
+                    const u = s.toUpperCase();
+                    if (seenT.has(u)) continue;
+                    seenT.add(u);
+                    trackingIds.push(s);
+                  }
+                }
+                return { trackingIds, outboundOrderNos };
+              }
+
+              function normalizeInquiryIds(raw: unknown): string[] {
+                if (!Array.isArray(raw)) return [];
+                const out: string[] = [];
+                const seen = new Set<string>();
+                for (const x of raw) {
+                  const s = String(x ?? "").trim();
+                  if (!s) continue;
+                  const u = s.toUpperCase();
+                  if (seen.has(u)) continue;
+                  seen.add(u);
+                  out.push(s);
+                }
+                return out;
+              }
+
+              function withAnalysisClock(ec: unknown): Record<string, unknown> {
+                const base =
+                  ec !== undefined && ec !== null && typeof ec === "object" && !Array.isArray(ec)
+                    ? { ...(ec as Record<string, unknown>) }
+                    : {};
+                base.analysisClock = buildAnalysisClock();
+                return base;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const inquiryIds = normalizeInquiryIds(params.inquiryIds);
+
+                const fromTracking = ((params.trackingIds as string[]) ?? []).map((t) => String(t ?? "").trim()).filter(Boolean);
+                const fromOrders = ((params.outboundOrderNos as string[]) ?? []).map((o) => String(o ?? "").trim()).filter(Boolean);
+                const merged = [...fromTracking, ...fromOrders];
+                const { trackingIds, outboundOrderNos } = partitionWoAndTracking(merged);
+
+                const query = String(params.query ?? "").trim();
+                const customerIntent = String(params.customerIntent ?? "").trim();
+                const enrichedContext = withAnalysisClock(params.enrichedContext);
+                const inputContext =
+                  params.inputContext !== undefined && params.inputContext !== null && typeof params.inputContext === "object"
+                    ? (params.inputContext as Record<string, unknown>)
+                    : {};
+
+                const hasEnriched =
+                  Object.keys(enrichedContext).length > 0 &&
+                  Object.keys(enrichedContext).some((k) => k !== "analysisClock");
+
+                const hasQueryKeys = inquiryIds.length > 0 || outboundOrderNos.length > 0 || trackingIds.length > 0;
+                const hasText = query.length > 0 || customerIntent.length > 0;
+                const valid = hasQueryKeys || hasText || hasEnriched;
+                const error = valid ? "" : "请至少提供 inquiryIds、trackingIds、outboundOrderNos、query、customerIntent 或 enrichedContext 之一";
+
+                let branch = "skip";
+                if (valid) {
+                  branch = hasQueryKeys ? "query" : "guidance";
+                }
+
+                return {
+                  valid,
+                  branch,
+                  error,
+                  query,
+                  trackingIds,
+                  outboundOrderNos,
+                  inquiryIds,
+                  customerIntent: valid ? customerIntent : `[输入校验] ${error}`,
+                  enrichedContext,
+                  inputContext,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inputs.trackingIds
+                        ref_node: "100001"
+              - name: outboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inputs.outboundOrderNos
+                        ref_node: "100001"
+              - name: inquiryIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inputs.inquiryIds
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              branch:
+                  type: string
+                  value: null
+              error:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              outboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              inquiryIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163000"
+      type: code
+      title: derive-checking-type
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 根据上游结构化扫描事实，为“新建查件”给出建议类型。
+               * primaryCheckingType 属于已有查件记录；本节点只生成 recommendedCheckingType。
+               */
+
+              type Confidence = "high" | "medium" | "low";
+
+              interface CheckingTypeRecommendation {
+                recommendedCheckingType: "OT" | "FR" | "NT" | "";
+                recommendedCheckingTypeName: "超时未妥投" | "退回原因" | "妥投未收到" | "";
+                classificationConfidence: Confidence;
+                classificationReason: string;
+                suggestedNextExperts: string[];
+                hasScanFacts: boolean;
+                hasAscan: boolean;
+                hasDscan: boolean;
+                hasRdscan: boolean;
+                hasDeliveryFailureReturn: boolean;
+              }
+
+              function asRecord(raw: unknown): Record<string, unknown> | null {
+                return raw && typeof raw === "object" && !Array.isArray(raw)
+                  ? (raw as Record<string, unknown>)
+                  : null;
+              }
+
+              function parseMaybeJson(raw: unknown): unknown {
+                if (typeof raw !== "string") return raw;
+                const text = raw.trim();
+                if (!text.startsWith("{") && !text.startsWith("[")) return raw;
+                try {
+                  return JSON.parse(text) as unknown;
+                } catch {
+                  return raw;
+                }
+              }
+
+              function latestDomainEntry(raw: unknown, key: string): Record<string, unknown> | null {
+                const index = asRecord(raw);
+                const entries = index?.[key];
+                if (!Array.isArray(entries) || entries.length === 0) return null;
+                return asRecord(entries[entries.length - 1]);
+              }
+
+              function previousOutput(raw: unknown): Record<string, unknown> | null {
+                const context = asRecord(raw);
+                return asRecord(parseMaybeJson(context?.previousOutput));
+              }
+
+              function scanFactsFromPrevious(raw: unknown): unknown[] | null {
+                const previous = previousOutput(raw);
+                const result = asRecord(previous?.result);
+                const structured = asRecord(previous?.structured) ?? asRecord(result?.structured);
+                return structured && Array.isArray(structured.scanFacts) ? structured.scanFacts : null;
+              }
+
+              function returnOrdersFromRecord(raw: unknown): unknown[] {
+                const row = asRecord(raw);
+                if (!row) return [];
+                if (Array.isArray(row.returnOrders)) return row.returnOrders;
+                const enriched = asRecord(row.enrichedContext);
+                if (enriched && Array.isArray(enriched.returnOrders)) return enriched.returnOrders;
+                const structured = asRecord(row.structured);
+                if (structured && Array.isArray(structured.returnOrders)) return structured.returnOrders;
+                const result = asRecord(row.result);
+                const resultStructured = asRecord(result?.structured);
+                if (resultStructured && Array.isArray(resultStructured.returnOrders)) return resultStructured.returnOrders;
+                return [];
+              }
+
+              function collectReturnOrders(enrichedContext: unknown, inputContext: unknown): unknown[] {
+                const direct = returnOrdersFromRecord(enrichedContext);
+                const outboundEntry = latestDomainEntry(enrichedContext, "outbound/outbound-order-status");
+                const indexed = returnOrdersFromRecord(outboundEntry);
+                const previous = returnOrdersFromRecord(previousOutput(inputContext));
+                return [...direct, ...indexed, ...previous];
+              }
+
+              function isDeliveryFailureReturn(raw: unknown): boolean {
+                const row = asRecord(raw);
+                if (!row) return false;
+                const reasonCode = String(row.retrunReason ?? row.returnReason ?? "").trim().toUpperCase();
+                const reasonName = String(row.returnReasonName ?? "").trim();
+                return reasonCode === "DF" || /派送失败|delivery\s+fail/i.test(reasonName);
+              }
+
+              function eventCount(row: Record<string, unknown>, key: string): number {
+                return Array.isArray(row[key]) ? (row[key] as unknown[]).length : 0;
+              }
+
+              function collectText(raw: unknown, depth = 0): string[] {
+                if (depth > 5 || raw === null || raw === undefined) return [];
+                if (typeof raw === "string") return [raw];
+                if (typeof raw === "number" || typeof raw === "boolean") return [];
+                if (Array.isArray(raw)) return raw.flatMap((item) => collectText(item, depth + 1));
+                const row = asRecord(raw);
+                if (!row) return [];
+                const allowed = new Set([
+                  "analysis",
+                  "description",
+                  "status",
+                  "statusName",
+                  "deliveryStatus",
+                  "trajectorySummary",
+                  "exceptionResult",
+                  "resultSummary",
+                  "message",
+                ]);
+                const out: string[] = [];
+                for (const [key, value] of Object.entries(row)) {
+                  if (allowed.has(key) || depth === 0) out.push(...collectText(value, depth + 1));
+                }
+                return out;
+              }
+
+              function hasNonReceiptIntent(text: string): boolean {
+                return /(未收到|没收到|没有收到|未签收|not\s+received|didn['’]?t\s+receive)/i.test(text);
+              }
+
+              function hasAbnormalOrStaleSignal(text: string): boolean {
+                return /(异常|停滞|超时|延误|延迟|断更|派送失败|无法派送|补充信息|避免退回|exception|stale|delay(?:ed)?|delivery\s+fail|unable\s+to\s+deliver|additional\s+information|avoid\s+return)/i.test(text);
+              }
+
+              function derive(params: Record<string, unknown>): CheckingTypeRecommendation {
+                const deliveryEntry = latestDomainEntry(params.enrichedContext, "last-mile/delivery-status");
+                const direct = asRecord(params.enrichedContext);
+                const flatDelivery = deliveryEntry ?? direct ?? {};
+                const computed = Array.isArray(flatDelivery.computedScanFacts)
+                  ? flatDelivery.computedScanFacts
+                  : null;
+                const previousFacts = scanFactsFromPrevious(params.inputContext);
+                const scanFacts = computed ?? previousFacts;
+                const returnOrders = collectReturnOrders(params.enrichedContext, params.inputContext);
+                const hasDeliveryFailureReturn = returnOrders.some(isDeliveryFailureReturn);
+
+                let hasAscan = false;
+                let hasDscan = false;
+                let hasRdscan = false;
+                if (scanFacts) {
+                  for (const item of scanFacts) {
+                    const row = asRecord(item);
+                    if (!row) continue;
+                    hasAscan = hasAscan || eventCount(row, "ascanEvents") > 0;
+                    hasDscan = hasDscan || eventCount(row, "dscanEvents") > 0;
+                    hasRdscan = hasRdscan || eventCount(row, "rdscanEvents") > 0;
+                  }
+                }
+
+                const intentText = `${String(params.query ?? "")} ${String(params.customerIntent ?? "")}`;
+                const evidenceText = collectText(flatDelivery).join(" ");
+                const previousText = collectText(previousOutput(params.inputContext)).join(" ");
+                const nonReceipt = hasNonReceiptIntent(intentText);
+                const abnormal = hasAbnormalOrStaleSignal(`${evidenceText} ${previousText}`);
+
+                // RDscan 是退回妥投的结构化终态，应优先于 Dscan/Ascan 判断。
+                // 只凭“可能退回”“避免退回”等文本不能进入该分支。
+                if (hasRdscan || hasDeliveryFailureReturn) {
+                  return {
+                    recommendedCheckingType: "FR",
+                    recommendedCheckingTypeName: "退回原因",
+                    classificationConfidence: "high",
+                    classificationReason: hasRdscan
+                      ? "结构化扫描事实包含 RDscan（退回妥投），应查询退回或派送失败原因"
+                      : "关联退货单事实明确标记派送失败退回，应查询退回或派送失败原因",
+                    suggestedNextExperts: [],
+                    hasScanFacts: Boolean(scanFacts),
+                    hasAscan,
+                    hasDscan,
+                    hasRdscan,
+                    hasDeliveryFailureReturn,
+                  };
+                }
+
+                if (hasDscan && nonReceipt) {
+                  return {
+                    recommendedCheckingType: "NT",
+                    recommendedCheckingTypeName: "妥投未收到",
+                    classificationConfidence: "high",
+                    classificationReason: "结构化扫描事实包含 Dscan，且用户明确反馈买家未收到",
+                    suggestedNextExperts: [],
+                    hasScanFacts: true,
+                    hasAscan,
+                    hasDscan,
+                    hasRdscan,
+                    hasDeliveryFailureReturn,
+                  };
+                }
+
+                if (hasAscan && !hasDscan && abnormal) {
+                  return {
+                    recommendedCheckingType: "OT",
+                    recommendedCheckingTypeName: "超时未妥投",
+                    classificationConfidence: computed ? "high" : "medium",
+                    classificationReason: "结构化扫描事实有 Ascan、无 Dscan，且上游事实包含超时、停滞或派送异常信号",
+                    suggestedNextExperts: [],
+                    hasScanFacts: true,
+                    hasAscan,
+                    hasDscan,
+                    hasRdscan,
+                    hasDeliveryFailureReturn,
+                  };
+                }
+
+                if (scanFacts && !hasAscan && !hasDscan && !hasRdscan) {
+                  return {
+                    recommendedCheckingType: "",
+                    recommendedCheckingTypeName: "",
+                    classificationConfidence: "high",
+                    classificationReason: "结构化扫描事实中没有 Ascan、Dscan 或 RDscan，不能推荐查件类型",
+                    suggestedNextExperts: ["tracking-no-scan"],
+                    hasScanFacts: true,
+                    hasAscan,
+                    hasDscan,
+                    hasRdscan,
+                    hasDeliveryFailureReturn,
+                  };
+                }
+
+                return {
+                  recommendedCheckingType: "",
+                  recommendedCheckingTypeName: "",
+                  classificationConfidence: "low",
+                  classificationReason: scanFacts
+                    ? "现有扫描事实不足以证明已妥投或已发生超时、停滞、派送异常"
+                    : "缺少可核验的结构化扫描事实，不能仅凭用户描述推荐查件类型",
+                  suggestedNextExperts: scanFacts ? [] : ["delivery-status"],
+                  hasScanFacts: Boolean(scanFacts),
+                  hasAscan,
+                  hasDscan,
+                  hasRdscan,
+                  hasDeliveryFailureReturn,
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                return { checkingTypeRecommendation: derive(params) };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("derive-checking-type")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((result) => process.stdout.write(JSON.stringify(result)))
+                  .catch((error) => {
+                    console.error(error);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "167000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "167000"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "167000"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "167000"
+          node_outputs:
+              checkingTypeRecommendation:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "167001"
+      type: condition
+      title: 按 branch 分流
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: 连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支
+      position:
+          x: 120
+          y: 240
+      parameters:
+          branches:
+              - condition:
+                    conditions:
+                        - left:
+                              input:
+                                  value:
+                                      path: branch
+                                      ref_node: "167000"
+                          operator: 7
+                          right:
+                              input:
+                                  type: string
+                                  value: query
+                    logic: 2
+              - condition:
+                    conditions:
+                        - left:
+                              input:
+                                  value:
+                                      path: branch
+                                      ref_node: "167000"
+                          operator: 7
+                          right:
+                              input:
+                                  type: string
+                                  value: guidance
+                    logic: 2
+    - id: "167002"
+      type: code
+      title: build-tail-trace-request
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 360
+          y: 80
+      parameters:
+          code: |-
+              /**
+               * 节点：build-tail-trace-request — 组装 TailTrace.getList 网关 data JSON 字符串
+               * 形状对齐 scripts/test-winit-openapi-call.ts（service + data + sort）。
+               */
+
+              interface InnerFilters {
+                serialNumber: string;
+                orderNo: string;
+                trackingNo: string;
+                shippingNo: string;
+              }
+
+              function buildInnerData(filters: InnerFilters): Record<string, unknown> {
+                return {
+                  pageVo: { page: 1, pageSize: 20 },
+                  order: [{ name: "applicationTime", dir: "desc" }],
+                  serialNumber: filters.serialNumber,
+                  orderNo: filters.orderNo,
+                  trackingNo: filters.trackingNo,
+                  shippingNo: filters.shippingNo,
+                  checkingStatus: "",
+                  applicationTimeStart: "",
+                  applicationTimeEnd: "",
+                  endTimeStart: "",
+                  endTimeEnd: "",
+                  outWhTimeStart: "",
+                  outWhTimeEnd: "",
+                };
+              }
+
+              /** 优先级：查件流水号 > 出库单号 > 轨迹号（仅填一类） */
+              function pickFilters(params: {
+                inquiryIds: string[];
+                outboundOrderNos: string[];
+                trackingIds: string[];
+              }): InnerFilters {
+                const empty = { serialNumber: "", orderNo: "", trackingNo: "", shippingNo: "" };
+                if (params.inquiryIds.length > 0) {
+                  return { ...empty, serialNumber: params.inquiryIds[0] };
+                }
+                if (params.outboundOrderNos.length > 0) {
+                  return { ...empty, orderNo: params.outboundOrderNos[0] };
+                }
+                if (params.trackingIds.length > 0) {
+                  return { ...empty, trackingNo: params.trackingIds[0] };
+                }
+                return empty;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const branch = String(params.branch ?? "").trim();
+                if (branch !== "query") {
+                  return { winitRequestData: "", queryHint: "non-query branch" };
+                }
+
+                const inquiryIds = Array.isArray(params.inquiryIds)
+                  ? (params.inquiryIds as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(params.outboundOrderNos)
+                  ? (params.outboundOrderNos as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+
+                const filters = pickFilters({ inquiryIds, outboundOrderNos, trackingIds });
+                const inner = buildInnerData(filters);
+
+                const payload = {
+                  service: "TailTrace.getList",
+                  data: inner,
+                  sort: "asc",
+                  sortColumn: "",
+                };
+
+                return {
+                  winitRequestData: JSON.stringify(payload),
+                  queryHint: JSON.stringify({
+                    usedKeys: {
+                      serialNumber: !!filters.serialNumber,
+                      orderNo: !!filters.orderNo,
+                      trackingNo: !!filters.trackingNo,
+                    },
+                  }),
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-tail-trace-request")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: branch
+                input:
+                    type: string
+                    value:
+                        path: branch
+                        ref_node: "167000"
+              - name: inquiryIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inquiryIds
+                        ref_node: "167000"
+              - name: trackingIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: trackingIds
+                        ref_node: "167000"
+              - name: outboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "167000"
+          node_outputs:
+              winitRequestData:
+                  type: string
+                  value: null
+                  description: JSON.stringify 后的 TailTrace.getList 网关 data（含 service、data.pageVo 等）
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "167282"
+      type: plugin
+      title: winit_openapi_plugin
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 520
+          y: 80
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value: tail.claim.ai.v1.gateway
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    value:
+                        path: winitRequestData
+                        ref_node: "167002"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              code:
+                  type: integer
+                  required: true
+                  value: null
+              data:
+                  type: string
+                  required: true
+                  value: null
+              msg:
+                  type: string
+                  required: true
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "167003"
+      type: code
+      title: fetch-tail-trace-list
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 680
+          y: 120
+      parameters:
+          code: |-
+              /**
+               * 节点：消费万邑通 TailTrace.getList 插件响应或 Coze workflow/run 代理，产出 **tailTraceFacts**。
+               * FaaS 单文件闭环。逻辑对齐 docs/experts/last-mile/tracking-inquiry.md「五·补充」。
+               */
+
+              const SUBMISSION_GUIDANCE_URL = "https://seller.winit.com.cn/Tracking/create";
+              const TAIL_GATEWAY_ACTION = "tail.claim.ai.v1.gateway";
+
+              type OpenapiProxyWorkflowParameters = {
+                action: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                data: string;
+              };
+
+              interface TailTraceRecord {
+                serialNumber?: string;
+                orderNo?: string;
+                trackingNo?: string;
+                shippingNo?: string;
+                checkingStatus?: string;
+                checkingType?: string;
+                applicationTime?: number | string;
+                acceptTime?: number | string;
+                endTime?: number | string;
+                checkingResults?: number | string;
+                feedbackMsg?: string;
+                returnReasons?: string;
+              }
+
+              interface TailTraceFacts {
+                submissionGuidanceUrl: string;
+                listStatus:
+                  | "success"
+                  | "empty"
+                  | "failed"
+                  | "skipped_no_query"
+                  | "skipped_no_env"
+                  | "skipped_invalid_response";
+                queryKeys?: { inquiryIds: string[]; trackingIds: string[]; outboundOrderNos: string[] };
+                querySent?: Record<string, unknown>;
+                records: TailTraceRecord[];
+                primarySerialNumber?: string;
+                primaryCheckingStatus?: string;
+                primaryCheckingType?: string;
+                sopBranch?: string;
+                elapsedBizDays?: number | null;
+                applicationTimeLocal?: string;
+                analysisTimeLocal?: string;
+                calendarSource?: "weekday_only";
+                slaBand?: "within_1_day" | "within_3_days" | "within_10_days" | "over_10_days" | "unknown";
+                canEscalateUrgent?: boolean | null;
+                rawTopKeys?: string[];
+                apiCode?: unknown;
+                apiMsg?: string;
+                notes: string[];
+              }
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              async function runCozeOpenapiProxyWorkflow(options: {
+                apiToken: string;
+                workflowId: string;
+                baseUrl?: string;
+                parameters: OpenapiProxyWorkflowParameters;
+              }): Promise<unknown> {
+                const baseFromEnv = typeof process !== "undefined" ? process.env?.COZE_API_BASE_URL : undefined;
+                const baseUrl = (options.baseUrl ?? baseFromEnv ?? "https://api.coze.cn").replace(/\/$/, "");
+                const url = `${baseUrl}/v1/workflow/run`;
+
+                const res = await fetch(url, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${options.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: String(options.workflowId),
+                    parameters: options.parameters,
+                  }),
+                });
+
+                const text = await res.text();
+                let body: unknown;
+                try {
+                  body = JSON.parse(text) as unknown;
+                } catch {
+                  throw new Error(`Coze workflow/run 响应非 JSON（HTTP ${res.status}）: ${text.slice(0, 500)}`);
+                }
+
+                const obj = body as Record<string, unknown>;
+
+                if (!res.ok) {
+                  const msg = String(obj.msg ?? obj.message ?? text);
+                  throw new Error(`Coze workflow/run HTTP ${res.status}: ${msg.slice(0, 500)}`);
+                }
+
+                const code = obj.code;
+                if (code !== 0 && code !== "0") {
+                  const msg = String(obj.msg ?? obj.message ?? "unknown");
+                  const debug = obj.debug_url != null ? ` debug_url=${String(obj.debug_url)}` : "";
+                  throw new Error(`Coze workflow 失败 code=${String(code)} msg=${msg}${debug}`);
+                }
+
+                return parseCozeWorkflowDataField(obj.data);
+              }
+
+              function getCozeOpenapiProxyEnv(): {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                baseUrl?: string;
+              } | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId = process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  baseUrl: process.env.COZE_API_BASE_URL,
+                };
+              }
+
+              function asRecord(x: unknown): Record<string, unknown> | null {
+                if (x !== null && typeof x === "object" && !Array.isArray(x)) return x as Record<string, unknown>;
+                return null;
+              }
+
+              function isExplicitEmptyList(inner: unknown): boolean {
+                const r = asRecord(inner);
+                if (!r) return false;
+                for (const k of ["list", "records", "rows", "items", "dataList", "content"]) {
+                  const v = r[k];
+                  if (Array.isArray(v) && v.length === 0) return true;
+                }
+                const data = r.data;
+                const dr = asRecord(data);
+                if (dr) {
+                  for (const k of ["list", "records", "rows", "items", "content"]) {
+                    const v = dr[k];
+                    if (Array.isArray(v) && v.length === 0) return true;
+                  }
+                }
+                return false;
+              }
+
+              function extractListArray(raw: unknown): unknown[] {
+                if (Array.isArray(raw)) return raw;
+                const root = asRecord(raw);
+                if (!root) return [];
+
+                const directKeys = ["list", "records", "rows", "items", "content", "dataList"];
+                for (const k of directKeys) {
+                  const v = root[k];
+                  if (Array.isArray(v)) return v;
+                }
+
+                const data = root.data;
+                const dr = asRecord(data);
+                if (dr) {
+                  for (const k of directKeys) {
+                    const v = dr[k];
+                    if (Array.isArray(v)) return v;
+                  }
+                }
+
+                for (const v of Object.values(root)) {
+                  if (Array.isArray(v) && v.length > 0 && typeof v[0] === "object" && v[0] !== null && !Array.isArray(v[0])) {
+                    return v;
+                  }
+                }
+                return [];
+              }
+
+              function pickStr(obj: Record<string, unknown>, keys: string[]): string {
+                for (const k of keys) {
+                  const v = obj[k];
+                  if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+                }
+                return "";
+              }
+
+              function pickNum(obj: Record<string, unknown>, keys: string[]): number | undefined {
+                for (const k of keys) {
+                  const v = obj[k];
+                  if (typeof v === "number" && !Number.isNaN(v)) return v;
+                  if (typeof v === "string" && /^\d+$/.test(v)) return Number(v);
+                }
+                return undefined;
+              }
+
+              const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+              function parseBusinessTime(raw: unknown): number | null {
+                if (typeof raw === "number" && Number.isFinite(raw)) {
+                  return raw >= 1_000_000_000_000 ? raw : raw >= 1_000_000_000 ? raw * 1000 : null;
+                }
+                const text = String(raw ?? "").trim();
+                if (!text) return null;
+                if (/^\d+$/.test(text)) return parseBusinessTime(Number(text));
+
+                const localMatch = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+                if (localMatch) {
+                  const [, y, m, d, hh = "0", mm = "0", ss = "0"] = localMatch;
+                  return Date.UTC(Number(y), Number(m) - 1, Number(d), Number(hh) - 8, Number(mm), Number(ss));
+                }
+
+                const parsed = Date.parse(text);
+                return Number.isFinite(parsed) ? parsed : null;
+              }
+
+              function shanghaiDateParts(epochMs: number): { year: number; month: number; day: number } {
+                const shifted = new Date(epochMs + SHANGHAI_OFFSET_MS);
+                return {
+                  year: shifted.getUTCFullYear(),
+                  month: shifted.getUTCMonth() + 1,
+                  day: shifted.getUTCDate(),
+                };
+              }
+
+              function formatShanghaiTime(epochMs: number): string {
+                const shifted = new Date(epochMs + SHANGHAI_OFFSET_MS);
+                const pad = (value: number) => String(value).padStart(2, "0");
+                return `${shifted.getUTCFullYear()}-${pad(shifted.getUTCMonth() + 1)}-${pad(shifted.getUTCDate())} ${pad(
+                  shifted.getUTCHours()
+                )}:${pad(shifted.getUTCMinutes())}:${pad(shifted.getUTCSeconds())}`;
+              }
+
+              function resolveAnalysisTime(params: Record<string, unknown>): number {
+                const clock = asRecord(params.analysisClock);
+                return parseBusinessTime(clock?.utcIso) ?? Date.now();
+              }
+
+              /** 申请日不计，分析日计入；周一至周五视为工作日，暂不扣除法定节假日。 */
+              function countWeekdaysExclusiveStart(startMs: number, endMs: number): number | null {
+                const start = shanghaiDateParts(startMs);
+                const end = shanghaiDateParts(endMs);
+                let cursor = Date.UTC(start.year, start.month - 1, start.day);
+                const endDate = Date.UTC(end.year, end.month - 1, end.day);
+                if (endDate < cursor) return null;
+
+                let count = 0;
+                for (cursor += 24 * 60 * 60 * 1000; cursor <= endDate; cursor += 24 * 60 * 60 * 1000) {
+                  const weekday = new Date(cursor).getUTCDay();
+                  if (weekday >= 1 && weekday <= 5) count += 1;
+                }
+                return count;
+              }
+
+              function deriveSlaBand(elapsedBizDays: number | null): TailTraceFacts["slaBand"] {
+                if (elapsedBizDays === null) return "unknown";
+                if (elapsedBizDays <= 1) return "within_1_day";
+                if (elapsedBizDays <= 3) return "within_3_days";
+                if (elapsedBizDays <= 10) return "within_10_days";
+                return "over_10_days";
+              }
+
+              function normalizeRecord(row: unknown): TailTraceRecord | null {
+                const o = asRecord(row);
+                if (!o) return null;
+                const applicationTime = pickNum(o, ["applicationTime", "gmtCreate", "createTime"]);
+                const acceptTime = pickNum(o, ["acceptTime", "gmtAccept"]);
+                const endTime = pickNum(o, ["endTime"]);
+                const checkingResults = o.checkingResults;
+                return {
+                  serialNumber: pickStr(o, ["serialNumber", "traceSerialNumber"]),
+                  orderNo: pickStr(o, ["orderNo", "businessNo", "outboundOrderNo"]),
+                  trackingNo: pickStr(o, ["trackingNo", "trackingNumber", "expressNo"]),
+                  shippingNo: pickStr(o, ["shippingNo"]),
+                  checkingStatus: pickStr(o, ["checkingStatus", "status"]),
+                  checkingType: pickStr(o, ["checkingType"]),
+                  applicationTime: applicationTime ?? pickStr(o, ["applicationTime"]),
+                  acceptTime: acceptTime ?? pickStr(o, ["acceptTime"]),
+                  endTime: endTime ?? pickStr(o, ["endTime"]),
+                  checkingResults:
+                    typeof checkingResults === "number" || typeof checkingResults === "string" ? checkingResults : undefined,
+                  feedbackMsg: pickStr(o, ["feedbackMsg"]),
+                  returnReasons: pickStr(o, ["returnReasons"]),
+                };
+              }
+
+              function unwrapBusinessEnvelope(raw: unknown): { inner: unknown; apiCode?: unknown; apiMsg?: string } {
+                const root = asRecord(raw);
+                if (!root) return { inner: raw };
+
+                const code = root.code ?? root.status;
+                const msg = pickStr(root, ["msg", "message", "info", "errorMsg"]);
+
+                const data = root.data;
+                if (data !== undefined) {
+                  const parsed = parseCozeWorkflowDataField(data);
+                  return { inner: parsed, apiCode: code, apiMsg: msg || undefined };
+                }
+
+                return { inner: raw, apiCode: code, apiMsg: msg || undefined };
+              }
+
+              function timeRank(r: TailTraceRecord): number {
+                const a = r.applicationTime;
+                if (typeof a === "number") return a;
+                const n = Number(a);
+                return Number.isFinite(n) ? n : 0;
+              }
+
+              function pickPrimary(records: TailTraceRecord[]): TailTraceRecord | null {
+                if (!records.length) return null;
+                return [...records].sort((x, y) => timeRank(y) - timeRank(x))[0] ?? null;
+              }
+
+              function hasAcceptTime(r: TailTraceRecord): boolean {
+                const a = r.acceptTime;
+                if (a === undefined || a === null) return false;
+                if (typeof a === "number") return !Number.isNaN(a) && a !== 0;
+                return String(a).trim() !== "";
+              }
+
+              /** 对齐 docs/experts/last-mile/tracking-inquiry.md「五·补充」 */
+              function deriveSopBranch(primary: TailTraceRecord | null, listStatus: TailTraceFacts["listStatus"]): string {
+                if (listStatus !== "success" || !primary) {
+                  if (listStatus === "empty") return "case1_no_record";
+                  if (listStatus === "skipped_no_query") return "guidance_only";
+                  if (listStatus === "skipped_no_env") return "skipped_env";
+                  if (listStatus === "failed") return "fetch_failed";
+                  if (listStatus === "skipped_invalid_response") return "parse_failed";
+                  return "unknown";
+                }
+
+                const st = (primary.checkingStatus ?? "").trim().toUpperCase();
+                if (st === "SU") {
+                  return hasAcceptTime(primary) ? "case3_supplier" : "case2_pending_accept";
+                }
+                if (st === "NSC") return "supplement_nsc";
+                if (st === "SSC") return "case3_supplier";
+                if (st === "WCR") return "supplement_wcr";
+                if (st === "CP") return "case4_done";
+                if (st === "RT") return "supplement_rt";
+                if (st === "CC") return "supplement_cc";
+                return "unknown";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }): Promise<{ tailTraceFacts: TailTraceFacts }> {
+                const branch = String(params.branch ?? "").trim();
+                const inquiryIds = Array.isArray(params.inquiryIds)
+                  ? (params.inquiryIds as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(params.outboundOrderNos)
+                  ? (params.outboundOrderNos as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+
+                const notes: string[] = [];
+
+                const emptyFacts = (status: TailTraceFacts["listStatus"], extra?: Partial<TailTraceFacts>): TailTraceFacts => ({
+                  submissionGuidanceUrl: SUBMISSION_GUIDANCE_URL,
+                  listStatus: status,
+                  queryKeys: extra?.queryKeys,
+                  querySent: extra?.querySent,
+                  records: [],
+                  primaryCheckingStatus: extra?.primaryCheckingStatus,
+                  primaryCheckingType: extra?.primaryCheckingType,
+                  sopBranch: extra?.sopBranch ?? deriveSopBranch(null, status),
+                  elapsedBizDays: null,
+                  rawTopKeys: extra?.rawTopKeys,
+                  apiCode: extra?.apiCode,
+                  apiMsg: extra?.apiMsg,
+                  notes,
+                });
+
+                if (branch !== "query") {
+                  notes.push("非 query 分支，跳过 TailTrace.getList");
+                  return {
+                    tailTraceFacts: emptyFacts("skipped_no_query", {
+                      sopBranch: "guidance_only",
+                      queryKeys: { inquiryIds, trackingIds, outboundOrderNos },
+                    }),
+                  };
+                }
+
+                const queryKeysSnap = { inquiryIds, trackingIds, outboundOrderNos };
+
+                const winitRequestData = typeof params.winitRequestData === "string" ? params.winitRequestData.trim() : "";
+                let querySent: Record<string, unknown> | undefined;
+                try {
+                  querySent = winitRequestData ? (JSON.parse(winitRequestData) as Record<string, unknown>) : undefined;
+                } catch {
+                  querySent = undefined;
+                }
+
+                if (!winitRequestData) {
+                  notes.push("winitRequestData 为空，跳过 OpenAPI");
+                  return {
+                    tailTraceFacts: emptyFacts("skipped_no_query", {
+                      querySent,
+                      queryKeys: queryKeysSnap,
+                      sopBranch: "guidance_only",
+                    }),
+                  };
+                }
+
+                const env = getCozeOpenapiProxyEnv();
+                const customerCode = String(params.customerCode ?? "").trim();
+                const customerName = String(params.customerName ?? "").trim();
+                const username = String(params.username ?? "").trim();
+
+                const proxyCustomer = env
+                  ? { customerCode: env.customerCode, customerName: env.customerName, username: env.username }
+                  : { customerCode, customerName, username };
+
+                const plug = params.winitOpenapiData;
+                const hasPlug = plug != null && String(plug).trim() !== "";
+
+                let raw: unknown;
+                try {
+                  if (hasPlug) {
+                    raw = parseCozeWorkflowDataField(plug);
+                  } else if (env) {
+                    raw = await runCozeOpenapiProxyWorkflow({
+                      apiToken: env.apiToken,
+                      workflowId: env.workflowId,
+                      baseUrl: env.baseUrl,
+                      parameters: {
+                        action: TAIL_GATEWAY_ACTION,
+                        customerCode: proxyCustomer.customerCode,
+                        customerName: proxyCustomer.customerName,
+                        username: proxyCustomer.username,
+                        data: winitRequestData,
+                      },
+                    });
+                  } else {
+                    notes.push("无插件响应且无 Coze 代理环境变量，跳过 OpenAPI");
+                    return {
+                      tailTraceFacts: emptyFacts("skipped_no_env", { querySent, queryKeys: queryKeysSnap }),
+                    };
+                  }
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  notes.push(`OpenAPI 调用异常：${msg}`);
+                  return {
+                    tailTraceFacts: {
+                      submissionGuidanceUrl: SUBMISSION_GUIDANCE_URL,
+                      listStatus: "failed",
+                      queryKeys: queryKeysSnap,
+                      querySent,
+                      records: [],
+                      sopBranch: "fetch_failed",
+                      elapsedBizDays: null,
+                      notes,
+                      apiMsg: msg,
+                    },
+                  };
+                }
+
+                const unwrapped = unwrapBusinessEnvelope(raw);
+                const inner = unwrapped.inner;
+                const rows = extractListArray(inner);
+                const top = asRecord(inner) ?? asRecord(raw);
+
+                if (!rows.length) {
+                  if (isExplicitEmptyList(inner)) {
+                    notes.push("接口返回列表为空");
+                    return {
+                      tailTraceFacts: {
+                        submissionGuidanceUrl: SUBMISSION_GUIDANCE_URL,
+                        listStatus: "empty",
+                        queryKeys: queryKeysSnap,
+                        querySent,
+                        records: [],
+                        sopBranch: "case1_no_record",
+                        elapsedBizDays: null,
+                        apiCode: unwrapped.apiCode,
+                        apiMsg: unwrapped.apiMsg,
+                        notes,
+                      },
+                    };
+                  }
+                  notes.push("响应中未解析到列表数组");
+                  return {
+                    tailTraceFacts: {
+                      submissionGuidanceUrl: SUBMISSION_GUIDANCE_URL,
+                      listStatus: "skipped_invalid_response",
+                      queryKeys: queryKeysSnap,
+                      querySent,
+                      records: [],
+                      sopBranch: "parse_failed",
+                      elapsedBizDays: null,
+                      rawTopKeys: top ? Object.keys(top).slice(0, 40) : [],
+                      apiCode: unwrapped.apiCode,
+                      apiMsg: unwrapped.apiMsg,
+                      notes,
+                    },
+                  };
+                }
+
+                const records: TailTraceRecord[] = [];
+                for (const row of rows) {
+                  const n = normalizeRecord(row);
+                  if (n) records.push(n);
+                }
+
+                if (!records.length) {
+                  notes.push("列表存在但行对象无法归一化");
+                  return {
+                    tailTraceFacts: {
+                      submissionGuidanceUrl: SUBMISSION_GUIDANCE_URL,
+                      listStatus: "skipped_invalid_response",
+                      queryKeys: queryKeysSnap,
+                      querySent,
+                      records: [],
+                      sopBranch: "parse_failed",
+                      elapsedBizDays: null,
+                      rawTopKeys: top ? Object.keys(top).slice(0, 40) : [],
+                      notes,
+                    },
+                  };
+                }
+
+                const primary = pickPrimary(records);
+                const sopBranch = deriveSopBranch(primary, "success");
+                const applicationTimeMs = parseBusinessTime(primary?.applicationTime);
+                const analysisTimeMs = resolveAnalysisTime(params);
+                const elapsedBizDays = applicationTimeMs === null ? null : countWeekdaysExclusiveStart(applicationTimeMs, analysisTimeMs);
+
+                if (applicationTimeMs === null) notes.push("缺少可解析的申请时间，未计算工作日");
+                notes.push("工作日按 Asia/Shanghai 周一至周五计算，申请日不计；暂未接入法定节假日日历");
+
+                return {
+                  tailTraceFacts: {
+                    submissionGuidanceUrl: SUBMISSION_GUIDANCE_URL,
+                    listStatus: "success",
+                    queryKeys: queryKeysSnap,
+                    querySent,
+                    records,
+                    primarySerialNumber: primary?.serialNumber,
+                    primaryCheckingStatus: primary?.checkingStatus,
+                    primaryCheckingType: primary?.checkingType,
+                    sopBranch,
+                    elapsedBizDays,
+                    applicationTimeLocal: applicationTimeMs === null ? undefined : formatShanghaiTime(applicationTimeMs),
+                    analysisTimeLocal: formatShanghaiTime(analysisTimeMs),
+                    calendarSource: "weekday_only",
+                    slaBand: deriveSlaBand(elapsedBizDays),
+                    canEscalateUrgent: elapsedBizDays === null ? null : elapsedBizDays > 3,
+                    apiCode: unwrapped.apiCode,
+                    apiMsg: unwrapped.apiMsg,
+                    notes,
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-tail-trace-list")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: branch
+                input:
+                    type: string
+                    value:
+                        path: branch
+                        ref_node: "167000"
+              - name: inquiryIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inquiryIds
+                        ref_node: "167000"
+              - name: trackingIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: trackingIds
+                        ref_node: "167000"
+              - name: outboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "167000"
+              - name: winitOpenapiData
+                input:
+                    type: string
+                    description: 插件响应 data
+                    value:
+                        path: data
+                        ref_node: "167282"
+              - name: winitRequestData
+                input:
+                    type: string
+                    value:
+                        path: winitRequestData
+                        ref_node: "167002"
+              - name: customerCode
+                input:
+                    type: string
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    type: string
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: username
+                input:
+                    type: string
+                    value:
+                        path: username
+                        ref_node: "100001"
+          node_outputs:
+              tailTraceFacts:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "167004"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 840
+          y: 120
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 查件代查件专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是**查件代查件**专家，负责根据 **`tailTraceFacts`**（OpenAPI 列表解析事实）向客户说明查件进度、状态含义与下一步建议；在缺少单号或仅有意图时，给出**合规**的查询指引或自助发起指引。
+
+                        **禁止**：输出未对客户公开的内部文档链接、协作平台名或接口网关名称；编造接口未返回的单号或状态。
+
+                        **与 refund-standard / substitute-claim 分工**：赔付条款、责任成立及金额理算不在本专家范围；若客户混合提问，在 `analysis` 中简要分流建议即可。
+
+                        ## 知识库（KB）
+
+                        以下摘录为查件时效与话术路由参考（维护见 `prompts/kb.md`）：
+
+                        # 查件专家 — 知识摘录（KB）
+
+                        > 维护说明：话术细则与枚举以业务文档为准（飞书 SOP）；本文件仅保留对客安全摘要。**禁止**在对客回复中引用本文件名或内部 wiki 标题（见 `REQUIREMENTS.md` §4）。
+
+                        ## 1. 受理与整体时效（摘要）
+
+                        - **受理时效**：提交后 **1 个工作日内** 完成受理。
+                        - **整体时效**：预计 **10 个工作日内** 完成调查。
+
+                        ## 2. 标准话术分支（第五节摘要）
+
+                        - **情况 1 · 未查到查件记录**：说明当前查询条件下无记录；引导客户核对单号或在卖家端自助发起查件（见下文「自助发起查件」）。
+                        - **情况 2 · 待受理（SU，且无受理完成时间）**：按提交起算工作日区分 ≤1 个工作日 / 超期未受理。
+                        - **情况 3 · 已提交供应商查件（SSC 等）**：调查初期 / 调查中 / 超期未出结果三档表述。
+                        - **情况 4 · 已完成（CP）**：结合 `checkingResults` 与 `checkingType` 解释结果含义；勿复述内部 ID。
+
+                        ## 3. 「五·补充」— `checkingStatus` / `sopBranch` 要点
+
+                        事实节点会推导 **`sopBranch`**，模型应与之对齐口径（勿自相矛盾）：
+
+                        | 典型状态 | 话术侧重点 |
+                        |----------|------------|
+                        | 空列表 | 情况 1；勿编造单号 |
+                        | SU + 无 `acceptTime` | 情况 2 · 待受理 |
+                        | SU + 有 `acceptTime` | 视为已受理，按情况 3 计时 |
+                        | NSC | 待提交供应商；可比照调查初期语气，勿承诺物流商已收到 |
+                        | SSC | 情况 3 |
+                        | WCR | 待确认结果；仅在 `feedbackMsg` / `checkingResults` / `returnReasons` 非空时引用具体结果，否则说明接口暂未返回可对客说明的结果；勿推断供应商未反馈，勿承诺主动通知 |
+                        | CP | 情况 4 |
+                        | RT / CC | 退回 / 已取消的补充说明 |
+
+                        ## 4. 自助发起查件（卖家端）
+
+                        本期 **不通过 OpenAPI 代客户创建查件单**。若客户需要**新建查件**或当前查询无记录需自助提交，请引导至卖家端固定页面：
+
+                        **https://seller.winit.com.cn/Tracking/create**
+
+                        说明时使用「卖家账户 → 尾程查件 → 新建/发起查件」等客户可理解的表述即可，**勿**暴露内部接口名或网关 action。
+
+                        新建查件类型由代码根据结构化事实给出：若存在 RDscan（退回妥投），或上游出库专家查到 `DF / 派送失败` 的关联退货单，选择“退回原因”（接口类型 `FR`，即查派送失败原因），不要选择“超时未妥投”。
+
+
+                        ## 输入
+
+                        - **inquiryIds**：`{{inquiryIds}}`（查件流水号，如 TA…）
+                        - **trackingIds**：`{{trackingIds}}`
+                        - **outboundOrderNos**：`{{outboundOrderNos}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **enrichedContext**：`{{enrichedContext}}`（若有）
+                        - **inputContext**：`{{inputContext}}`
+                        - **tailTraceFacts**（OpenAPI / 插件列表解析事实，**优先采信**）：
+
+                        ```
+                        {{tailTraceFacts}}
+                        ```
+                        - **checkingTypeRecommendation**：`{{checkingTypeRecommendation}}`（代码根据结构化扫描事实生成；不得由模型覆盖）
+
+                        ### 规则摘要
+
+                        - **`listStatus === skipped_no_query`**（guidance 分支）：**不要**假装已调用列表；根据 KB「自助发起查件」引导客户补充单号或打开卖家创建页。
+                        - **`listStatus === empty`**：按 KB **情况 1**，并结合 **`submissionGuidanceUrl`**（若存在）说明自助发起入口。
+                        - **`listStatus === success`**：结合 **`sopBranch`**、主单据 `checkingStatus` / `checkingType`、时间与 **`records`** 向客户解释进度。
+                        - 涉及“已过几个工作日”“是否超过 1/3/10 个工作日”时，只能使用代码提供的 **`elapsedBizDays`**、**`slaBand`** 与 **`canEscalateUrgent`**，禁止模型自行做日期运算。
+                        - 若 **`elapsedBizDays === null`** 或 **`slaBand === unknown`**，不得声称“未满/已经超过 X 个工作日”；应说明当前缺少可靠的工作日计算结果并建议人工复核。
+                        - `calendarSource === weekday_only` 表示当前只排除周末，尚未扣除法定节假日；临近阈值时应保留该口径说明。
+                        - **`listStatus` 为 failed / skipped_no_env / skipped_invalid_response**：如实说明无法拉取列表或解析失败，建议稍后重试或人工复核；勿捏造记录。
+                        - 新建查件类型以 `checkingTypeRecommendation` 为准：`FR` 表示退回原因（接口枚举含义为查派送失败原因），不得改写为 `OT / 超时未妥投`；没有结构化 RDscan 或上游 `DF / 派送失败` 退货单事实时，也不得仅凭“可能退回”等文本自行生成 FR。
+                        - `WCR / 待确认结果` 且 `checkingResults`、`feedbackMsg`、`returnReasons` 均为空时，只能说明“当前接口暂未返回可对客说明的具体结果”；不得推断供应商尚未反馈。
+                        - 禁止承诺主动通知或持续跟进，包括“我们会持续跟进”“第一时间同步/通知”等；统一引导“请后续关注或查询该查件单的处理进度”。
+                        - 输出遵循最小必要原则：不得输出收件人地址/联系方式、客户邮箱、内部处理人、商品信息等与查件进度无关的数据。
+
+                        ## 输出格式
+
+                        必须输出**合法 JSON 对象**（不要 Markdown 围栏外再写解释），顶层字段固定为：
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "queryKeys": {
+                                "inquiryIds": [],
+                                "trackingIds": [],
+                                "outboundOrderNos": []
+                              },
+                              "serialNumbers": [],
+                              "orderNos": [],
+                              "trackingNos": [],
+                              "submissionGuidanceUrl": "",
+                              "records": [],
+                              "statusSummary": {},
+                              "sopBranch": "",
+                              "elapsedBizDays": null,
+                              "applicationTimeLocal": "",
+                              "analysisTimeLocal": "",
+                              "calendarSource": "",
+                              "slaBand": "unknown",
+                              "canEscalateUrgent": null,
+                              "recommendedCheckingType": "",
+                              "recommendedCheckingTypeName": "",
+                              "classificationConfidence": "",
+                              "classificationReason": "",
+                              "nextAction": "",
+                              "missingFacts": []
+                            },
+                            "analysis": "对客可读的状态说明与建议；遵守 REQUIREMENTS 脱敏规则。"
+                          }
+                        }
+                        ```
+
+                        说明：
+
+                        - **structured** 应与 **`tailTraceFacts`** 一致或为其合理解读，不得矛盾。
+                        - **structured.missingFacts**：列出仍缺的关键信息（字符串数组）。
+                        - **structured.nextAction**：一句可执行建议（补单号、自助发起链接、等待时效内跟进等）。
+                        - **analysis**：完整对客话术主体；完成态（CP）解释结果时结合 `checkingResults`，避免复述内部码。
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "167000"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "167000"
+              - name: inquiryIds
+                input:
+                    value:
+                        path: inquiryIds
+                        ref_node: "167000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "167000"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+              - name: tailTraceFacts
+                input:
+                    value:
+                        path: tailTraceFacts
+                        ref_node: "167003"
+              - name: checkingTypeRecommendation
+                input:
+                    value:
+                        path: checkingTypeRecommendation
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "167005"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 840
+          y: 280
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 合并 LLM 输出与 **fetch-tail-trace-list** 的确定性事实
+               */
+
+              interface TailTraceRecord {
+                serialNumber?: string;
+                orderNo?: string;
+                trackingNo?: string;
+                shippingNo?: string;
+                checkingStatus?: string;
+                checkingType?: string;
+                applicationTime?: number | string;
+                acceptTime?: number | string;
+                checkingResults?: number | string;
+                feedbackMsg?: string;
+                returnReasons?: string;
+              }
+
+              interface TailTraceFacts {
+                submissionGuidanceUrl?: string;
+                listStatus?: string;
+                queryKeys?: { inquiryIds: string[]; trackingIds: string[]; outboundOrderNos: string[] };
+                querySent?: Record<string, unknown>;
+                records?: TailTraceRecord[];
+                primarySerialNumber?: string;
+                primaryCheckingStatus?: string;
+                primaryCheckingType?: string;
+                sopBranch?: string;
+                elapsedBizDays?: number | null;
+                applicationTimeLocal?: string;
+                analysisTimeLocal?: string;
+                calendarSource?: string;
+                slaBand?: string;
+                canEscalateUrgent?: boolean | null;
+                rawTopKeys?: string[];
+                apiCode?: unknown;
+                apiMsg?: string;
+                notes?: string[];
+              }
+
+              interface TiStructured {
+                serialNumbers?: string[];
+                orderNos?: string[];
+                trackingNos?: string[];
+                shippingNos?: string[];
+                primaryCheckingStatus?: string;
+                primaryCheckingType?: string;
+                sopBranch?: string;
+                submissionGuidanceUrl?: string;
+                records?: Array<Record<string, unknown>>;
+                statusSummary?: Record<string, unknown>;
+                queryKeys?: { inquiryIds?: string[]; trackingIds?: string[]; outboundOrderNos?: string[] };
+                missingFacts?: string[];
+                elapsedBizDays?: number | null;
+                applicationTimeLocal?: string;
+                analysisTimeLocal?: string;
+                calendarSource?: string;
+                slaBand?: string;
+                canEscalateUrgent?: boolean | null;
+                suggestedNextExperts?: string[];
+                recommendedCheckingType?: string;
+                recommendedCheckingTypeName?: string;
+                classificationConfidence?: string;
+                classificationReason?: string;
+                [key: string]: unknown;
+              }
+
+              interface TiAnalysisResult {
+                structured?: TiStructured;
+                analysis?: string;
+              }
+
+              interface TiInputContext {
+                chainId?: string;
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+              }
+
+              function coerceAnalysisResult(raw: unknown): { structured: TiStructured; analysis: string } {
+                if (raw == null) {
+                  return { structured: {}, analysis: "未收到模型输出。" };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as TiAnalysisResult;
+                    if (parsed && typeof parsed === "object") {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch {
+                    return { structured: {}, analysis: s || "解析失败。" };
+                  }
+                  return { structured: {}, analysis: s };
+                }
+
+                const o = raw as TiAnalysisResult;
+                const st = o.structured ?? {};
+                const analysis = typeof o.analysis === "string" ? o.analysis : "（无 analysis 字段）";
+                return { structured: typeof st === "object" && st !== null ? { ...st } : {}, analysis };
+              }
+
+              function asFacts(raw: unknown): TailTraceFacts {
+                if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
+                  return raw as TailTraceFacts;
+                }
+                return {};
+              }
+
+              function deriveMissingFacts(facts: TailTraceFacts): string[] {
+                const out: string[] = [];
+                const st = facts.listStatus ?? "";
+
+                if (st === "skipped_no_env") {
+                  out.push("未配置插件响应且无 Coze 代理环境变量，无法拉取查件列表");
+                }
+                if (st === "failed") {
+                  out.push(facts.apiMsg ? `OpenAPI 异常：${facts.apiMsg}` : "OpenAPI 调用失败");
+                }
+                if (st === "skipped_invalid_response") {
+                  out.push("接口返回形态未识别，缺少真实样例以精确映射列表字段");
+                }
+
+                return Array.from(new Set(out.filter(Boolean)));
+              }
+
+              function inferNextAction(facts: TailTraceFacts): string {
+                const st = facts.listStatus ?? "";
+                if (st === "success") return "结合查件状态与事实向客户说明进度；完成态解释结果摘要";
+                if (st === "empty") return "当前查询条件下无查件记录，可引导至自助发起查件链接";
+                if (st === "skipped_no_query") return "请客户提供查件流水号、出库单号或跟踪号之一以便查询，或说明自助发起入口";
+                if (st === "skipped_no_env") return "在 Coze 中接入万邑通 OpenAPI 插件或配置代理环境后重试";
+                if (st === "failed") return "列表查询失败，请稍后重试或走人工复核";
+                if (st === "skipped_invalid_response") return "响应解析失败，需真实接口样例后收紧映射";
+                return "请根据 sopBranch 与 missingFacts 向客户说明";
+              }
+
+              function collectIds(records: TailTraceRecord[]): {
+                serialNumbers: string[];
+                orderNos: string[];
+                trackingNos: string[];
+                shippingNos: string[];
+              } {
+                const serialNumbers = new Set<string>();
+                const orderNos = new Set<string>();
+                const trackingNos = new Set<string>();
+                const shippingNos = new Set<string>();
+                for (const r of records) {
+                  if (r.serialNumber) serialNumbers.add(r.serialNumber);
+                  if (r.orderNo) orderNos.add(r.orderNo);
+                  if (r.trackingNo) trackingNos.add(r.trackingNo);
+                  if (r.shippingNo) shippingNos.add(r.shippingNo);
+                }
+                return {
+                  serialNumbers: [...serialNumbers],
+                  orderNos: [...orderNos],
+                  trackingNos: [...trackingNos],
+                  shippingNos: [...shippingNos],
+                };
+              }
+
+              function serializeRecords(records: TailTraceRecord[]): Array<Record<string, unknown>> {
+                return records.map((r) => ({
+                  serialNumber: r.serialNumber,
+                  orderNo: r.orderNo,
+                  trackingNo: r.trackingNo,
+                  shippingNo: r.shippingNo,
+                  checkingStatus: r.checkingStatus,
+                  checkingType: r.checkingType,
+                  applicationTime: r.applicationTime,
+                  acceptTime: r.acceptTime,
+                  checkingResults: r.checkingResults,
+                  feedbackMsg: r.feedbackMsg,
+                  returnReasons: r.returnReasons,
+                }));
+              }
+
+              function hasMeaningfulResult(value: unknown): boolean {
+                if (value === null || value === undefined) return false;
+                const text = String(value).trim();
+                return Boolean(text) && text !== "0";
+              }
+
+              function hasCustomerFacingResult(records: TailTraceRecord[]): boolean {
+                return records.some(
+                  (record) =>
+                    hasMeaningfulResult(record.checkingResults) ||
+                    hasMeaningfulResult(record.feedbackMsg) ||
+                    hasMeaningfulResult(record.returnReasons)
+                );
+              }
+
+              function buildWcrPendingAnalysis(facts: TailTraceFacts, records: TailTraceRecord[]): string {
+                const primary =
+                  records.find((record) => record.serialNumber === facts.primarySerialNumber) ?? records[0];
+                const serialNumber = facts.primarySerialNumber ?? primary?.serialNumber ?? "";
+                const trackingNo = primary?.trackingNo ?? facts.queryKeys?.trackingIds?.[0] ?? "";
+                const orderNo = primary?.orderNo ?? facts.queryKeys?.outboundOrderNos?.[0] ?? "";
+                const scope = [trackingNo ? `运单${trackingNo}` : "", orderNo ? `出库单${orderNo}` : ""]
+                  .filter(Boolean)
+                  .join("、");
+                const subject = scope ? `关于${scope}的退回原因核实需求，` : "";
+                const serial = serialNumber ? `查件单${serialNumber}` : "当前查件单";
+                const application = facts.applicationTimeLocal
+                  ? `该查件申请于${facts.applicationTimeLocal}提交。`
+                  : "";
+                const elapsed =
+                  typeof facts.elapsedBizDays === "number"
+                    ? `截至${facts.analysisTimeLocal || "当前"}已过${facts.elapsedBizDays}个工作日。`
+                    : "";
+                const sla =
+                  typeof facts.elapsedBizDays === "number" && facts.elapsedBizDays <= 10
+                    ? "当前仍在10个工作日的调查时效范围内。"
+                    : typeof facts.elapsedBizDays === "number" && facts.elapsedBizDays > 10
+                      ? "当前已超过10个工作日的预计调查时效。"
+                      : "";
+                return `您好，${subject}${serial}当前状态为待确认结果。${application}${elapsed}${sla}当前接口暂未返回可对客说明的具体退回原因，请后续关注或查询该查件单的处理进度。`;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const facts = asFacts(params.tailTraceFacts);
+                const inputContext = (params.inputContext ?? {}) as TiInputContext;
+
+                const structured: TiStructured = { ...coerced.structured };
+                const recommendation =
+                  params.checkingTypeRecommendation && typeof params.checkingTypeRecommendation === "object"
+                    ? (params.checkingTypeRecommendation as Record<string, unknown>)
+                    : {};
+
+                const qk = facts.queryKeys ?? structured.queryKeys ?? {};
+                structured.queryKeys = {
+                  inquiryIds: Array.isArray(qk.inquiryIds) ? qk.inquiryIds : [],
+                  trackingIds: Array.isArray(qk.trackingIds) ? qk.trackingIds : [],
+                  outboundOrderNos: Array.isArray(qk.outboundOrderNos) ? qk.outboundOrderNos : [],
+                };
+
+                const records = Array.isArray(facts.records) ? facts.records : [];
+                structured.records = serializeRecords(records);
+                const ids = collectIds(records);
+                structured.serialNumbers = ids.serialNumbers.length ? ids.serialNumbers : structured.serialNumbers;
+                structured.orderNos = ids.orderNos.length ? ids.orderNos : structured.orderNos;
+                structured.trackingNos = ids.trackingNos.length ? ids.trackingNos : structured.trackingNos;
+                structured.shippingNos = ids.shippingNos.length ? ids.shippingNos : structured.shippingNos;
+
+                structured.primaryCheckingStatus = facts.primaryCheckingStatus ?? structured.primaryCheckingStatus;
+                structured.primaryCheckingType = facts.primaryCheckingType ?? structured.primaryCheckingType;
+                structured.sopBranch = facts.sopBranch ?? structured.sopBranch;
+                structured.submissionGuidanceUrl = facts.submissionGuidanceUrl ?? structured.submissionGuidanceUrl;
+                structured.elapsedBizDays = facts.elapsedBizDays !== undefined ? facts.elapsedBizDays : structured.elapsedBizDays ?? null;
+                structured.applicationTimeLocal = facts.applicationTimeLocal ?? structured.applicationTimeLocal;
+                structured.analysisTimeLocal = facts.analysisTimeLocal ?? structured.analysisTimeLocal;
+                structured.calendarSource = facts.calendarSource ?? structured.calendarSource;
+                structured.slaBand = facts.slaBand ?? structured.slaBand ?? "unknown";
+                structured.canEscalateUrgent =
+                  facts.canEscalateUrgent !== undefined ? facts.canEscalateUrgent : structured.canEscalateUrgent ?? null;
+                structured.recommendedCheckingType = String(recommendation.recommendedCheckingType ?? "").trim();
+                structured.recommendedCheckingTypeName = String(recommendation.recommendedCheckingTypeName ?? "").trim();
+                structured.classificationConfidence = String(recommendation.classificationConfidence ?? "low").trim();
+                structured.classificationReason = String(recommendation.classificationReason ?? "").trim();
+                const recommendationExperts = Array.isArray(recommendation.suggestedNextExperts)
+                  ? recommendation.suggestedNextExperts.map((item) => String(item).trim()).filter(Boolean)
+                  : [];
+                const llmExperts = Array.isArray(structured.suggestedNextExperts)
+                  ? structured.suggestedNextExperts.map((item) => String(item).trim()).filter(Boolean)
+                  : [];
+                structured.suggestedNextExperts = Array.from(new Set([...llmExperts, ...recommendationExperts]));
+
+                structured.statusSummary = {
+                  listStatus: facts.listStatus ?? structured.statusSummary?.listStatus ?? "unknown",
+                  sopBranch: facts.sopBranch ?? structured.statusSummary?.sopBranch,
+                  apiCode: facts.apiCode ?? structured.statusSummary?.apiCode,
+                  apiMsg: facts.apiMsg ?? structured.statusSummary?.apiMsg,
+                  notes: Array.isArray(facts.notes) ? facts.notes : [],
+                  rawTopKeys: facts.rawTopKeys,
+                };
+
+                const derivedMissing = deriveMissingFacts(facts);
+                const llmMissing = Array.isArray(structured.missingFacts)
+                  ? (structured.missingFacts as unknown[]).filter((x) => typeof x === "string" && (x as string).trim()) as string[]
+                  : [];
+                structured.missingFacts = Array.from(new Set([...llmMissing, ...derivedMissing])).slice(0, 20);
+
+                const isWcrPendingWithoutResult =
+                  facts.listStatus === "success" &&
+                  (facts.primaryCheckingStatus === "WCR" || facts.sopBranch === "supplement_wcr") &&
+                  !hasCustomerFacingResult(records);
+
+                if (isWcrPendingWithoutResult) {
+                  structured.nextAction = "请后续关注或查询该查件单的处理进度。";
+                } else if (!structured.nextAction || !String(structured.nextAction).trim()) {
+                  structured.nextAction = inferNextAction(facts);
+                }
+
+                let analysis = coerced.analysis;
+                if (isWcrPendingWithoutResult) {
+                  analysis = buildWcrPendingAnalysis(facts, records);
+                } else if (facts.listStatus === "empty" && structured.recommendedCheckingTypeName) {
+                  analysis = `${analysis.replace(/\s+$/, "")} 新建尾程查件时，建议选择“${structured.recommendedCheckingTypeName}”类型。`.trim();
+                }
+
+                const summary =
+                  (analysis || "").slice(0, 200) ||
+                  (facts.listStatus === "success" ? "查件列表已返回" : "查件查询处理完成");
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {
+                    expertId: "tracking-inquiry",
+                    resultSummary: summary,
+                    chainId: inputContext.chainId ?? "",
+                  },
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "167004"
+              - name: tailTraceFacts
+                input:
+                    type: object
+                    value:
+                        path: tailTraceFacts
+                        ref_node: "167003"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+              - name: checkingTypeRecommendation
+                input:
+                    value:
+                        path: checkingTypeRecommendation
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: build-result-alias
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          code: |-
+              /** 为本地 Runner 与旧调用方生成兼容 result 别名。 */
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const structured =
+                  params.structured && typeof params.structured === "object" && !Array.isArray(params.structured)
+                    ? params.structured
+                    : {};
+                const analysis = typeof params.analysis === "string" ? params.analysis : "";
+                return { result: { structured, analysis } };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-result-alias")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((result) => process.stdout.write(JSON.stringify(result)))
+                  .catch((error) => {
+                    console.error(error);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: structured
+                input:
+                    value:
+                        path: structured
+                        ref_node: "167005"
+              - name: analysis
+                input:
+                    value:
+                        path: analysis
+                        ref_node: "167005"
+          node_outputs:
+              result:
+                  type: object
+                  value: null
+                  properties:
+                      structured:
+                          type: object
+                          value: null
+                          description: 查件事实与路由标签
+                          properties:
+                              serialNumbers:
+                                  type: list
+                                  items:
+                                      type: string
+                                      value: null
+                                  value: null
+                              orderNos:
+                                  type: list
+                                  items:
+                                      type: string
+                                      value: null
+                                  value: null
+                              trackingNos:
+                                  type: list
+                                  items:
+                                      type: string
+                                      value: null
+                                  value: null
+                              shippingNos:
+                                  type: list
+                                  items:
+                                      type: string
+                                      value: null
+                                  value: null
+                              primaryCheckingStatus:
+                                  type: string
+                                  value: null
+                              primaryCheckingType:
+                                  type: string
+                                  value: null
+                              recommendedCheckingType:
+                                  type: string
+                                  value: null
+                                  description: 新建查件建议类型；不覆盖已有记录的 primaryCheckingType
+                              recommendedCheckingTypeName:
+                                  type: string
+                                  value: null
+                              classificationConfidence:
+                                  type: string
+                                  value: null
+                              classificationReason:
+                                  type: string
+                                  value: null
+                              sopBranch:
+                                  type: string
+                                  value: null
+                              submissionGuidanceUrl:
+                                  type: string
+                                  value: null
+                              queryKeys:
+                                  type: object
+                                  value: null
+                                  properties:
+                                      inquiryIds:
+                                          type: list
+                                          items:
+                                              type: string
+                                              value: null
+                                          value: null
+                                      trackingIds:
+                                          type: list
+                                          items:
+                                              type: string
+                                              value: null
+                                          value: null
+                                      outboundOrderNos:
+                                          type: list
+                                          items:
+                                              type: string
+                                              value: null
+                                          value: null
+                              records:
+                                  type: list
+                                  items:
+                                      type: object
+                                      value: null
+                                  value: null
+                              statusSummary:
+                                  type: object
+                                  value: null
+                              elapsedBizDays:
+                                  type: string
+                                  value: null
+                              applicationTimeLocal:
+                                  type: string
+                                  value: null
+                              analysisTimeLocal:
+                                  type: string
+                                  value: null
+                              calendarSource:
+                                  type: string
+                                  value: null
+                              slaBand:
+                                  type: string
+                                  value: null
+                              canEscalateUrgent:
+                                  type: string
+                                  value: null
+                              missingFacts:
+                                  type: list
+                                  items:
+                                      type: string
+                                      value: null
+                                  value: null
+                              nextAction:
+                                  type: string
+                                  value: null
+                      analysis:
+                          type: string
+                          value: null
+                          description: 分析结论与建议
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "167000"
+    - source_node: "167000"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "167001"
+    - source_node: "167001"
+      target_node: "167002"
+      source_port: "true"
+    - source_node: "167001"
+      target_node: "167003"
+      source_port: true_1
+    - source_node: "167001"
+      target_node: "167003"
+      source_port: "false"
+    - source_node: "167002"
+      target_node: "167282"
+    - source_node: "167282"
+      target_node: "167003"
+    - source_node: "167003"
+      target_node: "167004"
+    - source_node: "167004"
+      target_node: "167005"
+    - source_node: "167005"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "900001"

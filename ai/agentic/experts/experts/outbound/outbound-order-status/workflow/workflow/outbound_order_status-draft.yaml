@@ -1,0 +1,3726 @@
+schema_version: 1.0.0
+name: outbound_order_status
+id: 7646402366660476083
+description: 出库单状态解读（id/54 定位 → 按意图补时效、承运商和关联退货单事实）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      outboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 出库相关标识列表（无需事先区分类型）：万邑通出库主单号（WO+数字）、快递跟踪号、或卖家/平台订单号。非 WO 时由工作流按 id/54 先 trackingNo 再 sellerOrderNo 尝试命中同一出库单。编排时可将客户口述的任意单号原样传入；若后续要查物流轨迹，可先调用本专家拿到 WO/tracking 再交给轨迹类专家。
+                      maxPackagesPerOrder:
+                          type: integer
+                          value: null
+                          description: 剪枝：每单保留包裹数上限；与 prune-outbound-json 默认一致
+                      maxMerchandisePerPackage:
+                          type: integer
+                          value: null
+                          description: 剪枝：每包裹保留商品行上限；与 prune-outbound-json 默认一致
+                      includeItemList:
+                          type: boolean
+                          value: null
+                          description: 剪枝：是否保留商品明细行；默认 false
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940403343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163028"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163028"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163028"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163028"
+          terminatePlan: returnVariables
+    - id: "163010"
+      type: code
+      title: resolve-outbound-lookup
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: -40
+          y: 120
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化查询标识（不发起 OpenAPI 调用）
+               * - WO 主单号：规范为 WO 主单（去掉子单尾缀字母）
+               * - 非 WO：保留原值，交由下游 build 节点分别按 trackingNo / sellerOrderNo 组装 list 查询动作
+               */
+
+              type LookupEntry = {
+                input: string;
+                normalized: string;
+                kind: "outboundOrderNum" | "ambiguous";
+              };
+
+              /** WO + 数字；末尾连续字母为子单/子包裹后缀 */
+              function normalizeWoMainOrderNum(raw: string): string {
+                const s = raw.trim();
+                if (!s) return s;
+                const m = /^WO(\d+)[A-Za-z]*$/i.exec(s);
+                if (m) return `WO${m[1]}`;
+                return s;
+              }
+
+              function isWoOutboundToken(raw: string): boolean {
+                return /^WO\d+/i.test(raw.trim());
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const raw = ((params.outboundOrderNos as string[]) ?? []).map((o) => String(o ?? "").trim()).filter(Boolean);
+
+                const seen = new Set<string>();
+                const outboundOrderNos: string[] = [];
+                const entries: LookupEntry[] = [];
+
+                for (const token of raw) {
+                  const normalized = isWoOutboundToken(token) ? normalizeWoMainOrderNum(token) : token;
+                  if (!normalized) continue;
+                  entries.push({
+                    input: token,
+                    normalized,
+                    kind: isWoOutboundToken(token) ? "outboundOrderNum" : "ambiguous",
+                  });
+                  if (!seen.has(normalized)) {
+                    seen.add(normalized);
+                    outboundOrderNos.push(normalized);
+                  }
+                }
+
+                return {
+                  outboundOrderNos,
+                  lookupMeta: { entries },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-outbound-lookup")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: inputs.outboundOrderNos
+                        ref_node: "100001"
+          node_outputs:
+              outboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+                  description: 解析后的万邑通出库主单号 WO…
+              lookupMeta:
+                  type: object
+                  value: null
+                  description: 各输入 token 的解析轨迹（trackingNo / sellerOrderNo 尝试顺序）
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163011"
+      type: code
+      title: build-outbound-primary-winit
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 180
+          y: 120
+      parameters:
+          code: |-
+              /**
+               * 节点：为 `queryOutboundOrderList` 组装插件批处理动作
+               *
+               * 规则：
+               * - WO 主单号：仅 1 个动作（outboundOrderNum）
+               * - 非 WO（模糊单号）：2 个动作（trackingNo 优先 + sellerOrderNo 兜底）
+               */
+
+              const PLUGIN_BATCH_MAX_ACTIONS_DEFAULT = 100;
+
+              function getPluginBatchMaxActions(): number {
+                if (typeof process !== "undefined" && process.env?.COZE_WINIT_PLUGIN_BATCH_MAX) {
+                  const n = Number(process.env.COZE_WINIT_PLUGIN_BATCH_MAX);
+                  if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+                }
+                return PLUGIN_BATCH_MAX_ACTIONS_DEFAULT;
+              }
+
+              /** WO + 数字；末尾连续字母为子单后缀 */
+              function normalizeWoMainOrderNum(raw: string): string {
+                const s = raw.trim();
+                if (!s) return s;
+                const m = /^WO(\d+)[A-Za-z]*$/i.exec(s);
+                if (m) return `WO${m[1]}`;
+                return s;
+              }
+
+              function isWoOutboundToken(raw: string): boolean {
+                return /^WO\d+/i.test(raw.trim());
+              }
+
+              function uniqueTokens(rawNos: string[]): string[] {
+                const seen = new Set<string>();
+                const out: string[] = [];
+                for (const o of rawNos) {
+                  const c = isWoOutboundToken(o) ? normalizeWoMainOrderNum(o) : o.trim();
+                  if (!c || seen.has(c)) continue;
+                  seen.add(c);
+                  out.push(c);
+                }
+                return out;
+              }
+
+              function defaultListDateRange(): { start: string; end: string } {
+                const end = new Date();
+                const start = new Date();
+                start.setFullYear(start.getFullYear() - 1);
+                const fmt = (d: Date) => d.toISOString().slice(0, 10);
+                return { start: fmt(start), end: fmt(end) };
+              }
+
+              function getListDateRange(): { start: string; end: string } {
+                if (typeof process !== "undefined" && process.env) {
+                  const s = process.env.COZE_WINIT_LIST_DATE_START;
+                  const e = process.env.COZE_WINIT_LIST_DATE_END;
+                  if (s && e) return { start: s, end: e };
+                }
+                return defaultListDateRange();
+              }
+
+              function getListPageSize(): number {
+                const n = Number(typeof process !== "undefined" ? process.env?.COZE_WINIT_LIST_PAGE_SIZE : undefined);
+                if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+                return 50;
+              }
+
+              type ActionPlan = {
+                inputToken: string;
+                queryBy: "outboundOrderNum" | "trackingNo" | "sellerOrderNo";
+              };
+
+              function buildListDataByField(
+                queryBy: ActionPlan["queryBy"],
+                token: string,
+                common: { dateOrderedStartDate: string; dateOrderedEndDate: string; pageSize: number; pageNum: number }
+              ): Record<string, string> {
+                const data: Record<string, string> = {
+                  dateOrderedStartDate: common.dateOrderedStartDate,
+                  dateOrderedEndDate: common.dateOrderedEndDate,
+                  pageSize: String(common.pageSize),
+                  pageNum: String(common.pageNum),
+                };
+                if (queryBy === "outboundOrderNum") data.outboundOrderNum = normalizeWoMainOrderNum(token);
+                if (queryBy === "trackingNo") data.trackingNo = token.trim();
+                if (queryBy === "sellerOrderNo") data.sellerOrderNo = token.trim();
+                return data;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawNos = ((params.outboundOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const outboundOrderNos = uniqueTokens(rawNos);
+                const maxActions = getPluginBatchMaxActions();
+                const range = getListDateRange();
+                const pageSize = getListPageSize();
+
+                const actionPlans: ActionPlan[] = [];
+                for (const token of outboundOrderNos) {
+                  if (isWoOutboundToken(token)) {
+                    actionPlans.push({ inputToken: token, queryBy: "outboundOrderNum" });
+                  } else {
+                    // 模糊单号：trackingNo 优先，sellerOrderNo 兜底
+                    actionPlans.push({ inputToken: token, queryBy: "trackingNo" });
+                    actionPlans.push({ inputToken: token, queryBy: "sellerOrderNo" });
+                  }
+                }
+                const forPlugin = actionPlans.slice(0, maxActions);
+
+                const common = {
+                  dateOrderedStartDate: range.start,
+                  dateOrderedEndDate: range.end,
+                  pageSize,
+                  pageNum: 1,
+                };
+
+                const actions = forPlugin.map((p) => ({
+                  action: "queryOutboundOrderList",
+                  data: JSON.stringify(buildListDataByField(p.queryBy, p.inputToken, common)),
+                }));
+
+                return {
+                  actions,
+                  actionPlans: forPlugin,
+                  winitPluginBatchActionsCount: actions.length,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-outbound-primary-winit")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163010"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          inputToken:
+                              type: string
+                              value: null
+                          queryBy:
+                              type: string
+                              value: null
+                  value: null
+              winitPluginBatchActionsCount:
+                  type: integer
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163014"
+      type: plugin
+      title: winit_outbound_primary_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 420
+          y: 120
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163011"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163014"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163014"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163012"
+      type: code
+      title: merge-winit-outbound-plugin-batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 620
+          y: 120
+      parameters:
+          code: |-
+              /**
+               * 合并 `queryOutboundOrderList` 批处理结果，直接产出 rawOrderData
+               * 约定：
+               * - WO 主单动作（outboundOrderNum）优先级最高
+               * - 模糊单号动作顺序：trackingNo 命中优先，sellerOrderNo 兜底
+               */
+
+              function mergeParseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function mergeCoerceListPayload(parsed: unknown): { list?: Array<Record<string, unknown>> } {
+                if (parsed == null) {
+                  return { list: [] };
+                }
+                if (typeof parsed !== "object") {
+                  return { list: [] };
+                }
+                const o = parsed as Record<string, unknown>;
+
+                if (o.output != null && typeof o.output === "object") {
+                  return mergeCoerceListPayload(o.output);
+                }
+
+                if (o.code === "0" || o.code === 0) {
+                  const inner = o.data;
+                  if (inner != null && typeof inner === "string") {
+                    try {
+                      return mergeCoerceListPayload(JSON.parse(inner) as unknown);
+                    } catch {
+                      return { list: [] };
+                    }
+                  }
+                  if (inner != null && typeof inner === "object") {
+                    return mergeCoerceListPayload(inner);
+                  }
+                  return { list: [] };
+                }
+
+                if (Array.isArray(o.list)) {
+                  return { list: o.list as Array<Record<string, unknown>> };
+                }
+
+                if (o.outboundOrderNum != null || o.outboundOrderNo != null) {
+                  return { list: [o as Record<string, unknown>] };
+                }
+
+                return { list: [] };
+              }
+
+              function mergeNormalizeWoMainOrderNum(raw: string): string {
+                const s = raw.trim();
+                if (!s) return s;
+                const m = /^WO(\d+)[A-Za-z]*$/i.exec(s);
+                if (m) return `WO${m[1]}`;
+                return s;
+              }
+
+              function mergeNormalizeTokens(nos: string[]): string[] {
+                const seen = new Set<string>();
+                const out: string[] = [];
+                for (const n of nos) {
+                  const raw = String(n).trim();
+                  if (!raw) continue;
+                  const c = /^WO\d+/i.test(raw) ? mergeNormalizeWoMainOrderNum(raw) : raw;
+                  if (!c || seen.has(c)) continue;
+                  seen.add(c);
+                  out.push(c);
+                }
+                return out;
+              }
+
+              function mergeOrderKeyFromRow(row: Record<string, unknown>): string {
+                return mergeNormalizeWoMainOrderNum(String(row.outboundOrderNum ?? row.documentNo ?? "").trim());
+              }
+
+              function mergeNormalizeOrderAliases(order: Record<string, unknown>): Record<string, unknown> {
+                const doc = order.documentNo;
+                const hasOut =
+                  order.outboundOrderNum != null && String(order.outboundOrderNum).trim() !== "";
+                if (!hasOut && doc != null && String(doc).trim() !== "") {
+                  return { ...order, outboundOrderNum: String(doc).trim() };
+                }
+                return order;
+              }
+
+              function asOutputList(raw: unknown): Array<{ data?: unknown }> {
+                if (raw == null) return [];
+                if (!Array.isArray(raw)) return [];
+                return raw as Array<{ data?: unknown }>;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawNos = ((params.outboundOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const requested = mergeNormalizeTokens(rawNos);
+
+                type ActionPlan = {
+                  inputToken: string;
+                  queryBy: "outboundOrderNum" | "trackingNo" | "sellerOrderNo";
+                };
+                const actionPlans = (Array.isArray(params.actionPlans) ? params.actionPlans : []) as ActionPlan[];
+                const outputList = asOutputList(params.winitPluginOutputList);
+
+                const priority = (q: ActionPlan["queryBy"]): number => {
+                  if (q === "outboundOrderNum") return 3;
+                  if (q === "trackingNo") return 2;
+                  return 1;
+                };
+
+                const bestByToken = new Map<
+                  string,
+                  {
+                    priority: number;
+                    rowsByKey: Map<string, Record<string, unknown>>;
+                  }
+                >();
+
+                for (let i = 0; i < outputList.length; i++) {
+                  const item = outputList[i];
+                  const plan = actionPlans[i];
+                  if (!plan) continue;
+
+                  const token = plan.inputToken?.trim();
+                  if (!token) continue;
+
+                  const slot = item?.data;
+                  if (slot == null) continue;
+                  const str = String(slot).trim();
+                  if (!str) continue;
+
+                  const parsed = mergeParseCozeWorkflowDataField(slot);
+                  const chunk = mergeCoerceListPayload(parsed);
+                  const rows = (chunk.list ?? []).filter((r) => r && typeof r === "object") as Record<string, unknown>[];
+                  if (rows.length === 0) continue;
+
+                  const p = priority(plan.queryBy);
+                  const prev = bestByToken.get(token);
+                  if (!prev || p > prev.priority) {
+                    bestByToken.set(token, { priority: p, rowsByKey: new Map<string, Record<string, unknown>>() });
+                  } else if (p < prev.priority) {
+                    continue;
+                  }
+
+                  const holder = bestByToken.get(token)!;
+                  for (const row of rows) {
+                    const aliased = mergeNormalizeOrderAliases(row);
+                    const key = mergeOrderKeyFromRow(aliased);
+                    if (!key) continue;
+                    if (!holder.rowsByKey.has(key)) holder.rowsByKey.set(key, aliased);
+                  }
+                }
+
+                const outList: Record<string, unknown>[] = [];
+                const globalKeys = new Set<string>();
+                for (const token of requested) {
+                  const entry = bestByToken.get(token);
+                  if (!entry) continue;
+                  for (const [k, row] of entry.rowsByKey.entries()) {
+                    if (globalKeys.has(k)) continue;
+                    globalKeys.add(k);
+                    outList.push(row);
+                  }
+                }
+
+                return {
+                  rawOrderData: {
+                    list: outList,
+                    total: outList.length,
+                    currentPageNum: 1,
+                    currentPageSize: outList.length,
+                    _fetchMeta: {
+                      strategy: "list-only",
+                      batchPluginMerged: true,
+                      requestedTokenCount: requested.length,
+                      actionPlanCount: actionPlans.length,
+                      pluginBatchOutputCount: outputList.length,
+                      resolvedCount: outList.length,
+                    },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("merge-winit-outbound-plugin-batch")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163010"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163011"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163014"
+              - name: winitPluginBatchActionsCount
+                input:
+                    value:
+                        path: winitPluginBatchActionsCount
+                        ref_node: "163011"
+          node_outputs:
+              rawOrderData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163013"
+      type: code
+      title: build-outbound-timing-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 800
+          y: 40
+      parameters:
+          code: |-
+              /**
+               * 在发货/出库时效或包裹实际尺寸重量意图下，为每个匹配子单构造
+               * `wh.outbound.getPackageDetail` 动作。
+               * 跟踪号输入精确匹配 packageList；主单/卖家单输入覆盖该订单全部子单。
+               */
+
+              const DETAIL_BATCH_MAX_ACTIONS = 100;
+
+              type OrderRow = Record<string, unknown>;
+
+              type TimingActionPlan = {
+                inputTokens: string[];
+                outboundOrderNum: string;
+                shippingNo: string;
+                trackingNos: string[];
+              };
+
+              function timingText(value: unknown): string {
+                return String(value ?? "").trim();
+              }
+
+              function normalizeMainOrderNo(value: unknown): string {
+                const text = timingText(value);
+                const match = /^WO(\d+)[A-Za-z]*$/i.exec(text);
+                return match ? `WO${match[1]}` : text;
+              }
+
+              function isTimingIntent(query: unknown, customerIntent: unknown): boolean {
+                const text = `${timingText(query)} ${timingText(customerIntent)}`.toLowerCase();
+                if (!text.trim()) return false;
+                return (
+                  /(什么时候|何时|多久|预计|预估|应|承诺|截止|超时|延误|还没|尚未|未).{0,12}(发货|出库)/i.test(text) ||
+                  /(发货|出库).{0,12}(时间|日期|什么时候|何时|多久|预计|预估|应|承诺|截止|超时|延误)/i.test(text) ||
+                  /(when|expected|estimated|overdue|delay|deadline).{0,24}(ship|dispatch|outbound)/i.test(text) ||
+                  /(ship|dispatch|outbound).{0,24}(time|date|when|expected|estimated|overdue|delay|deadline)/i.test(text)
+                );
+              }
+
+              function isMeasurementIntent(query: unknown, customerIntent: unknown): boolean {
+                const text = `${timingText(query)} ${timingText(customerIntent)}`.toLowerCase();
+                if (!text.trim()) return false;
+                const measurement = /(尺寸|长宽高|长[×x*]?宽[×x*]?高|重量|体积|称重|测量|实重|材积|dimension|size|length|width|height|weight|volume)/i;
+                const packageContext = /(实际|实测|打包后|出库后|包裹|货物|箱|票|运单|物流|actual|measured|parcel|package|shipment)/i;
+                return measurement.test(text) && packageContext.test(text);
+              }
+
+              function orderList(raw: unknown): OrderRow[] {
+                if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+                const list = (raw as Record<string, unknown>).list;
+                return Array.isArray(list)
+                  ? list.filter((item): item is OrderRow => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+                  : [];
+              }
+
+              function stringList(raw: unknown): string[] {
+                if (!Array.isArray(raw)) return [];
+                return raw.map(timingText).filter(Boolean);
+              }
+
+              function packageTrackingNos(pkg: OrderRow): string[] {
+                const values = [
+                  ...stringList(pkg.trackingNos),
+                  timingText(pkg.trackingNo),
+                  timingText(pkg.trackingNum),
+                ].filter(Boolean);
+                return Array.from(new Set(values));
+              }
+
+              function requestedTokens(raw: unknown): string[] {
+                return Array.isArray(raw) ? Array.from(new Set(raw.map(timingText).filter(Boolean))) : [];
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const timingIntentMatched = isTimingIntent(params.query, params.customerIntent);
+                const measurementIntentMatched = isMeasurementIntent(params.query, params.customerIntent);
+                const detailIntentMatched = timingIntentMatched || measurementIntentMatched;
+                if (!detailIntentMatched) {
+                  return {
+                    actions: [],
+                    actionPlans: [],
+                    timingDetailActionsCount: 0,
+                    detailActionsCount: 0,
+                    timingIntentMatched: false,
+                    measurementIntentMatched: false,
+                    detailIntentMatched: false,
+                    requiresNarrowing: false,
+                    candidateActionsCount: 0,
+                  };
+                }
+
+                const tokens = requestedTokens(params.outboundOrderNos);
+                const tokenKeys = new Set(tokens.map((item) => item.toUpperCase()));
+                const plans: TimingActionPlan[] = [];
+                const seen = new Set<string>();
+
+                for (const order of orderList(params.rawOrderData)) {
+                  const outboundOrderNum = normalizeMainOrderNo(
+                    order.outboundOrderNum ?? order.documentNo ?? order.orderNo
+                  );
+                  if (!/^WO\d+$/i.test(outboundOrderNum)) continue;
+                  const packages = Array.isArray(order.packageList)
+                    ? order.packageList.filter(
+                        (item): item is OrderRow => Boolean(item && typeof item === "object" && !Array.isArray(item))
+                      )
+                    : [];
+                  const mainOrSellerMatched = [
+                    outboundOrderNum,
+                    timingText(order.sellerOrderNo),
+                    timingText(order.customerOrderNo),
+                  ].some((value) => value && tokenKeys.has(value.toUpperCase()));
+                  const trackingMatchedPackages = packages.filter((pkg) =>
+                    packageTrackingNos(pkg).some((trackingNo) => tokenKeys.has(trackingNo.toUpperCase()))
+                  );
+                  const selected = trackingMatchedPackages.length > 0 && !mainOrSellerMatched
+                    ? trackingMatchedPackages
+                    : packages;
+
+                  for (const pkg of selected) {
+                    const shippingNo = timingText(pkg.packageNum ?? pkg.shippingNo ?? pkg.packageNo);
+                    if (!shippingNo) continue;
+                    const key = `${outboundOrderNum.toUpperCase()}|${shippingNo.toUpperCase()}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    plans.push({
+                      inputTokens: tokens,
+                      outboundOrderNum,
+                      shippingNo,
+                      trackingNos: packageTrackingNos(pkg),
+                    });
+                  }
+                }
+
+                if (plans.length > DETAIL_BATCH_MAX_ACTIONS) {
+                  return {
+                    actions: [],
+                    actionPlans: [],
+                    timingDetailActionsCount: 0,
+                    detailActionsCount: 0,
+                    timingIntentMatched,
+                    measurementIntentMatched,
+                    detailIntentMatched: true,
+                    requiresNarrowing: true,
+                    candidateActionsCount: plans.length,
+                  };
+                }
+
+                const actions = plans.map((plan) => ({
+                  action: "wh.outbound.getPackageDetail",
+                  data: JSON.stringify({
+                    shippingNo: plan.shippingNo,
+                    orderNo: plan.outboundOrderNum,
+                    containerSerno: "",
+                  }),
+                }));
+
+                return {
+                  actions,
+                  actionPlans: plans,
+                  timingDetailActionsCount: actions.length,
+                  detailActionsCount: actions.length,
+                  timingIntentMatched,
+                  measurementIntentMatched,
+                  detailIntentMatched: true,
+                  requiresNarrowing: false,
+                  candidateActionsCount: plans.length,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-outbound-timing-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163012"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163010"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          inputTokens:
+                              type: list
+                              items:
+                                  type: string
+                                  value: null
+                              value: null
+                          outboundOrderNum:
+                              type: string
+                              value: null
+                          shippingNo:
+                              type: string
+                              value: null
+                          trackingNos:
+                              type: list
+                              items:
+                                  type: string
+                                  value: null
+                              value: null
+                  value: null
+              timingDetailActionsCount:
+                  type: integer
+                  value: null
+              detailActionsCount:
+                  type: integer
+                  value: null
+              timingIntentMatched:
+                  type: boolean
+                  value: null
+              measurementIntentMatched:
+                  type: boolean
+                  value: null
+              detailIntentMatched:
+                  type: boolean
+                  value: null
+              requiresNarrowing:
+                  type: boolean
+                  value: null
+              candidateActionsCount:
+                  type: integer
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163018"
+      type: plugin
+      title: winit_outbound_timing_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 980
+          y: 40
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163013"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163018"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163018"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163019"
+      type: code
+      title: merge-outbound-timing-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1160
+          y: 40
+      parameters:
+          code: |-
+              /**
+               * 归一化 `wh.outbound.getPackageDetail` 批处理结果，分别产出发货时间事实和
+               * 包裹实际尺寸重量事实；不以预估值冒充实际值。
+               * transport/business success、空数据和业务失败分别标记。
+               */
+
+              type TimingActionPlan = {
+                inputTokens?: string[];
+                outboundOrderNum: string;
+                shippingNo: string;
+                trackingNos?: string[];
+              };
+
+              type FetchStatus = "success" | "no_data" | "service_error";
+
+              type SlaFact = {
+                slaName?: string;
+                serviceStandardTime?: number;
+                serviceCompletionTime?: number;
+                status?: string;
+              };
+
+              type OutboundTimingFact = {
+                outboundOrderNum: string;
+                shippingNo: string;
+                trackingNos: string[];
+                status?: string;
+                orderTime?: string;
+                estimateOutWhTimeLocal?: string;
+                estimateOutWhTime?: string;
+                expectedOutboundTime?: string;
+                expectedOutboundTimeBasis?: "system" | "warehouse_local";
+                outWhTime?: string;
+                warehouseCode?: string;
+                warehouseName?: string;
+                slaList?: SlaFact[];
+                fetchStatus: FetchStatus;
+                businessCode: string;
+                source: "wh.outbound.getPackageDetail";
+              };
+
+              type ActualContainerMeasurement = {
+                containerNo?: string;
+                lengthCm?: number;
+                widthCm?: number;
+                heightCm?: number;
+                weightKg?: number;
+                volumeM3?: number;
+              };
+
+              type PackageMeasurementFact = {
+                outboundOrderNum: string;
+                shippingNo: string;
+                trackingNos: string[];
+                actualWeightKg?: number;
+                actualVolumeM3?: number;
+                actualContainers: ActualContainerMeasurement[];
+                fetchStatus: FetchStatus;
+                businessCode: string;
+                source: "wh.outbound.getPackageDetail";
+              };
+
+              function parseJsonLayers(raw: unknown, maxDepth = 8): unknown {
+                let current = raw;
+                for (let depth = 0; depth < maxDepth && typeof current === "string"; depth++) {
+                  const text = current.trim();
+                  if (!text) return "";
+                  try {
+                    current = JSON.parse(text) as unknown;
+                  } catch {
+                    return current;
+                  }
+                }
+                return current;
+              }
+
+              function unwrapDetail(raw: unknown): Record<string, unknown> | null {
+                let current = parseJsonLayers(raw);
+                for (let depth = 0; depth < 8; depth++) {
+                  if (!current || typeof current !== "object" || Array.isArray(current)) return null;
+                  const object = current as Record<string, unknown>;
+                  if (
+                    object.orderNo != null ||
+                    object.shippingNo != null ||
+                    object.estimateOutWhTimeLocal != null ||
+                    object.estimateOutWhTime != null ||
+                    object.outWhTime != null
+                  ) {
+                    return object;
+                  }
+                  if (object.data != null) {
+                    current = parseJsonLayers(object.data);
+                    continue;
+                  }
+                  if (object.output != null) {
+                    current = parseJsonLayers(object.output);
+                    continue;
+                  }
+                  if (object.Output != null) {
+                    current = parseJsonLayers(object.Output);
+                    continue;
+                  }
+                  return null;
+                }
+                return null;
+              }
+
+              function textValue(raw: unknown): string | undefined {
+                const text = String(raw ?? "").trim();
+                return text || undefined;
+              }
+
+              function numberValue(raw: unknown): number | undefined {
+                if (raw === null || raw === undefined || raw === "") return undefined;
+                const number = Number(raw);
+                return Number.isFinite(number) ? number : undefined;
+              }
+
+              function normalizeSlaList(raw: unknown): SlaFact[] | undefined {
+                if (!Array.isArray(raw)) return undefined;
+                const facts = raw
+                  .filter(
+                    (item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item))
+                  )
+                  .map((item) => {
+                    const fact: SlaFact = {};
+                    const slaName = textValue(item.slaName);
+                    const serviceStandardTime = numberValue(item.serviceStandardTime);
+                    const serviceCompletionTime = numberValue(item.serviceCompletionTime);
+                    const status = textValue(item.status);
+                    if (slaName) fact.slaName = slaName;
+                    if (serviceStandardTime !== undefined) fact.serviceStandardTime = serviceStandardTime;
+                    if (serviceCompletionTime !== undefined) fact.serviceCompletionTime = serviceCompletionTime;
+                    if (status) fact.status = status;
+                    return fact;
+                  })
+                  .filter((item) => Object.keys(item).length > 0);
+                return facts.length > 0 ? facts : undefined;
+              }
+
+              function normalizeActualContainers(raw: unknown): ActualContainerMeasurement[] {
+                if (!Array.isArray(raw)) return [];
+                return raw
+                  .filter(
+                    (item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item))
+                  )
+                  .map((item) => {
+                    const measurement: ActualContainerMeasurement = {};
+                    const containerNo = textValue(
+                      item.containerSerno ?? item.containerNo ?? item.packageNo ?? item.packageNum
+                    );
+                    const lengthCm = numberValue(item.packageLength);
+                    const widthCm = numberValue(item.packageWidth);
+                    const heightCm = numberValue(item.packageHeight);
+                    const weightKg = numberValue(item.packageWeight);
+                    const volumeM3 = numberValue(item.packageVolume);
+                    if (containerNo) measurement.containerNo = containerNo;
+                    if (lengthCm !== undefined) measurement.lengthCm = lengthCm;
+                    if (widthCm !== undefined) measurement.widthCm = widthCm;
+                    if (heightCm !== undefined) measurement.heightCm = heightCm;
+                    if (weightKg !== undefined) measurement.weightKg = weightKg;
+                    if (volumeM3 !== undefined) measurement.volumeM3 = volumeM3;
+                    return measurement;
+                  })
+                  .filter((item) => Object.keys(item).length > 0);
+              }
+
+              function outputItem(raw: unknown, index: number): Record<string, unknown> | null {
+                if (!Array.isArray(raw)) return null;
+                const item = raw[index];
+                return item && typeof item === "object" && !Array.isArray(item)
+                  ? (item as Record<string, unknown>)
+                  : null;
+              }
+
+              function baseFact(plan: TimingActionPlan, code: string, fetchStatus: FetchStatus): OutboundTimingFact {
+                return {
+                  outboundOrderNum: String(plan.outboundOrderNum ?? "").trim(),
+                  shippingNo: String(plan.shippingNo ?? "").trim(),
+                  trackingNos: Array.isArray(plan.trackingNos)
+                    ? plan.trackingNos.map((item) => String(item ?? "").trim()).filter(Boolean)
+                    : [],
+                  fetchStatus,
+                  businessCode: code,
+                  source: "wh.outbound.getPackageDetail",
+                };
+              }
+
+              function baseMeasurementFact(
+                plan: TimingActionPlan,
+                code: string,
+                fetchStatus: FetchStatus
+              ): PackageMeasurementFact {
+                return {
+                  outboundOrderNum: String(plan.outboundOrderNum ?? "").trim(),
+                  shippingNo: String(plan.shippingNo ?? "").trim(),
+                  trackingNos: Array.isArray(plan.trackingNos)
+                    ? plan.trackingNos.map((item) => String(item ?? "").trim()).filter(Boolean)
+                    : [],
+                  actualContainers: [],
+                  fetchStatus,
+                  businessCode: code,
+                  source: "wh.outbound.getPackageDetail",
+                };
+              }
+
+              function measurementFact(
+                plan: TimingActionPlan,
+                code: string,
+                detail: Record<string, unknown>
+              ): PackageMeasurementFact {
+                const actualWeightKg = numberValue(detail.actualWeight);
+                const actualVolumeM3 = numberValue(detail.actualVolume);
+                const actualContainers = normalizeActualContainers(detail.actualContainerList);
+                const hasActualData =
+                  actualWeightKg !== undefined || actualVolumeM3 !== undefined || actualContainers.length > 0;
+                const fact = baseMeasurementFact(plan, code, hasActualData ? "success" : "no_data");
+                if (actualWeightKg !== undefined) fact.actualWeightKg = actualWeightKg;
+                if (actualVolumeM3 !== undefined) fact.actualVolumeM3 = actualVolumeM3;
+                fact.actualContainers = actualContainers;
+                return fact;
+              }
+
+              function successFact(
+                plan: TimingActionPlan,
+                code: string,
+                detail: Record<string, unknown>
+              ): OutboundTimingFact {
+                const fact = baseFact(plan, code, "success");
+                const fields: Array<[keyof OutboundTimingFact, unknown]> = [
+                  ["status", detail.status],
+                  ["orderTime", detail.orderTime],
+                  ["estimateOutWhTimeLocal", detail.estimateOutWhTimeLocal],
+                  ["estimateOutWhTime", detail.estimateOutWhTime],
+                  ["outWhTime", detail.outWhTime],
+                  ["warehouseCode", detail.warehouseCode],
+                  ["warehouseName", detail.warehouseName],
+                ];
+                for (const [key, raw] of fields) {
+                  const value = textValue(raw);
+                  if (value) (fact as Record<string, unknown>)[key] = value;
+                }
+                const systemExpected = textValue(detail.estimateOutWhTime);
+                const localExpected = textValue(detail.estimateOutWhTimeLocal);
+                if (systemExpected) {
+                  fact.expectedOutboundTime = systemExpected;
+                  fact.expectedOutboundTimeBasis = "system";
+                } else if (localExpected) {
+                  fact.expectedOutboundTime = localExpected;
+                  fact.expectedOutboundTimeBasis = "warehouse_local";
+                }
+                const slaList = normalizeSlaList(detail.slaList);
+                if (slaList) fact.slaList = slaList;
+                return fact;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const actionPlans = (Array.isArray(params.actionPlans) ? params.actionPlans : []) as TimingActionPlan[];
+                const outboundTimingFacts: OutboundTimingFact[] = [];
+                const packageMeasurementFacts: PackageMeasurementFact[] = [];
+
+                for (let index = 0; index < actionPlans.length; index++) {
+                  const plan = actionPlans[index];
+                  const item = outputItem(params.winitPluginOutputList, index);
+                  const code = String(item?.code ?? "missing");
+                  if (!item || (code !== "0" && code !== "0.0")) {
+                    outboundTimingFacts.push(baseFact(plan, code, "service_error"));
+                    packageMeasurementFacts.push(baseMeasurementFact(plan, code, "service_error"));
+                    continue;
+                  }
+                  const rawData = item.data;
+                  if (rawData === null || rawData === undefined || String(rawData).trim() === "") {
+                    outboundTimingFacts.push(baseFact(plan, code, "no_data"));
+                    packageMeasurementFacts.push(baseMeasurementFact(plan, code, "no_data"));
+                    continue;
+                  }
+                  const detail = unwrapDetail(rawData);
+                  if (!detail) {
+                    outboundTimingFacts.push(baseFact(plan, code, "no_data"));
+                    packageMeasurementFacts.push(baseMeasurementFact(plan, code, "no_data"));
+                    continue;
+                  }
+                  const actualOrderNo = textValue(detail.orderNo);
+                  const actualShippingNo = textValue(detail.shippingNo);
+                  if (
+                    (actualOrderNo && actualOrderNo.toUpperCase() !== plan.outboundOrderNum.toUpperCase()) ||
+                    (actualShippingNo && actualShippingNo.toUpperCase() !== plan.shippingNo.toUpperCase())
+                  ) {
+                    outboundTimingFacts.push(baseFact(plan, code, "service_error"));
+                    packageMeasurementFacts.push(baseMeasurementFact(plan, code, "service_error"));
+                    continue;
+                  }
+                  outboundTimingFacts.push(successFact(plan, code, detail));
+                  packageMeasurementFacts.push(measurementFact(plan, code, detail));
+                }
+
+                return {
+                  outboundTimingFacts,
+                  packageMeasurementFacts,
+                  requiresNarrowing: params.requiresNarrowing === true,
+                  timingDetailResolvedCount: outboundTimingFacts.filter((item) => item.fetchStatus === "success").length,
+                  timingDetailNoDataCount: outboundTimingFacts.filter((item) => item.fetchStatus === "no_data").length,
+                  timingDetailFailedCount: outboundTimingFacts.filter((item) => item.fetchStatus === "service_error").length,
+                  measurementResolvedCount: packageMeasurementFacts.filter((item) => item.fetchStatus === "success").length,
+                  measurementNoDataCount: packageMeasurementFacts.filter((item) => item.fetchStatus === "no_data").length,
+                  measurementFailedCount: packageMeasurementFacts.filter((item) => item.fetchStatus === "service_error").length,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("merge-outbound-timing-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163013"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163018"
+              - name: requiresNarrowing
+                input:
+                    value:
+                        path: requiresNarrowing
+                        ref_node: "163013"
+          node_outputs:
+              outboundTimingFacts:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              packageMeasurementFacts:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              requiresNarrowing:
+                  type: boolean
+                  value: null
+              timingDetailResolvedCount:
+                  type: integer
+                  value: null
+              timingDetailNoDataCount:
+                  type: integer
+                  value: null
+              timingDetailFailedCount:
+                  type: integer
+                  value: null
+              measurementResolvedCount:
+                  type: integer
+                  value: null
+              measurementNoDataCount:
+                  type: integer
+                  value: null
+              measurementFailedCount:
+                  type: integer
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163015"
+      type: code
+      title: build-carrier-detail-winit
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 800
+          y: 200
+      parameters:
+          code: |-
+              /**
+               * 节点：在 id/54 已定位订单后，按需为 id/55 `queryOutboundOrder` 生成批处理动作。
+               *
+               * 【输入】rawOrderData、query、customerIntent
+               * 【输出】actions、actionPlans、carrierDetailActionsCount
+               */
+
+              type CarrierDetailActionPlan = {
+                outboundOrderNum: string;
+              };
+
+              function normalizeWoMainOrderNum(raw: string): string {
+                const value = raw.trim();
+                if (!value) return "";
+                const match = /^WO(\d+)[A-Za-z]*$/i.exec(value);
+                return match ? `WO${match[1]}` : value;
+              }
+
+              function asOrderList(raw: unknown): Array<Record<string, unknown>> {
+                if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+                const list = (raw as Record<string, unknown>).list;
+                return Array.isArray(list)
+                  ? list.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+                  : [];
+              }
+
+              function hasActualCarrier(order: Record<string, unknown>): boolean {
+                if (String(order.carrier ?? "").trim()) return true;
+                const packages = Array.isArray(order.packageList) ? order.packageList : [];
+                return packages.some(
+                  (item) => item && typeof item === "object" && String((item as Record<string, unknown>).carrier ?? "").trim()
+                );
+              }
+
+              function isCarrierIntent(query: unknown, customerIntent: unknown): boolean {
+                const text = `${String(query ?? "")} ${String(customerIntent ?? "")}`.toLowerCase();
+                return /(承运商|派送商|渠道商|快递公司|物流商|carrier|courier|delivery provider)/i.test(text);
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const orders = asOrderList(params.rawOrderData);
+                const explicitCarrierIntent = isCarrierIntent(params.query, params.customerIntent);
+                const seen = new Set<string>();
+                const actionPlans: CarrierDetailActionPlan[] = [];
+
+                for (const order of orders) {
+                  if (!explicitCarrierIntent && hasActualCarrier(order)) continue;
+                  const rawOrderNo = String(order.outboundOrderNum ?? order.documentNo ?? order.orderNo ?? "");
+                  const outboundOrderNum = normalizeWoMainOrderNum(rawOrderNo);
+                  if (!/^WO\d+$/i.test(outboundOrderNum)) continue;
+                  const key = outboundOrderNum.toUpperCase();
+                  if (seen.has(key)) continue;
+                  seen.add(key);
+                  actionPlans.push({ outboundOrderNum });
+                }
+
+                const actions = actionPlans.map(({ outboundOrderNum }) => ({
+                  action: "queryOutboundOrder",
+                  data: JSON.stringify({ outboundOrderNum }),
+                }));
+
+                return {
+                  actions,
+                  actionPlans,
+                  carrierDetailActionsCount: actions.length,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-carrier-detail-winit")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((result) => process.stdout.write(JSON.stringify(result)))
+                  .catch((error) => {
+                    console.error(error);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163012"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          outboundOrderNum:
+                              type: string
+                              value: null
+                  value: null
+              carrierDetailActionsCount:
+                  type: integer
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163020"
+      type: code
+      title: build-outbound-return-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 800
+          y: 360
+      parameters:
+          code: |-
+              /**
+               * 节点：识别“派送失败退回 / 关联退货单”事实查询意图，并按出库单生成退货单查询动作。
+               * FaaS 单文件闭环，无 import。
+               */
+
+              type ReturnActionPlan = {
+                outboundOrderNo: string;
+              };
+
+              type ReturnLookupMeta = {
+                intentMatched: boolean;
+                candidateOrderCount: number;
+                missingOutboundOrderNo: boolean;
+                requiresNarrowing: boolean;
+              };
+
+              const RETURN_BATCH_MAX = 100;
+
+              function returnText(value: unknown): string {
+                return String(value ?? "").trim();
+              }
+
+              function normalizeReturnOutboundOrderNo(value: unknown): string {
+                const text = returnText(value);
+                const match = /^WO(\d+)[A-Za-z]*$/i.exec(text);
+                return match ? `WO${match[1]}` : "";
+              }
+
+              function isReturnFactIntent(query: unknown, customerIntent: unknown): boolean {
+                const text = `${returnText(query)} ${returnText(customerIntent)}`.toLowerCase();
+                if (!text.trim()) return false;
+
+                const explicitFact =
+                  /(关联|绑定|对应|是否|有没有|哪一|哪个|查询|查看|查到|状态|进度|原因|单号|到仓|入仓|收货|完成|退到|退回).{0,16}(退货单|退回单|退件单|退货|退回|退仓)/i.test(text) ||
+                  /(退货单|退回单|退件单|退货|退回|退仓).{0,16}(关联|绑定|对应|是否|有没有|哪一|哪个|查询|查看|查到|状态|进度|原因|单号|到仓|入仓|收货|完成)/i.test(text) ||
+                  /(派送失败|投递失败|妥投失败|拒收|无法派送|delivery failed|undeliverable).{0,20}(退回|退货|退仓|return)/i.test(text) ||
+                  /(退回|退货|退仓|return).{0,20}(派送失败|投递失败|妥投失败|拒收|无法派送|delivery failed|undeliverable)/i.test(text) ||
+                  /(return order|return status|returned to (the )?warehouse|return(ed)? reason)/i.test(text);
+                if (explicitFact) return true;
+
+                const processOnly =
+                  /(如何|怎么|怎样|流程|政策|规则|申请|创建|下单|办理|操作).{0,12}(退货|退回|退货单)/i.test(text) ||
+                  /(退货|退回|退货单).{0,12}(如何|怎么|怎样|流程|政策|规则|申请|创建|下单|办理|操作)/i.test(text);
+                if (processOnly) return false;
+
+                return /(退货单|退回单|退件单|退仓|已退货|returned package)/i.test(text);
+              }
+
+              function orderRows(raw: unknown): Record<string, unknown>[] {
+                if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+                const list = (raw as Record<string, unknown>).list;
+                return Array.isArray(list)
+                  ? list.filter(
+                      (item): item is Record<string, unknown> =>
+                        Boolean(item) && typeof item === "object" && !Array.isArray(item)
+                    )
+                  : [];
+              }
+
+              function collectOutboundOrderNos(rawOrderData: unknown, outboundOrderNos: unknown): string[] {
+                const values: string[] = [];
+                if (Array.isArray(outboundOrderNos)) {
+                  for (const value of outboundOrderNos) {
+                    const normalized = normalizeReturnOutboundOrderNo(value);
+                    if (normalized) values.push(normalized);
+                  }
+                }
+                for (const row of orderRows(rawOrderData)) {
+                  const normalized = normalizeReturnOutboundOrderNo(
+                    row.outboundOrderNum ?? row.documentNo ?? row.orderNo
+                  );
+                  if (normalized) values.push(normalized);
+                }
+                return Array.from(new Set(values.map((value) => value.toUpperCase())));
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intentMatched = isReturnFactIntent(params.query, params.customerIntent);
+                const outboundOrderNos = collectOutboundOrderNos(
+                  params.rawOrderData,
+                  params.outboundOrderNos
+                );
+                const requiresNarrowing = intentMatched && outboundOrderNos.length > RETURN_BATCH_MAX;
+                const lookupMeta: ReturnLookupMeta = {
+                  intentMatched,
+                  candidateOrderCount: outboundOrderNos.length,
+                  missingOutboundOrderNo: intentMatched && outboundOrderNos.length === 0,
+                  requiresNarrowing,
+                };
+
+                if (!intentMatched || outboundOrderNos.length === 0 || requiresNarrowing) {
+                  return { actions: [], actionPlans: [], returnLookupMeta: lookupMeta };
+                }
+
+                const actionPlans: ReturnActionPlan[] = outboundOrderNos.map((outboundOrderNo) => ({
+                  outboundOrderNo,
+                }));
+                const actions = actionPlans.map((plan) => ({
+                  action: "rma.returnGoodsOrder.queryReturnOderList",
+                  data: JSON.stringify({
+                    outboundOrderNo: plan.outboundOrderNo,
+                    pageParams: { pageNo: 1, pageSize: 50 },
+                  }),
+                }));
+
+                return { actions, actionPlans, returnLookupMeta: lookupMeta };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-outbound-return-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163012"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163010"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          outboundOrderNo:
+                              type: string
+                              value: null
+                  value: null
+              returnLookupMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163021"
+      type: plugin
+      title: winit_outbound_return_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 980
+          y: 360
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163020"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163021"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163021"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163022"
+      type: code
+      title: merge-outbound-return-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1160
+          y: 360
+      parameters:
+          code: |-
+              /**
+               * 节点：归一化退货单查询批处理结果，严格区分成功、成功空数据、业务失败和分页不完整。
+               * FaaS 单文件闭环，无 import。
+               */
+
+              type FetchStatus = "success" | "no_data" | "service_error";
+
+              type ReturnActionPlan = {
+                outboundOrderNo: string;
+              };
+
+              type ReturnOrderFact = {
+                returnGoodsOrderNo: string;
+                outboundOrderNo: string;
+                returnType?: string;
+                retrunReason?: string;
+                returnReasonName?: string;
+                status?: string;
+                statusName?: string;
+                warehouseCode?: string;
+                createDate?: string;
+                completeTime?: string;
+                qtyItemNum?: number;
+                orderGoodsCount: number;
+                shelveGoodsCount: number;
+                source: "rma.returnGoodsOrder.queryReturnOderList";
+              };
+
+              type ReturnLookupResult = {
+                outboundOrderNo: string;
+                fetchStatus: FetchStatus;
+                businessCode: string;
+                returnedCount: number;
+                exactMatchCount: number;
+                partial: boolean;
+              };
+
+              function asRecord(value: unknown): Record<string, unknown> | null {
+                return value !== null && typeof value === "object" && !Array.isArray(value)
+                  ? (value as Record<string, unknown>)
+                  : null;
+              }
+
+              function parseMaybeJson(value: unknown): unknown {
+                let current = value;
+                for (let depth = 0; depth < 4 && typeof current === "string"; depth += 1) {
+                  const text = current.trim();
+                  if (!text) return "";
+                  try {
+                    current = JSON.parse(text) as unknown;
+                  } catch {
+                    return current;
+                  }
+                }
+                return current;
+              }
+
+              function textValue(value: unknown): string | undefined {
+                const text = String(value ?? "").trim();
+                return text || undefined;
+              }
+
+              function numberValue(value: unknown): number | undefined {
+                if (value === null || value === undefined || value === "") return undefined;
+                const number = Number(value);
+                return Number.isFinite(number) ? number : undefined;
+              }
+
+              function normalizeOutboundOrderNo(value: unknown): string {
+                const text = String(value ?? "").trim();
+                const match = /^WO(\d+)[A-Za-z]*$/i.exec(text);
+                return match ? `WO${match[1]}` : text.toUpperCase();
+              }
+
+              function extractData(raw: unknown): Record<string, unknown> | null {
+                const root = asRecord(parseMaybeJson(raw));
+                if (!root) return null;
+                return asRecord(parseMaybeJson(root.data)) ?? root;
+              }
+
+              function statusName(status: string | undefined): string | undefined {
+                if (!status) return undefined;
+                const names: Record<string, string> = {
+                  PD: "草稿",
+                  OD: "已下单",
+                  LC: "已抓单",
+                  PC: "已揽收",
+                  RE: "仓库已收货",
+                  RC: "仓库已收货",
+                  WP: "客户待处理",
+                  HI: "仓库处理中",
+                  OC: "已完成",
+                  CP: "已完成",
+                  CD: "已取消",
+                  VO: "已作废",
+                  VD: "已作废",
+                  STOP: "已终止",
+                };
+                return names[status.toUpperCase()];
+              }
+
+              function reasonName(reason: string | undefined): string | undefined {
+                if (!reason) return undefined;
+                const normalized = reason.toUpperCase();
+                if (normalized === "DF") return "派送失败";
+                if (normalized === "BR") return "客户退货";
+                return reason;
+              }
+
+              function buildFact(row: Record<string, unknown>): ReturnOrderFact | null {
+                const returnGoodsOrderNo = textValue(row.returnGoodsOrderNo);
+                const outboundOrderNo = normalizeOutboundOrderNo(row.outboundOrderNo);
+                if (!returnGoodsOrderNo || !outboundOrderNo) return null;
+
+                const status = textValue(row.status);
+                const retrunReason = textValue(row.retrunReason);
+                const fact: ReturnOrderFact = {
+                  returnGoodsOrderNo,
+                  outboundOrderNo,
+                  orderGoodsCount: Array.isArray(row.orderGoodsList) ? row.orderGoodsList.length : 0,
+                  shelveGoodsCount: Array.isArray(row.shelveGoodsList) ? row.shelveGoodsList.length : 0,
+                  source: "rma.returnGoodsOrder.queryReturnOderList",
+                };
+                const optional: Array<[keyof ReturnOrderFact, unknown]> = [
+                  ["returnType", row.returnType],
+                  ["retrunReason", retrunReason],
+                  ["returnReasonName", reasonName(retrunReason)],
+                  ["status", status],
+                  ["statusName", statusName(status)],
+                  ["warehouseCode", row.warehouseCode],
+                  ["createDate", row.createDate],
+                  ["completeTime", row.completeTime],
+                ];
+                for (const [key, raw] of optional) {
+                  const value = textValue(raw);
+                  if (value) (fact as Record<string, unknown>)[key] = value;
+                }
+                const qtyItemNum = numberValue(row.qtyItemNum);
+                if (qtyItemNum !== undefined) fact.qtyItemNum = qtyItemNum;
+                return fact;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const plans = (Array.isArray(params.actionPlans) ? params.actionPlans : []) as ReturnActionPlan[];
+                const outputs = Array.isArray(params.winitPluginOutputList)
+                  ? params.winitPluginOutputList
+                  : [];
+                const returnOrderFacts: ReturnOrderFact[] = [];
+                const returnLookupResults: ReturnLookupResult[] = [];
+
+                for (let index = 0; index < plans.length; index += 1) {
+                  const plan = plans[index]!;
+                  const output = asRecord(outputs[index]);
+                  const businessCode = String(output?.code ?? "").trim();
+                  if (!output || businessCode !== "0") {
+                    returnLookupResults.push({
+                      outboundOrderNo: plan.outboundOrderNo,
+                      fetchStatus: "service_error",
+                      businessCode: businessCode || "missing_output",
+                      returnedCount: 0,
+                      exactMatchCount: 0,
+                      partial: false,
+                    });
+                    continue;
+                  }
+
+                  const data = extractData(output.data);
+                  const list = data && Array.isArray(data.list)
+                    ? data.list.map(asRecord).filter((row): row is Record<string, unknown> => row !== null)
+                    : [];
+                  const exactRows = list.filter(
+                    (row) => normalizeOutboundOrderNo(row.outboundOrderNo) === plan.outboundOrderNo
+                  );
+                  const pageParams = data ? asRecord(data.pageParams) : null;
+                  const totalCount = numberValue(pageParams?.totalCount) ?? list.length;
+                  const partial = totalCount > list.length;
+                  const facts = exactRows.map(buildFact).filter((fact): fact is ReturnOrderFact => fact !== null);
+                  returnOrderFacts.push(...facts);
+                  returnLookupResults.push({
+                    outboundOrderNo: plan.outboundOrderNo,
+                    fetchStatus: facts.length > 0 ? "success" : "no_data",
+                    businessCode,
+                    returnedCount: list.length,
+                    exactMatchCount: facts.length,
+                    partial,
+                  });
+                }
+
+                return {
+                  returnOrderFacts,
+                  returnLookupResults,
+                  returnLookupMeta: params.returnLookupMeta ?? {},
+                  returnLookupResolvedCount: returnLookupResults.filter((item) => item.fetchStatus === "success").length,
+                  returnLookupNoDataCount: returnLookupResults.filter((item) => item.fetchStatus === "no_data").length,
+                  returnLookupFailedCount: returnLookupResults.filter((item) => item.fetchStatus === "service_error").length,
+                  returnLookupPartialCount: returnLookupResults.filter((item) => item.partial).length,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("merge-outbound-return-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163020"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163021"
+              - name: returnLookupMeta
+                input:
+                    value:
+                        path: returnLookupMeta
+                        ref_node: "163020"
+          node_outputs:
+              returnOrderFacts:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              returnLookupResults:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              returnLookupMeta:
+                  type: object
+                  value: null
+              returnLookupResolvedCount:
+                  type: integer
+                  value: null
+              returnLookupNoDataCount:
+                  type: integer
+                  value: null
+              returnLookupFailedCount:
+                  type: integer
+                  value: null
+              returnLookupPartialCount:
+                  type: integer
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163016"
+      type: plugin
+      title: winit_outbound_carrier_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 980
+          y: 200
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163015"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163016"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163016"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163017"
+      type: code
+      title: merge-carrier-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1160
+          y: 200
+      parameters:
+          code: |-
+              /**
+               * 节点：将 id/55 `queryOutboundOrder` 详情安全合并到 id/54 订单，并确定性提取承运商事实。
+               * id/55 缺失、失败或不可解析时保留原始 id/54 结果。
+               *
+               * 【输入】rawOrderData、actionPlans、winitPluginOutputList
+               * 【输出】rawOrderData、carrierFacts
+               */
+
+              type CarrierDetailActionPlan = {
+                outboundOrderNum: string;
+              };
+
+              type CarrierFact = {
+                trackingNo?: string;
+                outboundOrderNum: string;
+                carrier: string;
+                carrierServiceCode?: string;
+                carrierServiceName?: string;
+                carrierHasChange?: string;
+                source: "queryOutboundOrder" | "queryOutboundOrderList";
+              };
+
+              function normalizeWoMainOrderNum(raw: string): string {
+                const value = raw.trim();
+                if (!value) return "";
+                const match = /^WO(\d+)[A-Za-z]*$/i.exec(value);
+                return match ? `WO${match[1]}` : value;
+              }
+
+              function parseJsonLayers(raw: unknown, maxDepth = 6): unknown {
+                let current = raw;
+                for (let depth = 0; depth < maxDepth && typeof current === "string"; depth++) {
+                  try {
+                    current = JSON.parse(current) as unknown;
+                  } catch {
+                    break;
+                  }
+                }
+                return current;
+              }
+
+              function unwrapDetailRow(raw: unknown): Record<string, unknown> | null {
+                let current = parseJsonLayers(raw);
+                for (let depth = 0; depth < 6; depth++) {
+                  if (!current || typeof current !== "object" || Array.isArray(current)) return null;
+                  const object = current as Record<string, unknown>;
+                  if (Array.isArray(object.list)) {
+                    const first = object.list.find((item) => item && typeof item === "object");
+                    return first ? (first as Record<string, unknown>) : null;
+                  }
+                  if (object.outboundOrderNum != null || object.documentNo != null) return object;
+                  if (object.Output != null) {
+                    current = parseJsonLayers(object.Output);
+                    continue;
+                  }
+                  if (object.output != null) {
+                    current = parseJsonLayers(object.output);
+                    continue;
+                  }
+                  if (object.data != null) {
+                    current = parseJsonLayers(object.data);
+                    continue;
+                  }
+                  return null;
+                }
+                return null;
+              }
+
+              function outputDataAt(rawList: unknown, index: number): unknown {
+                if (!Array.isArray(rawList)) return null;
+                const item = rawList[index];
+                if (!item || typeof item !== "object") return null;
+                const object = item as Record<string, unknown>;
+                const code = object.code;
+                if (code !== undefined && code !== null && code !== 0 && code !== "0") return null;
+                return object.data;
+              }
+
+              function stringValue(value: unknown): string | undefined {
+                const text = String(value ?? "").trim();
+                return text || undefined;
+              }
+
+              function trackingNoFromOrder(order: Record<string, unknown>): string | undefined {
+                const direct = stringValue(order.trackingNum ?? order.trackingNo);
+                if (direct) return direct;
+                const packages = Array.isArray(order.packageList) ? order.packageList : [];
+                for (const item of packages) {
+                  if (!item || typeof item !== "object") continue;
+                  const object = item as Record<string, unknown>;
+                  const single = stringValue(object.trackingNo);
+                  if (single) return single;
+                  if (Array.isArray(object.trackingNos)) {
+                    const first = object.trackingNos.map(stringValue).find(Boolean);
+                    if (first) return first;
+                  }
+                }
+                return undefined;
+              }
+
+              function buildCarrierFact(
+                order: Record<string, unknown>,
+                source: CarrierFact["source"]
+              ): CarrierFact | null {
+                const carrier = stringValue(order.carrier);
+                const outboundOrderNum = normalizeWoMainOrderNum(
+                  String(order.outboundOrderNum ?? order.documentNo ?? order.orderNo ?? "")
+                );
+                if (!carrier || !outboundOrderNum) return null;
+                const fact: CarrierFact = { outboundOrderNum, carrier, source };
+                const trackingNo = trackingNoFromOrder(order);
+                const carrierServiceCode = stringValue(order.carrierServiceCode);
+                const carrierServiceName = stringValue(order.carrierServiceName);
+                const carrierHasChange = stringValue(order.carrierHasChange);
+                if (trackingNo) fact.trackingNo = trackingNo;
+                if (carrierServiceCode) fact.carrierServiceCode = carrierServiceCode;
+                if (carrierServiceName) fact.carrierServiceName = carrierServiceName;
+                if (carrierHasChange) fact.carrierHasChange = carrierHasChange;
+                return fact;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawOrderData =
+                  params.rawOrderData && typeof params.rawOrderData === "object" && !Array.isArray(params.rawOrderData)
+                    ? (params.rawOrderData as Record<string, unknown>)
+                    : {};
+                const originalList = Array.isArray(rawOrderData.list)
+                  ? rawOrderData.list.filter(
+                      (item): item is Record<string, unknown> => Boolean(item && typeof item === "object")
+                    )
+                  : [];
+                const actionPlans = (Array.isArray(params.actionPlans) ? params.actionPlans : []) as CarrierDetailActionPlan[];
+                const detailByOrder = new Map<string, Record<string, unknown>>();
+                let failedCount = 0;
+
+                for (let index = 0; index < actionPlans.length; index++) {
+                  const plan = actionPlans[index];
+                  const rawDetail = outputDataAt(params.winitPluginOutputList, index);
+                  const detail = unwrapDetailRow(rawDetail);
+                  const expected = normalizeWoMainOrderNum(String(plan?.outboundOrderNum ?? "")).toUpperCase();
+                  const actual = detail
+                    ? normalizeWoMainOrderNum(String(detail.outboundOrderNum ?? detail.documentNo ?? "")).toUpperCase()
+                    : "";
+                  if (!detail || !expected || actual !== expected) {
+                    failedCount++;
+                    continue;
+                  }
+                  detailByOrder.set(expected, detail);
+                }
+
+                const carrierFacts: CarrierFact[] = [];
+                const mergedList = originalList.map((order) => {
+                  const key = normalizeWoMainOrderNum(
+                    String(order.outboundOrderNum ?? order.documentNo ?? order.orderNo ?? "")
+                  ).toUpperCase();
+                  const detail = detailByOrder.get(key);
+                  const merged = detail ? { ...order, ...detail } : { ...order };
+                  const fact = buildCarrierFact(merged, detail ? "queryOutboundOrder" : "queryOutboundOrderList");
+                  if (fact) carrierFacts.push(fact);
+                  return merged;
+                });
+
+                const previousMeta =
+                  rawOrderData._fetchMeta && typeof rawOrderData._fetchMeta === "object" && !Array.isArray(rawOrderData._fetchMeta)
+                    ? (rawOrderData._fetchMeta as Record<string, unknown>)
+                    : {};
+
+                return {
+                  rawOrderData: {
+                    ...rawOrderData,
+                    list: mergedList,
+                    _fetchMeta: {
+                      ...previousMeta,
+                      carrierDetailRequestedCount: actionPlans.length,
+                      carrierDetailResolvedCount: detailByOrder.size,
+                      carrierDetailFailedCount: failedCount,
+                    },
+                  },
+                  carrierFacts,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("merge-carrier-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((result) => process.stdout.write(JSON.stringify(result)))
+                  .catch((error) => {
+                    console.error(error);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163012"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163015"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163016"
+          node_outputs:
+              rawOrderData:
+                  type: object
+                  value: null
+              carrierFacts:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163025"
+      type: code
+      title: prune-outbound-json
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1340
+          y: 120
+      parameters:
+          code: |-
+              /**
+               * 节点：对出库单返回 JSON 执行剪枝
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 本节点 `inputs` / `outputs` 一致。
+               *
+               * 【输入】`params`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | rawOrderData | Record<string, unknown> | 含 `list` 数组的万邑通原始结构 |
+               * | maxPackagesPerOrder | number（可选） | 每单保留包裹数上限；默认见 DEFAULT_CONFIG |
+               * | maxMerchandisePerPackage | number（可选） | 每包裹商品行上限 |
+               * | includeItemList | boolean（可选） | 是否保留商品明细行 |
+               *
+               * 【输出】`return ret`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | prunedOrderData | Record<string, unknown> | `list` 已剪枝；每单可能含 **`isPlatformWaybill`**（见下）；根级 `_pruneMeta` |
+               * | _pruneMeta | PruneMeta | 本文件内 interface：original/retained 包裹数、truncatedPackages 等 |
+               *
+               * **平台面单**（`list[]` 每项上 `isPlatformWaybill: boolean`）：`winitProductCode` 以 `OSF822` 开头（大小写不敏感），**或** `orderWinitProductName` 含 `3PL`（大小写不敏感）。
+               */
+
+              // ========== 类型（本文件内闭环） ==========
+              interface PruneConfig {
+                maxPackagesPerOrder: number;
+                maxMerchandisePerPackage: number;
+                includeItemList: boolean;
+              }
+
+              interface TruncatedPackageInfo {
+                packageNum?: string;
+                retainedMerchandise: number;
+                originalMerchandise: number;
+              }
+
+              interface PruneMeta {
+                originalPackageCount: number;
+                retainedPackageCount: number;
+                truncatedPackages: TruncatedPackageInfo[];
+              }
+
+              // ========== 默认配置 ==========
+              const DEFAULT_CONFIG: PruneConfig = {
+                maxPackagesPerOrder: 10,
+                maxMerchandisePerPackage: 20,
+                includeItemList: false,
+              };
+
+              /** 平台面单：产品码 OSF822*，或下单产品名含 3PL */
+              function isPlatformWaybillOrder(o: Record<string, unknown>): boolean {
+                const code = String(o.winitProductCode ?? "").trim().toUpperCase();
+                if (code.startsWith("OSF822")) return true;
+                const orderName = String(o.orderWinitProductName ?? "");
+                if (orderName.toUpperCase().includes("3PL")) return true;
+                return false;
+              }
+
+              /** 订单实际生效的产品编码：优先 orderWinitProductCode，回退 winitProductCode */
+              function effectiveProductCodeForOrder(o: Record<string, unknown>): string {
+                return String(o.orderWinitProductCode || o.winitProductCode || "").trim();
+              }
+
+              /** 订单实际生效的产品名称：优先 orderWinitProductName，回退 winitProductName */
+              function effectiveProductNameForOrder(o: Record<string, unknown>): string {
+                return String(o.orderWinitProductName || o.winitProductName || "").trim();
+              }
+
+              // ========== 主逻辑 ==========
+              function pruneMerchandiseList(
+                merchandiseList: unknown[],
+                maxMerchandise: number,
+                includeItemList: boolean
+              ): { pruned: unknown[]; originalCount: number } {
+                const originalCount = merchandiseList.length;
+                if (originalCount <= maxMerchandise) {
+                  const pruned = includeItemList
+                    ? merchandiseList
+                    : merchandiseList.map((m) => {
+                        const copy = { ...(m as Record<string, unknown>) };
+                        delete copy.itemList;
+                        delete copy.batchList;
+                        return copy;
+                      });
+                  return { pruned, originalCount };
+                }
+
+                const pruned = merchandiseList.slice(0, maxMerchandise).map((m) => {
+                  const copy = { ...(m as Record<string, unknown>) };
+                  if (!includeItemList) {
+                    delete copy.itemList;
+                    delete copy.batchList;
+                  }
+                  return copy;
+                });
+                (pruned as Record<string, unknown>[]).push({
+                  _truncated: true,
+                  _remainingCount: originalCount - maxMerchandise,
+                });
+                return { pruned, originalCount };
+              }
+
+              function prunePackageList(
+                packageList: unknown[],
+                maxPackages: number,
+                maxMerchandise: number,
+                includeItemList: boolean
+              ): { pruned: unknown[]; meta: TruncatedPackageInfo[] } {
+                const originalCount = packageList.length;
+                const truncatedPackages: TruncatedPackageInfo[] = [];
+
+                if (originalCount <= maxPackages) {
+                  const pruned = packageList.map((pkg) => {
+                    const p = pkg as Record<string, unknown>;
+                    const merchList = (p.merchandiseList as unknown[]) ?? [];
+                    const { pruned: prunedMerch } = pruneMerchandiseList(merchList, maxMerchandise, includeItemList);
+                    const copy = { ...p };
+                    if (merchList.length > 0) copy.merchandiseList = prunedMerch;
+                    if (merchList.length > maxMerchandise) {
+                      truncatedPackages.push({
+                        packageNum: p.packageNum as string,
+                        retainedMerchandise: maxMerchandise,
+                        originalMerchandise: merchList.length,
+                      });
+                    }
+                    return copy;
+                  });
+                  return { pruned, meta: truncatedPackages };
+                }
+
+                const retained = packageList.slice(0, maxPackages).map((pkg) => {
+                  const p = pkg as Record<string, unknown>;
+                  const merchList = (p.merchandiseList as unknown[]) ?? [];
+                  const { pruned: prunedMerch } = pruneMerchandiseList(merchList, maxMerchandise, includeItemList);
+                  const copy = { ...p };
+                  if (merchList.length > 0) copy.merchandiseList = prunedMerch;
+                  if (merchList.length > maxMerchandise) {
+                    truncatedPackages.push({
+                      packageNum: p.packageNum as string,
+                      retainedMerchandise: maxMerchandise,
+                      originalMerchandise: merchList.length,
+                    });
+                  }
+                  return copy;
+                });
+
+                (retained as Record<string, unknown>[]).push({
+                  _truncated: true,
+                  _remainingCount: originalCount - maxPackages,
+                });
+
+                return {
+                  pruned: retained,
+                  meta: truncatedPackages,
+                };
+              }
+
+              function pruneOrderList(
+                list: unknown[],
+                config: PruneConfig
+              ): { prunedList: unknown[]; pruneMeta: PruneMeta } {
+                let totalOriginalPackages = 0;
+                let totalRetainedPackages = 0;
+                const allTruncatedPackages: TruncatedPackageInfo[] = [];
+
+                const prunedList = list.map((order) => {
+                  const o = order as Record<string, unknown>;
+                  const packageList = (o.packageList as unknown[]) ?? [];
+                  totalOriginalPackages += packageList.length;
+
+                  const { pruned, meta } = prunePackageList(
+                    packageList,
+                    config.maxPackagesPerOrder,
+                    config.maxMerchandisePerPackage,
+                    config.includeItemList
+                  );
+
+                  const retainedCount = Array.isArray(pruned)
+                    ? pruned.filter((p) => !(p as Record<string, unknown>)._truncated).length
+                    : 0;
+                  totalRetainedPackages += retainedCount;
+                  allTruncatedPackages.push(...meta);
+
+                  return { ...o, packageList: pruned, isPlatformWaybill: isPlatformWaybillOrder(o), effectiveProductCode: effectiveProductCodeForOrder(o), effectiveProductName: effectiveProductNameForOrder(o) };
+                });
+
+                const pruneMeta: PruneMeta = {
+                  originalPackageCount: totalOriginalPackages,
+                  retainedPackageCount: totalRetainedPackages,
+                  truncatedPackages: allTruncatedPackages,
+                };
+
+                return { prunedList, pruneMeta };
+              }
+
+              /** Coze 入口 */
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawOrderData = (params.rawOrderData ?? {}) as Record<string, unknown>;
+                const list = (rawOrderData.list as unknown[]) ?? [];
+
+                const config: PruneConfig = {
+                  maxPackagesPerOrder: (params.maxPackagesPerOrder as number) ?? DEFAULT_CONFIG.maxPackagesPerOrder,
+                  maxMerchandisePerPackage:
+                    (params.maxMerchandisePerPackage as number) ?? DEFAULT_CONFIG.maxMerchandisePerPackage,
+                  includeItemList: (params.includeItemList as boolean) ?? DEFAULT_CONFIG.includeItemList,
+                };
+
+                const { prunedList, pruneMeta } = pruneOrderList(list, config);
+
+                const prunedOrderData = { ...rawOrderData, list: prunedList, _pruneMeta: pruneMeta };
+
+                const ret = {
+                  "prunedOrderData": prunedOrderData,
+                  "_pruneMeta": pruneMeta,
+                };
+                return ret;
+              }
+
+              // 仅当以本文件为入口运行时执行，Coze 不会触发
+              if (typeof process !== "undefined" && process.argv[1]?.includes("prune-outbound-json")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163017"
+              - name: maxPackagesPerOrder
+                input:
+                    value:
+                        path: inputs.maxPackagesPerOrder
+                        ref_node: "100001"
+              - name: maxMerchandisePerPackage
+                input:
+                    value:
+                        path: inputs.maxMerchandisePerPackage
+                        ref_node: "100001"
+              - name: includeItemList
+                input:
+                    value:
+                        path: inputs.includeItemList
+                        ref_node: "100001"
+          node_outputs:
+              prunedOrderData:
+                  type: object
+                  value: null
+              _pruneMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163026"
+      type: code
+      title: load-status-knowledge
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 360
+          y: 280
+      parameters:
+          code: |-
+              /**
+               * 节点：加载状态解读知识片段
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 本节点 `inputs` / `outputs` 一致。
+               *
+               * 【输入】`main({ params })` → `params`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | （无必填） | — | 工作流 `inputs` 为空；可忽略 `params` |
+               *
+               * 【输出】`return ret`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | statusLexicon | string | Markdown：状态码词典 |
+               * | statusScenarios | string | Markdown：场景解读 |
+               * | jsonFieldGuide | string | Markdown：JSON 字段说明 |
+               *
+               * 内容与 `prompts/` 下对应说明保持一致，便于 Coze 单文件部署。
+               */
+
+              // ========== 知识片段（与 prompts/*.md 保持同步） ==========
+              const STATUS_LEXICON = `# 出库单状态词典
+
+              供 Agent 从返回 JSON 中解读出库单状态。状态码来源：[出库单订单状态列表](https://developer.winit.com.cn/document/detail/id/275.html)。
+
+              ## 状态码对照表
+
+              | 状态码 | 状态名 | 万邑联页面 | 解读要点 |
+              |--------|--------|------------|----------|
+              | DR | 草稿 | 草稿 | 表示草稿，尚未提交 |
+              | CFI | 出库确认中 | 已下单 | 仓库确认中 |
+              | CF | 出库确认 | 已下单 | 确认完成，待拣货 |
+              | PKC | 拣选完成 | 仓库处理中 | 拣货完成，待打包 |
+              | PAC | 打包完成 | 仓库处理中 | 打包完成，可能进入暂存 |
+              | TSC | 暂存完成 | 仓库处理中 | 暂存场景：可能待增值信息或自提等 |
+              | OBC | 出库完成 | 出库完成 | 自提类交接完成 |
+              | DLI | 派送中 | 出库完成 | 已交尾程；跟踪号见 JSON 字段 |
+              | HPO | 移交邮局 | 出库完成 | 非跟踪渠道，已交邮局 |
+              | DLC | 派送完成 | 派送完成 | 妥投完成 |
+              | DLF | 派送失败 | 派送失败 | 派送失败 |
+              | DSC | 销毁完成 | 出库完成 | 销毁完成 |
+              | EX | 异常 | 异常 | 可能含部分子单异常 |
+              | VOI | 作废中 | - | 截单/作废处理中 |
+              | VO | 已作废 | 已作废 | 作废完成 |
+
+              ## 出库单类型与状态流转
+
+              ### 标准出库（派送跟踪服务）
+
+              \`\`\`mermaid
+              flowchart LR
+                  CFI[出库确认中] --> CF[出库确认]
+                  CF --> PKC[拣选完成]
+                  PKC --> PAC[打包完成]
+                  PAC --> TSC[暂存完成]
+                  TSC --> DLI[派送中]
+                  DLI --> DLC[派送完成]
+                  DLI --> DLF[派送失败]
+              \`\`\`
+
+              ### 标准出库（非派送跟踪服务）
+
+              \`\`\`mermaid
+              flowchart LR
+                  CFI[出库确认中] --> CF[出库确认]
+                  CF --> PKC[拣选完成]
+                  PKC --> PAC[打包完成]
+                  PAC --> TSC[暂存完成]
+                  TSC --> HPO[移交邮局]
+              \`\`\`
+
+              ### 自提出库
+
+              \`\`\`mermaid
+              flowchart LR
+                  CFI[出库确认中] --> CF[出库确认]
+                  CF --> PKC[拣选完成]
+                  PKC --> PAC[打包完成]
+                  PAC --> TSC[暂存完成]
+                  TSC --> OBC[出库完成]
+              \`\`\`
+
+              ### 销毁出库
+
+              \`\`\`mermaid
+              flowchart LR
+                  CFI[出库确认中] --> CF[出库确认]
+                  CF --> PKC[拣选完成]
+                  PKC --> DSC[销毁完成]
+              \`\`\`
+
+              ### 平台面单（3PL / OSF822）
+
+              当剪枝结果为 **\`isPlatformWaybill: true\`**（产品码 OSF822* 或下单产品名含 3PL）时：**数据含义上**，尾程轨迹通常不在万邑通侧同步；若 JSON 含 **trackingNum / trackingNos**，仅作字段归纳。**职责边界**：不向客户承诺可获取/下载面单或任何线下操作路径。
+
+              ## JSON 中的状态字段
+
+              - **出库单层级**：\`status\`（状态码）、\`statusName\`（状态中文名）
+              - **子单/包裹层级**：\`packageList[].status\`，可能与出库单 \`status\` 不一致（一单多包裹时）
+              - **作废相关**：\`reasonForVoid\`（作废原因）、\`isOperateByWinit\`（是否由万邑通作废）
+              `;
+
+              const STATUS_SCENARIOS = `# 出库单状态场景解读
+
+              供 Agent 结合出库单状态与 JSON 字段，做**场景含义与数据对照**（非客服话术、非操作建议）。
+
+              ## 1. 暂存场景（TSC）
+
+              状态码 **TSC（暂存完成）** 在数据上可能对应两类业务含义，需结合出库单类型字段判断：
+
+              | 场景 | 数据含义 / 与字段关系 |
+              |------|-------------------------|
+              | **标准出库 + 增值服务** | 订单处于暂存，常与待补充的增值信息相关；可对照 \`winitProductCode\`、\`deliverywayName\` 等 |
+              | **自提出库 2.0（OSF823）** | 暂存与自提流程相关；可对照 \`deliverywayName\` / \`winitProductCode\` 是否含自提标识 |
+
+              ### 判断依据（仅基于字段）
+
+              - 出库单 \`deliverywayName\` 或 \`winitProductCode\` 含自提相关标识（如 OSF823）→ 数据上偏向自提暂存路径
+              - 否则 → 数据上偏向标准出库 + 增值相关路径
+
+              ### 平台面单（\`isPlatformWaybill\`）
+
+              \`prunedOrderData.list\` 每项上的 **\`isPlatformWaybill\`**（boolean）由剪枝节点写入：**\`winitProductCode\` 以 OSF822 开头**，或 **\`orderWinitProductName\` 含 3PL**（均大小写不敏感）。为 true 时表示平台面单（3PL）路径，勿与自提 OSF823 等混淆。
+
+              - **数据事实**：此类订单下，尾程物流轨迹**通常不会同步到万邑通系统**。若 JSON 中存在 **\`trackingNum\` / \`trackingNos\`**，可在分析中**引用字段值**说明跟踪号来源；**不提供**「去哪查」「如何获取面单」等指引。
+
+              ## 2. 增值场景
+
+              与 [增值服务参数说明](https://developer.winit.com.cn/document/detail/id/279.html) 关联：
+
+              - 选择特定增值服务的订单，在 **PAC（打包完成）** 后可能进入 **TSC（暂存完成）**
+              - 业务上常需在系统侧补充增值信息或确认后才会继续流转；**分析时只描述状态与字段反映的阶段**，不指引客户操作入口。
+
+              ## 3. 异常场景
+
+              ### 3.1 EX（异常）
+
+              - **含义**：部分子单作废或部分子单派送失败等导致的异常汇总状态
+              - **数据对照**：可结合 \`packageList[]\` 各子单的 \`status\`、\`reasonForVoid\` 做分项说明；**不**建议查件/索赔路径。
+
+              ### 3.2 DLF（派送失败）
+
+              - **含义**：派送失败类终态之一
+              - **数据对照**：可引用 JSON 中与失败相关的字段；**不**输出索赔或查件流程。
+
+              ### 3.3 VO（已作废）、VOI（作废中）
+
+              - **VO**：作废成功
+              - **VOI**：截单/作废处理中
+              - **数据对照**：可引用 \`reasonForVoid\`；**不**引导联系客服或异议流程。
+
+              ## 4. 其他常见状态与字段含义（非话术）
+
+              | 状态 | 字段层面可归纳的要点 |
+              |------|----------------------|
+              | CFI / CF | 尚未进入后续仓库完成节点；处于确认/拣货前阶段 |
+              | DLI | 已交尾程；若有 \`trackingNum\`/\`trackingNos\` 可列出字段值 |
+              | DLC | 派送完成/妥投类状态 |
+              | HPO | 非全程跟踪渠道场景；常与移交邮局相关，可能无可用跟踪号 |
+              `;
+
+              const JSON_FIELD_GUIDE = `# 出库单 JSON 字段解读（精简，仅 id/54 列表）
+
+              ## 问题类型与字段（仅作数据对照）
+              - 平台面单: list[].isPlatformWaybill（剪枝写入；OSF822* 或下单产品名含 3PL）；**尾程轨迹通常不同步到万邑通**；仅陈述字段，**不**引导去承运商/平台查询，**不**承诺面单获取
+              - 到哪步: status, statusName
+              - 出库单号: outboundOrderNum（列表 id/54 可能原为 documentNo，已对齐补全）
+              - 跟踪号: trackingNum, packageList[].trackingNos
+              - 派送商: carrier, packageList[].carrier
+              - 作废原因: reasonForVoid, packageList[].reasonForVoid
+              - 实际仓/渠道: actualWarehouseInfoList, actualProductInfoList
+
+              ## 必读规则
+              - deliveryWayName=下单产品, carrier=实际派送商，组合产品时以 carrier 为准
+              - carrierHasChange: Y=已变更 N=未变更 O=组合服务
+              - 一单多包裹: 各子单 status/trackingNos 可能不同，部分异常时出库单 status 可能为 EX
+
+              ## 根级附加
+              - _fetchMeta: strategy 恒为 list-only；含 batchPluginMerged、requestedTokenCount、actionPlanCount、pluginBatchOutputCount、resolvedCount 等
+              - 当前管线不追加 id/145 / id/56，根级一般无 _enrichment
+              - _pruneMeta: 剪枝元信息
+
+              ## 剪枝 _pruneMeta
+              - 可说明：当前为剪枝后的部分数据；**不**要求客户执行任何操作
+              `;
+
+              /** Coze 入口：输出知识片段供下游 LLM 使用 */
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const ret = {
+                  "statusLexicon": STATUS_LEXICON,
+                  "statusScenarios": STATUS_SCENARIOS,
+                  "jsonFieldGuide": JSON_FIELD_GUIDE,
+                };
+                return ret;
+              }
+
+              // 仅当以本文件为入口运行时执行，Coze 不会触发
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-status-knowledge")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs: []
+          node_outputs:
+              statusLexicon:
+                  type: string
+                  value: null
+              statusScenarios:
+                  type: string
+                  value: null
+              jsonFieldGuide:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163027"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 1160
+          y: 280
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 出库单状态解读专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是出库单状态解读专家，**仅根据本次查询返回的订单 JSON（`prunedOrderData`）、确定性时效事实（`outboundTimingFacts`）、实际测量事实（`packageMeasurementFacts`）和关联退货单事实（`returnOrderFacts`）做事实归纳**：说明当前状态码/状态名、跟踪号、承运商、子单、作废原因、应出库时间、包裹实际尺寸重量，以及派送失败退回场景中的关联退货单、退货原因和完成状态。可进行暂存、增值、异常等**场景与字段含义的对照说明**，但不输出业务代办清单。
+
+                        ## 禁止项（必须遵守）
+
+                        - **不提供操作建议**：不写「下一步怎么做」「请联系谁」「去哪办理」「登录某入口」等；不编造链接或路径。
+                        - **不承诺面单**：不向客户暗示可自行「获取 / 下载 / 打印面单」或承诺任何具体操作方式。
+                        - **不超出数据**：只引用 JSON 中出现的字段与值；无数据处不臆测。
+                        - **实际值不得用预估值替代**：实际尺寸重量只引用 `packageMeasurementFacts` 中的 `actual*` 字段。不得使用 `estimateWeight`、`estimateVolume`、`estimateContainerList` 或普通 `containerList` 冒充实际测量结果。
+                        - **产品不等于承运商**：`deliveryWayName`、`deliverywayName`、`orderWinitProductName`、`winitProductName` 是万邑通产品/渠道名称，不得当作实际承运商；实际承运商优先使用 `carrier`，承运服务使用 `carrierServiceCode` / `carrierServiceName`。
+                        - **退货查询失败不等于无退货单**：必须根据 `returnLookupResults[].fetchStatus` 区分 `no_data` 与 `service_error`；接口失败、账号错误或结果不完整时，禁止回答“没有退货单”。
+
+                        ## 输入
+
+                        与 `workflow.json` 中 `llm-analyze` 节点入参一致（Coze 按占位符替换）。
+
+                        - **query**：`{{query}}`
+                        - **outboundOrderNos**：`{{outboundOrderNos}}`（已为解析后的万邑通 WO 列表；上游客户给的「单号」可能是跟踪号或卖家订单号，工作流已自动尝试两种列表查询）
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **prunedOrderData**（剪枝后的出库单 JSON；先由 id/54 定位订单，再按需用 id/55 补充详情。`list` 每项可能含 **`carrier`**、**`carrierServiceCode`**、**`carrierServiceName`**、**`carrierHasChange`**，以及 **`isPlatformWaybill`**。根级可有 **`_fetchMeta`** 与 **`_pruneMeta`**）：
+
+                        ```json
+                        {{prunedOrderData}}
+                        ```
+
+                        - **outboundTimingFacts**（仅在发货/出库时效意图下调用 `wh.outbound.getPackageDetail` 后产生；一项对应一个子单）：
+
+                        ```json
+                        {{outboundTimingFacts}}
+                        ```
+
+                        - **packageMeasurementFacts**（尺寸/重量/体积意图下调用 `wh.outbound.getPackageDetail` 后产生；一项对应一个子单；单位已确定性映射为 cm、kg、m³）：
+
+                        ```json
+                        {{packageMeasurementFacts}}
+                        ```
+
+                        - **timingRequiresNarrowing**：`{{timingRequiresNarrowing}}`（true 表示子单超过批处理上限，未静默截断）
+
+                        - **returnOrderFacts**（仅在客户明确询问派送失败退回、关联退货单或退货到仓/完成状态时查询；一项对应一个精确匹配的退货单）：
+
+                        ```json
+                        {{returnOrderFacts}}
+                        ```
+
+                        - **returnLookupResults**（逐出库单记录 `success` / `no_data` / `service_error` 与分页是否完整）：
+
+                        ```json
+                        {{returnLookupResults}}
+                        ```
+
+                        - **returnLookupMeta**（是否命中退货事实意图、是否缺少 WO、是否需要缩小范围）：
+
+                        ```json
+                        {{returnLookupMeta}}
+                        ```
+
+                        - **statusLexicon**：`{{statusLexicon}}`
+                        - **statusScenarios**：`{{statusScenarios}}`
+                        - **jsonFieldGuide**：`{{jsonFieldGuide}}`
+
+                        （兼容：若上游合并为一段上下文，可使用 `{{enrichedContext}}`。）
+
+                        ## 输出要求
+
+                        - 当 **`prunedOrderData.list` 中任一项 `isPlatformWaybill === true`**（3PL / 平台面单）时，在 `analysis` 中**客观写出**（勿省略）：该业务类型下，**尾程物流轨迹通常不会同步到万邑通系统**；若 JSON 中含 **`trackingNum` / `packageList[].trackingNos`**，仅**照实列出**这些字段及含义，**不**指导客户去何处办理或查询，也**不**提及面单获取方式。
+                        - **派送承运商（与「不超出数据」一致）**：若 JSON 存在非空 `carrier`，必须照实写出；存在 `carrierServiceCode` / `carrierServiceName` 时同时写明承运服务。多包裹存在 `packageList[].carrier` 时按 `packageNum` 分别归纳。上述字段缺失或为空时明确当前数据未提供实际承运商，禁止用产品名或轨迹描述推断。
+                        - **万邑通产品编码优先级**：JSON 中同时存在 `winitProductCode` / `winitProductName`（产品模板，父级）和 `orderWinitProductCode` / `orderWinitProductName`（**订单实际绑定的产品变体**，如 Zonal / 非 Zonal 等）。剪枝节点已将正确选择写入 **`list[].effectiveProductCode`** / **`list[].effectiveProductName`**（确定性计算，优先 `orderWinitProductCode`，回退 `winitProductCode`）。在 `analysis` 中描述产品时，**必须优先使用 `effectiveProductCode` / `effectiveProductName`**；两者不一致时视为两个不同的渠道变体，不可混淆。`winitProductCode` 放入 structured 输出时也应使用 `effectiveProductCode`。
+                        - **发货/出库时效回复顺序**：客户询问“什么时候发货/出库”时，第一句话直接回答时间事实。`outWhTime` 非空时写“已于……实际出库”；否则使用代码确定的 `expectedOutboundTime` 写“应出库时间为……”。随后再按需补充当前状态和承运商，不要先罗列状态码、产品编码等内部字段。
+                        - **实际尺寸重量回复顺序**：客户询问实际尺寸、重量或体积时，第一句话按 trackingNo / 子单直接给出结果。单箱可写“长 × 宽 × 高 cm，重量 kg”；多箱必须逐箱列出，不得合成一个不存在的整体尺寸。顶层 `actualWeightKg` / `actualVolumeM3` 是子单实际汇总，`actualContainers[]` 是逐箱测量。
+                        - **实际测量无数据/失败**：`packageMeasurementFacts[].fetchStatus=no_data` 时明确“当前接口未返回实际测量值”；`service_error` 时说明“本次未取得实际测量值”。不得回退展示预估值，除非客户另行明确询问预估值。
+                        - **对客时间用语**：`expectedOutboundTimeBasis` 仅用于内部选择口径，不得向客户输出“Seller 页面”“system”“系统时间”等内部术语。`expectedOutboundTimeBasis=system` 时统一称“应出库时间”；仅当值来自 `warehouse_local` 时称“仓库当地应出库时间”。接口没有明确提供时区时，不得自行标注北京时间、UTC或换算时间。
+                        - **无关信息控制**：仅当订单处于作废/作废中状态、存在非空作废原因，或客户明确询问作废时，才说明作废信息；正常出库或派送中的订单不要补充“无作废原因”。
+                        - **时效接口无数据/失败**：`fetchStatus=no_data` 或 `service_error` 时，只说明当前未取得应出库时间，不得生成日期。`timingRequiresNarrowing=true` 时说明需要缩小具体子单/跟踪号范围。
+                        - **退货事实回复顺序**：客户询问关联退货单、退回到仓或完成状态时，第一句话直接给出 `returnOrderFacts` 中的退货单号、`returnReasonName`、`statusName` 和非空 `completeTime`。多个退货单必须全部列出，不得只选择最新一条。
+                        - **退货状态兼容**：代码已把 `OC/CP` 归一为“已完成”，把 `RE/RC` 归一为“仓库已收货”；回答优先使用 `statusName`，原始 `status` 仅作事实补充。未知状态只展示原码，不自行解释。
+                        - **退货原因兼容**：`retrunReason=DF` 归一为“派送失败”，`BR` 归一为“客户退货”；字段名是接口原始拼写。未知原因保留原值，不推断。
+                        - **退货查询异常**：全部 `no_data` 时只能说“当前账号下未查询到关联退货单”；任一 `service_error` 时说明本次未取得退货信息；`returnLookupMeta.missingOutboundOrderNo=true` 时说明未解析出可查询 WO；`requiresNarrowing=true` 或 `partial=true` 时明确结果可能不完整。
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "orderIds": [],
+                              "winitProductCode": "",
+                              "status": "",
+                              "carriers": [],
+                              "outboundTimings": [],
+                              "packageMeasurements": [],
+                              "returnOrders": [],
+                              "returnLookup": {}
+                            },
+                            "analysis": "基于订单数据的状态与字段说明（事实归纳，不含操作建议）。"
+                          }
+                        }
+                        ```
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163010"
+              - name: prunedOrderData
+                input:
+                    value:
+                        path: prunedOrderData
+                        ref_node: "163025"
+              - name: outboundTimingFacts
+                input:
+                    value:
+                        path: outboundTimingFacts
+                        ref_node: "163019"
+              - name: packageMeasurementFacts
+                input:
+                    value:
+                        path: packageMeasurementFacts
+                        ref_node: "163019"
+              - name: timingRequiresNarrowing
+                input:
+                    value:
+                        path: requiresNarrowing
+                        ref_node: "163019"
+              - name: returnOrderFacts
+                input:
+                    value:
+                        path: returnOrderFacts
+                        ref_node: "163022"
+              - name: returnLookupResults
+                input:
+                    value:
+                        path: returnLookupResults
+                        ref_node: "163022"
+              - name: returnLookupMeta
+                input:
+                    value:
+                        path: returnLookupMeta
+                        ref_node: "163022"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: statusLexicon
+                input:
+                    value:
+                        path: statusLexicon
+                        ref_node: "163026"
+              - name: statusScenarios
+                input:
+                    value:
+                        path: statusScenarios
+                        ref_node: "163026"
+              - name: jsonFieldGuide
+                input:
+                    value:
+                        path: jsonFieldGuide
+                        ref_node: "163026"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163028"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1160
+          y: 520
+      parameters:
+          code: |-
+              /**
+               * 节点：格式化 LLM 输出为专家最终结果
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。与 `workflow.json` 本节点 `inputs` / `outputs` 一致。
+               *
+               * 【输入】`params`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | analysisResult | { structured?: object; analysis?: string } | LLM `llm-analyze` 产出；structured 字段见下方 AnalysisResult |
+               * | carrierFacts | CarrierFact[] | id/55/id/54 确定性承运商事实；非空时写入 structured.carriers |
+               * | outboundTimingFacts | OutboundTimingFact[] | getPackageDetail 确定性应出库时间事实；非空时写入 structured.outboundTimings |
+               * | packageMeasurementFacts | PackageMeasurementFact[] | getPackageDetail 确定性实际尺寸重量事实；写入 structured.packageMeasurements |
+               * | timingRequiresNarrowing | boolean | 子单超过批处理上限，禁止静默截断 |
+               * | returnOrderFacts | ReturnOrderFact[] | 关联退货单确定性事实 |
+               * | returnLookupResults | ReturnLookupResult[] | 每个出库单的退货查询结果与失败分类 |
+               * | returnLookupMeta | object | 退货意图、缺少 WO、批量缩小范围标记 |
+               * | prunedOrderData | object | 剪枝后的订单事实；用于确定性输出实际产品与平台面单事实 |
+               * | inputContext | object（可选） | `sourceExpertId?: string; previousOutput?: string \| object; chainId?: string` |
+               *
+               * 【输出】`return ret`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | result | { structured: object; analysis: string } | structured 默认 `{}`；analysis 来自 LLM |
+               * | outputContext | { expertId: string; resultSummary: string; chainId?: string } | expertId=`outbound-order-status` |
+               */
+
+              // ========== 类型（本文件内闭环） ==========
+              interface AnalysisResult {
+                structured?: {
+                  orderIds?: string[];
+                  outboundOrderNos?: string[];
+                  status?: string;
+                  statusName?: string;
+                  trackingNos?: string[];
+                  packageStatuses?: Array<{ packageNum?: string; status?: string }>;
+                  isTruncated?: boolean;
+                  [key: string]: unknown;
+                };
+                analysis?: string;
+              }
+
+              interface InputContext {
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+                chainId?: string;
+              }
+
+              interface CarrierFact {
+                trackingNo?: string;
+                outboundOrderNum: string;
+                carrier: string;
+                carrierServiceCode?: string;
+                carrierServiceName?: string;
+                carrierHasChange?: string;
+                source: "queryOutboundOrder" | "queryOutboundOrderList";
+              }
+
+              interface OutboundTimingFact {
+                outboundOrderNum: string;
+                shippingNo: string;
+                trackingNos: string[];
+                status?: string;
+                orderTime?: string;
+                estimateOutWhTimeLocal?: string;
+                estimateOutWhTime?: string;
+                expectedOutboundTime?: string;
+                expectedOutboundTimeBasis?: "system" | "warehouse_local";
+                outWhTime?: string;
+                warehouseCode?: string;
+                warehouseName?: string;
+                slaList?: Array<{
+                  slaName?: string;
+                  serviceStandardTime?: number;
+                  serviceCompletionTime?: number;
+                  status?: string;
+                }>;
+                fetchStatus: "success" | "no_data" | "service_error";
+                businessCode: string;
+                source: "wh.outbound.getPackageDetail";
+              }
+
+              interface PackageMeasurementFact {
+                outboundOrderNum: string;
+                shippingNo: string;
+                trackingNos: string[];
+                actualWeightKg?: number;
+                actualVolumeM3?: number;
+                actualContainers: Array<{
+                  containerNo?: string;
+                  lengthCm?: number;
+                  widthCm?: number;
+                  heightCm?: number;
+                  weightKg?: number;
+                  volumeM3?: number;
+                }>;
+                fetchStatus: "success" | "no_data" | "service_error";
+                businessCode: string;
+                source: "wh.outbound.getPackageDetail";
+              }
+
+              interface ReturnOrderFact {
+                returnGoodsOrderNo: string;
+                outboundOrderNo: string;
+                returnType?: string;
+                retrunReason?: string;
+                returnReasonName?: string;
+                status?: string;
+                statusName?: string;
+                warehouseCode?: string;
+                createDate?: string;
+                completeTime?: string;
+                qtyItemNum?: number;
+                orderGoodsCount: number;
+                shelveGoodsCount: number;
+                source: "rma.returnGoodsOrder.queryReturnOderList";
+              }
+
+              interface ReturnLookupResult {
+                outboundOrderNo: string;
+                fetchStatus: "success" | "no_data" | "service_error";
+                businessCode: string;
+                returnedCount: number;
+                exactMatchCount: number;
+                partial: boolean;
+              }
+
+              interface ReturnLookupMeta {
+                intentMatched?: boolean;
+                candidateOrderCount?: number;
+                missingOutboundOrderNo?: boolean;
+                requiresNarrowing?: boolean;
+              }
+
+              interface OutboundOrderFact {
+                outboundOrderNo: string;
+                effectiveProductCode: string;
+                effectiveProductName: string;
+                isPlatformWaybill: boolean;
+              }
+
+              interface OutputContext {
+                expertId: string;
+                resultSummary: string;
+                chainId?: string;
+              }
+
+              // ========== 主逻辑 ==========
+              function buildOutputContext(resultSummary: string, chainId?: string): OutputContext {
+                return {
+                  expertId: "outbound-order-status",
+                  resultSummary,
+                  chainId,
+                };
+              }
+
+              function buildResultSummary(analysis: unknown, maxLength = 200): string {
+                const text = String(analysis ?? "").replace(/\s+/g, " ").trim();
+                if (!text) return "出库单状态解读完成";
+                if (text.length <= maxLength) return text;
+
+                const preview = text.slice(0, maxLength);
+                const sentenceEnd = Math.max(
+                  preview.lastIndexOf("。"),
+                  preview.lastIndexOf("！"),
+                  preview.lastIndexOf("？"),
+                  preview.lastIndexOf("；")
+                );
+                if (sentenceEnd >= Math.floor(maxLength * 0.5)) {
+                  return preview.slice(0, sentenceEnd + 1).trim();
+                }
+                return `${preview.slice(0, maxLength - 1).trimEnd()}…`;
+              }
+
+              function buildOutboundOrderFacts(raw: unknown): OutboundOrderFact[] {
+                if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+                const list = (raw as Record<string, unknown>).list;
+                if (!Array.isArray(list)) return [];
+                return list
+                  .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+                  .map((item) => ({
+                    outboundOrderNo: String(item.outboundOrderNum ?? item.documentNo ?? item.orderNo ?? "").trim(),
+                    effectiveProductCode: String(
+                      item.effectiveProductCode ?? item.orderWinitProductCode ?? item.winitProductCode ?? ""
+                    ).trim(),
+                    effectiveProductName: String(
+                      item.effectiveProductName ?? item.orderWinitProductName ?? item.winitProductName ?? ""
+                    ).trim(),
+                    isPlatformWaybill: item.isPlatformWaybill === true,
+                  }))
+                  .filter((item) => item.outboundOrderNo || item.effectiveProductCode || item.effectiveProductName);
+              }
+
+              function buildReturnSummary(
+                facts: ReturnOrderFact[],
+                results: ReturnLookupResult[],
+                meta: ReturnLookupMeta,
+                language: unknown
+              ): string {
+                if (meta.intentMatched !== true) return "";
+                const english = /^en(?:[-_]|$)/i.test(String(language ?? ""));
+                if (meta.requiresNarrowing === true) {
+                  return english
+                    ? "The return-order query covers too many outbound orders; please narrow it to a specific outbound order."
+                    : "关联退货单查询涉及的出库单过多，需要缩小到具体出库单。";
+                }
+                if (meta.missingOutboundOrderNo === true) {
+                  return english
+                    ? "No outbound order number was resolved, so the related return order could not be queried."
+                    : "当前未解析出可查询的出库单号，因此无法核实关联退货单。";
+                }
+                if (facts.length > 0) {
+                  const items = facts.map((fact) => {
+                    const details = [
+                      fact.returnReasonName || fact.retrunReason
+                        ? `${english ? "reason" : "原因"}：${fact.returnReasonName ?? fact.retrunReason}`
+                        : "",
+                      fact.statusName || fact.status
+                        ? `${english ? "status" : "状态"}：${fact.statusName ?? fact.status}`
+                        : "",
+                      fact.completeTime
+                        ? `${english ? "completed at" : "完成时间"}：${fact.completeTime}`
+                        : "",
+                    ].filter(Boolean);
+                    return `${fact.returnGoodsOrderNo}${details.length > 0 ? `（${details.join("；")}）` : ""}`;
+                  });
+                  return english ? `Related return order(s): ${items.join(", ")}.` : `关联退货单：${items.join("；")}。`;
+                }
+                if (results.some((item) => item.fetchStatus === "service_error")) {
+                  return english
+                    ? "The related return-order information could not be retrieved in this query."
+                    : "本次未取得关联退货单信息，不能据此判断不存在退货单。";
+                }
+                if (results.length > 0 && results.every((item) => item.fetchStatus === "no_data")) {
+                  return english
+                    ? "No related return order was found under the current account."
+                    : "当前账号下未查询到关联退货单。";
+                }
+                return "";
+              }
+
+              /** Coze 入口：params.analysisResult, params.inputContext -> result, outputContext */
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const analysisResult = (params.analysisResult ?? {}) as AnalysisResult;
+                const inputContext = params.inputContext as InputContext | undefined;
+                const carrierFacts = Array.isArray(params.carrierFacts)
+                  ? (params.carrierFacts as CarrierFact[]).filter(
+                      (item) => item && typeof item === "object" && String(item.carrier ?? "").trim()
+                    )
+                  : [];
+                const outboundTimingFacts = Array.isArray(params.outboundTimingFacts)
+                  ? (params.outboundTimingFacts as OutboundTimingFact[]).filter(
+                      (item) => item && typeof item === "object" && String(item.shippingNo ?? "").trim()
+                    )
+                  : [];
+                const packageMeasurementFacts = Array.isArray(params.packageMeasurementFacts)
+                  ? (params.packageMeasurementFacts as PackageMeasurementFact[]).filter(
+                      (item) => item && typeof item === "object" && String(item.shippingNo ?? "").trim()
+                    )
+                  : [];
+                const returnOrderFacts = Array.isArray(params.returnOrderFacts)
+                  ? (params.returnOrderFacts as ReturnOrderFact[]).filter(
+                      (item) => item && typeof item === "object" && String(item.returnGoodsOrderNo ?? "").trim()
+                    )
+                  : [];
+                const returnLookupResults = Array.isArray(params.returnLookupResults)
+                  ? (params.returnLookupResults as ReturnLookupResult[]).filter(
+                      (item) => item && typeof item === "object" && String(item.outboundOrderNo ?? "").trim()
+                    )
+                  : [];
+                const returnLookupMeta =
+                  params.returnLookupMeta && typeof params.returnLookupMeta === "object" && !Array.isArray(params.returnLookupMeta)
+                    ? (params.returnLookupMeta as ReturnLookupMeta)
+                    : {};
+                const orderFacts = buildOutboundOrderFacts(params.prunedOrderData);
+                const returnSummary = buildReturnSummary(
+                  returnOrderFacts,
+                  returnLookupResults,
+                  returnLookupMeta,
+                  params.language
+                );
+                const llmAnalysis = String(analysisResult.analysis ?? "").trim();
+                const llmContainsAllReturnOrderNos =
+                  returnOrderFacts.length > 0 &&
+                  returnOrderFacts.every((item) => llmAnalysis.includes(item.returnGoodsOrderNo));
+                const analysis = returnSummary && !llmContainsAllReturnOrderNos
+                  ? [returnSummary, llmAnalysis].filter(Boolean).join("\n")
+                  : llmAnalysis || returnSummary;
+                const summary = buildResultSummary(analysis);
+                const outputContext = buildOutputContext(summary, inputContext?.chainId);
+                const structured = { ...(analysisResult.structured ?? {}) };
+                if (carrierFacts.length > 0) structured.carriers = carrierFacts;
+                if (outboundTimingFacts.length > 0) structured.outboundTimings = outboundTimingFacts;
+                if (packageMeasurementFacts.length > 0) structured.packageMeasurements = packageMeasurementFacts;
+                if (returnOrderFacts.length > 0) structured.returnOrders = returnOrderFacts;
+                if (returnLookupMeta.intentMatched === true) {
+                  structured.returnLookup = {
+                    meta: returnLookupMeta,
+                    results: returnLookupResults,
+                  };
+                }
+                if (params.timingRequiresNarrowing === true || returnLookupMeta.requiresNarrowing === true) {
+                  structured.requiresNarrowing = true;
+                }
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {
+                    ...outputContext,
+                    chainId: outputContext.chainId ?? "",
+                  },
+                  enrichedContext: {
+                    orderFacts,
+                    outboundTimings: outboundTimingFacts,
+                    packageMeasurements: packageMeasurementFacts,
+                    returnOrders: returnOrderFacts,
+                    returnLookupResults,
+                  },
+                };
+              }
+
+              // 仅当以本文件为入口运行时执行，Coze 不会触发
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163027"
+              - name: carrierFacts
+                input:
+                    value:
+                        path: carrierFacts
+                        ref_node: "163017"
+              - name: outboundTimingFacts
+                input:
+                    value:
+                        path: outboundTimingFacts
+                        ref_node: "163019"
+              - name: packageMeasurementFacts
+                input:
+                    value:
+                        path: packageMeasurementFacts
+                        ref_node: "163019"
+              - name: timingRequiresNarrowing
+                input:
+                    value:
+                        path: requiresNarrowing
+                        ref_node: "163019"
+              - name: returnOrderFacts
+                input:
+                    value:
+                        path: returnOrderFacts
+                        ref_node: "163022"
+              - name: returnLookupResults
+                input:
+                    value:
+                        path: returnLookupResults
+                        ref_node: "163022"
+              - name: returnLookupMeta
+                input:
+                    value:
+                        path: returnLookupMeta
+                        ref_node: "163022"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+              - name: prunedOrderData
+                input:
+                    value:
+                        path: prunedOrderData
+                        ref_node: "163025"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163014"
+    - source_node: "163014"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "163018"
+    - source_node: "163018"
+      target_node: "163019"
+    - source_node: "163019"
+      target_node: "163015"
+    - source_node: "163015"
+      target_node: "163020"
+    - source_node: "163020"
+      target_node: "163021"
+    - source_node: "163021"
+      target_node: "163022"
+    - source_node: "163022"
+      target_node: "163016"
+    - source_node: "163016"
+      target_node: "163017"
+    - source_node: "163017"
+      target_node: "163025"
+    - source_node: "163025"
+      target_node: "163026"
+    - source_node: "163026"
+      target_node: "163027"
+    - source_node: "163027"
+      target_node: "163028"
+    - source_node: "163028"
+      target_node: "900001"

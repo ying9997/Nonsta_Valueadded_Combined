@@ -1,0 +1,251 @@
+yamlBasename: sku_registration_guide-draft.yaml
+packageMainName: sku_registration_guide
+packageDescription: SKU 注册与操作引导（validate → resolve-audit → page.list → map hint → KB → LLM → format）
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-audit-status
+    logicalId: winit_item_page_list_audit
+    pluginBatch:
+      enabled: true
+      batchSize: 5
+      concurrentSize: 3
+      actionsFrom:
+        logicalId: build-audit-page-list
+        path: actions
+
+textNodes:
+  - logicalId: kb-expedite-text
+    title: kb-expedite
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-expedite.md
+  - logicalId: kb-carriability-text
+    title: kb-carriability
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-carriability.md
+  - logicalId: kb-register-text
+    title: kb-register
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-register.md
+  - logicalId: kb-audit-resubmit-text
+    title: kb-audit-resubmit
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-audit-resubmit.md
+  - logicalId: kb-direct-shipment-text
+    title: kb-direct-shipment
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-direct-shipment.md
+  - logicalId: kb-attribute-change-text
+    title: kb-attribute-change
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-attribute-change.md
+  - logicalId: kb-inbound-blocked-text
+    title: kb-inbound-blocked
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-inbound-blocked.md
+  - logicalId: kb-unban-text
+    title: kb-unban
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-unban.md
+
+inputBindings:
+  validate-intent:
+    topic:
+      ref: __start__
+      path: inputs.topic
+    intentType:
+      ref: __start__
+      path: inputs.intentType
+    skuCode:
+      ref: __start__
+      path: inputs.skuCode
+    importCountryCode:
+      ref: __start__
+      path: inputs.importCountryCode
+    productLink:
+      ref: __start__
+      path: inputs.productLink
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: __start__
+      path: customerIntent
+    inputContext:
+      ref: __start__
+      path: inputContext
+  resolve-audit-fetch:
+    customerCode:
+      ref: __start__
+      path: customerCode
+    intentType:
+      ref: validate-intent
+      path: intentType
+    skuCode:
+      ref: validate-intent
+      path: skuCode
+    importCountryCode:
+      ref: validate-intent
+      path: importCountryCode
+    skipAudit:
+      ref: validate-intent
+      path: skipAudit
+    profileSnapshot:
+      ref: validate-intent
+      path: profileSnapshot
+  build-audit-page-list:
+    shouldFetch:
+      ref: resolve-audit-fetch
+      path: shouldFetch
+    skipApi:
+      ref: resolve-audit-fetch
+      path: skipApi
+    skuCode:
+      ref: resolve-audit-fetch
+      path: skuCode
+    importCountryCode:
+      ref: resolve-audit-fetch
+      path: importCountryCode
+    fetchProfile:
+      ref: resolve-audit-fetch
+      path: fetchProfile
+  fetch-audit-status:
+    customerCode:
+      ref: resolve-audit-fetch
+      path: customerCode
+    skuCode:
+      ref: resolve-audit-fetch
+      path: skuCode
+    importCountryCode:
+      ref: resolve-audit-fetch
+      path: importCountryCode
+    fetchProfile:
+      ref: build-audit-page-list
+      path: fetchProfile
+    skipApi:
+      ref: build-audit-page-list
+      path: skipApi
+    reuseProfileSnapshot:
+      ref: resolve-audit-fetch
+      path: reuseProfileSnapshot
+    profileSnapshot:
+      ref: resolve-audit-fetch
+      path: profileSnapshot
+    winitPluginOutputList:
+      ref: winit_item_page_list_audit
+      path: outputList
+  load-sku-kb:
+    validationOk:
+      ref: validate-intent
+      path: validationOk
+    intentType:
+      ref: validate-intent
+      path: intentType
+    normalizedTopic:
+      ref: validate-intent
+      path: normalizedTopic
+    needInfoHint:
+      ref: validate-intent
+      path: needInfoHint
+    kbExpedite:
+      ref: kb-expedite-text
+      path: output
+    kbCarriability:
+      ref: kb-carriability-text
+      path: output
+    kbRegister:
+      ref: kb-register-text
+      path: output
+    kbAuditResubmit:
+      ref: kb-audit-resubmit-text
+      path: output
+    kbDirectShipment:
+      ref: kb-direct-shipment-text
+      path: output
+    kbAttributeChange:
+      ref: kb-attribute-change-text
+      path: output
+    kbInboundBlocked:
+      ref: kb-inbound-blocked-text
+      path: output
+    kbUnban:
+      ref: kb-unban-text
+      path: output
+  llm-analyze:
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: validate-intent
+      path: customerIntent
+    intentType:
+      ref: validate-intent
+      path: intentType
+    normalizedTopic:
+      ref: validate-intent
+      path: normalizedTopic
+    skuCode:
+      ref: validate-intent
+      path: skuCode
+    importCountryCode:
+      ref: validate-intent
+      path: importCountryCode
+    productLink:
+      ref: validate-intent
+      path: productLink
+    needInfoHint:
+      ref: validate-intent
+      path: needInfoHint
+    needHumanReason:
+      ref: validate-intent
+      path: needHumanReason
+    profileSnapshot:
+      ref: resolve-audit-fetch
+      path: profileSnapshot
+    kbContent:
+      ref: load-sku-kb
+      path: kbContent
+    auditStatusHint:
+      ref: fetch-audit-status
+      path: auditStatusHint
+    auditFactStatus:
+      ref: fetch-audit-status
+      path: auditFactStatus
+    inputContext:
+      ref: validate-intent
+      path: inputContext
+  format-output:
+    analysisResult:
+      ref: llm-analyze
+      path: analysisResult
+    intentType:
+      ref: validate-intent
+      path: intentType
+    needInfoHint:
+      ref: validate-intent
+      path: needInfoHint
+    needHumanReason:
+      ref: validate-intent
+      path: needHumanReason
+    auditStatusHint:
+      ref: fetch-audit-status
+      path: auditStatusHint
+    auditFactStatus:
+      ref: fetch-audit-status
+      path: auditFactStatus
+    inputContext:
+      ref: validate-intent
+      path: inputContext
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext

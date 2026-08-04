@@ -1,0 +1,2325 @@
+schema_version: 1.0.0
+name: human_service_records
+id: 7806284243145084154
+description: 人工客服历史沟通摘要（身份校验 → 时间范围 → 消息级证据 → LLM 问题回答 → 引用校验）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -180
+          y: 160
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      timeRangeText:
+                          type: string
+                          value: null
+                          description: 用户表达的时间范围，例如昨天、上周、上上周、上月、两个月前、上次、之前、2026-07-11；今天的记录需次日才能查询
+                      timeStart:
+                          type: string
+                          value: null
+                          description: 可选，明确开始时间，格式 YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss，按 Asia/Shanghai 解释
+                      timeEnd:
+                          type: string
+                          value: null
+                          description: 可选，明确结束时间，格式 YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss，按 Asia/Shanghai 解释
+                      keywords:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 可选，用户要确认的订单号、问题关键词或客服曾提到的内容
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+                  required: true
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1640
+          y: 160
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "170107"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "170107"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "170107"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "170107"
+          terminatePlan: returnVariables
+    - id: "170101"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 0
+          y: 160
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input
+               * 校验框架顶层身份字段。身份缺失时后续 fetch 节点会短路，禁止用 customerName 单独查询。
+               */
+
+              interface HumanServiceIdentity {
+                username: string;
+                customerCode: string;
+                customerName: string;
+                language: string;
+              }
+
+              interface HumanServiceValidation {
+                validationStatus: "ok" | "need_identity";
+                canQuery: boolean;
+                identity: HumanServiceIdentity;
+                missingFields: string[];
+                warnings: string[];
+              }
+
+              function stringParam(params: Record<string, unknown>, key: string): string {
+                const v = params[key];
+                if (v === undefined || v === null) return "";
+                return String(v).trim();
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const identity: HumanServiceIdentity = {
+                  username: stringParam(params, "username"),
+                  customerCode: stringParam(params, "customerCode"),
+                  customerName: stringParam(params, "customerName"),
+                  language: stringParam(params, "language") || "zh-CN",
+                };
+
+                const missingFields: string[] = [];
+                if (!identity.username) missingFields.push("username");
+
+                const warnings: string[] = [];
+                if (!identity.customerCode) {
+                  warnings.push("customerCode_missing_for_diagnostics_only");
+                }
+                if (!identity.customerName) {
+                  warnings.push("customerName_missing_for_diagnostics_only");
+                }
+
+                const canQuery = missingFields.length === 0;
+                const validation: HumanServiceValidation = {
+                  validationStatus: canQuery ? "ok" : "need_identity",
+                  canQuery,
+                  identity,
+                  missingFields,
+                  warnings,
+                };
+
+                return {
+                  validation,
+                  validationStatus: validation.validationStatus,
+                  canQuery: validation.canQuery,
+                  identity: validation.identity,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+              - name: customerCode
+                input:
+                    type: string
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    type: string
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: username
+                input:
+                    type: string
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    type: string
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              validation:
+                  type: object
+                  value: null
+              validationStatus:
+                  type: string
+                  value: null
+              canQuery:
+                  type: boolean
+                  value: null
+              identity:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "170102"
+      type: code
+      title: resolve-query-scope
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 220
+          y: 160
+      parameters:
+          code: |-
+              /**
+               * 节点：resolve-query-scope
+               * 解析用户时间表达与查询限制。时间按 Asia/Shanghai 的本地字符串处理，不当作 UTC。
+               */
+
+              interface HumanServiceTimeWindow {
+                kind: "explicit" | "recent";
+                start: string;
+                end: string;
+                source: string;
+              }
+
+              interface HumanServiceQueryScope {
+                queryStatus: "ok" | "rejected_too_old" | "rejected_today_unavailable";
+                rejectReason: string;
+                timeWindow: HumanServiceTimeWindow;
+                serverDateHints: string[];
+                keywords: string[];
+                usedMessageTimeFilter: boolean;
+                recentLatestOnly: boolean;
+                recentKeywordSearch: boolean;
+                sortDirection: "desc" | "asc";
+              }
+
+              function stringParam(params: Record<string, unknown>, key: string): string {
+                const v = params[key];
+                if (v === undefined || v === null) return "";
+                return String(v).trim();
+              }
+
+              function pad2(n: number): string {
+                return String(n).padStart(2, "0");
+              }
+
+              function ymdFromDate(d: Date): string {
+                return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+              }
+
+              function dateFromYmd(ymd: string): Date {
+                const [y, m, d] = ymd.split("-").map((x) => Number(x));
+                return new Date(Date.UTC(y || 1970, (m || 1) - 1, d || 1));
+              }
+
+              function addDays(ymd: string, days: number): string {
+                const d = dateFromYmd(ymd);
+                d.setUTCDate(d.getUTCDate() + days);
+                return ymdFromDate(d);
+              }
+
+              function addMonths(ymd: string, months: number): string {
+                const source = dateFromYmd(ymd);
+                const targetMonth = new Date(Date.UTC(source.getUTCFullYear(), source.getUTCMonth() + months, 1));
+                const lastDay = new Date(Date.UTC(targetMonth.getUTCFullYear(), targetMonth.getUTCMonth() + 1, 0)).getUTCDate();
+                targetMonth.setUTCDate(Math.min(source.getUTCDate(), lastDay));
+                return ymdFromDate(targetMonth);
+              }
+
+              function startOfWeek(ymd: string): string {
+                const d = dateFromYmd(ymd);
+                const day = d.getUTCDay();
+                const daysSinceMonday = day === 0 ? 6 : day - 1;
+                return addDays(ymd, -daysSinceMonday);
+              }
+
+              function startOfMonth(ymd: string): string {
+                return `${ymd.slice(0, 7)}-01`;
+              }
+
+              function endOfMonth(ymd: string): string {
+                return addDays(addMonths(startOfMonth(ymd), 1), -1);
+              }
+
+              function chineseNumber(token: string): number {
+                if (/^\d+$/.test(token)) return Number(token);
+                const digits: Record<string, number> = {
+                  零: 0,
+                  一: 1,
+                  二: 2,
+                  两: 2,
+                  三: 3,
+                  四: 4,
+                  五: 5,
+                  六: 6,
+                  七: 7,
+                  八: 8,
+                  九: 9,
+                };
+                if (token === "十") return 10;
+                const ten = token.indexOf("十");
+                if (ten >= 0) {
+                  const tens = ten === 0 ? 1 : digits[token[ten - 1]!] ?? 0;
+                  const ones = ten === token.length - 1 ? 0 : digits[token[ten + 1]!] ?? 0;
+                  return tens * 10 + ones;
+                }
+                return digits[token] ?? 0;
+              }
+
+              function relativePeriodOffset(text: string, unitPattern: string, currentPattern: RegExp): number | null {
+                if (currentPattern.test(text)) return 0;
+                const repeatedUp = new RegExp(`(上+)(?:个)?(?:${unitPattern})`).exec(text);
+                if (repeatedUp) return repeatedUp[1]!.length;
+                const numbered = new RegExp(`([0-9一二两三四五六七八九十]+)(?:个)?(?:${unitPattern})前`).exec(text);
+                if (numbered) {
+                  const n = chineseNumber(numbered[1]!);
+                  return n > 0 ? n : null;
+                }
+                return null;
+              }
+
+              function resolveRelativeCalendarPeriod(text: string, base: string): HumanServiceTimeWindow | null {
+                const weekOffset = relativePeriodOffset(text, "周|星期", /(?:本|这)(?:个)?(?:周|星期)/);
+                if (weekOffset !== null) {
+                  const start = addDays(startOfWeek(base), -7 * weekOffset);
+                  return {
+                    kind: "explicit",
+                    start: `${start} 00:00:00`,
+                    end: `${addDays(start, 6)} 23:59:59`,
+                    source: "relative_calendar_week",
+                  };
+                }
+
+                const monthOffset = relativePeriodOffset(text, "月", /(?:本|这)(?:个)?月/);
+                if (monthOffset !== null) {
+                  const start = addMonths(startOfMonth(base), -monthOffset);
+                  return {
+                    kind: "explicit",
+                    start: `${start} 00:00:00`,
+                    end: `${endOfMonth(start)} 23:59:59`,
+                    source: "relative_calendar_month",
+                  };
+                }
+                return null;
+              }
+
+              function capAtYesterday(window: HumanServiceTimeWindow, base: string): HumanServiceTimeWindow {
+                const yesterday = addDays(base, -1);
+                if (window.end.slice(0, 10) <= yesterday) return window;
+                return {
+                  ...window,
+                  end: `${yesterday} 23:59:59`,
+                };
+              }
+
+              function isBeforeYmd(a: string, b: string): boolean {
+                return Boolean(a && b && a < b);
+              }
+
+              function normalizeDateToken(s: string): string {
+                const m = /(\d{4})[-/](\d{1,2})[-/](\d{1,2})/.exec(s);
+                if (!m) return "";
+                return `${m[1]}-${pad2(Number(m[2]))}-${pad2(Number(m[3]))}`;
+              }
+
+              function normalizeDateTime(s: string, endOfDay: boolean): string {
+                const date = normalizeDateToken(s);
+                if (!date) return "";
+                const tm = /(?:\d{4}[-/]\d{1,2}[-/]\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/.exec(s);
+                if (!tm) return `${date} ${endOfDay ? "23:59:59" : "00:00:00"}`;
+                return `${date} ${pad2(Number(tm[1]))}:${pad2(Number(tm[2]))}:${pad2(Number(tm[3] ?? 0))}`;
+              }
+
+              function baseYmd(params: Record<string, unknown>): string {
+                const explicit = normalizeDateToken(stringParam(params, "nowIso"));
+                if (explicit) return explicit;
+                const now = new Date();
+                const utc8 = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+                return ymdFromDate(utc8);
+              }
+
+              function buildHints(startDate: string, endDate: string): string[] {
+                const out: string[] = [];
+                let cur = addDays(startDate, -1);
+                const last = addDays(endDate, 1);
+                let reachedLast = false;
+                for (let i = 0; i < 40; i++) {
+                  out.push(cur);
+                  if (cur === last) {
+                    reachedLast = true;
+                    break;
+                  }
+                  cur = addDays(cur, 1);
+                }
+                return reachedLast ? out : [];
+              }
+
+              function collectKeywords(params: Record<string, unknown>, text: string): string[] {
+                const raw = params.keywords;
+                const out: string[] = [];
+                if (Array.isArray(raw)) {
+                  for (const item of raw) {
+                    const s = String(item ?? "").trim();
+                    if (s && !out.includes(s)) out.push(s);
+                  }
+                }
+                const quoted = text.match(/[“"']([^“"']{2,30})[”"']/g) ?? [];
+                for (const q of quoted) {
+                  const s = q.replace(/[“”"']/g, "").trim();
+                  if (s && !out.includes(s)) out.push(s);
+                }
+                return out.slice(0, 10);
+              }
+
+              function resolveWindow(params: Record<string, unknown>): HumanServiceTimeWindow {
+                const text = [
+                  stringParam(params, "timeRangeText"),
+                  stringParam(params, "query"),
+                  stringParam(params, "customerIntent"),
+                ].filter(Boolean).join(" ");
+                const explicitStart = normalizeDateTime(stringParam(params, "timeStart"), false);
+                const explicitEnd = normalizeDateTime(stringParam(params, "timeEnd"), true);
+                if (explicitStart || explicitEnd) {
+                  const base = baseYmd(params);
+                  return capAtYesterday({
+                    kind: "explicit",
+                    start: explicitStart || `${base} 00:00:00`,
+                    end: explicitEnd || `${base} 23:59:59`,
+                    source: "inputs.timeStart/timeEnd",
+                  }, base);
+                }
+
+                const base = baseYmd(params);
+                const explicitDate = normalizeDateToken(text);
+                let day = "";
+                let source = "";
+                if (explicitDate) {
+                  day = explicitDate;
+                  source = "explicit_date";
+                } else if (/前天/.test(text)) {
+                  day = addDays(base, -2);
+                  source = "relative_day";
+                } else if (/昨天|昨日/.test(text)) {
+                  day = addDays(base, -1);
+                  source = "relative_day";
+                } else if (/今天|今日/.test(text)) {
+                  day = base;
+                  source = "relative_day";
+                }
+
+                if (day) {
+                  const morning = /上午|早上|早晨/.test(text);
+                  const afternoon = /下午|午后/.test(text);
+                  const evening = /晚上|夜里|夜间/.test(text);
+                  let start = `${day} 00:00:00`;
+                  let end = `${day} 23:59:59`;
+                  if (morning) {
+                    start = `${day} 00:00:00`;
+                    end = `${day} 11:59:59`;
+                  } else if (afternoon) {
+                    start = `${day} 12:00:00`;
+                    end = `${day} 17:59:59`;
+                  } else if (evening) {
+                    start = `${day} 18:00:00`;
+                    end = `${day} 23:59:59`;
+                  }
+                  return capAtYesterday({ kind: "explicit", start, end, source }, base);
+                }
+
+                const relativeCalendarPeriod = resolveRelativeCalendarPeriod(text, base);
+                if (relativeCalendarPeriod) return capAtYesterday(relativeCalendarPeriod, base);
+
+                return {
+                  kind: "recent",
+                  start: `${addDays(base, -30)} 00:00:00`,
+                  end: `${addDays(base, -1)} 23:59:59`,
+                  source: /之前|上次|以前|历史|曾经/.test(text) ? "vague_recent" : "default_recent_30d",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const timeWindow = resolveWindow(params);
+                const startDate = timeWindow.start.slice(0, 10);
+                const endDate = timeWindow.end.slice(0, 10);
+                const base = baseYmd(params);
+                const oldestAllowedDate = addMonths(base, -6);
+                const todayUnavailable = isBeforeYmd(endDate, startDate);
+                const rejectedTooOld =
+                  !todayUnavailable &&
+                  timeWindow.kind === "explicit" &&
+                  (isBeforeYmd(startDate, oldestAllowedDate) || isBeforeYmd(endDate, oldestAllowedDate));
+                const queryStatus: HumanServiceQueryScope["queryStatus"] = todayUnavailable
+                  ? "rejected_today_unavailable"
+                  : rejectedTooOld
+                    ? "rejected_too_old"
+                    : "ok";
+                const serverDateHints =
+                  queryStatus === "ok" && startDate && endDate ? buildHints(startDate, endDate) : [];
+                const text = `${stringParam(params, "query")} ${stringParam(params, "customerIntent")}`;
+                const keywords = collectKeywords(params, text);
+                const queryScope: HumanServiceQueryScope = {
+                  queryStatus,
+                  rejectReason: todayUnavailable
+                    ? "today_records_available_tomorrow"
+                    : rejectedTooOld
+                      ? "older_than_six_months"
+                      : "",
+                  timeWindow,
+                  serverDateHints,
+                  keywords,
+                  usedMessageTimeFilter: true,
+                  recentLatestOnly: false,
+                  recentKeywordSearch: timeWindow.kind === "recent" && keywords.length > 0,
+                  sortDirection: "desc",
+                };
+                return {
+                  queryScope,
+                  timeWindow,
+                  serverDateHints,
+                  keywords: queryScope.keywords,
+                  usedMessageTimeFilter: true,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-query-scope")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: timeRangeText
+                input:
+                    type: string
+                    value:
+                        path: inputs.timeRangeText
+                        ref_node: "100001"
+              - name: timeStart
+                input:
+                    type: string
+                    value:
+                        path: inputs.timeStart
+                        ref_node: "100001"
+              - name: timeEnd
+                input:
+                    type: string
+                    value:
+                        path: inputs.timeEnd
+                        ref_node: "100001"
+              - name: keywords
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inputs.keywords
+                        ref_node: "100001"
+          node_outputs:
+              queryScope:
+                  type: object
+                  value: null
+              timeWindow:
+                  type: object
+                  value: null
+              serverDateHints:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              usedMessageTimeFilter:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "170103"
+      type: code
+      title: fetch-human-service-records
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 460
+          y: 160
+      parameters:
+          code: |-
+              /**
+               * 节点：fetch-human-service-records
+               * 通过飞书 Wiki node token 解析 Bitable app token，再按 username 匹配客户邮箱查询。
+               * 仓库不提交真实凭证；Coze 上线时通过节点安全配置或人工填充占位常量。
+               */
+
+              const FEISHU_APP_ID = "__FEISHU_APP_ID__";
+              const FEISHU_APP_SECRET = "__FEISHU_APP_SECRET__";
+              const FEISHU_HUMAN_SERVICE_WIKI_NODE_TOKEN = "__FEISHU_HUMAN_SERVICE_WIKI_NODE_TOKEN__";
+              const FEISHU_HUMAN_SERVICE_TABLE_ID = "tbl3XLmGtZUm658z";
+              const FEISHU_HUMAN_SERVICE_VIEW_ID = "vew1laA6wo";
+
+              interface ValidationLite {
+                canQuery?: boolean;
+                identity?: {
+                  username?: string;
+                  customerCode?: string;
+                  customerName?: string;
+                };
+              }
+
+              interface QueryScopeLite {
+                queryStatus?: string;
+                rejectReason?: string;
+                serverDateHints?: string[];
+                sortDirection?: string;
+              }
+
+              interface FieldMeta {
+                field_id: string;
+                field_name: string;
+                type?: number;
+                ui_type?: string;
+              }
+
+              interface HumanServiceRecord {
+                recordId: string;
+                conversationId: string;
+                conversationStartedAt: string;
+                messages: string;
+                customerEmail: string;
+                customerName: string;
+                agentName: string;
+                channel: string;
+                categories: string[];
+              }
+
+              function stringParam(params: Record<string, unknown>, key: string): string {
+                const v = params[key];
+                if (v === undefined || v === null) return "";
+                return String(v).trim();
+              }
+
+              function envValue(name: string): string {
+                if (typeof process === "undefined" || !process.env) return "";
+                return String(process.env[name] ?? "").trim();
+              }
+
+              function usableConfigValue(v: string): string {
+                const s = String(v ?? "").trim();
+                if (/^__[^_].*__$/.test(s)) return "";
+                return s;
+              }
+
+              function configValue(params: Record<string, unknown>, paramKey: string, constantValue: string, envKey: string): string {
+                return usableConfigValue(stringParam(params, paramKey)) || usableConfigValue(constantValue) || envValue(envKey);
+              }
+
+              function normalizeFieldName(s: string): string {
+                return String(s ?? "").replace(/\s+/g, "").trim().toLowerCase();
+              }
+
+              function cellToString(v: unknown): string {
+                if (v === undefined || v === null) return "";
+                if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+                  return String(v).trim();
+                }
+                if (Array.isArray(v)) {
+                  const parts: string[] = [];
+                  for (const item of v) {
+                    const s = cellToString(item);
+                    if (s) parts.push(s);
+                  }
+                  return parts.join("").trim();
+                }
+                if (typeof v === "object") {
+                  const o = v as Record<string, unknown>;
+                  if (o.text !== undefined) return cellToString(o.text);
+                  if (o.name !== undefined) return cellToString(o.name);
+                  if (o.value !== undefined) return cellToString(o.value);
+                  if (o.link !== undefined) return cellToString(o.link);
+                }
+                return String(v).trim();
+              }
+
+              function categoriesFromFields(fields: Record<string, unknown>, names: string[]): string[] {
+                const out: string[] = [];
+                for (const name of names) {
+                  const s = cellToString(fields[name]);
+                  if (s) out.push(s);
+                }
+                return out;
+              }
+
+              async function feishuJson(url: string, init: Record<string, unknown>): Promise<Record<string, unknown>> {
+                const res = await fetch(url, init as RequestInit);
+                const data = (await res.json()) as Record<string, unknown>;
+                if (data.code !== 0) {
+                  throw new Error(JSON.stringify({ code: data.code, msg: data.msg, url }));
+                }
+                return data;
+              }
+
+              async function tenantToken(appId: string, appSecret: string): Promise<string> {
+                const data = await feishuJson("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+                });
+                return String(data.tenant_access_token ?? "");
+              }
+
+              async function wikiNodeToBitableAppToken(token: string, wikiNodeToken: string): Promise<string> {
+                const url =
+                  "https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?" +
+                  new URLSearchParams({ token: wikiNodeToken }).toString();
+                const data = await feishuJson(url, { headers: { Authorization: `Bearer ${token}` } });
+                const d = data.data as Record<string, unknown> | undefined;
+                const node = d?.node as Record<string, unknown> | undefined;
+                return String(node?.obj_token ?? "");
+              }
+
+              async function listFields(token: string, appToken: string, tableId: string): Promise<FieldMeta[]> {
+                const out: FieldMeta[] = [];
+                let pageToken = "";
+                for (let page = 0; page < 20; page++) {
+                  const q = new URLSearchParams({ page_size: "100" });
+                  if (pageToken) q.set("page_token", pageToken);
+                  const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/fields?${q}`;
+                  const data = await feishuJson(url, { headers: { Authorization: `Bearer ${token}` } });
+                  const d = data.data as Record<string, unknown> | undefined;
+                  const items = (d?.items as unknown[]) ?? [];
+                  for (const item of items) {
+                    const f = item as Record<string, unknown>;
+                    out.push({
+                      field_id: String(f.field_id ?? ""),
+                      field_name: String(f.field_name ?? ""),
+                      type: Number(f.type ?? 0),
+                      ui_type: String(f.ui_type ?? ""),
+                    });
+                  }
+                  pageToken = d?.page_token ? String(d.page_token) : "";
+                  if (!pageToken) break;
+                }
+                return out;
+              }
+
+              function requireField(fields: FieldMeta[], label: string): string {
+                const want = normalizeFieldName(label);
+                const found = fields.find((f) => normalizeFieldName(f.field_name) === want);
+                if (!found?.field_name) throw new Error(`missing_field:${label}`);
+                return found.field_name;
+              }
+
+              function optionalField(fields: FieldMeta[], label: string): string {
+                const want = normalizeFieldName(label);
+                return fields.find((f) => normalizeFieldName(f.field_name) === want)?.field_name ?? "";
+              }
+
+              function buildFilter(fieldMap: Record<string, string>, identity: ValidationLite["identity"], dateHints: string[]) {
+                const identityFilter = {
+                  conjunction: "and",
+                  conditions: [
+                    { field_name: fieldMap.customerEmail, operator: "is", value: [identity?.username ?? ""] },
+                  ],
+                };
+                if (!dateHints.length) return identityFilter;
+                return {
+                  conjunction: "and",
+                  children: [
+                    identityFilter,
+                    {
+                      conjunction: "or",
+                      conditions: dateHints.map((d) => ({
+                        field_name: fieldMap.conversationStartedAt,
+                        operator: "contains",
+                        value: [d],
+                      })),
+                    },
+                  ],
+                };
+              }
+
+              function sortRecordsNewestFirst(records: HumanServiceRecord[]): HumanServiceRecord[] {
+                return records.sort((a, b) => String(b.conversationStartedAt).localeCompare(String(a.conversationStartedAt)));
+              }
+
+              async function searchRecords(
+                token: string,
+                appToken: string,
+                tableId: string,
+                viewId: string,
+                fieldMap: Record<string, string>,
+                validation: ValidationLite,
+                queryScope: QueryScopeLite
+              ): Promise<{ records: HumanServiceRecord[]; recordsTruncated: boolean; pageCount: number }> {
+                const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/search`;
+                const records: HumanServiceRecord[] = [];
+                const categoryFields = [
+                  fieldMap.classifications,
+                  fieldMap.category1,
+                  fieldMap.category2,
+                  fieldMap.category3,
+                  fieldMap.sceneCategory,
+                ].filter(Boolean);
+                const fieldNames = [
+                  fieldMap.customerEmail,
+                  fieldMap.customerName,
+                  fieldMap.messages,
+                  fieldMap.conversationId,
+                  fieldMap.conversationStartedAt,
+                  fieldMap.agentName,
+                  fieldMap.channel,
+                  ...categoryFields,
+                ].filter(Boolean);
+                let pageToken = "";
+                let recordsTruncated = false;
+                let pageCount = 0;
+                const seenPageTokens = new Set<string>();
+                while (true) {
+                  if (pageToken) {
+                    if (seenPageTokens.has(pageToken)) {
+                      recordsTruncated = true;
+                      break;
+                    }
+                    seenPageTokens.add(pageToken);
+                  }
+                  pageCount++;
+                  const body: Record<string, unknown> = {
+                    page_size: 100,
+                    view_id: viewId,
+                    field_names: fieldNames,
+                    filter: buildFilter(fieldMap, validation.identity, queryScope.serverDateHints ?? []),
+                  };
+                  if (fieldMap.conversationStartedAt) {
+                    body.sort = [
+                      {
+                        field_name: fieldMap.conversationStartedAt,
+                        desc: queryScope.sortDirection !== "asc",
+                      },
+                    ];
+                  }
+                  if (pageToken) body.page_token = pageToken;
+                  const data = await feishuJson(url, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json; charset=utf-8",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(body),
+                  });
+                  const d = data.data as Record<string, unknown> | undefined;
+                  const items = (d?.items as unknown[]) ?? [];
+                  for (const item of items) {
+                    const rec = item as Record<string, unknown>;
+                    const fields = (rec.fields as Record<string, unknown>) ?? {};
+                    records.push({
+                      recordId: String(rec.record_id ?? ""),
+                      conversationId: cellToString(fields[fieldMap.conversationId]) || String(rec.record_id ?? ""),
+                      conversationStartedAt: cellToString(fields[fieldMap.conversationStartedAt]),
+                      messages: cellToString(fields[fieldMap.messages]),
+                      customerEmail: cellToString(fields[fieldMap.customerEmail]),
+                      customerName: cellToString(fields[fieldMap.customerName]),
+                      agentName: cellToString(fields[fieldMap.agentName]),
+                      channel: cellToString(fields[fieldMap.channel]),
+                      categories: categoriesFromFields(fields, categoryFields),
+                    });
+                  }
+                  pageToken = d?.page_token ? String(d.page_token) : "";
+                  if (!pageToken) break;
+                }
+                return { records: sortRecordsNewestFirst(records), recordsTruncated, pageCount };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validation = (params.validation ?? {}) as ValidationLite;
+                const queryScope = (params.queryScope ?? {}) as QueryScopeLite;
+                if (validation.canQuery !== true) {
+                  return {
+                    humanServiceRecords: {
+                      fetchStatus: "skipped_identity",
+                      records: [],
+                      recordsTruncated: false,
+                      identityMatched: false,
+                    },
+                  };
+                }
+                if (queryScope.queryStatus === "rejected_too_old") {
+                  return {
+                    humanServiceRecords: {
+                      fetchStatus: "rejected_too_old",
+                      rejectReason: queryScope.rejectReason || "older_than_six_months",
+                      records: [],
+                      recordsTruncated: false,
+                      identityMatched: true,
+                    },
+                  };
+                }
+                if (queryScope.queryStatus === "rejected_today_unavailable") {
+                  return {
+                    humanServiceRecords: {
+                      fetchStatus: "rejected_today_unavailable",
+                      rejectReason: queryScope.rejectReason || "today_records_available_tomorrow",
+                      records: [],
+                      recordsTruncated: false,
+                      identityMatched: true,
+                    },
+                  };
+                }
+
+                const appId = configValue(params, "feishuAppId", FEISHU_APP_ID, "FEISHU_APP_ID");
+                const appSecret = configValue(params, "feishuAppSecret", FEISHU_APP_SECRET, "FEISHU_APP_SECRET");
+                const wikiNodeToken = configValue(
+                  params,
+                  "feishuHumanServiceWikiNodeToken",
+                  FEISHU_HUMAN_SERVICE_WIKI_NODE_TOKEN,
+                  "FEISHU_HUMAN_SERVICE_WIKI_NODE_TOKEN"
+                );
+                const tableId = configValue(
+                  params,
+                  "feishuHumanServiceTableId",
+                  FEISHU_HUMAN_SERVICE_TABLE_ID,
+                  "FEISHU_HUMAN_SERVICE_TABLE_ID"
+                );
+                const viewId = configValue(
+                  params,
+                  "feishuHumanServiceViewId",
+                  FEISHU_HUMAN_SERVICE_VIEW_ID,
+                  "FEISHU_HUMAN_SERVICE_VIEW_ID"
+                );
+
+                if (!appId || !appSecret || !wikiNodeToken || !tableId || !viewId) {
+                  return {
+                    humanServiceRecords: {
+                      fetchStatus: "missing_config",
+                      records: [],
+                      recordsTruncated: false,
+                      identityMatched: false,
+                    },
+                  };
+                }
+
+                try {
+                  const token = await tenantToken(appId, appSecret);
+                  const appToken = await wikiNodeToBitableAppToken(token, wikiNodeToken);
+                  if (!appToken) throw new Error("wiki_node_missing_bitable_obj_token");
+                  const fields = await listFields(token, appToken, tableId);
+                  const fieldMap = {
+                    customerEmail: requireField(fields, "客户邮箱"),
+                    customerName: requireField(fields, "客户"),
+                    messages: requireField(fields, "messages"),
+                    conversationId: optionalField(fields, "对话组ID"),
+                    conversationStartedAt: requireField(fields, "对话开始时间"),
+                    agentName: optionalField(fields, "客服"),
+                    channel: optionalField(fields, "渠道"),
+                    classifications: optionalField(fields, "classifications"),
+                    category1: optionalField(fields, "对话分类_1"),
+                    category2: optionalField(fields, "对话分类_2"),
+                    category3: optionalField(fields, "对话分类_3"),
+                    sceneCategory: optionalField(fields, "场景分类"),
+                  };
+                  const result = await searchRecords(token, appToken, tableId, viewId, fieldMap, validation, queryScope);
+                  return {
+                    humanServiceRecords: {
+                      fetchStatus: "ok",
+                      records: result.records,
+                      recordsTruncated: result.recordsTruncated,
+                      identityMatched: true,
+                      pageCount: result.pageCount,
+                      fieldMap,
+                    },
+                  };
+                } catch (e) {
+                  return {
+                    humanServiceRecords: {
+                      fetchStatus: "fetch_failed",
+                      fetchError: e instanceof Error ? e.message : String(e),
+                      records: [],
+                      recordsTruncated: false,
+                      identityMatched: false,
+                    },
+                  };
+                }
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-human-service-records")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: validation
+                input:
+                    type: object
+                    value:
+                        path: validation
+                        ref_node: "170101"
+              - name: queryScope
+                input:
+                    type: object
+                    value:
+                        path: queryScope
+                        ref_node: "170102"
+          node_outputs:
+              humanServiceRecords:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "170104"
+      type: code
+      title: parse-message-turns
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 700
+          y: 160
+      parameters:
+          code: |-
+              /**
+               * 节点：parse-message-turns
+               * 将 messages 文本解析为消息级 turn，支持后续行并入上一条消息。
+               */
+
+              interface HumanServiceRecordLite {
+                recordId?: string;
+                conversationId?: string;
+                conversationStartedAt?: string;
+                messages?: string;
+                agentName?: string;
+                channel?: string;
+                categories?: string[];
+              }
+
+              interface MessageTurn {
+                recordId: string;
+                conversationId: string;
+                conversationStartedAt: string;
+                timestamp: string;
+                role: "agent" | "customer" | "other";
+                speaker: string;
+                text: string;
+                agentName: string;
+                channel: string;
+                categories: string[];
+              }
+
+              function roleFromSpeaker(speaker: string): "agent" | "customer" | "other" {
+                const s = speaker.toLowerCase();
+                if (/客服|坐席|agent|service/.test(s)) return "agent";
+                if (/客户|用户|customer|user/.test(s)) return "customer";
+                return "other";
+              }
+
+              function asRecordArray(v: unknown): HumanServiceRecordLite[] {
+                if (!v || typeof v !== "object") return [];
+                const records = (v as { records?: unknown }).records;
+                return Array.isArray(records) ? records as HumanServiceRecordLite[] : [];
+              }
+
+              function parseRecord(record: HumanServiceRecordLite): MessageTurn[] {
+                const text = String(record.messages ?? "");
+                const normalizedText = text.replace(/(?!^)(\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}]\s*)/g, "\n$1");
+                const lines = normalizedText.split(/\r?\n/);
+                const turns: MessageTurn[] = [];
+                const re = /^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})]\s*([^:：]+)[:：]\s*(.*)$/;
+                for (const line of lines) {
+                  const m = re.exec(line);
+                  if (m) {
+                    const speaker = String(m[2] ?? "").trim();
+                    turns.push({
+                      recordId: String(record.recordId ?? ""),
+                      conversationId: String(record.conversationId || record.recordId || ""),
+                      conversationStartedAt: String(record.conversationStartedAt ?? ""),
+                      timestamp: String(m[1] ?? ""),
+                      role: roleFromSpeaker(speaker),
+                      speaker,
+                      text: String(m[3] ?? "").trim(),
+                      agentName: String(record.agentName ?? ""),
+                      channel: String(record.channel ?? ""),
+                      categories: Array.isArray(record.categories) ? record.categories.map((x) => String(x)) : [],
+                    });
+                    continue;
+                  }
+                  const tail = line.trim();
+                  if (tail && turns.length > 0) {
+                    const last = turns[turns.length - 1]!;
+                    last.text = `${last.text}\n${tail}`.trim();
+                  }
+                }
+                return turns;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const records = asRecordArray(params.humanServiceRecords);
+                const messageTurns = records.flatMap((record) => parseRecord(record));
+                return {
+                  messageTurns,
+                  parseSummary: {
+                    recordCount: records.length,
+                    messageTurnCount: messageTurns.length,
+                    parseStatus: records.length === 0 ? "no_records" : messageTurns.length === 0 ? "no_messages" : "ok",
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("parse-message-turns")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: humanServiceRecords
+                input:
+                    type: object
+                    value:
+                        path: humanServiceRecords
+                        ref_node: "170103"
+          node_outputs:
+              messageTurns:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              parseSummary:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "170105"
+      type: code
+      title: build-summary-evidence
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 940
+          y: 160
+      parameters:
+          code: |-
+              /**
+               * 将已按账号与时间范围拉取的人工客服消息整理为一次 LLM 可消费的证据包。
+               * 附件 URL 只传给最终代码渲染节点，不传给 LLM。
+               */
+
+              interface MessageTurn {
+                conversationId?: string;
+                recordId?: string;
+                timestamp?: string;
+                role?: string;
+                speaker?: string;
+                text?: string;
+                agentName?: string;
+                channel?: string;
+                categories?: string[];
+              }
+
+              interface QueryScope {
+                timeWindow?: { start?: string; end?: string };
+                keywords?: string[];
+              }
+
+              type AttachmentType = "image" | "file" | "video" | "audio";
+              type AttachmentIntent = "none" | "check" | "deliver" | "summary_auto";
+              type AttachmentRoleFilter = "agent" | "customer" | "any";
+
+              interface ParsedAttachment {
+                type: AttachmentType;
+                url?: string;
+              }
+
+              interface TurnEntry {
+                turn: MessageTurn;
+                index: number;
+                conversationId: string;
+                attachment?: ParsedAttachment;
+              }
+
+              interface Evidence {
+                id: string;
+                conversationId: string;
+                timestamp: string;
+                role: string;
+                speaker: string;
+                text: string;
+                textTruncated: boolean;
+                kind: "message" | "attachment";
+                attachmentType?: AttachmentType;
+              }
+
+              interface AttachmentFact {
+                id: string;
+                conversationId: string;
+                timestamp: string;
+                role: string;
+                speaker: string;
+                type: AttachmentType;
+                linkAvailable: boolean;
+              }
+
+              interface AttachmentDeliveryItem extends AttachmentFact {
+                url: string;
+              }
+
+              const MAX_EVIDENCE_CHARS = 24_000;
+              const MAX_EVIDENCE_TEXT_CHARS = 1_200;
+              const MAX_DELIVERY_ATTACHMENTS = 20;
+              const MAX_AUTO_DELIVERY_ATTACHMENTS = 3;
+              const MAX_DELIVERY_LINK_CHARS = 12_000;
+
+              function text(value: unknown): string {
+                return String(value ?? "").trim();
+              }
+
+              function inWindow(turn: MessageTurn, scope: QueryScope): boolean {
+                const timestamp = text(turn.timestamp);
+                const start = text(scope.timeWindow?.start);
+                const end = text(scope.timeWindow?.end);
+                return !timestamp || !start || !end || (timestamp >= start && timestamp <= end);
+              }
+
+              function isSafeHttpUrl(value: string): boolean {
+                if (!/^https?:\/\/[^\s<>]+$/i.test(value)) return false;
+                try {
+                  const parsed = new URL(value);
+                  return parsed.protocol === "https:" || parsed.protocol === "http:";
+                } catch {
+                  return false;
+                }
+              }
+
+              function parseAttachment(turn: MessageTurn): ParsedAttachment | undefined {
+                const raw = text(turn.text);
+                const marker = /^\[(image|file|video|audio)\]/i.exec(raw);
+                if (!marker) return undefined;
+                const type = marker[1].toLowerCase() as AttachmentType;
+                const url = /https?:\/\/[^\s<>]+/i.exec(raw)?.[0] ?? "";
+                return isSafeHttpUrl(url) ? { type, url } : { type };
+              }
+
+              function isAttachmentMarker(turn: MessageTurn): boolean {
+                return /^\[(image|file|video|audio)\]/i.test(text(turn.text));
+              }
+
+              function isLowValue(turn: MessageTurn): boolean {
+                const value = text(turn.text);
+                const compact = value.replace(/\s+/g, "");
+                return (
+                  !value ||
+                  isAttachmentMarker(turn) ||
+                  /有新的咨询进来了|发送满意度调查|您的对话已关闭|匿名调研|survey\.winit\.com\.cn|我将关闭此对话|祝您生活愉快/.test(value) ||
+                  /请问.*还有.*问题.*咨询吗|还有其他问题咨询吗|还有其它问题咨询吗|仍有问题需要咨询|再次上线联系/.test(compact) ||
+                  /^(您好|你好|不客气|好的?|可以的?)[。！!]*$/.test(compact)
+                );
+              }
+
+              function isSubstantive(turn: MessageTurn): boolean {
+                const value = text(turn.text);
+                return !isLowValue(turn) && (value.length >= 6 || /怎么|为什么|操作|确认|订单|入库|标签|箱唛|异常|处理/.test(value));
+              }
+
+              function requestType(query: string, keywords: string[]): "recap" | "how_to" | "fact_check" | "outcome" {
+                const value = `${query} ${keywords.join(" ")}`;
+                if (/处理了吗|有没有结果|结果如何|进度|完成了吗|已处理/.test(value)) return "outcome";
+                if (/怎么|如何|操作|怎么办|步骤|处理方式/.test(value)) return "how_to";
+                if (/是否|有没有|能否|可以吗|是不是|确认/.test(value)) return "fact_check";
+                return "recap";
+              }
+
+              function attachmentIntent(query: string): AttachmentIntent {
+                if (!/图片|照片|截图|附件|文件|文档|视频|音频|语音|录音/.test(query)) return "none";
+                if (
+                  /给我|发我|查看|打开|下载|链接/.test(query) ||
+                  /(?:图片|照片|截图|附件|文件|文档|视频|音频|语音|录音).{0,8}(?:是什么|哪张|哪个|内容|具体内容)/.test(query)
+                ) {
+                  return "deliver";
+                }
+                return "check";
+              }
+
+              function attachmentRoleFilter(query: string): AttachmentRoleFilter {
+                if (/(?:我|客户)(?:自己)?(?:给|向)?(?:客服|人工|坐席).{0,12}(?:发|传|上传)/.test(query)) return "customer";
+                if (/(?:客服|人工|坐席|服务人员)(?:给我|向我|发给我|发送给我|传给我|上传给我|发我的|发送我的)/.test(query)) return "agent";
+                if (/(?:客服|人工|坐席|服务人员)(?:之前|上次|曾|曾经|有|是否|有没有)?(?:发过|发送过|传过|上传过|发的|发送的|传的|上传的|的图片|的附件)/.test(query)) return "agent";
+                if (/(?:我|客户)(?:自己)?(?:发|传|上传)(?:的)?(?:图片|照片|截图|附件|文件|文档|视频|音频|语音|录音)?/.test(query)) return "customer";
+                return "any";
+              }
+
+              function attachmentTypes(query: string): AttachmentType[] {
+                const out: AttachmentType[] = [];
+                const hasSpecificType = /图片|照片|截图|文件|文档|视频|音频|语音|录音/.test(query);
+                if (/附件/.test(query) && !hasSpecificType) return out;
+                if (/图片|照片|截图/.test(query)) out.push("image");
+                if (/文件|文档/.test(query)) out.push("file");
+                if (/视频/.test(query)) out.push("video");
+                if (/音频|语音|录音/.test(query)) out.push("audio");
+                return out;
+              }
+
+              function keywordHit(turn: MessageTurn, keywords: string[]): boolean {
+                if (keywords.length === 0) return false;
+                const value = `${text(turn.text)} ${text(turn.speaker)}`.toLowerCase();
+                return keywords.some((keyword) => value.includes(keyword.toLowerCase()));
+              }
+
+              function conversationId(turn: MessageTurn, index: number): string {
+                return text(turn.conversationId) || text(turn.recordId) || `unknown-${index}`;
+              }
+
+              function truncate(value: string): { text: string; textTruncated: boolean } {
+                if (value.length <= MAX_EVIDENCE_TEXT_CHARS) return { text: value, textTruncated: false };
+                return { text: `${value.slice(0, MAX_EVIDENCE_TEXT_CHARS)}…`, textTruncated: true };
+              }
+
+              function latestConversationId(entries: TurnEntry[]): string {
+                const lastByConversation = new Map<string, string>();
+                for (const entry of entries) {
+                  const timestamp = text(entry.turn.timestamp);
+                  if (!lastByConversation.has(entry.conversationId) || timestamp > String(lastByConversation.get(entry.conversationId))) {
+                    lastByConversation.set(entry.conversationId, timestamp);
+                  }
+                }
+                return [...lastByConversation.entries()].sort((a, b) => b[1].localeCompare(a[1]))[0]?.[0] ?? "";
+              }
+
+              function selectSpecificEvidenceEntries(entries: TurnEntry[], keywords: string[]): TurnEntry[] {
+                if (keywords.length === 0) return entries;
+                const byConversation = new Map<string, TurnEntry[]>();
+                for (const entry of entries) {
+                  const group = byConversation.get(entry.conversationId) ?? [];
+                  group.push(entry);
+                  byConversation.set(entry.conversationId, group);
+                }
+
+                const selectedIndexes = new Set<number>();
+                for (const group of byConversation.values()) {
+                  const hitIndexes = group
+                    .map((entry, index) => (keywordHit(entry.turn, keywords) ? index : -1))
+                    .filter((index) => index >= 0);
+                  if (hitIndexes.length === 0) continue;
+                  for (const hitIndex of hitIndexes) {
+                    for (const offset of [-1, 0, 1]) {
+                      const entry = group[hitIndex + offset];
+                      if (entry) selectedIndexes.add(entry.index);
+                    }
+                  }
+                  const finalAgent = [...group].reverse().find((entry) => text(entry.turn.role) === "agent");
+                  if (finalAgent) selectedIndexes.add(finalAgent.index);
+                }
+                return entries.filter((entry) => selectedIndexes.has(entry.index));
+              }
+
+              function attachmentId(entry: TurnEntry): string {
+                return `att-${entry.conversationId}-${text(entry.turn.timestamp).replace(/[^0-9]/g, "") || entry.index}-${entry.index + 1}`;
+              }
+
+              function attachmentLabel(type: AttachmentType): string {
+                return type === "image" ? "图片" : type === "file" ? "文件" : type === "video" ? "视频" : "音频";
+              }
+
+              function attachmentMatches(entry: TurnEntry, types: AttachmentType[], roleFilter: AttachmentRoleFilter): boolean {
+                if (!entry.attachment) return false;
+                if (types.length > 0 && !types.includes(entry.attachment.type)) return false;
+                return roleFilter === "any" || text(entry.turn.role) === roleFilter;
+              }
+
+              function attachmentFact(entry: TurnEntry): AttachmentFact | undefined {
+                if (!entry.attachment) return undefined;
+                return {
+                  id: attachmentId(entry),
+                  conversationId: entry.conversationId,
+                  timestamp: text(entry.turn.timestamp),
+                  role: text(entry.turn.role) || "other",
+                  speaker: text(entry.turn.speaker),
+                  type: entry.attachment.type,
+                  linkAvailable: Boolean(entry.attachment.url),
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const turns = Array.isArray(params.messageTurns) ? (params.messageTurns as MessageTurn[]) : [];
+                const scope = (params.queryScope && typeof params.queryScope === "object" ? params.queryScope : {}) as QueryScope;
+                const query = text(params.query);
+                const keywords = Array.isArray(scope.keywords) ? scope.keywords.map(text).filter(Boolean) : [];
+                const type = requestType(query, keywords);
+                const requestedAttachmentIntent = attachmentIntent(query);
+                const requestedAttachmentRole = attachmentRoleFilter(query);
+                const requestedAttachmentTypes = attachmentTypes(query);
+                const scopedEntries = turns
+                  .filter((turn) => inWindow(turn, scope))
+                  .map((turn, index) => ({ turn, index, conversationId: conversationId(turn, index), attachment: parseAttachment(turn) }));
+                const substantiveEntries = scopedEntries.filter((entry) => isSubstantive(entry.turn));
+                const attachmentEntries = scopedEntries.filter((entry) => Boolean(entry.attachment));
+                const useLatestConversation = type === "recap" && keywords.length === 0;
+                const latestId = useLatestConversation
+                  ? latestConversationId(substantiveEntries.length > 0 ? substantiveEntries : attachmentEntries)
+                  : "";
+                let selectedContentEntries = useLatestConversation
+                  ? substantiveEntries.filter((entry) => entry.conversationId === latestId)
+                  : selectSpecificEvidenceEntries(substantiveEntries, keywords);
+                let selectedConversationIds = new Set(selectedContentEntries.map((entry) => entry.conversationId));
+                if (selectedConversationIds.size === 0 && requestedAttachmentIntent !== "none") {
+                  for (const entry of attachmentEntries.filter((item) => attachmentMatches(item, requestedAttachmentTypes, requestedAttachmentRole))) {
+                    selectedConversationIds.add(entry.conversationId);
+                  }
+                }
+                if (selectedConversationIds.size === 0 && latestId) selectedConversationIds = new Set([latestId]);
+
+                const candidateEntries = scopedEntries
+                  .filter((entry) => selectedConversationIds.has(entry.conversationId) && (isSubstantive(entry.turn) || entry.attachment))
+                  .sort((a, b) => text(a.turn.timestamp).localeCompare(text(b.turn.timestamp)));
+                const selectedAttachmentEntries = attachmentEntries
+                  .filter((entry) => selectedConversationIds.has(entry.conversationId))
+                  .sort((a, b) => text(a.turn.timestamp).localeCompare(text(b.turn.timestamp)));
+
+                const evidence: Evidence[] = [];
+                const evidenceAttachmentIds = new Set<string>();
+                let characterCount = 0;
+                let evidenceOverBudget = false;
+                for (const entry of candidateEntries) {
+                  const attachment = entry.attachment;
+                  const sourceText = attachment
+                    ? `${text(entry.turn.speaker) || "沟通方"}发送了 1 个${attachmentLabel(attachment.type)}`
+                    : text(entry.turn.text);
+                  const shortened = truncate(sourceText);
+                  const nextSize = characterCount + shortened.text.length;
+                  if (nextSize > MAX_EVIDENCE_CHARS) {
+                    evidenceOverBudget = true;
+                    break;
+                  }
+                  const id = attachment ? attachmentId(entry) : `e-${entry.conversationId}-${text(entry.turn.timestamp).replace(/[^0-9]/g, "") || entry.index}-${entry.index + 1}`;
+                  evidence.push({
+                    id,
+                    conversationId: entry.conversationId,
+                    timestamp: text(entry.turn.timestamp),
+                    role: text(entry.turn.role) || "other",
+                    speaker: text(entry.turn.speaker),
+                    text: shortened.text,
+                    textTruncated: shortened.textTruncated,
+                    kind: attachment ? "attachment" : "message",
+                    ...(attachment ? { attachmentType: attachment.type } : {}),
+                  });
+                  if (attachment) evidenceAttachmentIds.add(id);
+                  characterCount = nextSize;
+                }
+
+                const records = (params.humanServiceRecords && typeof params.humanServiceRecords === "object"
+                  ? params.humanServiceRecords
+                  : {}) as { recordsTruncated?: unknown; fetchStatus?: unknown };
+                const recordsTruncated = records.recordsTruncated === true;
+                const sourceCompleteness = recordsTruncated ? "partial_source" : "complete";
+                const evidenceCompleteness = evidenceOverBudget || evidence.length < scopedEntries.length ? "relevant_subset" : "complete";
+                const dataCompleteness = sourceCompleteness === "partial_source" ? "partial_source" : evidenceCompleteness;
+                const attachmentScanComplete = sourceCompleteness === "complete";
+                const automaticAttachmentDelivery = requestedAttachmentIntent === "none" && evidenceAttachmentIds.size > 0;
+                const deliveryIntent: AttachmentIntent = automaticAttachmentDelivery ? "summary_auto" : requestedAttachmentIntent;
+                const matchingAttachmentEntries = selectedAttachmentEntries.filter((entry) =>
+                  attachmentMatches(entry, requestedAttachmentTypes, requestedAttachmentRole) &&
+                  (deliveryIntent !== "summary_auto" || evidenceAttachmentIds.has(attachmentId(entry)))
+                );
+                const deliveryAttachments: AttachmentDeliveryItem[] = [];
+                let deliveryLinkCharacterCount = 0;
+                let deliveryTruncated = false;
+                const deliveryLimit = deliveryIntent === "summary_auto" ? MAX_AUTO_DELIVERY_ATTACHMENTS : MAX_DELIVERY_ATTACHMENTS;
+                if (deliveryIntent === "deliver" || deliveryIntent === "summary_auto") {
+                  for (const entry of [...matchingAttachmentEntries].reverse()) {
+                    const fact = attachmentFact(entry);
+                    if (!fact || !entry.attachment) continue;
+                    if (!entry.attachment.url) continue;
+                    const nextSize = deliveryLinkCharacterCount + entry.attachment.url.length;
+                    if (deliveryAttachments.length >= deliveryLimit || nextSize > MAX_DELIVERY_LINK_CHARS) {
+                      deliveryTruncated = true;
+                      break;
+                    }
+                    deliveryAttachments.push({ ...fact, url: entry.attachment.url });
+                    deliveryLinkCharacterCount = nextSize;
+                  }
+                  deliveryAttachments.reverse();
+                }
+
+                const selectedConversationIdList = [...selectedConversationIds];
+                const answerStatus = records.fetchStatus && records.fetchStatus !== "ok"
+                  ? text(records.fetchStatus)
+                  : scopedEntries.length === 0
+                    ? "no_records"
+                    : evidence.length === 0 && matchingAttachmentEntries.length === 0
+                      ? "no_match"
+                      : "found";
+
+                return {
+                  summaryEvidence: {
+                    requestType: type,
+                    answerStatus,
+                    matchedConversationCount: selectedConversationIdList.length,
+                    matchedMessageCount: scopedEntries.length,
+                    evidenceConversationCount: [...new Set(evidence.map((item) => item.conversationId))].length,
+                    evidenceMessageCount: evidence.length,
+                    dataCompleteness,
+                    sourceCompleteness,
+                    evidenceCompleteness,
+                    attachmentScanComplete,
+                    attachmentIntent: deliveryIntent,
+                    attachmentRoleFilter: requestedAttachmentRole,
+                    attachmentTypes: requestedAttachmentTypes,
+                    attachmentEvidence: selectedAttachmentEntries
+                      .map(attachmentFact)
+                      .filter((item): item is AttachmentFact => item !== undefined)
+                      .filter((item) => evidenceAttachmentIds.has(item.id)),
+                    evidenceCharacterCount: characterCount,
+                    evidence,
+                  },
+                  attachmentDelivery: {
+                    intent: deliveryIntent,
+                    roleFilter: requestedAttachmentRole,
+                    types: requestedAttachmentTypes,
+                    attachmentScanComplete,
+                    matchingAttachmentCount: matchingAttachmentEntries.length,
+                    availableAttachmentCount: matchingAttachmentEntries.filter((entry) => Boolean(entry.attachment?.url)).length,
+                    deliveryTruncated,
+                    deliveryLinkCharacterCount,
+                    events: matchingAttachmentEntries
+                      .slice(-3)
+                      .map(attachmentFact)
+                      .filter((item): item is AttachmentFact => item !== undefined),
+                    attachments: deliveryAttachments,
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-summary-evidence")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((result) => process.stdout.write(JSON.stringify(result)))
+                  .catch((error) => {
+                    console.error(error);
+                    process.exitCode = 1;
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: messageTurns
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        path: messageTurns
+                        ref_node: "170104"
+              - name: queryScope
+                input:
+                    type: object
+                    value:
+                        path: queryScope
+                        ref_node: "170102"
+              - name: humanServiceRecords
+                input:
+                    type: object
+                    value:
+                        path: humanServiceRecords
+                        ref_node: "170103"
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+          node_outputs:
+              summaryEvidence:
+                  type: object
+                  value: null
+              attachmentDelivery:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "170106"
+      type: llm
+      title: llm-answer-from-records
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 1180
+          y: 160
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "8192"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # Role
+
+                        你是人工客服历史沟通摘要专家。你的任务是基于受控证据包，直接回答用户现在的问题；不是复述完整聊天记录，也不是判断当前业务的真实状态。
+
+                        # 输入
+
+                        - 用户问题：`{{query}}`
+                        - 用户意图：`{{customerIntent}}`
+                        - 查询范围：`{{queryScope}}`
+                        - 可引用证据包：`{{summaryEvidence}}`
+
+                        `summaryEvidence.evidence` 是唯一可引用的历史沟通内容。每条证据都有稳定 `id`、时间、角色、说话方和文本。附件证据只说明附件类型、发送方和时间，不含链接；不得使用未出现在该数组中的聊天内容，也不得生成、补全或改写附件链接。
+
+                        # 规则
+
+                        1. 先直接回答 `query`。用户问“怎么操作”时，提取客服明确建议；问“是否/有没有”时，回答能确认的范围；问“处理了吗”时，严格区分客服承诺与记录中确认已完成。
+                        2. 每个 `directAnswer` 和每条 `keyFacts` 都必须附 `evidenceIds`，且只能引用输入中实际存在的 ID。没有有效依据时不要输出该结论。
+                        3. 事实类型仅可使用：`customer_report`、`agent_guidance`、`agent_commitment`、`completed`、`historical_fact`、`attachment_event`。客服建议、承诺与完成确认不可混用；附件发送事件不表示你已读取或理解图片、文件等附件内容。不得描述附件内容，也不得说“无法识别”或“无法恢复”附件内容。
+                        4. 只有 `dataCompleteness` 为 `complete` 时，才能在 `unconfirmedItems` 中说明“记录中未见明确确认”。`partial_source` 或 `relevant_subset` 时不得给出否定结论；对于图片或附件，只能在 `attachmentScanComplete=true` 时说明未发现对应发送事件。
+                        5. 不得声称历史建议仍适用于当前业务；不得把客户陈述写成客服结论；不得提及飞书、多维表、内部系统、字段名、查询过程或身份核验。不得使用“完整记录”“完整内容”“全部聊天”“所有聊天记录”等措辞。
+                        6. 输出简洁：直接答案 1 段，关键事实最多 3 条，未确认项最多 3 条。用户索要附件，或本次摘要已确认附件发送事件时，最终链接由代码节点输出；你只需说明可确认的附件事实。
+
+                        # 输出格式
+
+                        只输出 JSON，外层键名必须是 `analysisResult`：
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "directAnswer": "基于历史沟通的直接回答",
+                              "directAnswerEvidenceIds": ["e-..."],
+                              "keyFacts": [
+                                {
+                                  "factType": "agent_guidance",
+                                  "text": "客服明确给出的建议或事实",
+                                  "evidenceIds": ["e-..."]
+                                }
+                              ],
+                              "unconfirmedItems": ["仅在完整证据范围内才能说明的未确认事项"]
+                            },
+                            "analysis": "留空字符串；最终对客文案由代码根据已校验结构生成"
+                          }
+                        }
+                        ```
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: queryScope
+                input:
+                    type: object
+                    value:
+                        path: queryScope
+                        ref_node: "170102"
+              - name: summaryEvidence
+                input:
+                    type: object
+                    value:
+                        path: summaryEvidence
+                        ref_node: "170105"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  value: null
+                  properties:
+                      structured:
+                          type: object
+                          value: null
+                      analysis:
+                          type: string
+                          value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "170107"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1420
+          y: 160
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output
+               * 仅将经证据 ID 校验的历史沟通摘要输出给用户；附件链接由代码原样渲染。
+               */
+
+              interface InputContextLite {
+                chainId?: string;
+              }
+
+              interface ValidationLite {
+                canQuery?: boolean;
+              }
+
+              interface QueryScopeLite {
+                queryStatus?: string;
+                rejectReason?: string;
+                timeWindow?: Record<string, unknown>;
+              }
+
+              type AttachmentType = "image" | "file" | "video" | "audio";
+              type AttachmentIntent = "none" | "check" | "deliver" | "summary_auto";
+              type AttachmentRoleFilter = "agent" | "customer" | "any";
+
+              interface EvidenceLite {
+                id?: string;
+                conversationId?: string;
+                timestamp?: string;
+                role?: string;
+                speaker?: string;
+                text?: string;
+                textTruncated?: boolean;
+                kind?: "message" | "attachment";
+                attachmentType?: AttachmentType;
+              }
+
+              interface SummaryEvidenceLite {
+                requestType?: string;
+                answerStatus?: string;
+                matchedConversationCount?: number;
+                matchedMessageCount?: number;
+                evidenceConversationCount?: number;
+                evidenceMessageCount?: number;
+                dataCompleteness?: string;
+                sourceCompleteness?: string;
+                evidenceCompleteness?: string;
+                attachmentScanComplete?: boolean;
+                attachmentIntent?: AttachmentIntent;
+                attachmentRoleFilter?: AttachmentRoleFilter;
+                attachmentTypes?: AttachmentType[];
+                evidence?: EvidenceLite[];
+              }
+
+              interface AttachmentDeliveryItem {
+                id?: string;
+                type?: AttachmentType;
+                role?: string;
+                speaker?: string;
+                timestamp?: string;
+                url?: string;
+              }
+
+              interface AttachmentEventLite {
+                type?: AttachmentType;
+                role?: string;
+                speaker?: string;
+                timestamp?: string;
+              }
+
+              interface AttachmentDeliveryLite {
+                intent?: AttachmentIntent;
+                roleFilter?: AttachmentRoleFilter;
+                types?: AttachmentType[];
+                attachmentScanComplete?: boolean;
+                matchingAttachmentCount?: number;
+                availableAttachmentCount?: number;
+                deliveryTruncated?: boolean;
+                events?: AttachmentEventLite[];
+                attachments?: AttachmentDeliveryItem[];
+              }
+
+              interface SummaryFactLite {
+                factType?: string;
+                text?: string;
+                evidenceIds?: unknown;
+              }
+
+              interface AnalysisResultLite {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              const ALLOWED_FACT_TYPES = new Set([
+                "customer_report",
+                "agent_guidance",
+                "agent_commitment",
+                "completed",
+                "historical_fact",
+                "attachment_event",
+              ]);
+              const COMPLETE_RECORD_CLAIM = /完整(?:聊天)?记录|完整内容|全部聊天|所有聊天记录|全文(?:聊天)?记录/;
+
+              function objectFrom(v: unknown): Record<string, unknown> {
+                return v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
+              }
+
+              function text(value: unknown): string {
+                return String(value ?? "").trim();
+              }
+
+              function stringArray(value: unknown): string[] {
+                return Array.isArray(value) ? value.map(text).filter(Boolean) : [];
+              }
+
+              function sanitizeAnalysis(value: string): string {
+                return value
+                  .replace(/飞书多维表格?/g, "历史记录")
+                  .replace(/飞书/g, "记录系统")
+                  .replace(/多维表/g, "历史记录")
+                  .replace(/内部表/g, "历史记录");
+              }
+
+              function fallbackAnalysis(validation: ValidationLite, scope: QueryScopeLite, summary: SummaryEvidenceLite): string {
+                const status = text(summary.answerStatus);
+                if (validation.canQuery !== true) return "需要先确认您的登录邮箱，才能查询您的历史人工客服沟通记录。";
+                if (scope.queryStatus === "rejected_too_old" || status === "rejected_too_old") {
+                  return "暂不支持查询半年前的人工客服记录。您可以查询最近半年内的记录。";
+                }
+                if (scope.queryStatus === "rejected_today_unavailable" || status === "rejected_today_unavailable") {
+                  return "今天的人工客服聊天记录需明天才能查询。";
+                }
+                if (status === "missing_config" || status === "fetch_failed") {
+                  return "暂时无法查询历史人工客服沟通记录，请稍后再试。";
+                }
+                if (status === "no_records") return "未查询到您的历史人工客服沟通记录。";
+                if (status === "no_match") return "未查询到与当前问题相关的历史人工客服沟通记录。您可以补充日期、订单号或关键词再试。";
+                return "已查询到相关历史人工客服沟通记录，但本次无法生成可核验摘要。请补充日期、订单号或关键词再试。";
+              }
+
+              function evidenceRefs(ids: string[], evidenceById: Map<string, EvidenceLite>): string {
+                const refs = ids
+                  .map((id) => evidenceById.get(id))
+                  .filter((item): item is EvidenceLite => Boolean(item))
+                  .slice(0, 3)
+                  .map((item) => `${text(item.timestamp)} ${text(item.speaker) || "沟通方"}`)
+                  .filter(Boolean);
+                return refs.length > 0 ? `（依据：${refs.join("；")}）` : "";
+              }
+
+              function validatedIds(value: unknown, evidenceById: Map<string, EvidenceLite>): string[] {
+                const ids = stringArray(value);
+                return ids.length > 0 && ids.every((id) => evidenceById.has(id)) ? ids : [];
+              }
+
+              function attachmentLabel(type: AttachmentType): string {
+                return type === "image" ? "图片" : type === "file" ? "文件" : type === "video" ? "视频" : "音频";
+              }
+
+              function attachmentAction(type: AttachmentType): string {
+                return type === "file" ? "下载文件" : `打开${attachmentLabel(type)}`;
+              }
+
+              function roleLabel(roleFilter: AttachmentRoleFilter): string {
+                return roleFilter === "agent" ? "客服" : roleFilter === "customer" ? "客户" : "";
+              }
+
+              function typeLabel(types: AttachmentType[]): string {
+                return types.length === 1 ? attachmentLabel(types[0]) : "图片或附件";
+              }
+
+              function isSafeHttpUrl(value: string): boolean {
+                if (!/^https?:\/\/[^\s<>]+$/i.test(value)) return false;
+                try {
+                  const parsed = new URL(value);
+                  return parsed.protocol === "https:" || parsed.protocol === "http:";
+                } catch {
+                  return false;
+                }
+              }
+
+              function normalizedDelivery(raw: unknown): AttachmentDeliveryLite {
+                const delivery = objectFrom(raw) as AttachmentDeliveryLite;
+                const attachments = Array.isArray(delivery.attachments)
+                  ? delivery.attachments
+                    .map((item) => objectFrom(item) as AttachmentDeliveryItem)
+                    .filter((item) => isSafeHttpUrl(text(item.url)))
+                    .map((item) => ({
+                      id: text(item.id),
+                      type: item.type === "file" || item.type === "video" || item.type === "audio" ? item.type : "image" as AttachmentType,
+                      role: text(item.role),
+                      speaker: text(item.speaker),
+                      timestamp: text(item.timestamp),
+                      url: text(item.url),
+                    }))
+                  : [];
+                const events = Array.isArray(delivery.events)
+                  ? delivery.events
+                    .map((item) => objectFrom(item) as AttachmentEventLite)
+                    .map((item) => ({
+                      type: item.type === "file" || item.type === "video" || item.type === "audio" ? item.type : "image" as AttachmentType,
+                      role: text(item.role),
+                      speaker: text(item.speaker),
+                      timestamp: text(item.timestamp),
+                    }))
+                  : [];
+                return {
+                  intent: delivery.intent === "deliver" || delivery.intent === "check" || delivery.intent === "summary_auto" ? delivery.intent : "none",
+                  roleFilter: delivery.roleFilter === "agent" || delivery.roleFilter === "customer" ? delivery.roleFilter : "any",
+                  types: Array.isArray(delivery.types) ? delivery.types.filter((item): item is AttachmentType => item === "image" || item === "file" || item === "video" || item === "audio") : [],
+                  attachmentScanComplete: delivery.attachmentScanComplete === true,
+                  matchingAttachmentCount: Number(delivery.matchingAttachmentCount ?? 0),
+                  availableAttachmentCount: Number(delivery.availableAttachmentCount ?? 0),
+                  deliveryTruncated: delivery.deliveryTruncated === true,
+                  events,
+                  attachments,
+                };
+              }
+
+              function attachmentQuerySummary(delivery: AttachmentDeliveryLite): string {
+                const role = roleLabel(delivery.roleFilter ?? "any");
+                const kind = typeLabel(delivery.types ?? []);
+                const count = Number(delivery.matchingAttachmentCount ?? 0);
+                if (count > 0) {
+                  const events = delivery.events ?? [];
+                  const details = events
+                    .map((item) => `${text(item.timestamp)} ${text(item.speaker) || role || "沟通方"}发送${attachmentLabel(item.type ?? "image")}`.trim())
+                    .filter(Boolean)
+                    .join("；");
+                  return `查到${role ? `${role}发送的` : ""}${count}个${kind}${details ? `：${details}` : ""}。`;
+                }
+                if (delivery.attachmentScanComplete) return `在本次查询范围内未发现${role ? `${role}发送的` : ""}${kind}。`;
+                return "本次仅获取到部分历史记录，无法据此判断是否存在对应附件。";
+              }
+
+              function renderAttachmentLinks(delivery: AttachmentDeliveryLite): string[] {
+                const attachments = delivery.attachments ?? [];
+                if (attachments.length === 0) return [];
+                const lines = [delivery.intent === "summary_auto" ? "本次摘要相关附件" : "历史附件"];
+                for (const attachment of attachments) {
+                  const type = attachment.type ?? "image";
+                  const speaker = text(attachment.speaker) || (text(attachment.role) === "agent" ? "客服" : text(attachment.role) === "customer" ? "客户" : "沟通方");
+                  const timestamp = text(attachment.timestamp) || "历史会话中";
+                  lines.push(`- ${timestamp} ${speaker}发送的${attachmentLabel(type)}：[${attachmentAction(type)}](<${text(attachment.url)}>)`);
+                }
+                if (delivery.deliveryTruncated) {
+                  lines.push(delivery.intent === "summary_auto"
+                    ? "- 提醒：附件较多，本次仅展示与当前摘要相关的最新 3 个附件链接。"
+                    : "- 提醒：附件较多，本次仅展示最新的部分附件链接。");
+                }
+                lines.push("提示：历史图片或附件链接可能已过期；如无法打开，暂不能通过该链接查看。");
+                return lines;
+              }
+
+              function buildResultSummary(analysis: string, attachmentLinks: string[]): string {
+                if (attachmentLinks.length === 0) return analysis.slice(0, 200) || "人工客服沟通摘要查询完成";
+
+                // 下游链路会优先消费 resultSummary。链接若留在摘要末尾，容易被普通摘要截断，
+                // 因此在此处把经过协议校验的原始链接前置，并且绝不截断链接本身。
+                return ["历史附件链接（请原样保留）：", ...attachmentLinks, "", analysis.slice(0, 200)]
+                  .filter(Boolean)
+                  .join("\n");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validation = objectFrom(params.validation) as ValidationLite;
+                const queryScope = objectFrom(params.queryScope) as QueryScopeLite;
+                const summary = objectFrom(params.summaryEvidence) as SummaryEvidenceLite;
+                const analysisResult = objectFrom(params.analysisResult) as AnalysisResultLite;
+                const inputContext = objectFrom(params.inputContext) as InputContextLite;
+                const delivery = normalizedDelivery(params.attachmentDelivery);
+                const modelStructured = objectFrom(analysisResult.structured);
+                const evidence = Array.isArray(summary.evidence) ? summary.evidence : [];
+                const evidenceById = new Map<string, EvidenceLite>();
+                for (const item of evidence) {
+                  const id = text(item.id);
+                  if (id) evidenceById.set(id, item);
+                }
+                const answerStatus = text(summary.answerStatus) || "unknown";
+                const dataCompleteness = text(summary.dataCompleteness) || "relevant_subset";
+                const directAnswer = text(modelStructured.directAnswer);
+                const directAnswerEvidenceIds = validatedIds(modelStructured.directAnswerEvidenceIds, evidenceById);
+                const validDirectAnswer = directAnswer && directAnswerEvidenceIds.length > 0 && !COMPLETE_RECORD_CLAIM.test(directAnswer);
+                const rawFacts = Array.isArray(modelStructured.keyFacts) ? modelStructured.keyFacts : [];
+                const keyFacts = rawFacts
+                  .map((item) => objectFrom(item) as SummaryFactLite)
+                  .map((item) => ({
+                    factType: text(item.factType) || "historical_fact",
+                    text: text(item.text),
+                    evidenceIds: validatedIds(item.evidenceIds, evidenceById),
+                  }))
+                  .filter((item) => item.text && item.evidenceIds.length > 0 && ALLOWED_FACT_TYPES.has(item.factType) && !COMPLETE_RECORD_CLAIM.test(item.text))
+                  .slice(0, 3);
+                const unconfirmedItems = dataCompleteness === "complete" && delivery.intent === "none"
+                  ? stringArray(modelStructured.unconfirmedItems).filter((item) => !COMPLETE_RECORD_CLAIM.test(item)).slice(0, 3)
+                  : [];
+
+                let analysis = "";
+                const isAttachmentQuery = delivery.intent === "check" || delivery.intent === "deliver";
+                const isAutomaticAttachmentDelivery = delivery.intent === "summary_auto";
+                const attachmentLinks = delivery.intent === "deliver" || isAutomaticAttachmentDelivery
+                  ? renderAttachmentLinks(delivery)
+                  : [];
+                if (answerStatus === "found" && (validDirectAnswer || isAttachmentQuery || isAutomaticAttachmentDelivery)) {
+                  const lines = ["历史沟通摘要"];
+                  if (isAttachmentQuery) {
+                    lines.push("", "查询结论", attachmentQuerySummary(delivery));
+                    if (validDirectAnswer) lines.push(directAnswer + evidenceRefs(directAnswerEvidenceIds, evidenceById));
+                  } else if (validDirectAnswer) {
+                    lines.push("", "查询结论", directAnswer + evidenceRefs(directAnswerEvidenceIds, evidenceById));
+                  }
+                  if (keyFacts.length > 0) {
+                    lines.push("", "关键依据");
+                    for (const fact of keyFacts) lines.push(`- ${fact.text}${evidenceRefs(fact.evidenceIds, evidenceById)}`);
+                  }
+                  if (unconfirmedItems.length > 0) {
+                    lines.push("", "尚未确认");
+                    for (const item of unconfirmedItems) lines.push(`- ${item}`);
+                  }
+                  if (delivery.intent === "deliver" || isAutomaticAttachmentDelivery) {
+                    if (attachmentLinks.length > 0) lines.push("", ...attachmentLinks);
+                    else if (Number(delivery.matchingAttachmentCount ?? 0) > 0) {
+                      lines.push("", "提醒：记录显示存在对应附件，但原始链接未随当前记录返回，无法提供可点击链接。");
+                    }
+                  }
+                  if (dataCompleteness === "partial_source") {
+                    lines.push("", "提醒：本次仅基于已获取的部分历史记录整理，不能据此判断全部沟通情况。");
+                  } else if (dataCompleteness === "relevant_subset") {
+                    lines.push("", "提醒：以下为历史沟通摘要，不是完整聊天记录，仅覆盖与当前问题最相关的内容。");
+                  }
+                  analysis = lines.join("\n");
+                } else {
+                  analysis = fallbackAnalysis(validation, queryScope, summary);
+                }
+                analysis = sanitizeAnalysis(analysis);
+
+                const attachments = delivery.intent === "deliver" || isAutomaticAttachmentDelivery
+                  ? (delivery.attachments ?? []).map((item) => ({
+                    id: text(item.id),
+                    type: item.type ?? "image",
+                    speaker: text(item.speaker) || (text(item.role) === "agent" ? "客服" : text(item.role) === "customer" ? "客户" : "沟通方"),
+                    timestamp: text(item.timestamp),
+                    url: text(item.url),
+                  }))
+                  : [];
+                const structured = {
+                  answerStatus,
+                  requestType: text(summary.requestType) || "unknown",
+                  matchedConversationCount: Number(summary.matchedConversationCount ?? 0),
+                  matchedMessageCount: Number(summary.matchedMessageCount ?? 0),
+                  evidenceConversationCount: Number(summary.evidenceConversationCount ?? 0),
+                  evidenceMessageCount: Number(summary.evidenceMessageCount ?? 0),
+                  dataCompleteness,
+                  keyFacts,
+                  unconfirmedItems,
+                  ...(attachments.length > 0 ? { attachments } : {}),
+                  evidenceRefs: evidence
+                    .filter((item) => evidenceById.has(text(item.id)))
+                    .map((item) => ({ id: text(item.id), timestamp: text(item.timestamp), speaker: text(item.speaker) }))
+                    .slice(0, 3),
+                };
+                const outputContext = {
+                  expertId: "human-service-records",
+                  resultSummary: buildResultSummary(analysis, attachmentLinks),
+                  chainId: inputContext.chainId !== undefined && inputContext.chainId !== null ? String(inputContext.chainId) : "",
+                };
+                const enrichedContext = {
+                  answerStatus,
+                  requestType: structured.requestType,
+                  dataCompleteness,
+                  queryStatus: text(queryScope.queryStatus) || "ok",
+                  rejectReason: text(queryScope.rejectReason),
+                  identityMatched: validation.canQuery === true,
+                  matchedConversationCount: structured.matchedConversationCount,
+                  matchedMessageCount: structured.matchedMessageCount,
+                  evidenceConversationCount: structured.evidenceConversationCount,
+                  evidenceMessageCount: structured.evidenceMessageCount,
+                  timeWindow: queryScope.timeWindow ?? {},
+                };
+                return { structured, analysis, outputContext, enrichedContext };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((result) => process.stdout.write(JSON.stringify(result)))
+                  .catch((error) => {
+                    console.error(error);
+                    process.exitCode = 1;
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: validation
+                input:
+                    type: object
+                    value:
+                        path: validation
+                        ref_node: "170101"
+              - name: queryScope
+                input:
+                    type: object
+                    value:
+                        path: queryScope
+                        ref_node: "170102"
+              - name: summaryEvidence
+                input:
+                    type: object
+                    value:
+                        path: summaryEvidence
+                        ref_node: "170105"
+              - name: attachmentDelivery
+                input:
+                    type: object
+                    value:
+                        path: attachmentDelivery
+                        ref_node: "170105"
+              - name: analysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "170106"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "170101"
+    - source_node: "170101"
+      target_node: "170102"
+    - source_node: "170102"
+      target_node: "170103"
+    - source_node: "170103"
+      target_node: "170104"
+    - source_node: "170104"
+      target_node: "170105"
+    - source_node: "170105"
+      target_node: "170106"
+    - source_node: "170106"
+      target_node: "170107"
+    - source_node: "170107"
+      target_node: "900001"

@@ -1,0 +1,124 @@
+yamlBasename: inbound_overseas_inspection-draft.yaml
+packageMainName: inbound_overseas_inspection
+packageDescription: 海外验状态解读（resolve → getOrderDetail →
+  compute-overseas-inspection-phase → WMS Gap → KB → LLM）
+
+textNodes:
+  - logicalId: kb-with-carton-text
+    title: kb-with-carton
+    insertAfter: check-wms-gap
+    sourceFile: prompts/kb-with-carton.md
+  - logicalId: kb-without-carton-text
+    title: kb-without-carton
+    insertAfter: check-wms-gap
+    sourceFile: prompts/kb-without-carton.md
+  - logicalId: kb-forecast-text
+    title: kb-forecast
+    insertAfter: check-wms-gap
+    sourceFile: prompts/kb-forecast.md
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-inbound-order
+    logicalId: winit_inbound_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-winit-inbound-detail
+        path: actions
+
+inputBindings:
+  resolve-inbound-lookup:
+    inboundOrderNos:
+      ref: resolve-overseas-query
+      path: inboundOrderNos
+    skipApi:
+      ref: resolve-overseas-query
+      path: skipApi
+  build-winit-inbound-detail:
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: resolve-inbound-lookup
+      path: customerRefNos
+    skipApi:
+      ref: resolve-inbound-lookup
+      path: skipApi
+  fetch-inbound-order:
+    actions:
+      ref: build-winit-inbound-detail
+      path: actions
+    actionPlans:
+      ref: build-winit-inbound-detail
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_inbound_detail_batch
+      path: outputList
+    skipApi:
+      ref: resolve-inbound-lookup
+      path: skipApi
+  prune-inbound-json:
+    rawOrderData:
+      ref: fetch-inbound-order
+      path: rawOrderData
+    skipApi:
+      ref: resolve-inbound-lookup
+      path: skipApi
+    maxTrajectoryNodes:
+      ref: __start__
+      path: inputs.maxTrajectoryNodes
+  compute-overseas-inspection-phase:
+    prunedOrderData:
+      ref: prune-inbound-json
+      path: prunedOrderData
+    intent:
+      ref: resolve-overseas-query
+      path: intent
+    inspectionMode:
+      ref: resolve-overseas-query
+      path: inspectionMode
+    inboundOrderNos:
+      ref: resolve-inbound-lookup
+      path: inboundOrderNos
+  load-overseas-inspection-kb:
+    intent:
+      ref: resolve-overseas-query
+      path: intent
+    inspectionMode:
+      ref: resolve-overseas-query
+      path: inspectionMode
+    overseasInspectionPhase:
+      ref: compute-overseas-inspection-phase
+      path: inspectionPhase.overseasInspectionPhase
+    kbWithCarton:
+      ref: kb-with-carton-text
+      path: output
+    kbWithoutCarton:
+      ref: kb-without-carton-text
+      path: output
+    kbForecast:
+      ref: kb-forecast-text
+      path: output
+    gapNote:
+      ref: check-wms-gap
+      path: gapNote
+  format-output:
+    inspectionPhase:
+      ref: compute-overseas-inspection-phase
+      path: inspectionPhase

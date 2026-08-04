@@ -1,0 +1,49 @@
+{
+  "id": "pod-request",
+  "domain": "last-mile",
+  "name": "申请获取POD",
+  "description": "申请、获取POD处理流程。Use when 用户申请或获取妥投证明（POD）。",
+  "capabilities": [
+    "POD申请",
+    "妥投证明"
+  ],
+  "version": "0.3.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "万邑通出库单号（WO…）；exportOutboundPod 仅识别归并后的 WO 形态"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "可选；编排前置 delivery-status 等合并的轨迹与事实，供 LLM 引用",
+        "additionalProperties": true
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "分析结论与建议"
+      }
+    }
+  }
+}

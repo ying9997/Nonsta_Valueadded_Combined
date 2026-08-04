@@ -1,0 +1,359 @@
+{
+  "nodes": [
+    {
+      "id": "build-winit-inventory-data",
+      "file": "nodes/build-winit-inventory-data.ts",
+      "inputs": [
+        "expression",
+        "merchandiseCode",
+        "warehouseCodes",
+        "inventoryType",
+        "isActive",
+        "pageNo",
+        "pageSize"
+      ],
+      "outputs": [
+        "winitRequestData"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "expression": {
+            "type": "string"
+          },
+          "merchandiseCode": {
+            "type": "string"
+          },
+          "warehouseCodes": {
+            "type": "string"
+          },
+          "inventoryType": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "string"
+          },
+          "pageNo": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          }
+        },
+        "outputs": {
+          "winitRequestData": {
+            "type": "string",
+            "description": "JSON 字符串，插件 data"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-sku-inventory",
+      "file": "nodes/fetch-sku-inventory.ts",
+      "inputs": [
+        "expression",
+        "skuUsableQty",
+        "warehouseCodes",
+        "merchandiseCode",
+        "inventoryType",
+        "isActive",
+        "pageNo",
+        "pageSize",
+        "winitRequestData"
+      ],
+      "outputs": [
+        "skuResolutions",
+        "inventoryFetchOk",
+        "inventoryFetchError",
+        "inventoryBranch"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "expression": {
+            "type": "string"
+          },
+          "skuUsableQty": {
+            "type": "string",
+            "description": "插件响应 data，可为 JSON 字符串"
+          },
+          "warehouseCodes": {
+            "type": "string"
+          },
+          "merchandiseCode": {
+            "type": "string"
+          },
+          "inventoryType": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "string"
+          },
+          "pageNo": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "winitRequestData": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "skuResolutions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "warehouse": {
+                  "type": "string"
+                },
+                "sku": {
+                  "type": "string"
+                },
+                "usableQty": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "inventoryFetchOk": {
+            "type": "boolean"
+          },
+          "inventoryFetchError": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          "inventoryBranch": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "evaluate-expression",
+      "file": "nodes/evaluate-expression.ts",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "expression",
+        "inputContext",
+        "merchandiseCode",
+        "skuResolutions",
+        "inventoryFetchOk",
+        "inventoryFetchError"
+      ],
+      "outputs": [
+        "result",
+        "outputContext",
+        "branch"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "query": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "expression": {
+            "type": "string"
+          },
+          "inputContext": {
+            "type": "object"
+          },
+          "merchandiseCode": {
+            "type": "string"
+          },
+          "skuResolutions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "warehouse": {
+                  "type": "string"
+                },
+                "sku": {
+                  "type": "string"
+                },
+                "usableQty": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "inventoryFetchOk": {
+            "type": "boolean"
+          },
+          "inventoryFetchError": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "result": {
+            "type": "object",
+            "description": "求值结果 { structured, analysis }",
+            "properties": {
+              "structured": { "type": "object" },
+              "analysis": { "type": "string" }
+            }
+          },
+          "outputContext": {
+            "type": "object"
+          },
+          "branch": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "load-examples-text",
+      "file": "nodes/load-examples-text.ts",
+      "inputs": [],
+      "outputs": [
+        "examplesMd"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "examplesMd": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-comment",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "expression",
+        "result",
+        "inputContext",
+        "examplesMd"
+      ],
+      "outputs": [
+        "analysisResult"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "query": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "expression": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          },
+          "examplesMd": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "resolve-analysis-result",
+      "file": "nodes/resolve-analysis-result.ts",
+      "inputs": [
+        "llmAnalysisResult",
+        "stubAnalysisResult"
+      ],
+      "outputs": [
+        "analysisResult"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "llmAnalysisResult": { "type": "object" },
+          "stubAnalysisResult": { "type": "object" }
+        },
+        "outputs": {
+          "analysisResult": {
+            "type": "object",
+            "properties": {
+              "structured": { "type": "object" },
+              "analysis": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "result",
+        "analysisResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "result": {
+            "type": "object"
+          },
+          "analysisResult": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "stub-llm-placeholder",
+      "file": "nodes/stub-llm-placeholder.ts",
+      "inputs": [],
+      "outputs": [
+        "analysisResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "analysisResult": {
+            "type": "object",
+            "properties": {
+              "analysis": { "type": "string" },
+              "structured": { "type": "object" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

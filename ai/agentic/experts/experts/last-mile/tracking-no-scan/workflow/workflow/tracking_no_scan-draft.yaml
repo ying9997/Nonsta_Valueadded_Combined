@@ -1,0 +1,1554 @@
+schema_version: 1.0.0
+name: tracking_no_scan
+id: 7331397018677236118
+description: 轨迹无上网信息处理（Phase A）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      trackingIds:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 轨迹单号
+                      outboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 出库单号
+                      trajectoryText:
+                          type: string
+                          value: null
+                          description: 用户/客服粘贴的轨迹原文；无单号时也可作为事实来源之一
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 可选覆盖层：与自拉结果合并。若已带可用 trajectories（有轨迹节点或 summary）或设 skipTrajectoryFetch/reuseUpstreamTrajectoryFacts=true，本专家将不重复请求 Winit；其余字段见 design.md §1
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163003"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163003"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163003"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163003"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 校验轨迹无上网专家入参是否足以启动分析
+               * FaaS 单文件闭环，无外部 import。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输入】params：query, trackingIds, outboundOrderNos, customerIntent, trajectoryText, enrichedContext（可选覆盖层）, inputContext
+               * 【输出】原字段透传；contextOverlay 供 fetch-and-enrich 与自拉取结果合并；valid 表示至少有一种启动来源
+               */
+
+              const TNS_DELIVERY_CONTEXT_KEY = "last-mile/delivery-status";
+
+              function resolveTrackingNoScanOverlay(raw: unknown): Record<string, unknown> {
+                if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+                const source = raw as Record<string, unknown>;
+                const entries = source[TNS_DELIVERY_CONTEXT_KEY];
+                if (!Array.isArray(entries) || entries.length === 0) return { ...source };
+                const last = entries[entries.length - 1];
+                const delivery = last && typeof last === "object" && !Array.isArray(last)
+                  ? { ...(last as Record<string, unknown>) }
+                  : {};
+                delete delivery._meta;
+                const topLevel: Record<string, unknown> = {};
+                for (const [key, value] of Object.entries(source)) {
+                  if (key.includes("/") && Array.isArray(value)) continue;
+                  topLevel[key] = value;
+                }
+                return { ...topLevel, ...delivery };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(params.outboundOrderNos)
+                  ? (params.outboundOrderNos as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const trajectoryText = String(params.trajectoryText ?? "").trim();
+                const ec = resolveTrackingNoScanOverlay(params.enrichedContext);
+                const hasOverlay =
+                  ec !== undefined &&
+                  ec !== null &&
+                  typeof ec === "object" &&
+                  !Array.isArray(ec) &&
+                  Object.keys(ec).length > 0;
+                const hasIds = trackingIds.length > 0 || outboundOrderNos.length > 0;
+                const hasText = trajectoryText.length > 0;
+                const ci = String(params.customerIntent ?? "").trim();
+                const q = String(params.query ?? "").trim();
+                const valid = hasIds || hasText || hasOverlay || ci.length > 0 || q.length > 0;
+                const errMsg =
+                  "请至少提供 trackingIds、outboundOrderNos、trajectoryText、enrichedContext（覆盖层）、customerIntent 或 query 之一";
+                const customerIntentOut = valid ? ci : `[输入校验] ${errMsg}`.trim();
+
+                const ret = {
+                  valid,
+                  error: valid ? "" : errMsg,
+                  query: q,
+                  trackingIds,
+                  outboundOrderNos,
+                  customerIntent: customerIntentOut,
+                  trajectoryText,
+                  contextOverlay: hasOverlay ? ec : {},
+                  inputContext: params.inputContext && typeof params.inputContext === "object" ? params.inputContext : {},
+                };
+                return ret;
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: inputs.trackingIds
+                        ref_node: "100001"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: inputs.outboundOrderNos
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: trajectoryText
+                input:
+                    value:
+                        path: inputs.trajectoryText
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              outboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              trajectoryText:
+                  type: string
+                  value: null
+              contextOverlay:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: fetch-and-enrich
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 节点：fetch-and-enrich — 本专家自拉轨迹并合并为 enrichedContext
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 本节点 `inputs` / `outputs` 一致。
+               *
+               * 【职责】根据 trackingIds（及未来出库单→单号解析）调用 Winit 公开轨迹接口拉数，推导 carrierScanDetected（仅节点 status SCAN/Ascan）、parcelCreatedAt、trajectorySummary；
+               * 若 contextOverlay 已含可复用轨迹（有 nodes 或有效 summary）或显式 skipTrajectoryFetch / reuseUpstreamTrajectoryFacts，则**不再重复请求** Winit。
+               * 再与 contextOverlay 合并其余字段（如 bulk、orderDetails）。
+               *
+               * 【输入】params：valid, query, trackingIds, outboundOrderNos, customerIntent, trajectoryText, contextOverlay, inputContext
+               * 【输出】query, trackingIds, outboundOrderNos, customerIntent, enrichedContext（含 **analysisClock**，合并后由本节点覆盖为当前 UTC）, inputContext
+               *
+               * 轨迹拉取逻辑与 delivery-status/fetch-trajectories.ts 保持一致（须同步维护）。
+               */
+
+              // ========== 类型（本文件内闭环） ==========
+              interface TrajectoryNode {
+                time?: string;
+                status?: string;
+                location?: string;
+                description?: string;
+              }
+
+              /** 从 Winit 记录抽取的精简元数据（不含 trace / lastTrack） */
+              interface TrajectorySummary {
+                /** Winit 分桶：haveSignedIn / failed / transportation / sendPost / exception / noQuery / all 等 */
+                winitBucket: string;
+                nodeCount: number;
+                masterOrderNo?: string;
+                orderNo?: string;
+                origin?: string;
+                destination?: string;
+                /** 单票级状态文案，如 Return to original warehouse、Void */
+                status?: string;
+                carrierCode?: string;
+                standardCarrier?: string;
+                trackingUrl?: string;
+                isTracked?: string;
+                lastInfo?: string;
+                created?: string;
+                updated?: string;
+                carrierDataStatus?: "confirmed" | "unverified" | "no_data";
+              }
+
+              interface Trajectory {
+                trackingNo: string;
+                nodes?: TrajectoryNode[];
+                summary?: TrajectorySummary;
+              }
+
+              type TnsScanStateKind = "ascan" | "no_ascan" | "delivered" | "unknown";
+              interface TnsScanState {
+                trackingNo: string;
+                state: TnsScanStateKind;
+              }
+
+              // ========== 配置 ==========
+              const WINIT_TRACK_URL = "https://track.winit.com/tracking/Index/getTracking";
+              const MAX_TRACKING_NO_PER_REQUEST = 100;
+
+              // ========== Winit 响应解析 ==========
+              function unwrapWinitData(apiJson: unknown): Record<string, unknown> {
+                if (!apiJson || typeof apiJson !== "object") return {};
+                const root = apiJson as Record<string, unknown>;
+                const inner = root.data;
+                if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+                  return inner as Record<string, unknown>;
+                }
+                return root;
+              }
+
+              /** 与 Winit data 下各状态桶一致，含嵌套数组（如 noQuery） */
+              const WINIT_DATA_BUCKET_KEYS = [
+                "sendPost",
+                "transportation",
+                "failed",
+                "haveSignedIn",
+                "exception",
+                "noQuery",
+                "all",
+                "orderNosRepetitions",
+              ] as const;
+
+              type BucketRow = { rec: Record<string, unknown>; bucket: string };
+
+              function collectRecordsWithBucket(data: Record<string, unknown>): BucketRow[] {
+                const out: BucketRow[] = [];
+                for (const key of WINIT_DATA_BUCKET_KEYS) {
+                  if (key === "orderNosRepetitions") continue;
+                  const v = data[key];
+                  if (!Array.isArray(v)) continue;
+                  const bucket = String(key);
+                  for (const item of v) {
+                    if (Array.isArray(item)) {
+                      for (const sub of item) {
+                        if (sub && typeof sub === "object") out.push({ rec: sub as Record<string, unknown>, bucket });
+                      }
+                    } else if (item && typeof item === "object") {
+                      out.push({ rec: item as Record<string, unknown>, bucket });
+                    }
+                  }
+                }
+                return out;
+              }
+
+              function pickTrackingNoFromRecord(rec: Record<string, unknown>): string | undefined {
+                const keys = [
+                  "unfindNo",
+                  "trackingNo",
+                  "tracking_no",
+                  "wayBillNo",
+                  "waybillNo",
+                  "trackNo",
+                  "expressNo",
+                  "orderNo",
+                ];
+                for (const k of keys) {
+                  const v = rec[k];
+                  if (typeof v === "string" && v.trim()) return v.trim();
+                }
+                return undefined;
+              }
+
+              function pickString(obj: Record<string, unknown>, keys: string[]): string | undefined {
+                for (const k of keys) {
+                  const v = obj[k];
+                  if (typeof v === "string" && v.trim()) return v.trim();
+                }
+                return undefined;
+              }
+
+              function tryExtractNodes(record: Record<string, unknown>): TrajectoryNode[] {
+                const listKeys = [
+                  "trace",
+                  "trackList",
+                  "trackingList",
+                  "details",
+                  "detailList",
+                  "history",
+                  "events",
+                  "trajectory",
+                  "trackDetails",
+                  "list",
+                  "traceList",
+                ];
+                for (const k of listKeys) {
+                  const arr = record[k];
+                  if (!Array.isArray(arr) || arr.length === 0) continue;
+                  const nodes: TrajectoryNode[] = [];
+                  for (const row of arr) {
+                    if (!row || typeof row !== "object") continue;
+                    const r = row as Record<string, unknown>;
+                    nodes.push({
+                      time: pickString(r, ["date", "time", "trackTime", "createTime", "operateTime", "trackingDate"]),
+                      status: pickString(r, ["trackingType", "eventCode", "status", "trackStatus", "state", "info", "trackingStatus", "eventStatus"]),
+                      location: pickString(r, ["location", "place", "address", "city", "country", "trackingPlace"]),
+                      description: pickString(r, ["eventDescription", "description", "info", "remark", "content", "detail", "context"]),
+                    });
+                  }
+                  if (nodes.length > 0) return nodes;
+                }
+                return [];
+              }
+
+              /** Winit 一条记录可通过跟踪号、主单号、子单号等多键命中（如仅订单号查询时 trackingNo 可能为空串） */
+              function indexRecordsForLookup(rows: BucketRow[]): Map<string, BucketRow> {
+                const map = new Map<string, BucketRow>();
+                const add = (rawKey: string | undefined, row: BucketRow) => {
+                  const k = rawKey?.trim();
+                  if (!k) return;
+                  map.set(k.toUpperCase(), row);
+                };
+                for (const row of rows) {
+                  const { rec } = row;
+                  add(pickString(rec, ["trackingNo", "tracking_no"]), row);
+                  add(pickString(rec, ["masterOrderNo"]), row);
+                  const orderNo = pickString(rec, ["orderNo"]);
+                  add(orderNo, row);
+                  if (orderNo && orderNo.length > 1 && /[A-Za-z]$/.test(orderNo)) {
+                    add(orderNo.slice(0, -1), row);
+                  }
+                  add(pickString(rec, ["unfindNo"]), row);
+                  add(pickTrackingNoFromRecord(rec), row);
+                }
+                return map;
+              }
+
+              function buildSummary(rec: Record<string, unknown>, winitBucket: string, nodeCount: number): TrajectorySummary {
+                const s: TrajectorySummary = { winitBucket, nodeCount };
+                const m = pickString(rec, ["masterOrderNo"]);
+                if (m) s.masterOrderNo = m;
+                const on = pickString(rec, ["orderNo"]);
+                if (on) s.orderNo = on;
+                const o = pickString(rec, ["origin"]);
+                if (o) s.origin = o;
+                const d = pickString(rec, ["destination"]);
+                if (d) s.destination = d;
+                const st = pickString(rec, ["status"]);
+                if (st) s.status = st;
+                const cc = pickString(rec, ["carrierCode"]);
+                if (cc) s.carrierCode = cc;
+                const sc = pickString(rec, ["standardCarrier"]);
+                if (sc) s.standardCarrier = sc;
+                const tu = pickString(rec, ["trackingUrl"]);
+                if (tu) s.trackingUrl = tu;
+                const it = pickString(rec, ["isTracked"]);
+                if (it) s.isTracked = it;
+                const li = pickString(rec, ["lastInfo"]);
+                if (li) s.lastInfo = li;
+                const cr = pickString(rec, ["created"]);
+                if (cr) s.created = cr;
+                const up = pickString(rec, ["updated"]);
+                if (up) s.updated = up;
+                return s;
+              }
+
+              function parseWinitToTrajectories(apiJson: unknown, requestedIds: string[]): Trajectory[] {
+                const data = unwrapWinitData(apiJson);
+                const rows = collectRecordsWithBucket(data);
+                const byNo = indexRecordsForLookup(rows);
+
+                return requestedIds.map((id) => {
+                  const trackingNo = id.trim();
+                  const hit = byNo.get(trackingNo.toUpperCase());
+                  const rec = hit?.rec;
+                  const bucket = hit?.bucket ?? "unknown";
+                  const nodes = rec ? tryExtractNodes(rec) : [];
+                  const t: Trajectory = { trackingNo, nodes };
+                  if (rec) t.summary = buildSummary(rec, bucket, nodes.length);
+                  return t;
+                });
+              }
+
+              /** 无全局 FormData 时（旧 Node / 部分 FaaS）手动拼 multipart，与浏览器 FormData 行为等价 */
+              function buildMultipartTrackingBody(trackingNoString: string): { body: string; contentType: string } {
+                const boundary = `----winitTrack${Date.now().toString(16)}${Math.random().toString(16).slice(2, 14)}`;
+                const crlf = "\r\n";
+                const body =
+                  `--${boundary}${crlf}` +
+                  `Content-Disposition: form-data; name="trackingNoString"${crlf}${crlf}` +
+                  trackingNoString +
+                  `${crlf}--${boundary}--${crlf}`;
+                return { body, contentType: `multipart/form-data; boundary=${boundary}` };
+              }
+
+              async function postWinitTracking(trackingNoString: string): Promise<unknown> {
+                let init: RequestInit;
+
+                if (typeof FormData !== "undefined") {
+                  const formData = new FormData();
+                  formData.append("trackingNoString", trackingNoString);
+                  init = { method: "POST", body: formData };
+                } else {
+                  const { body, contentType } = buildMultipartTrackingBody(trackingNoString);
+                  init = {
+                    method: "POST",
+                    headers: { "Content-Type": contentType },
+                    body,
+                  };
+                }
+
+                const response = await fetch(WINIT_TRACK_URL, init);
+
+                if (!response.ok) {
+                  throw new Error(`[fetch-and-enrich] Winit HTTP ${response.status}`);
+                }
+
+                return response.json();
+              }
+
+              // ========== 主逻辑 ==========
+              async function fetchTrajectories(trackingIds: string[]): Promise<Trajectory[]> {
+                const unique = [...new Set(trackingIds.map((s) => String(s).trim()).filter(Boolean))];
+                if (unique.length === 0) return [];
+
+                const trajectories: Trajectory[] = [];
+
+                for (let i = 0; i < unique.length; i += MAX_TRACKING_NO_PER_REQUEST) {
+                  const batch = unique.slice(i, i + MAX_TRACKING_NO_PER_REQUEST);
+                  const trackingNoString = batch.join(",");
+                  const data = await postWinitTracking(trackingNoString);
+                  trajectories.push(...parseWinitToTrajectories(data, batch));
+                }
+
+                return trajectories;
+              }
+
+              // ========== 本专家：事实推导与合并 ==========
+              /** 仅认节点 status 为 SCAN / Ascan（不扫 trajectoryText / description，避免「无扫描」假阳性） */
+              function detectScanInTrajectories(trajectories: Trajectory[]): boolean {
+                for (const t of trajectories) {
+                  for (const n of t.nodes ?? []) {
+                    if (/^(a-?scan|scan)$/i.test(String(n.status ?? "").trim())) return true;
+                  }
+                }
+                return false;
+              }
+
+              function dedupeTrajectories(rows: Trajectory[]): Trajectory[] {
+                const byTracking = new Map<string, Trajectory>();
+                for (const row of rows) {
+                  const trackingNo = String(row.trackingNo ?? "").trim();
+                  if (!trackingNo) continue;
+                  const key = trackingNo.toUpperCase();
+                  const current = byTracking.get(key);
+                  const currentScore = (current?.nodes?.length ?? 0) * 100 + (current?.summary ? Object.keys(current.summary).length : 0);
+                  const nextScore = (row.nodes?.length ?? 0) * 100 + (row.summary ? Object.keys(row.summary).length : 0);
+                  if (!current || nextScore > currentScore) byTracking.set(key, { ...row, trackingNo });
+                }
+                return [...byTracking.values()];
+              }
+
+              function tnsEventCount(row: Record<string, unknown>, key: string): number {
+                return Array.isArray(row[key]) ? (row[key] as unknown[]).length : 0;
+              }
+
+              function tnsStatePriority(state: TnsScanStateKind): number {
+                if (state === "delivered") return 4;
+                if (state === "ascan") return 3;
+                if (state === "no_ascan") return 2;
+                return 1;
+              }
+
+              function buildScanStates(
+                context: Record<string, unknown>,
+                trackingIds: string[],
+                trajectories: Trajectory[]
+              ): { scanStates: TnsScanState[]; scanStateSummary: string } {
+                const byTracking = new Map<string, TnsScanState>();
+                const carrierDataUnverified = new Set<string>();
+                const facts = Array.isArray(context.computedScanFacts) ? context.computedScanFacts : [];
+                for (const raw of facts) {
+                  if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+                  const row = raw as Record<string, unknown>;
+                  const trackingNo = String(row.trackingNo ?? "").trim();
+                  if (!trackingNo) continue;
+                  let state: TnsScanStateKind = "unknown";
+                  if (row.dataSourceNote === "carrier_data_unverified") {
+                    state = "unknown";
+                    carrierDataUnverified.add(trackingNo.toUpperCase());
+                  }
+                  else if (tnsEventCount(row, "dscanEvents") > 0 || tnsEventCount(row, "rdscanEvents") > 0) state = "delivered";
+                  else if (tnsEventCount(row, "ascanEvents") > 0) state = "ascan";
+                  else if (
+                    ["ascanEvents", "dscanEvents", "rdscanEvents"].every((key) => Array.isArray(row[key])) &&
+                    row.dataSourceNote !== "no_nodes"
+                  ) state = "no_ascan";
+                  const key = trackingNo.toUpperCase();
+                  const current = byTracking.get(key);
+                  if (carrierDataUnverified.has(key) && state === "no_ascan") continue;
+                  if (state === "unknown" && row.dataSourceNote === "carrier_data_unverified" && current?.state === "no_ascan") {
+                    byTracking.set(key, { trackingNo, state });
+                    continue;
+                  }
+                  if (!current || tnsStatePriority(state) > tnsStatePriority(current.state)) {
+                    byTracking.set(key, { trackingNo, state });
+                  }
+                }
+
+                for (const trajectory of trajectories) {
+                  const trackingNo = String(trajectory.trackingNo ?? "").trim();
+                  if (!trackingNo) continue;
+                  const key = trackingNo.toUpperCase();
+                  if (byTracking.has(key)) continue;
+                  if (trajectory.summary?.carrierDataStatus === "unverified") {
+                    byTracking.set(key, { trackingNo, state: "unknown" });
+                    continue;
+                  }
+                  const nodes = trajectory.nodes ?? [];
+                  const hasDelivered = nodes.some((node) => /^rdscans?$|^dscans?$/i.test(String(node.status ?? "").trim()));
+                  const hasAscan = nodes.some((node) => /^(a-?scan|scan)$/i.test(String(node.status ?? "").trim()));
+                  byTracking.set(key, {
+                    trackingNo,
+                    state: hasDelivered ? "delivered" : hasAscan ? "ascan" : nodes.length > 0 ? "no_ascan" : "unknown",
+                  });
+                }
+
+                for (const trackingNo of trackingIds) {
+                  const key = trackingNo.toUpperCase();
+                  if (!byTracking.has(key)) {
+                    byTracking.set(key, {
+                      trackingNo,
+                      state: context.ascanDetected === false ? "no_ascan" : context.ascanDetected === true ? "ascan" : "unknown",
+                    });
+                  }
+                }
+
+                const scanStates = [...byTracking.values()];
+                const states = new Set(scanStates.map((item) => item.state));
+                const scanStateSummary =
+                  states.has("unknown") ? "unknown" :
+                  states.size > 1 ? "mixed" :
+                  states.has("delivered") ? "all_delivered" :
+                  states.has("ascan") ? "all_ascan" :
+                  states.has("no_ascan") ? "all_no_ascan" : "unknown";
+                return { scanStates, scanStateSummary };
+              }
+
+              function computeNoScanAgeDays(context: Record<string, unknown>, clock: AnalysisClock): number | undefined {
+                const explicit = Number(context.noScanAgeDays ?? context.noUpdateDays);
+                if (Number.isFinite(explicit) && explicit >= 0) return Math.floor(explicit);
+                const warehouseAt = String(context.warehouseLastEventAt ?? "").trim();
+                const nowMs = Date.parse(clock.utcIso);
+                const warehouseMs = Date.parse(warehouseAt);
+                if (!warehouseAt || !Number.isFinite(nowMs) || !Number.isFinite(warehouseMs) || nowMs < warehouseMs) return undefined;
+                return Math.floor((nowMs - warehouseMs) / 86400000);
+              }
+
+              function pickParcelCreatedAt(trajectories: Trajectory[]): string | undefined {
+                let best: string | undefined;
+                for (const t of trajectories) {
+                  const c = t.summary?.created?.trim();
+                  if (c && (!best || c.length >= best.length)) best = c;
+                }
+                return best;
+              }
+
+              function compactTrajectorySummary(trajectories: Trajectory[], trajectoryText: string): string {
+                const lines = trajectories.map((t) => ({
+                  trackingNo: t.trackingNo,
+                  nodeCount: t.nodes?.length ?? 0,
+                  bucket: t.summary?.winitBucket,
+                  lastInfo: t.summary?.lastInfo,
+                  created: t.summary?.created,
+                }));
+                return JSON.stringify({ trajectories: lines, pastedTextLength: trajectoryText.length });
+              }
+
+              /** 前序专家/编排已提供可复用的轨迹明细（有节点或有效 summary），避免重复打 Winit */
+              function overlayHasReusableTrajectories(overlay: Record<string, unknown>): boolean {
+                const arr = overlay.trajectories;
+                if (!Array.isArray(arr) || arr.length === 0) return false;
+                for (const raw of arr) {
+                  if (!raw || typeof raw !== "object") continue;
+                  const t = raw as Trajectory;
+                  if ((t.nodes?.length ?? 0) > 0) return true;
+                  const s = t.summary;
+                  if (s && (String(s.lastInfo ?? "").trim() !== "" || String(s.created ?? "").trim() !== "")) return true;
+                }
+                return false;
+              }
+
+              /** 显式跳过拉轨迹，或已有可复用轨迹 */
+              function shouldSkipTrajectoryFetch(overlay: Record<string, unknown>): boolean {
+                if (overlay.skipTrajectoryFetch === true || overlay.reuseUpstreamTrajectoryFacts === true) {
+                  return true;
+                }
+                return overlayHasReusableTrajectories(overlay);
+              }
+
+              /** 与 delivery-status merge-enriched-context 同形，供 LLM 将「距今」与 parcelCreatedAt 等对齐全 */
+              interface AnalysisClock {
+                utcIso: string;
+                timezoneLabel: string;
+                note: string;
+              }
+
+              function buildAnalysisClock(): AnalysisClock {
+                return {
+                  utcIso: new Date().toISOString(),
+                  timezoneLabel: "UTC",
+                  note:
+                    "参考时钟为服务端 UTC（ISO8601）。轨迹节点时间多为事件发生地/承运商返回的本地时间或混用时区，与「当前时刻」比较时请显式区分二者，勿直接混算。",
+                };
+              }
+
+              function mergeSelfWithOverlay(
+                self: Record<string, unknown>,
+                overlay: Record<string, unknown>
+              ): Record<string, unknown> {
+                const out: Record<string, unknown> = { ...self };
+                for (const [k, v] of Object.entries(overlay)) {
+                  if (v === undefined) continue;
+                  if (k === "trajectories" && Array.isArray(v) && v.length > 0) {
+                    out.trajectories = v;
+                    continue;
+                  }
+                  if (k === "orderDetails" && Array.isArray(v) && v.length > 0) {
+                    out.orderDetails = v;
+                    continue;
+                  }
+                  if (k === "fetchMeta" && v && typeof v === "object" && !Array.isArray(v)) {
+                    out.upstreamFetchMeta = v;
+                    continue;
+                  }
+                  out[k] = v;
+                }
+                return out;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const valid = params.valid !== false;
+                const query = String(params.query ?? "");
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(params.outboundOrderNos)
+                  ? (params.outboundOrderNos as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const customerIntent = String(params.customerIntent ?? "");
+                const trajectoryText =
+                  typeof params.trajectoryText === "string" ? params.trajectoryText.trim() : "";
+                const contextOverlay =
+                  params.contextOverlay !== undefined &&
+                  params.contextOverlay !== null &&
+                  typeof params.contextOverlay === "object" &&
+                  !Array.isArray(params.contextOverlay)
+                    ? (params.contextOverlay as Record<string, unknown>)
+                    : {};
+                const inputContext =
+                  params.inputContext !== undefined && params.inputContext !== null && typeof params.inputContext === "object"
+                    ? (params.inputContext as Record<string, unknown>)
+                    : {};
+
+                // 出库单 → 跟踪号 API 对接后在此展开；当前仅使用入参 trackingIds
+                const overlayTrackingIds = Array.isArray(contextOverlay.trackingIds)
+                  ? (contextOverlay.trackingIds as unknown[]).map((item) => String(item).trim()).filter(Boolean)
+                  : [];
+                const resolvedTrackingIds = [...new Set([...trackingIds, ...overlayTrackingIds])];
+
+                const skipFetch = shouldSkipTrajectoryFetch(contextOverlay);
+
+                let trajectories: Trajectory[] = [];
+                let fetchError: string | undefined;
+
+                if (skipFetch && Array.isArray(contextOverlay.trajectories)) {
+                  trajectories = dedupeTrajectories(contextOverlay.trajectories as Trajectory[]);
+                } else if (!skipFetch && valid && resolvedTrackingIds.length > 0) {
+                  try {
+                    trajectories = dedupeTrajectories(await fetchTrajectories(resolvedTrackingIds));
+                  } catch (e) {
+                    fetchError = e instanceof Error ? e.message : String(e);
+                    trajectories = [];
+                  }
+                }
+
+                const carrierFromSelf = detectScanInTrajectories(trajectories);
+                const parcelCreatedAt = pickParcelCreatedAt(trajectories);
+                const analysisClock = buildAnalysisClock();
+                const scanFacts = buildScanStates(contextOverlay, resolvedTrackingIds, trajectories);
+                const noScanAgeDays = computeNoScanAgeDays(contextOverlay, analysisClock);
+
+                const trajectorySummaryStr =
+                  typeof contextOverlay.trajectorySummary === "string" &&
+                  contextOverlay.trajectorySummary.trim() !== "" &&
+                  skipFetch
+                    ? contextOverlay.trajectorySummary
+                    : compactTrajectorySummary(trajectories, trajectoryText);
+
+                const orderDetailsFromOverlay = Array.isArray(contextOverlay.orderDetails)
+                  ? contextOverlay.orderDetails
+                  : [];
+
+                const selfCtx: Record<string, unknown> = {
+                  trajectories,
+                  trajectorySummary: trajectorySummaryStr,
+                  carrierScanDetected: carrierFromSelf,
+                  ...scanFacts,
+                  noScanAgeDays,
+                  parcelCreatedAt,
+                  trackingIds: resolvedTrackingIds,
+                  outboundOrderNos,
+                  trajectoryText: trajectoryText || undefined,
+                  orderDetails: orderDetailsFromOverlay,
+                  fetchMeta: {
+                    expertNode: "fetch-and-enrich",
+                    fetchedAt: new Date().toISOString(),
+                    trackingIdsRequested: resolvedTrackingIds.length,
+                    fetchError,
+                    skippedTrajectoryFetch: skipFetch,
+                    skipReason: skipFetch
+                      ? contextOverlay.skipTrajectoryFetch === true || contextOverlay.reuseUpstreamTrajectoryFacts === true
+                        ? "explicit_flag"
+                        : "reusable_upstream_trajectories"
+                      : undefined,
+                  },
+                  inputValid: valid,
+                  validationError: valid ? "" : String(params.error ?? ""),
+                };
+
+                const enrichedContext = mergeSelfWithOverlay(selfCtx, contextOverlay);
+                enrichedContext.carrierScanDetected =
+                  scanFacts.scanStateSummary === "all_ascan" ||
+                  scanFacts.scanStateSummary === "all_delivered" ||
+                  carrierFromSelf ||
+                  contextOverlay.carrierScanDetected === true;
+                enrichedContext.scanStates = scanFacts.scanStates;
+                enrichedContext.scanStateSummary = scanFacts.scanStateSummary;
+                enrichedContext.noScanAgeDays = noScanAgeDays;
+
+                delete enrichedContext.skipTrajectoryFetch;
+                delete enrichedContext.reuseUpstreamTrajectoryFacts;
+
+                enrichedContext.analysisClock = analysisClock;
+
+                return {
+                  query,
+                  trackingIds: resolvedTrackingIds,
+                  outboundOrderNos,
+                  customerIntent,
+                  enrichedContext,
+                  inputContext,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-and-enrich")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: valid
+                input:
+                    value:
+                        path: valid
+                        ref_node: "163000"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163000"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "163000"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: trajectoryText
+                input:
+                    value:
+                        path: trajectoryText
+                        ref_node: "163000"
+              - name: contextOverlay
+                input:
+                    value:
+                        path: contextOverlay
+                        ref_node: "163000"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              outboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 947
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.8"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: deepseek-v4-pro-260425
+              - name: modelType
+                input:
+                    type: integer
+                    value: "961437672"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 轨迹无上网信息处理专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是**轨迹无上网 / 无 A-SCAN / 无扫描**查件流程专家。根据给定事实，**严格按下方分支顺序**输出客服可用的话术与下一步。
+
+                        **硬性规则**
+
+                        - **不得编造**内部系统链接、工单 URL、未在输入中出现的承诺。
+                        - **禁止**在 `analysis`（面向客户或对外可读内容）中出现 **winitlink、内部协作 Wiki、内部知识库 URL** 或任何仅供员工访问的文档链接。SOP 细节以 **下方「内置知识库（KB）」** 为准，用自然语言向客户说明进展与要求即可。
+                        - **能力边界（必守）**：本专家**仅做**分支判断与话术建议，**不具备**登记工单、发起物流跟进、联系承运商、代为调查、承诺处理时效等**执行能力**。
+                          - **禁止**在 `analysis` 中使用第一人称执行承诺，例如：「我们将为您登记」「已为您提交跟进」「会协调尾程承运商核实」等。
+                          - 例外：仅当 `enrichedContext` 中已有明确的**已完成**登记回执（如 `noAscentInvestigationRecord`）时，可**告知既有结果**，仍不得承诺尚未发生的动作。
+                          - 需要登记/跟进/升级：在 `suggestedNextExperts` 中推荐下游专家，由客服或编排执行；`analysis` 只陈述**事实结论**，不代为主体承诺办理。
+                        - **批量阈值**：同一 PSC、同一出库日期、**带挂号**、无上网 **超过 5 单** → 转在线服务支持（话术见 KB）；若 `enrichedContext` **未提供** `bulkRegisteredNoAscentCount`（或等价明确计数），**不得**断言批量分支，应 `need_human` 或继续单票逻辑并注明缺批量数据。
+                        - **异步下载 / 调查登记**：数据由 **系统接口** 与 **公司内部多维表 API** 完成（见 design.md §4）。**不要**引导终端用户自行打开数据平台导出或自行填写调查表单；**亦不得**替客服/系统承诺「将登记与跟进」。
+                        - 赔付条款由 **`refund-standard`**；索赔入口/代查由 **`substitute-claim`** / **`tracking-inquiry`**（若编排中有），本回复只做流程引导，**不承诺**已发起或即将发起上述流程。
+                        - **`enrichedContext` 来源**：由 **`fetch-and-enrich`** 生成：优先复用调用方覆盖层中**已有轨迹/事实**（见 design：可跳过 Winit）；缺省再按 `trackingIds` 自拉并推导 `carrierScanDetected`、`parcelCreatedAt`、`trajectorySummary`、`fetchMeta`、**`analysisClock`（当前 UTC 参考）**。**不得**假设必须先调其他专家；有前序分析时以合并后 JSON 为准。
+                        - **逐票事实优先**：`scanStates` / `scanStateSummary` 由代码节点生成。全部无 Ascan 才进入无上网规则；混合批次必须拆票；已有 Ascan 应转 `tracking-stale`。
+                        - **承运商数据未确认**：若 `scanStateSummary === "unknown"` 且已有 tracking ID，或上游标记 `carrier_data_unverified`，必须输出 `tracking_data_unverified`：接口当前只返回仓库节点，无法确认实际是否已上网。不得进入无 Ascan、11–45 天或索赔分支，不得推荐赔付专家；`missingFacts` 固定含 `freshCarrierTracking`。
+                        - **标准赔付边界**：无 Ascan 且距仓库最近作业事件 11–45 天时只输出 `standard_claim_review` 并建议 `refund-standard` 核验，禁止直接承诺可赔。
+
+                        ## 内置知识库（KB）
+
+                        以下为本专家维护的业务知识；**对客户只转述要点与话术，不附链接、不暴露内部系统名称（除非公司已批准对客使用的品牌/渠道名）**。
+
+                        # 轨迹无上网 — 内置知识库（KB）
+
+                        > **维护说明**：正文对应内部运营 SOP，与内部知识库保持同步时请更新本文件。**禁止**在对外 `analysis` 中出现 winitlink、内部协作 Wiki 或任何内部文档 URL。
+
+                        ---
+
+                        ## KB-0 已有 SCAN（非无上网）
+
+                        ### 适用 branch
+
+                        `carrier_has_scan`
+
+                        ### 对客话术原则
+
+                        - **核心**：说明包裹**已有有效上网/扫描记录**（时间、地点、事件类型），**不属于**无上网或无 A-SCAN 异常。
+                        - 可补充当前轨迹状态（如仍在运输中转、最近更新时间等），基于 `enrichedContext` 已有事实，**不臆测**停滞原因或责任方。
+                        - **禁止**：
+                          - 主动推销「物流跟进服务」「停滞核查」「进一步核实」等——本专家**不能**登记或协调尾程。
+                          - 使用「我们将为您登记」「会协调承运商」等执行承诺。
+                          - 在 `suggestedNextExperts` 中填入 `tracking-inquiry` 等（本分支应为空数组）。
+                        - 客户若对**运输时效/停滞**另有疑问：话术可中性说明「包裹已在正常运输链路中，可留意后续轨迹更新」；**不**在本分支发起查件或跟进承诺。确需查件由客服按流程另行处理或改调其他专家。
+
+                        ---
+
+                        ## KB-1 批量无上网（在线服务支持）
+
+                        ### 适用范围
+
+                        - 客户投诉：**同一 PSC、同一出库日期**、**带挂号服务**、**无上网（无 A-SCAN）** 的订单 **超过 5 单** → **转在线服务支持**，由在线服务按完整 SOP 处理（本 KB 仅摘要供话术与分支）。
+
+                        ### 相似问法（识别用）
+
+                        - 出库单批量无上网、整批都没上网信息等。
+
+                        ### 流程要点（客服侧）
+
+                        1. **起始**：请客户提供出库单号/快递单号以便核实。
+                        2. **仓库异常（SD）**：查当天仓库是否在 SD 登记异常。  
+                           - 有异常且在预计出库时间内：按 SD 备注原因回复（含预计交付供应商日期、请等候轨迹更新等）。  
+                           - 有异常但已超过预计出库日：供应商官网 A-SCAN 一般在出库后约 24 小时内上传；超过「预计出库日期 + 1 个工作日」仍无上网 → 按 SOP 找对应 SD 核实。  
+                           - 无登记异常 → 进入数据核对（须系统侧 **接口** 提供与「异步下载」等价的数据，非让客户自行导出）。
+                        3. **拣选车核对**：在系统提供的无 A-SCAN 数据中，检查投诉包裹是否在同一拣选车；按「同车其他货已上网 / 仅部分上网 / 均无上网」等分支使用对应话术或升级调查。  
+                           - 个例延迟：可说明同拣选车统计、属个例、请留意官网后续更新；客户不接受时可按 SOP 登记 **出库调查**（由系统 **Bitable/API** 登记，非对客发表单链接）。  
+                           - 需仓库/质控调查：调查结论可能为遗漏在仓、交错供应商、小件进无标签箱等，各情形有对应致歉与后续指引（索赔、跟进供应商等，具体以公司最新政策为准）。
+                        4. **仓侧无异常**：按 SOP 可能需尾程运营侧 PD/SD 核实供应商操作（内部协作，不在对客话术中暴露内部群或链接）。
+
+                        ### 对客话术原则
+
+                        - 说明情况、时效预期、公司已采取或即将采取的动作（系统登记、升级调查等），**不**粘贴内部系统地址、**不**引导客户自行打开数据平台导出。
+
+                        ---
+
+                        ## KB-2 无上网 — 特殊查件
+
+                        ### 美国 UPS（SUREPOST 除外）
+
+                        - 即使无上网，部分场景仍可按 **代客索赔** 路径处理；供应商可能以未收到货为由拒赔，需管理客户预期。  
+                        - **前置**：先确认 **仓库出库无问题**，尽量提供 **仓库出库截图**。  
+                        - **登记**：通过公司内部流程/系统（如多维表 **API**）提交代客索赔同事跟进，**不**对客户发送内部表格链接。
+
+                        ### 非美国 UPS
+
+                        - 请客服收集：**收件人电话、邮箱**；**重量、货值**；**商品具体描述**（品名、尺寸、型号、颜色等）；**商品图片**；**仓库出库截图**。  
+                        - 内部流：资料交查件客服 → 咨询供应商 → 供应商无法协助且客户争议时可升级 SD；需让客户理解可能仍无结果。  
+                        - 对客：说明正在协调查询、所需材料已记录或请补充上述信息，**不**输出内部协作链接。
+
+                        ---
+
+                        ## KB-3 集成约束（与 design.md §4 一致）
+
+                        - **异步下载等价数据**：仅通过 **业务接口** 写入上下文；模型不得假设客户能自行导出。  
+                        - **无上网调查 / 代客索赔登记**：优先通过 **公司内部多维表开放接口（Bitable/API）** 登记；共享表单仅人工兜底，**不作为对客话术中的「请点击填写」**。
+
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **trackingIds**：`{{trackingIds}}`
+                        - **outboundOrderNos**：`{{outboundOrderNos}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **enrichedContext**：`{{enrichedContext}}`（已由 fetch-and-enrich 合并：自拉轨迹 + 可选覆盖层）
+                        - **inputContext.previousOutput**（若模板提供）：`{{inputContext.previousOutput}}`
+
+                        ## 分支判定顺序（必须遵守）
+
+                        按顺序执行，**命中即停**（勿与后续分支矛盾）：
+
+                        1. **缺关键信息**：无 `trackingIds`/`outboundOrderNos`、无有效 `trajectoryText`，且合并后的 `enrichedContext` 仍无可用轨迹/订单事实（或 `fetchMeta.fetchError` 且无任何文本）→ `branch: need_info`。引导补充单号或粘贴轨迹。
+                        2. **批量**：`enrichedContext.bulkRegisteredNoAscentCount` **> 5**，且上下文表明同一 PSC、同一出库日、挂号、无上网 → `branch: bulk_no_tracking_online_service`。说明将转由 **在线服务支持**按公司流程处理，**勿附任何 Wiki 或内部链接**（话术依据 KB-1）。**无可靠计数则跳过本步**。
+                        3. **非挂号**：明确无挂号服务 → `branch: non_registered`。
+                        4. **承运商数据未确认**：`scanStateSummary === "unknown"` 且已有 tracking ID → `tracking_data_unverified`，只说明接口未返回可确认的承运商轨迹，禁止断言无上网。
+                        5. **逐票状态混合**：`scanStateSummary === "mixed"` -> `mixed_scan_state`，按 `scanStates` 拆票。
+                        6. **承运商轨迹已有 SCAN**：须能由 `scanStates` 或 `trajectories.nodes` 核验到真实 SCAN/Ascan；否定语境不算已有扫描 → `carrier_has_scan`，已有 Ascan 后停滞建议 `tracking-stale`。
+                           - **结论**：不属于无上网/无扫描异常；`analysis` 说明 SCAN 时间、地点及当前轨迹状态即可。
+                           - 不得推荐 `tracking-inquiry` 或继续无上网流程；若用户诉求明确是扫描后停滞，可建议 `tracking-stale`。
+                           - 本专家仍按「已有 SCAN、非无上网」收口，不在此分支判断停滞索赔。
+                        7. **全部无 Ascan 且 `noScanAgeDays` 为 11–45** -> `standard_claim_review`，仅转 `refund-standard` 核验完整条件，不断言必定可赔；>45 -> `claim_window_manual_review`。
+                        7. **包裹创建距今 < 10 自然日**：依据 `parcelCreatedAt` 与 **`enrichedContext.analysisClock.utcIso`**（本请求的服务端 UTC「当前时刻」）判断自然日间隔 → `branch: parcel_created_within_10_days`（无法解析日期则跳过；若 `parcelCreatedAt` 为本地/混用时区须说明比较假设）。
+                        8. **非直发混合订单**（平台/混合）：若 `orderDetails` 表明非直发混合，且创建已超过 10 自然日（**超过**同样以 **`analysisClock.utcIso`** 为「现在」基准）：
+                           - ≤21 自然日 → `platform_mixed_10_to_21_days`
+                           - >21 自然日 → `platform_mixed_over_21_days`
+                        9. **直发/混合订单路径**：若 `hasSplitWeight === true` → `manual_inquiry_split_weight`。
+                        10. **重查/重包裹**：`isHeavyOrReWeighInquiry === true` → `heavy_or_reweigh_parcel`。
+                        11. **常规查件**：`standard_inquiry_and_ticket`（后台工单/系统登记由客服或编排执行，不杜撰链接）。若 `complianceStatus === 'non_compliant'` → `non_compliant_submission`；若 `'compliant'` 且场景为记录闭环 → `compliant_recorded`。
+                        12. **客户坚持特殊查件**（`customerInsistsSpecialInquiry` 或意图明确）：
+                            - **美国 UPS 且非 SurePost**（依据 `orderDetails` / `carrierServiceHint`）：`ups_us_substitute_claim`（见 **KB-2**）。
+                            - 否则：`special_inquiry_escalation`（见 **KB-2**）。
+                        13. **无法判定**或缺关键 API 数据（如需拣选车核对但无 `asyncDownloadDataset`）→ `need_human`，在 `missingFacts` 列出所需项。
+
+                        ## 输出格式（仅输出一个 JSON 对象，无围栏外文字）
+
+                        **硬性要求**：只输出 **一个** JSON 对象，顶层 **仅有** `analysisResult`（与 workflow LLM 节点 `outputs[0]` 一致），其内包含 `structured` 与 `analysis`；不要用 Markdown 代码围栏包裹。
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "branch": "need_info | bulk_no_tracking_online_service | non_registered | carrier_has_scan | tracking_data_unverified | mixed_scan_state | standard_claim_review | claim_window_manual_review | parcel_created_within_10_days | platform_mixed_10_to_21_days | platform_mixed_over_21_days | manual_inquiry_split_weight | heavy_or_reweigh_parcel | standard_inquiry_and_ticket | non_compliant_submission | compliant_recorded | special_inquiry_escalation | ups_us_substitute_claim | need_human",
+                              "trackingIds": [],
+                              "outboundOrderNos": [],
+                              "suggestedNextExperts": [],
+                              "missingFacts": [],
+                              "scanStates": []
+                            },
+                            "analysis": "面向客服或最终用户的完整回复，与 structured.branch 一致；不得含 winitlink/内部协作 Wiki 等内部链接。"
+                          }
+                        }
+                        ```
+
+                        ## 自检
+
+                        - `structured.branch` 与 `analysis` 一致。
+                        - `analysis` 中 **无** winitlink、内部文档链接、内部表单 URL；无伪造 URL；不对客主推 DP/表单点击办理。
+                        - `analysis` 中 **无**「我们将…」「已为您…」「会协调…」等本专家无法兑现的执行承诺（除非告知已有登记回执）。
+                        - `carrier_has_scan` 若用户诉求是停滞，可建议 `tracking-stale`；不得继续使用无上网赔付规则。
+                        - 其他分支的 `suggestedNextExperts` 仅用合理 id：`delivery-status`、`refund-standard`、`tracking-inquiry`、`substitute-claim` 等，可为空；推荐下游专家时 `analysis` 仍不得承诺已/将代为办理。
+
+                        ## 分支说明附录
+
+                        详见同目录 **expert.md**。
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "163001"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163001"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163003"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 的 analysisResult，生成 structured / analysis / outputContext / enrichedContext
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输入】analysisResult（object|string）、inputContext（可选）、enrichedContext（可选，透传 fetch-and-enrich）
+               * 【输出】structured, analysis, outputContext, enrichedContext
+               */
+
+              const BRANCHES = new Set([
+                "need_info",
+                "bulk_no_tracking_online_service",
+                "non_registered",
+                "carrier_has_scan",
+                "parcel_created_within_10_days",
+                "platform_mixed_10_to_21_days",
+                "platform_mixed_over_21_days",
+                "manual_inquiry_split_weight",
+                "heavy_or_reweigh_parcel",
+                "standard_inquiry_and_ticket",
+                "non_compliant_submission",
+                "compliant_recorded",
+                "special_inquiry_escalation",
+                "ups_us_substitute_claim",
+                "standard_claim_review",
+                "claim_window_manual_review",
+                "mixed_scan_state",
+                "tracking_data_unverified",
+                "need_human",
+              ]);
+
+              interface TnsStructured {
+                branch?: string;
+                trackingIds?: string[];
+                outboundOrderNos?: string[];
+                suggestedNextExperts?: string[];
+                missingFacts?: string[];
+                scanStates?: Array<{ trackingNo: string; state: string }>;
+              }
+
+              interface TnsAnalysisResult {
+                structured?: TnsStructured;
+                analysis?: string;
+              }
+
+              interface TnsInputContext {
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): { structured: TnsStructured; analysis: string } {
+                if (raw == null) {
+                  return {
+                    structured: { branch: "need_human", trackingIds: [], outboundOrderNos: [], suggestedNextExperts: [], missingFacts: [] },
+                    analysis: "未收到模型输出。",
+                  };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as TnsAnalysisResult;
+                    if (parsed && typeof parsed === "object" && ("structured" in parsed || "analysis" in parsed)) {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch {
+                    /* fall through */
+                  }
+                  return {
+                    structured: { branch: "need_human", trackingIds: [], outboundOrderNos: [], suggestedNextExperts: [], missingFacts: [] },
+                    analysis: s || "解析失败，请人工查看原始模型输出。",
+                  };
+                }
+                const o = raw as TnsAnalysisResult;
+                const st = o.structured ?? {};
+                const branchRaw = typeof st.branch === "string" ? st.branch.trim() : "";
+                const branch = BRANCHES.has(branchRaw) ? branchRaw : "need_human";
+
+                const trackingIds = Array.isArray(st.trackingIds)
+                  ? st.trackingIds.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(st.outboundOrderNos)
+                  ? st.outboundOrderNos.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const suggestedNextExperts = Array.isArray(st.suggestedNextExperts)
+                  ? st.suggestedNextExperts.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const missingFacts = Array.isArray(st.missingFacts)
+                  ? st.missingFacts.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+
+                return {
+                  structured: {
+                    branch,
+                    trackingIds,
+                    outboundOrderNos,
+                    suggestedNextExperts,
+                    missingFacts,
+                  },
+                  analysis: typeof o.analysis === "string" ? o.analysis : "（无 analysis 字段）",
+                };
+              }
+
+              function enforceCriticalBranch(
+                result: { structured: TnsStructured; analysis: string },
+                context: Record<string, unknown>
+              ): { structured: TnsStructured; analysis: string } {
+                const scanStates = Array.isArray(context.scanStates)
+                  ? context.scanStates.filter((item): item is { trackingNo: string; state: string } =>
+                      Boolean(item) && typeof item === "object" && !Array.isArray(item)
+                    )
+                  : [];
+                const trackingIds = result.structured.trackingIds?.length
+                  ? result.structured.trackingIds
+                  : Array.isArray(context.trackingIds)
+                    ? context.trackingIds.map(String)
+                    : [];
+                const outboundOrderNos = result.structured.outboundOrderNos?.length
+                  ? result.structured.outboundOrderNos
+                  : Array.isArray(context.outboundOrderNos)
+                    ? context.outboundOrderNos.map(String)
+                    : [];
+                const base: TnsStructured = {
+                  ...result.structured,
+                  trackingIds,
+                  outboundOrderNos,
+                  scanStates,
+                };
+                const forced = (branch: string, analysis: string, extra?: Partial<TnsStructured>) => ({
+                  structured: { ...base, ...extra, branch },
+                  analysis,
+                });
+
+                if (context.inputValid === false) {
+                  return forced("need_info", "缺少可验证的运单、轨迹或无上网事实，请补充跟踪号或出库单号。", {
+                    suggestedNextExperts: [],
+                    missingFacts: ["trackingIdsOrTrajectoryFacts"],
+                  });
+                }
+                if (context.scanStateSummary === "unknown" && trackingIds.length > 0) {
+                  return forced(
+                    "tracking_data_unverified",
+                    "接口当前只返回仓库作业节点，未返回可确认的承运商轨迹，因此无法确认实际是否已经上网。",
+                    {
+                      suggestedNextExperts: [],
+                      missingFacts: ["freshCarrierTracking"],
+                    }
+                  );
+                }
+                if (context.scanStateSummary === "all_ascan" || context.scanStateSummary === "all_delivered") {
+                  return forced("carrier_has_scan", "轨迹已存在承运商扫描记录，不属于无 Ascan／无上网场景；如仍长期停滞，应按已有扫描后的轨迹停滞处理。", {
+                    suggestedNextExperts: ["tracking-stale"],
+                    missingFacts: [],
+                  });
+                }
+                if (context.scanStateSummary === "mixed") {
+                  return forced("mixed_scan_state", "同批运单中既有已扫描票，也有无 Ascan 票，请按 scanStates 拆票处理，避免用同一规则覆盖全部订单。", {
+                    suggestedNextExperts: ["tracking-stale"],
+                    missingFacts: ["splitByTrackingScanState"],
+                  });
+                }
+                if (context.scanStateSummary === "all_no_ascan") {
+                  const age = Number(context.noScanAgeDays);
+                  if (Number.isFinite(age) && age >= 11 && age <= 45) {
+                    return forced(
+                      "standard_claim_review",
+                      `承运商轨迹未出现 Ascan，距仓库最近作业事件约 ${Math.floor(age)} 天。该场景应进入 WINIT 标准赔付规则核验；是否最终适用仍须由 refund-standard 根据完整条件判断，不能仅凭无上网断言可赔。`,
+                      { suggestedNextExperts: ["refund-standard"], missingFacts: [] }
+                    );
+                  }
+                  if (Number.isFinite(age) && age > 45) {
+                    return forced(
+                      "claim_window_manual_review",
+                      `承运商轨迹未出现 Ascan，距仓库最近作业事件约 ${Math.floor(age)} 天，已超出现有摘要中的 45 天窗口；请转赔付规则人工核验，不能直接承诺受理或拒绝。`,
+                      { suggestedNextExperts: ["refund-standard"], missingFacts: ["authoritativeClaimWindowDecision"] }
+                    );
+                  }
+                }
+                return { structured: base, analysis: result.analysis };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as TnsInputContext | undefined;
+                const enrichedContext =
+                  params.enrichedContext !== undefined &&
+                  params.enrichedContext !== null &&
+                  typeof params.enrichedContext === "object" &&
+                  !Array.isArray(params.enrichedContext)
+                    ? (params.enrichedContext as Record<string, unknown>)
+                    : {};
+                const guarded = enforceCriticalBranch(coerced, enrichedContext);
+                const summary = guarded.analysis.slice(0, 200) || "轨迹无上网分析完成";
+                const outputContext = {
+                  expertId: "tracking-no-scan",
+                  resultSummary: summary,
+                  chainId: inputContext?.chainId ?? "",
+                };
+                return {
+                  structured: guarded.structured,
+                  analysis: guarded.analysis,
+                  outputContext,
+                  enrichedContext,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163002"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "900001"

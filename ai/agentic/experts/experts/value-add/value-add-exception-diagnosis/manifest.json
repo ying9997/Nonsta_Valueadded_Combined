@@ -1,0 +1,55 @@
+{
+  "id": "value-add-exception-diagnosis",
+  "domain": "value-add",
+  "name": "增值异常诊断",
+  "description": "识别入库异常是否进入增值推荐链，归一异常编码、名称、对象、发生节点和缺失证据；不判责、不推荐最终 VASC。Use when 客户问某个入库异常是否需要增值处理、异常编码/名称代表什么、是否能进入后续增值推荐链。",
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "exceptionCode": {
+        "type": "string",
+        "description": "异常编码，如 B01E1615"
+      },
+      "exceptionName": {
+        "type": "string",
+        "description": "异常名称"
+      },
+      "exceptionDescription": {
+        "type": "string",
+        "description": "异常系统描述或客服摘要"
+      },
+      "customerDescription": {
+        "type": "string",
+        "description": "客户自然语言描述"
+      },
+      "valueAddHandoff": {
+        "type": "object",
+        "description": "上游 inbound-exception-check 输出的增值异常 handoff facts"
+      },
+      "evidenceSummary": {
+        "type": "object",
+        "description": "数量、条码、图片、状态等证据摘要"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "编排器聚合事实"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "异常诊断结构化结果"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客可读异常诊断说明"
+      }
+    }
+  },
+  "x_recaller_propagate_previous_enriched_context": true
+}

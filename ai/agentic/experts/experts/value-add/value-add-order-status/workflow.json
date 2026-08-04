@@ -1,0 +1,260 @@
+{
+  "nodes": [
+    {
+      "id": "validate-vas-order-input",
+      "file": "nodes/validate-vas-order-input.ts",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "inputContext",
+        "vasOrderNo",
+        "businessNo",
+        "includeAtoms",
+        "includePayment",
+        "includePrepayment",
+        "includeGoods",
+        "parentGoodsId",
+        "maxAtomRows",
+        "enrichedContext"
+      ],
+      "outputs": ["orderStatusInput", "inputContext"],
+      "cozeIo": {
+        "outputs": {
+          "orderStatusInput": { "type": "object", "additionalProperties": true },
+          "inputContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "load-api-boundary",
+      "file": "nodes/load-api-boundary.ts",
+      "inputs": ["orderStatusInput", "kbApiBoundary", "kbStatusSemantics", "kbFeeGoodsBoundary"],
+      "outputs": ["apiBoundaryKb", "orderStatusInput"],
+      "cozeIo": {
+        "outputs": {
+          "apiBoundaryKb": { "type": "string" },
+          "orderStatusInput": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-basic-info-request",
+      "file": "nodes/build-basic-info-request.ts",
+      "inputs": ["orderStatusInput"],
+      "outputs": ["basicInfoRequestData", "basicInfoActionPlan", "orderStatusInput"],
+      "cozeIo": {
+        "outputs": {
+          "basicInfoRequestData": { "type": "string" },
+          "basicInfoActionPlan": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "fetch-basic-info",
+      "file": "nodes/fetch-basic-info.ts",
+      "inputs": ["orderStatusInput", "basicInfoRequestData", "basicInfoActionPlan", "basicInfoApiResult"],
+      "outputs": ["basicInfoFacts", "orderStatusInput"],
+      "cozeIo": {
+        "inputs": {
+          "basicInfoActionPlan": { "type": "object" },
+          "basicInfoApiResult": { "type": "string" }
+        },
+        "outputs": {
+          "basicInfoFacts": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-vas-list-request",
+      "file": "nodes/build-vas-list-request.ts",
+      "inputs": ["orderStatusInput", "basicInfoFacts"],
+      "outputs": ["vasListRequestData", "vasListActionPlan", "orderStatusInput", "basicInfoFacts"],
+      "cozeIo": {
+        "outputs": {
+          "vasListRequestData": { "type": "string" },
+          "vasListActionPlan": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true },
+          "basicInfoFacts": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "fetch-vas-list",
+      "file": "nodes/fetch-vas-list.ts",
+      "inputs": ["orderStatusInput", "basicInfoFacts", "vasListActionPlan", "vasListApiResult"],
+      "outputs": ["vasListFacts", "orderStatusInput", "basicInfoFacts"],
+      "cozeIo": {
+        "inputs": {
+          "vasListActionPlan": { "type": "object" },
+          "vasListApiResult": { "type": "string" }
+        },
+        "outputs": {
+          "vasListFacts": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true },
+          "basicInfoFacts": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-resolved-basic-info-request",
+      "file": "nodes/build-resolved-basic-info-request.ts",
+      "inputs": ["orderStatusInput", "basicInfoFacts", "vasListFacts"],
+      "outputs": [
+        "resolvedBasicInfoRequestData",
+        "resolvedBasicInfoActionPlan",
+        "orderStatusInput",
+        "basicInfoFacts",
+        "vasListFacts"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "resolvedBasicInfoRequestData": { "type": "string" },
+          "resolvedBasicInfoActionPlan": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true },
+          "basicInfoFacts": { "type": "object", "additionalProperties": true },
+          "vasListFacts": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "fetch-resolved-basic-info",
+      "file": "nodes/fetch-resolved-basic-info.ts",
+      "inputs": ["orderStatusInput", "basicInfoFacts", "vasListFacts", "resolvedBasicInfoApiResult"],
+      "outputs": ["resolvedBasicInfoFacts", "orderStatusInput", "basicInfoFacts", "vasListFacts"],
+      "cozeIo": {
+        "inputs": { "resolvedBasicInfoApiResult": { "type": "string" } },
+        "outputs": {
+          "resolvedBasicInfoFacts": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true },
+          "basicInfoFacts": { "type": "object", "additionalProperties": true },
+          "vasListFacts": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "merge-status-data",
+      "file": "nodes/merge-status-data.ts",
+      "inputs": ["orderStatusInput", "basicInfoFacts", "resolvedBasicInfoFacts", "vasListFacts", "apiBoundaryKb"],
+      "outputs": ["statusFacts", "orderStatusInput"],
+      "cozeIo": {
+        "outputs": {
+          "statusFacts": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-payment-request",
+      "file": "nodes/build-payment-request.ts",
+      "inputs": ["orderStatusInput", "statusFacts"],
+      "outputs": ["paymentRequestData", "paymentActionPlan", "orderStatusInput", "statusFacts"],
+      "cozeIo": {
+        "outputs": {
+          "paymentRequestData": { "type": "string" },
+          "paymentActionPlan": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true },
+          "statusFacts": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "fetch-payment-list",
+      "file": "nodes/fetch-payment-list.ts",
+      "inputs": ["paymentActionPlan", "paymentApiResult"],
+      "outputs": ["paymentFacts"],
+      "cozeIo": {
+        "inputs": { "paymentApiResult": { "type": "string" } },
+        "outputs": { "paymentFacts": { "type": "object", "additionalProperties": true } }
+      }
+    },
+    {
+      "id": "build-prepayment-request",
+      "file": "nodes/build-prepayment-request.ts",
+      "inputs": ["orderStatusInput", "statusFacts"],
+      "outputs": ["prepaymentRequestData", "prepaymentActionPlan", "orderStatusInput", "statusFacts"],
+      "cozeIo": {
+        "outputs": {
+          "prepaymentRequestData": { "type": "string" },
+          "prepaymentActionPlan": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true },
+          "statusFacts": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "fetch-prepayment-list",
+      "file": "nodes/fetch-prepayment-list.ts",
+      "inputs": ["prepaymentActionPlan", "prepaymentApiResult"],
+      "outputs": ["prepaymentFacts"],
+      "cozeIo": {
+        "inputs": { "prepaymentApiResult": { "type": "string" } },
+        "outputs": { "prepaymentFacts": { "type": "object", "additionalProperties": true } }
+      }
+    },
+    {
+      "id": "build-sub-goods-request",
+      "file": "nodes/build-sub-goods-request.ts",
+      "inputs": ["orderStatusInput", "statusFacts"],
+      "outputs": ["subGoodsRequestData", "subGoodsActionPlan", "orderStatusInput", "statusFacts"],
+      "cozeIo": {
+        "outputs": {
+          "subGoodsRequestData": { "type": "string" },
+          "subGoodsActionPlan": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true },
+          "statusFacts": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "fetch-sub-goods",
+      "file": "nodes/fetch-sub-goods.ts",
+      "inputs": ["subGoodsActionPlan", "subGoodsApiResult"],
+      "outputs": ["goodsFacts"],
+      "cozeIo": {
+        "inputs": { "subGoodsApiResult": { "type": "string" } },
+        "outputs": { "goodsFacts": { "type": "object", "additionalProperties": true } }
+      }
+    },
+    {
+      "id": "merge-enhancement-data",
+      "file": "nodes/merge-enhancement-data.ts",
+      "inputs": ["orderStatusInput", "statusFacts", "paymentFacts", "prepaymentFacts", "goodsFacts"],
+      "outputs": ["statusFacts", "orderStatusInput"],
+      "cozeIo": {
+        "outputs": {
+          "statusFacts": { "type": "object", "additionalProperties": true },
+          "orderStatusInput": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "promptFile": "prompts/main.md",
+      "inputs": ["query", "customerIntent", "orderStatusInput", "statusFacts", "apiBoundaryKb", "inputContext"],
+      "outputs": ["analysisResult"]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": ["analysisResult", "orderStatusInput", "statusFacts", "inputContext"],
+      "outputs": ["structured", "analysis", "outputContext", "enrichedContext"],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": { "type": "object" },
+          "orderStatusInput": { "type": "object" },
+          "statusFacts": { "type": "object" },
+          "inputContext": { "type": "object" }
+        },
+        "outputs": {
+          "structured": { "type": "object", "additionalProperties": true },
+          "analysis": { "type": "string" },
+          "outputContext": { "type": "object", "additionalProperties": true },
+          "enrichedContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  ]
+}

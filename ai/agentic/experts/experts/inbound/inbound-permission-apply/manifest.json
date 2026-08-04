@@ -1,0 +1,51 @@
+{
+  "id": "inbound-permission-apply",
+  "domain": "inbound",
+  "name": "权限申请指引",
+  "description": "自验/海外验/CBM 额度等权限申请与进度查询指引。当前 Sprint 为纯 KB 路径；飞书 Bitable 自动代提为 Gap。Use when 客户询问怎么申请自验权限、海外验怎么开通、CBM 额度申请流程、审核进度查询。",
+  "capabilities": [
+    "权限申请材料清单",
+    "申请操作步骤",
+    "审批进度查询指引",
+    "续期说明",
+    "已开通判断"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": ["intent", "permissionType"],
+    "properties": {
+      "intent": {
+        "type": "string",
+        "enum": ["apply", "progress", "renew", "general"],
+        "description": "申请意图：apply 提交申请 / progress 查进度 / renew 续期 / general 通用"
+      },
+      "permissionType": {
+        "type": "string",
+        "enum": ["self_inspection", "overseas_inspection", "cbm_quota", "general"],
+        "description": "权限类型"
+      },
+      "warehouseCode": {
+        "type": "string",
+        "description": "目标仓库编码"
+      },
+      "applicationId": {
+        "type": "string",
+        "description": "已有申请单号（progress 场景可选）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "权限申请结构化结果"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "材料清单与操作指引"
+      }
+    }
+  }
+}

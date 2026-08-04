@@ -1,0 +1,1567 @@
+schema_version: 1.0.0
+name: product_consult
+id: 7699636562217834682
+description: 尾程产品推荐咨询（validate → load-knowledge → LLM → format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -150
+          y: 230
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      country:
+                          type: string
+                          value: null
+                          description: 目的国 ISO2（如 US、DE、UK、AU、CA）。上游可选传入，未传时从 query 文本自动提取
+                      destinationCountry:
+                          type: string
+                          value: null
+                          description: 同 country，便于上游字段命名对齐
+                      goodsType:
+                          type: string
+                          value: null
+                          description: 商品类型/货型：大件、中小件、超大件/异型、托盘等
+                      goodsWeight:
+                          type: string
+                          value: null
+                          description: 商品重量（如 30kg、5lb 等）
+                      goodsDimensions:
+                          type: string
+                          value: null
+                          description: 商品尺寸（如 120×100×80 cm）
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 上游合并的上下文
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1350
+          y: 310
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163009"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163009"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163009"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163009"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 200
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 校验入参、解析国家码、提取商品信息、确定知识加载范围
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 中本节点 `inputs` / `outputs` 完全一致。
+               *
+               * 【输入】`params` 字段（均为可选）：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | customerIntent | string | 用户意图 |
+               * | country | string | 目的国 ISO2 |
+               * | destinationCountry | string | 同 country |
+               * | goodsType | string | 商品类型描述 |
+               * | goodsWeight | string | 商品重量（如 5kg） |
+               * | goodsDimensions | string | 商品尺寸（如 30x20x10cm） |
+               * | enrichedContext | object | 上游合并上下文 |
+               * | inputContext | object | 链式上下文 |
+               *
+               * 【输出】JSON 对象：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | valid | boolean | 是否通过校验 |
+               * | error | string | 仅当 valid===false |
+               * | countryResolved | string | ISO2 国家码 |
+               * | countrySource | string | 国家解析来源 |
+               * | goodsInfo | object | 商品信息 |
+               * | kbScope | string | 知识加载范围 |
+               * | enrichedContext | object | 含 analysisClock |
+               * | inputContext | object | 默认 {} |
+               */
+
+              interface AnalysisClock {
+                utcIso: string;
+                timezoneLabel: string;
+                note: string;
+              }
+
+              function buildAnalysisClock(): AnalysisClock {
+                return {
+                  utcIso: new Date().toISOString(),
+                  timezoneLabel: "UTC",
+                  note: "参考时钟为服务端 UTC（ISO8601）。",
+                };
+              }
+
+              function withAnalysisClock(ec: unknown): Record<string, unknown> {
+                const base =
+                  ec !== undefined && ec !== null && typeof ec === "object" && !Array.isArray(ec)
+                    ? { ...(ec as Record<string, unknown>) }
+                    : {};
+                base.analysisClock = buildAnalysisClock();
+                return base;
+              }
+
+              function isNonEmptyString(v: unknown): boolean {
+                return typeof v === "string" && v.trim().length > 0;
+              }
+
+              function normalizeCountryCode(s: string): string | undefined {
+                const u = s.trim().toUpperCase();
+                if (u === "GB" || u === "UNITED KINGDOM" || u === "GREAT BRITAIN") return "UK";
+                if (u === "USA" || u === "UNITED STATES") return "US";
+                if (u === "DEU" || u === "GERMANY") return "DE";
+                if (u === "CAN" || u === "CANADA") return "CA";
+                if (u === "AUS" || u === "AUSTRALIA") return "AU";
+                if (/^[A-Z]{2}$/.test(u)) return u;
+                return undefined;
+              }
+
+              function extractCountry(params: Record<string, unknown>): { countryResolved: string; countrySource: string } {
+                const tryStr = (v: unknown): string | undefined =>
+                  typeof v === "string" && v.trim() ? normalizeCountryCode(v) : undefined;
+
+                let c =
+                  tryStr(params.country) ??
+                  tryStr(params.destinationCountry);
+                if (c) return { countryResolved: c, countrySource: "param" };
+
+                const ec = params.enrichedContext;
+                if (ec && typeof ec === "object" && !Array.isArray(ec)) {
+                  const o = ec as Record<string, unknown>;
+                  c =
+                    tryStr(o.country) ??
+                    tryStr(o.destinationCountry) ??
+                    tryStr(o.destinationRegion) ??
+                    tryStr(o.countryCode);
+                  if (c) return { countryResolved: c, countrySource: "enrichedContext" };
+                }
+                return { countryResolved: "", countrySource: "" };
+              }
+
+              interface GoodsInfo {
+                type: string;
+                weight: string;
+                dimensions: string;
+              }
+
+              function extractGoodsInfo(params: Record<string, unknown>): GoodsInfo {
+                return {
+                  type: isNonEmptyString(params.goodsType) ? String(params.goodsType).trim() : "",
+                  weight: isNonEmptyString(params.goodsWeight) ? String(params.goodsWeight).trim() : "",
+                  dimensions: isNonEmptyString(params.goodsDimensions) ? String(params.goodsDimensions).trim() : "",
+                };
+              }
+
+              const SUPPORTED_COUNTRIES = ["US", "UK", "DE", "AU", "CA"];
+
+              function determineKbScope(countryResolved: string): string {
+                if (!countryResolved) return "index";
+                if (!SUPPORTED_COUNTRIES.includes(countryResolved)) return "index";
+                return `delivery-${countryResolved.toLowerCase()}`;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const customerIntent = isNonEmptyString(params.customerIntent) ? String(params.customerIntent).trim() : "";
+                const { countryResolved, countrySource } = extractCountry(params);
+                const goodsInfo = extractGoodsInfo(params);
+                const enrichedContext = withAnalysisClock(params.enrichedContext);
+                const inputContext = params.inputContext ?? {};
+                const kbScope = determineKbScope(countryResolved);
+
+                const hasIntent = customerIntent.length > 0;
+                const hasCountry = countryResolved.length > 0;
+                const hasGoods = goodsInfo.type || goodsInfo.weight || goodsInfo.dimensions;
+
+                const valid = hasIntent || hasCountry || hasGoods;
+
+                return valid
+                  ? { valid: true, customerIntent, countryResolved, countrySource, goodsInfo, kbScope, enrichedContext, inputContext }
+                  : {
+                      valid: false,
+                      error: "至少提供 customerIntent、country/destinationCountry 或商品信息之一",
+                      customerIntent,
+                      countryResolved,
+                      countrySource,
+                      goodsInfo,
+                      kbScope,
+                      enrichedContext,
+                      inputContext,
+                    };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => { console.error(e); process.exit(1); });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: country
+                input:
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: destinationCountry
+                input:
+                    value:
+                        path: inputs.destinationCountry
+                        ref_node: "100001"
+              - name: goodsType
+                input:
+                    value:
+                        path: inputs.goodsType
+                        ref_node: "100001"
+              - name: goodsWeight
+                input:
+                    value:
+                        path: inputs.goodsWeight
+                        ref_node: "100001"
+              - name: goodsDimensions
+                input:
+                    value:
+                        path: inputs.goodsDimensions
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              countryResolved:
+                  type: string
+                  value: null
+              countrySource:
+                  type: string
+                  value: null
+              goodsInfo:
+                  type: object
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: kb-delivery-us
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 707
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # US 尾程产品推荐详情
+
+                        ---
+
+                        ## 一、货型定义参考
+
+                        | 件型 | 长(cm) | 宽(cm) | 高(cm) | 重量(kg) | 体积(m³) |
+                        |------|--------|--------|--------|----------|----------|
+                        | 小件 | ≤50 | ≤40 | ≤13 | ≤3 | ≤0.01 |
+                        | 中件 | ≤70 | ≤40 | ≤25 | ≤10 | ≤0.07 |
+                        | 大件 | ≤120 | ≤100 | ≤80 | ≤31.5 | ≤0.96 |
+                        | 超大件 | ≤300 | ≤240 | ≤200 | ≤100 | ≤14.4 |
+
+                        > 备注：长、宽、高、重量、体积全部符合的前提下，同时命中多个档位归为最低一档。45kg 以上需方正规则包装，必须自带铲脚或单独码放在托盘上。异形件以凸出部分顶点为测量端点。
+
+                        ---
+
+                        ## 二、2C 包裹推荐矩阵
+
+                        | 件型 | 经济7日达 | 标准5日达 | 快捷3日达 | 快捷隔日达 | 快捷次日达 |
+                        |------|----------|----------|----------|----------|----------|
+                        | 超大件/异型 | Amazon Delivery | FedEx Ground / UPS Ground | USPS Priority Mail / UPS 3 Day Select | FedEx 2 Day | FedEx Standard Overnight / UPS Next Day Air Saver |
+                        | 大件 | Amazon Delivery | FedEx Ground / UPS Ground / OnTrac Ground | USPS Priority Mail / UPS 3 Day Select | FedEx 2 Day | FedEx Standard Overnight / UPS Next Day Air Saver |
+                        | 中件 | Amazon Delivery / FedEx Ground Economy / UPS SurePost | OnTrac Ground / USPS Ground Advantage | USPS Priority Mail / UPS 3 Day Select | FedEx 2 Day | FedEx Standard Overnight / UPS Next Day Air Saver |
+                        | 小件 | FedEx Ground Economy / UPS SurePost | USPS Ground Advantage | USPS Priority Mail / UPS 3 Day Select | FedEx 2 Day | FedEx Standard Overnight / UPS Next Day Air Saver |
+
+                        ---
+
+                        ## 三、2B 托盘/货运推荐矩阵
+
+                        | 件型 | 经济7日达 | 标准5日达 | 快捷3日达 | 快捷隔日达 | 快捷次日达 |
+                        |------|----------|----------|----------|----------|----------|
+                        | 单托/木箱 | FedEx Freight Economy | FedEx Freight Economy | FedEx 3 Day Express Freight | FedEx 2 Day Express Freight | FedEx 1 Day Express Freight |
+                        | LTL(<6plt) | FedEx Freight Economy | FedEx Freight Economy | FedEx 3 Day Express Freight | FedEx 2 Day Express Freight | FedEx 1 Day Express Freight |
+                        | LTL(7-12plt) | 线下单独询价 | 线下单独询价 | 线下单独询价 | 线下单独询价 | 线下单独询价 |
+                        | FTL | 线下单独询价 | 线下单独询价 | 线下单独询价 | 线下单独询价 | 线下单独询价 |
+
+                        ---
+
+                        ## 四、中小件 Case 推荐
+
+                        ### Winit Express（快捷）— 全美95%订单1-3日达
+
+                        | 推荐标记 | 渠道 | 运输 | 单仓卖点 | 多仓卖点 |
+                        |---------|------|------|---------|---------|
+                        | 2C单仓推荐 | FedEx Standard Overnight | 空运 | 【时效】1日达95%达成 【卖价】1LB XUSD起 【优势】1-10LBS急件次日达最优解 | 同单仓 |
+                        | — | UPS Next Day Air Saver | 空运 | 次日达，空运 | 同单仓 |
+                        | 2C双仓推荐 | FedEx 2 Day | 空运(一票多件) | 【时效】1日达50%, 2日达95% 【卖价】1LB XUSD起 【优势】1-10LBS急件隔日达首选 | 同单仓 |
+                        | — | USPS Priority Mail | 空运 | 【时效】全美3-5日达95% 【卖价】1LB XUSD起 【优势】全美+离岸可派 | 【时效】全美3日达95% |
+                        | — | UPS 3 Day Select Residential | 陆运 | 3日达，陆运 | 同单仓 |
+
+                        ### Winit Standard（标准）— 全美5日达
+
+                        | 推荐标记 | 渠道 | 运输 | 单仓卖点 | 多仓卖点 |
+                        |---------|------|------|---------|---------|
+                        | 2C单仓推荐 | USPS Ground Advantage | 陆运 | 【时效】3-5日达95%达成 【卖价】4oz XUSD起, 1LB XUSD起 【优势】全美可派，磅下磅上可选，10磅内标准优选 | 同单仓 |
+                        | 2C多仓推荐 | OnTrac Ground | 陆运 | 【时效】2-4日达95%达成 【卖价】1LB XUSD起 【优势】70%人口地区覆盖，多平台认证 | 【时效】2-3日达95%达成 |
+                        | 2C双仓推荐 | FedEx Ground / FedEx Ground Multiple | 陆运 | 【时效】3日达95%达成 【卖价】10LBS近区$X+ 远区$X+ 【优势】10-200磅/件，单件超长超重优选 | 【时效】2日达95%达成 |
+                        | — | UPS Ground / UPS Ground Multiple | 陆运 | 同FedEx Ground（UPS版本） | 同 |
+
+                        ### Winit Economy（经济）— 全美7日达
+
+                        | 推荐标记 | 渠道 | 运输 | 单仓卖点 | 多仓卖点 |
+                        |---------|------|------|---------|---------|
+                        | 2C多仓推荐 | Winit Parcel 7日达 | 陆运 | 【时效】3-7日达95%达成 【卖价】1LB XUSD起 【优势】多carrier派送，全美本土可达，平台自适配 | 【时效】3-5日达95%达成 |
+                        | 2C多仓推荐 | FedEx Ground Economy | 陆运 | 【时效】3-7日达95%达成 【卖价】1LB XUSD起 【优势】FedEx/UPS经济选择 | 【时效】3-5日达95%达成 |
+                        | — | UPS SurePost | 陆运 | 经济型，UPS+USPS联合 | 同单仓 |
+                        | — | Amazon Logistics SWA | 陆运 | 【时效】3-7日达95%达成 【优势】Amazon自营物流派送 | 【时效】3-5日达95%达成 |
+
+                        ### 平台面单 / 3PL
+                        - **平台面单**（当客户有 TT/Temu 面单时）：非标准服务，平台代交面单
+                        - **3PL 代交货**：USPS-3PL、UPS-3PL、FedEx-3PL — WINIT运力代交货，无时效标准/服务优势，统一定价
+
+                        ---
+
+                        ## 五、大件 Case 推荐
+
+                        适用条件：单件 >10 lbs 或尺寸触发超长/超重。
+
+                        ### 尾程渠道（一单一件）— 必选
+                        **FedEx Ground (1-5 Business Days)**
+                        - 单仓卖点：【时效】3日达95%达成 【卖价】10LBS 近区$X+ 远区$X+ 【优势】10-200磅/件 US本土可派，单件超长/超重/超大优选FedEx
+                        - 多仓卖点：【时效】2日达95%达成 【优势】10-200磅/件 US本土可派
+
+                        ### 尾程渠道（一单多件）— 必选
+                        **FedEx Ground Multiple (1-5 Business Days)**
+                        - 单仓卖点：【时效】3日达95%达成 【优势】MTW合单计费，单包max 68kg，总重min 90kg
+                        - 多仓卖点：【时效】2日达95%达成
+
+                        ### 尾程渠道（托盘服务）— 2B推荐
+                        **FedEx Freight (2-8 Business Days)**
+                        - 单仓卖点：【时效】3-7日达95%达成 【卖价】单拖 XUSD起 【优势】2C收件人小B类配送
+                        - 多仓卖点：【时效】3-5日达95%达成
+
+                        ---
+
+                        ## 六、增值服务
+
+                        ### 出库前
+                        - 指定装箱/打托
+                        - 签收选项（指定本人 / 成人 / 非指定）
+                        - 高值保险（追踪守护、物流商保险）
+
+                        ### 出库后
+                        - 派送截件
+                        - 派送改址
+                        - 超时保障
+                        - 签收POD
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: text
+      title: kb-delivery-uk
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 947
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # UK 尾程产品推荐详情
+
+                        ---
+
+                        ## 一、货型定义参考
+
+                        | 件型 | 长(cm) | 宽(cm) | 高(cm) | 重量(kg) | 体积(m³) |
+                        |------|--------|--------|--------|----------|----------|
+                        | 小件 | ≤50 | ≤40 | ≤13 | ≤3 | ≤0.01 |
+                        | 中件 | ≤70 | ≤40 | ≤25 | ≤10 | ≤0.07 |
+                        | 大件 | ≤120 | ≤100 | ≤80 | ≤31.5 | ≤0.96 |
+                        | 超大件 | ≤300 | ≤240 | ≤200 | ≤100 | ≤14.4 |
+
+                        > 备注：长、宽、高、重量、体积全部符合的前提下，同时命中多个档位归为最低一档。45kg 以上需方正规则包装，必须自带铲脚或单独码放在托盘上。
+
+                        ---
+
+                        ## 二、2C 包裹推荐矩阵
+
+                        | 件型 | 标准5日达 | 快捷3日达 | 快捷隔日达 | 快捷次日达 |
+                        |------|----------|----------|----------|----------|
+                        | 超超大件 | XDP 2 Man Delivery | — | — | — |
+                        | 超大件/异型 | XDP 1 Man Parcel | DHL Domestic Next Day | DHL Domestic Next Day | DHL Domestic Next Day |
+                        | 大件 | XDP 1 Man Parcel | DHL Domestic Next Day / FedEx Economy Parcel / DPD Domestic Parcel | FedEx Economy Parcel / DPD Domestic Parcel / EVRi Standard 48 | EVRi Standard 24 |
+                        | 中件 | XDP 1 Man Parcel | EVRi Standard 48 / Royal Mail Tracked 48 | EVRi Standard 48 / Royal Mail Tracked 48 | EVRi Standard 24 / Royal Mail Tracked 24 |
+                        | 小件 | XDP 1 Man Parcel | Royal Mail Tracked 48 / Royal Mail Untracked 48 | Royal Mail Tracked 48 / Royal Mail Untracked 48 | Royal Mail Tracked 24 / Royal Mail Untracked 24 |
+
+                        > **超超大件**：指超出超大件尺寸限制的货物（>300cm 或 >240cm 或 >200cm 或 >100kg）。
+
+                        ---
+
+                        ## 三、2B 托盘推荐矩阵
+
+                        | 件型 | 渠道 | 时效 |
+                        |------|------|------|
+                        | 单托/木箱 | 单独询价NTG | 全部时效 |
+                        | LTL(<6plt) | 单独询价NTG | 全部时效 |
+                        | LTL(7-12plt) | 单独询价NTG | 全部时效 |
+                        | FTL | 单独询价NTG | 全部时效 |
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163003"
+      type: text
+      title: kb-delivery-de
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # DE 尾程产品推荐详情
+
+                        ---
+
+                        ## 一、货型定义参考
+
+                        | 件型 | 长(cm) | 宽(cm) | 高(cm) | 重量(kg) | 体积(m³) |
+                        |------|--------|--------|--------|----------|----------|
+                        | 小件 | ≤50 | ≤40 | ≤13 | ≤3 | ≤0.01 |
+                        | 中件 | ≤70 | ≤40 | ≤25 | ≤10 | ≤0.07 |
+                        | 大件 | ≤120 | ≤100 | ≤80 | ≤31.5 | ≤0.96 |
+                        | 超大件 | ≤300 | ≤240 | ≤200 | ≤100 | ≤14.4 |
+
+                        > 备注：长、宽、高、重量、体积全部符合的前提下，同时命中多个档位归为最低一档。45kg 以上需方正规则包装，必须自带铲脚或单独码放在托盘上。
+
+                        ---
+
+                        ## 二、2C 包裹推荐矩阵
+
+                        | 件型 | 标准5日达 | 快捷3日达 | 快捷隔日达 | 快捷次日达 |
+                        |------|----------|----------|----------|----------|
+                        | 超大件/异型 | DE UPS Domestic Standard | DE UPS Domestic Standard | DE UPS Domestic Standard | — |
+                        | 大件 | DE UPS Domestic Standard / DE DPD Domestic Parcels | DE DPD Domestic Parcels / DE DHL Domestic Paket | DE DPD Domestic Parcels / DE DHL Domestic Paket | DE DPD Domestic Parcels / DHL Express Domestic |
+                        | 中件 | DE UPS Domestic Standard / DE DPD Domestic Parcels | DE DHL Domestic Paket | DE DHL Domestic Paket | DHL Express Domestic |
+                        | 小件 | DE UPS Domestic Standard / DE DPD Domestic Parcels / DE DHL Kleinpaket / DE Post Warenpost | DE DHL Domestic Paket / DE DHL Kleinpaket / DE Post Warenpost | DE DHL Domestic Paket | DHL Express Domestic |
+
+                        ---
+
+                        ## 三、2B 托盘推荐矩阵
+
+                        | 件型 | 渠道 | 时效 |
+                        |------|------|------|
+                        | 单托/木箱 | DB Schenker Standard (1/2PLT, 1/4PLT) | 全部时效 |
+                        | LTL(<6plt) | DB Schenker Standard Delivery / DHL Freight Standard Delivery / Dachser（单独询价） / Compak Logistics（单独询价） | 全部时效 |
+                        | LTL(7-12plt) | DB Schenker Standard Delivery / DHL Freight Standard Delivery / Dachser（单独询价） / Compak Logistics（单独询价） | 全部时效 |
+                        | FTL | DB Schenker Standard Delivery / DHL Freight Standard Delivery / Dachser（单独询价） / Compak Logistics（单独询价） | 全部时效 |
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163004"
+      type: text
+      title: kb-delivery-au
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # AU 尾程产品推荐详情
+
+                        ---
+
+                        ## 一、货型定义参考
+
+                        | 件型 | 长(cm) | 宽(cm) | 高(cm) | 重量(kg) | 体积(m³) |
+                        |------|--------|--------|--------|----------|----------|
+                        | 小件 | ≤50 | ≤40 | ≤13 | ≤3 | ≤0.01 |
+                        | 中件 | ≤70 | ≤40 | ≤25 | ≤10 | ≤0.07 |
+                        | 大件 | ≤120 | ≤100 | ≤80 | ≤31.5 | ≤0.96 |
+                        | 超大件 | ≤300 | ≤240 | ≤200 | ≤100 | ≤14.4 |
+
+                        > 备注：长、宽、高、重量、体积全部符合的前提下，同时命中多个档位归为最低一档。45kg 以上需方正规则包装，必须自带铲脚或单独码放在托盘上。
+
+                        ---
+
+                        ## 二、2C 包裹推荐矩阵
+
+                        | 件型 | 经济7日达 | 标准5日达 | 快捷3日达 | 快捷隔日达 | 快捷次日达 |
+                        |------|----------|----------|----------|----------|----------|
+                        | 超超大件 | Toll IPEC Freight | Toll IPEC Freight | Toll IPEC Freight / Allied Express Road Express / Direct Freight Road Express | — | — |
+                        | 超大件/异型 | Toll IPEC Freight | Toll IPEC Freight | Toll IPEC Freight / Allied Express Road Express / Direct Freight Road Express | — | — |
+                        | 大件 | Toll IPEC Freight / AU Aramex Courier Delivery / MCS Economy Parcel / PFL Courier Delivery / AU Mix Shipping Economy | Toll IPEC Freight / AU Aramex Courier Delivery / MCS Economy Parcel / PFL Courier Delivery / AU Mix Shipping Economy / Allied Express Road Express / Direct Freight Road Express | Allied Express Road Express / Direct Freight Road Express | Allied Express Road Express / Direct Freight Road Express | — |
+                        | 中件 | AU Aramex Courier Delivery / MCS Economy Parcel / PFL Courier Delivery / AU Mix Shipping Economy | AU Aramex Courier Delivery / MCS Economy Parcel / PFL Courier Delivery / AU Mix Shipping Economy / AU Post Parcel Post eParcel | AU Post Parcel Post eParcel / AU Post Express Post Parcel | AU Post Express Post Parcel | AU Post Express Post Parcel |
+                        | 小件 | AU Aramex Courier Delivery / MCS Economy Parcel / PFL Courier Delivery / AU Mix Shipping Economy | AU Aramex Courier Delivery / MCS Economy Parcel / PFL Courier Delivery / AU Mix Shipping Economy / AU Post Parcel Post eParcel | AU Post Parcel Post eParcel / AU Post Express Post Parcel | AU Post Express Post Parcel | AU Post Express Post Parcel |
+
+                        > **超超大件**：指超出超大件尺寸限制的货物（>300cm 或 >240cm 或 >200cm 或 >100kg）。
+
+                        ---
+
+                        ## 三、2B 托盘推荐矩阵
+
+                        | 件型 | 渠道 | 时效 |
+                        |------|------|------|
+                        | 单托/木箱 | Toll LTL | 全部时效 |
+                        | LTL(<6plt) | Toll LTL | 全部时效 |
+                        | LTL(7-12plt) | Toll LTL | 全部时效 |
+                        | FTL | Toll LTL | 全部时效 |
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163005"
+      type: text
+      title: kb-delivery-ca
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # CA 尾程产品推荐详情
+
+                        ---
+
+                        ## 一、货型定义参考
+
+                        | 件型 | 长(cm) | 宽(cm) | 高(cm) | 重量(kg) | 体积(m³) |
+                        |------|--------|--------|--------|----------|----------|
+                        | 小件 | ≤50 | ≤40 | ≤13 | ≤3 | ≤0.01 |
+                        | 中件 | ≤70 | ≤40 | ≤25 | ≤10 | ≤0.07 |
+                        | 大件 | ≤120 | ≤100 | ≤80 | ≤31.5 | ≤0.96 |
+                        | 超大件 | ≤300 | ≤240 | ≤200 | ≤100 | ≤14.4 |
+
+                        > 备注：长、宽、高、重量、体积全部符合的前提下，同时命中多个档位归为最低一档。45kg 以上需方正规则包装，必须自带铲脚或单独码放在托盘上。
+
+                        ---
+
+                        ## 二、2C 包裹推荐矩阵
+
+                        | 件型 | 经济7日达 | 标准5日达 | 快捷3日达 | 快捷隔日达 | 快捷次日达 |
+                        |------|----------|----------|----------|----------|----------|
+                        | 超大件/异型 | CA UPS Standard Single Parcel | CA UPS Standard Single Parcel | CA UPS Standard Single Parcel | — | — |
+                        | 大件 | CA Purolator Ground | CA Purolator Ground | CA Purolator Ground | — | — |
+                        | 中件 | Canada Post Expedited Parcels | Canada Post Expedited Parcels | Canada Post Expedited Parcels | — | — |
+                        | 小件 | Canada Post Expedited Parcels / UNI Domestic Delivery | UNI Domestic Delivery | UNI Domestic Delivery | — | — |
+
+                        ---
+
+                        ## 三、2B 托盘推荐矩阵
+
+                        | 件型 | 渠道 | 时效 |
+                        |------|------|------|
+                        | 单托/木箱 | 线下单独询价 | 全部时效 |
+                        | LTL(<6plt) | 线下单独询价 | 全部时效 |
+                        | LTL(7-12plt) | 线下单独询价 | 全部时效 |
+                        | FTL | 线下单独询价 | 全部时效 |
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163006"
+      type: code
+      title: load-knowledge
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 650
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：load-knowledge — 知识路由器
+               * 接收 textNode 注入的 5 个 KB 字符串 + validate-input 的 kbScope，
+               * 选择性拼接输出 kbContent（聚焦后的 KB），LLM 只收到相关内容。
+               *
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 中本节点 `inputs` / `outputs` 完全一致。
+               *
+               * 【输入】`params` 字段：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | countryResolved | string | ISO2 国家码 |
+               * | kbScope | string | 知识加载范围 |
+               * | kbDeliveryUs | string | textNode: kb-delivery-us.md |
+               * | kbDeliveryUk | string | textNode: kb-delivery-uk.md |
+               * | kbDeliveryDe | string | textNode: kb-delivery-de.md |
+               * | kbDeliveryAu | string | textNode: kb-delivery-au.md |
+               * | kbDeliveryCa | string | textNode: kb-delivery-ca.md |
+               *
+               * 【输出】JSON 对象：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | kbContent | string | 聚焦后的 KB |
+               * | countryResolved | string | 原样透传 |
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              interface KbFiles {
+                kbDeliveryUs: string;
+                kbDeliveryUk: string;
+                kbDeliveryDe: string;
+                kbDeliveryAu: string;
+                kbDeliveryCa: string;
+              }
+
+              function getDeliveryByCountry(files: KbFiles, country: string): string {
+                switch (country) {
+                  case "US": return files.kbDeliveryUs;
+                  case "UK": return files.kbDeliveryUk;
+                  case "DE": return files.kbDeliveryDe;
+                  case "AU": return files.kbDeliveryAu;
+                  case "CA": return files.kbDeliveryCa;
+                  default: return "";
+                }
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const countryResolved = str(params.countryResolved);
+                const kbScope = str(params.kbScope);
+
+                const files: KbFiles = {
+                  kbDeliveryUs: str(params.kbDeliveryUs),
+                  kbDeliveryUk: str(params.kbDeliveryUk),
+                  kbDeliveryDe: str(params.kbDeliveryDe),
+                  kbDeliveryAu: str(params.kbDeliveryAu),
+                  kbDeliveryCa: str(params.kbDeliveryCa),
+                };
+
+                let kbContent = "";
+
+                if (kbScope === "index") {
+                  kbContent = "请指定目的国（US/UK/DE/AU/CA）以获取产品推荐。";
+                } else if (kbScope.startsWith("delivery-")) {
+                  const country = kbScope.replace("delivery-", "").toUpperCase();
+                  kbContent = getDeliveryByCountry(files, country);
+                }
+
+                return {
+                  kbContent,
+                  countryResolved,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-knowledge")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => { console.error(e); process.exit(1); });
+              }
+          language: 5
+          node_inputs:
+              - name: countryResolved
+                input:
+                    value:
+                        path: countryResolved
+                        ref_node: "163000"
+              - name: kbScope
+                input:
+                    value:
+                        path: kbScope
+                        ref_node: "163000"
+              - name: kbDeliveryUs
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+              - name: kbDeliveryUk
+                input:
+                    value:
+                        path: output
+                        ref_node: "163002"
+              - name: kbDeliveryDe
+                input:
+                    value:
+                        path: output
+                        ref_node: "163003"
+              - name: kbDeliveryAu
+                input:
+                    value:
+                        path: output
+                        ref_node: "163004"
+              - name: kbDeliveryCa
+                input:
+                    value:
+                        path: output
+                        ref_node: "163005"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              countryResolved:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163007"
+      type: text
+      title: examples
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 650
+          y: 550
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        ## 示例 1：大件家具发美国
+
+                        **用户问**：大件家具发美国，30kg，60x40x40cm
+
+                        **输出**：
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "countryResolved": "US",
+                              "recommendedProducts": [
+                                {
+                                  "name": "FedEx Ground / UPS Ground / OnTrac Ground",
+                                  "tier": "标准5日达",
+                                  "reason": "30kg大件，FedEx Ground/UPS Ground是标准首选，OnTrac Ground为多仓优选",
+                                  "sellingPoints": [
+                                    "10-200磅/件 US本土可派",
+                                    "单仓3日达95%，多仓2日达95%"
+                                  ]
+                                },
+                                {
+                                  "name": "USPS Priority Mail / UPS 3 Day Select",
+                                  "tier": "快捷3日达",
+                                  "reason": "需要更快时效时选择",
+                                  "sellingPoints": [
+                                    "3日达"
+                                  ]
+                                },
+                                {
+                                  "name": "FedEx 2 Day",
+                                  "tier": "快捷隔日达",
+                                  "reason": "急件隔日达",
+                                  "sellingPoints": [
+                                    "隔日达"
+                                  ]
+                                }
+                              ],
+                              "missingInfo": [],
+                              "confidence": "high"
+                            },
+                            "analysis": "根据30kg大件家具（60×40×40cm）发美国的需求：\n\n**件型判定**：30kg≤31.5kg，60×40×40≤120×100×80 → 大件。\n\n**推荐方案**：\n1. **标准5日达**：FedEx Ground / UPS Ground（首选），OnTrac Ground（多仓场景更优）\n2. **快捷3日达**：USPS Priority Mail / UPS 3 Day Select\n3. **快捷隔日达**：FedEx 2 Day\n4. **快捷次日达**：FedEx Standard Overnight / UPS Next Day Air Saver\n\n如需托盘运输，可选 FedEx Freight Economy（单托/木箱）。具体价格以合同价卡为准。"
+                          }
+                        }
+                        ```
+
+                        ## 示例 2：中件商品发德国
+
+                        **用户问**：10kg商品发德国，尺寸大概50x30x20cm
+
+                        **输出**：
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "countryResolved": "DE",
+                              "recommendedProducts": [
+                                {
+                                  "name": "DE UPS Domestic Standard / DE DPD Domestic Parcels",
+                                  "tier": "标准5日达",
+                                  "reason": "10kg中件，UPS和DPD均可覆盖标准时效",
+                                  "sellingPoints": [
+                                    "德国本土标准配送"
+                                  ]
+                                },
+                                {
+                                  "name": "DE DHL Domestic Paket",
+                                  "tier": "快捷3日达",
+                                  "reason": "DHL快捷配送首选",
+                                  "sellingPoints": [
+                                    "DHL标准快捷配送，覆盖德国全境"
+                                  ]
+                                },
+                                {
+                                  "name": "DHL Express Domestic",
+                                  "tier": "快捷次日达",
+                                  "reason": "需要次日达时选择",
+                                  "sellingPoints": [
+                                    "DHL Express德国全境次日达"
+                                  ]
+                                }
+                              ],
+                              "missingInfo": [],
+                              "confidence": "high"
+                            },
+                            "analysis": "根据10kg商品（50×30×20cm）发德国的需求：\n\n**件型判定**：10kg≤10kg，50×30×20≤70×40×25 → 中件。\n\n**推荐方案**：\n1. **标准5日达**：DE UPS Domestic Standard / DE DPD Domestic Parcels\n2. **快捷3日达**：DE DHL Domestic Paket\n3. **快捷次日达**：DHL Express Domestic\n\n具体价格以合同价卡为准。如需了解产品详情，可咨询产品信息专家(product-info)。"
+                          }
+                        }
+                        ```
+
+                        ## 示例 3：信息不足，引导补充
+
+                        **用户问**：发英国用什么产品好
+
+                        **输出**：
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "countryResolved": "UK",
+                              "recommendedProducts": [],
+                              "missingInfo": [
+                                "商品重量",
+                                "商品尺寸"
+                              ],
+                              "confidence": "low"
+                            },
+                            "analysis": "您要发英国，我可以帮您推荐最合适的尾程产品。为了给出精准推荐，请补充以下信息：\n\n1. **商品重量**（如 5kg、30kg）\n2. **商品尺寸**（如 60×40×40cm）\n\n英国支持的尾程渠道包括：XDP、DHL、FedEx、DPD、EVRi、Royal Mail 等，不同件型和时效需求对应不同推荐。"
+                          }
+                        }
+                        ```
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163008"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 950
+          y: 310
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 尾程产品推荐专家 - LLM Prompt
+
+                        将本内容复制到 Coze LLM 节点。上游应先执行 **validate-input** 与 **load-knowledge**，将下列占位符替换为节点输出或工作流变量。
+
+                        **对客输出**：`analysis` **禁止**出现飞书、内部多维表、内部 Wiki 文档链接或「以某内部表为准」类表述；产品信息用 **合同、价卡、订单约定、本专家注入的知识库** 表述。
+
+                        ---
+
+                        ## 角色
+
+                        你是 **尾程产品推荐专家**（product-consult）。根据用户需求（件型、时效偏好、目的地等），从注入的知识库中推荐最适合的尾程产品和服务方案。
+
+                        职责：
+
+                        1. **解析需求**：从 `goodsInfo` 结构化字段和 `query` 自然语言中提取件型、重量、尺寸。结构化字段优先，缺失时从 query 补充推断。
+                        2. **定位目的国**：依据 `countryResolved` 聚焦 kbContent 中的对应国家章节。若未指定国家，列出可用国家（US/UK/DE/AU/CA）概览并引导用户指定。
+                        3. **判定件型**：根据商品的尺寸/重量，对照 kbContent 中的「货型定义参考」表，判定属于小件/中件/大件/超大件/超超大件（2C）或单托/木箱/LTL/FTL（2B）。
+                        4. **匹配推荐**：在 kbContent 的推荐矩阵中，查找该件型在各时效档位下的可用渠道，结合客户时效偏好推荐最适合的产品。对 US 额外输出 Case 推荐的推荐标记和单仓/多仓卖点。
+                        5. **不得编造**：只推荐 kbContent 中存在的产品和服务；不确定时降低 confidence 并列出 missingInfo。
+
+                        ---
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **countryResolved**：`{{countryResolved}}`
+                        - **goodsInfo**：`{{goodsInfo}}`
+                        - **enrichedContext**：`{{enrichedContext}}`
+
+                        ### 知识库
+
+                        `kbContent` 已按国家过滤，包含对应国家的**货型定义参考 + 2C包裹推荐矩阵 + 2B托盘推荐矩阵**（US 额外包含 Case 推荐和增值服务）。请在 kbContent 中检索产品信息进行推荐。
+
+                        **kbContent**：
+                        ```
+                        {{kbContent}}
+                        ```
+
+                        ### Few-shot
+
+                        {{examplesMd}}
+
+                        ---
+
+                        ## 工作步骤（体现在 analysis 中）
+
+                        1. **结论**：一句话概括推荐结论（如"根据您的大件家具发美国需求，推荐 FedEx Ground"）。
+                        2. **需求确认**：归纳从 goodsInfo 和 query 中提取的关键特征（国家、件型、重量、尺寸），标注缺失项。
+                        3. **件型判定**：说明尺寸/重量如何映射到具体件型（引用 KB 中的货型定义）。
+                        4. **推荐方案**：按时效档位（快捷/标准/经济）逐一列出推荐渠道，说明推荐理由和卖点。
+                        5. **缺失信息**：列出影响精确推荐的关键缺失项。
+                        6. **下一步建议**：建议用户可进一步咨询 product-info 了解具体产品详情，或联系客服/商务确认价卡。
+
+                        **特殊场景**：若 kbContent 为提示语（无国家详情），说明用户未指定国家，analysis 中应列出可用国家概览，并引导用户指定国家。
+
+                        ---
+
+                        ## 输出格式
+
+                        **硬性要求**：你只输出 **一个** JSON 对象，**顶层有且仅有** `structured` 与 `analysis` 两个键；**不要使用** Markdown 代码围栏包裹该 JSON；**禁止**把整份 JSON 再当作字符串写入 `analysis`。
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "countryResolved": "US",
+                              "recommendedProducts": [
+                                {
+                                  "name": "FedEx Ground / UPS Ground",
+                                  "tier": "标准5日达",
+                                  "reason": "30kg大件，FedEx Ground/UPS Ground是标准首选",
+                                  "sellingPoints": [
+                                    "【时效】3日达95%达成",
+                                    "10-200磅/件 US本土可派"
+                                  ]
+                                },
+                                {
+                                  "name": "FedEx 2 Day",
+                                  "tier": "快捷隔日达",
+                                  "reason": "急件隔日达选择",
+                                  "sellingPoints": [
+                                    "【时效】隔日达"
+                                  ]
+                                }
+                              ],
+                              "missingInfo": [],
+                              "confidence": "high"
+                            },
+                            "analysis": "推荐方案描述。"
+                          }
+                        }
+                        ```
+
+                        ### structured 字段说明
+
+                        | 字段 | 说明 |
+                        |------|------|
+                        | `countryResolved` | ISO2 国家码，未解析时为 "" |
+                        | `recommendedProducts` | 推荐产品列表（name, tier, reason, sellingPoints） |
+                        | `missingInfo` | 缺失的关键信息列表 |
+                        | `confidence` | high（信息充分）/ medium（部分缺失）/ low（关键信息不足） |
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: countryResolved
+                input:
+                    value:
+                        path: countryResolved
+                        ref_node: "163006"
+              - name: goodsInfo
+                input:
+                    value:
+                        path: goodsInfo
+                        ref_node: "163000"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163006"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163000"
+              - name: examplesMd
+                input:
+                    value:
+                        path: output
+                        ref_node: "163007"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163009"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1150
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 的 analysisResult，生成下游 result / outputContext
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。与 `workflow.json` 中本节点 `inputs` / `outputs` 完全一致。
+               *
+               * 【输入】`params` 字段：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | analysisResult | object \| string \| null | LLM 输出 |
+               * | inputContext | object（可选） | 链式上下文 |
+               *
+               * 【输出】JSON 对象：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | result | { structured: ConsultStructuredOut; analysis: string } | 归一化输出 |
+               * | outputContext | { expertId: string; resultSummary: string; chainId?: string } | expertId 固定 product-consult |
+               */
+
+              interface ConsultStructuredOut {
+                countryResolved?: string;
+                recommendedProducts?: Array<{ name: string; tier: string; reason: string; sellingPoints?: string[] }>;
+                missingInfo?: string[];
+                confidence?: "high" | "medium" | "low";
+              }
+
+              interface ConsultAnalysisResult {
+                structured?: ConsultStructuredOut;
+                analysis?: string;
+              }
+
+              interface ConsultInputContext {
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): ConsultAnalysisResult {
+                if (raw == null) {
+                  return {
+                    structured: { recommendedProducts: [], missingInfo: ["all"], confidence: "low" },
+                    analysis: "未收到模型输出。",
+                  };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as ConsultAnalysisResult;
+                    if (parsed && typeof parsed === "object" && ("structured" in parsed || "analysis" in parsed)) {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch { /* fall through */ }
+                  return {
+                    structured: { recommendedProducts: [], missingInfo: [], confidence: "low" },
+                    analysis: s || "解析失败，请人工查看原始模型输出。",
+                  };
+                }
+                const o = raw as { structured?: Record<string, unknown>; analysis?: string };
+                const structured = o.structured ?? {};
+                const analysis = typeof o.analysis === "string" ? o.analysis : "";
+                const confidence = structured.confidence;
+                return {
+                  structured: {
+                    countryResolved: typeof structured.countryResolved === "string" ? structured.countryResolved : undefined,
+                    recommendedProducts: Array.isArray(structured.recommendedProducts)
+                      ? (structured.recommendedProducts as ConsultStructuredOut["recommendedProducts"])
+                      : [],
+                    missingInfo: Array.isArray(structured.missingInfo) ? (structured.missingInfo as string[]) : [],
+                    confidence: confidence === "high" || confidence === "medium" || confidence === "low" ? confidence : "medium",
+                  },
+                  analysis: analysis || "（无 analysis 字段）",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const analysisResult = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as ConsultInputContext | undefined;
+                const summary = analysisResult.analysis?.slice(0, 200) || "产品推荐完成";
+                const outputContext = {
+                  expertId: "product-consult",
+                  resultSummary: summary,
+                  chainId: inputContext?.chainId ?? "",
+                };
+                return {
+                  structured: analysisResult.structured ?? {},
+                  analysis: analysisResult.analysis ?? "",
+                  outputContext,
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => { console.error(e); process.exit(1); });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163008"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "900001"

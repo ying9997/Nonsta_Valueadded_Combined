@@ -1,0 +1,1597 @@
+schema_version: 1.0.0
+name: inbound_psc_eligibility
+id: 7533841790226577574
+description: 入库 PSC 开通查询（validate → build(getWinitProducts) → 批处理 cobra_winit_openapi_request → fetch/merge → load-kb → LLM）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      warehouseCode:
+                          type: string
+                          value: null
+                          description: 可选；上下文仓库编码（API 不按仓过滤）
+                      country:
+                          type: string
+                          value: null
+                          description: 可选；国家代码（US/UK/DE/AU/CA/BE），用于辅助过滤或 KB 上下文
+                      productLine:
+                          type: string
+                          value: null
+                          description: 可选；产品线关键词或 PSC 编码（如 OW01021、自验、海外验）
+                      filterCodes:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 可选；仅返回指定 PSC 编码（如 ["OW01021","OW01022"]）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163008"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163008"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163008"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163008"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-psc-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-psc-query — 规范化 warehouseCode / country / productLine / filterCodes
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const SELF_INSPECTION_CODES = new Set(["OW01021", "OW01022"]);
+              const OVERSEAS_INSPECTION_CODES = new Set(["OW01031", "OW01032"]);
+
+              const PRODUCT_LINE_ALIASES: Record<string, string[]> = {
+                自验: ["OW01021", "OW01022"],
+                SI: ["OW01021"],
+                QSI: ["OW01022"],
+                快速自验: ["OW01022"],
+                海外验: ["OW01031", "OW01032"],
+                头程: ["OW01011"],
+                标准头程: ["OW01011"],
+              };
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function normalizeWarehouseCode(raw: unknown): string {
+                const s = str(raw);
+                return s ? s.toUpperCase().replace(/[\s_-]+/g, "") : "";
+              }
+
+              function normalizeCountry(raw: unknown): string {
+                const s = str(raw).toUpperCase();
+                if (!s) return "";
+                const aliases: Record<string, string> = {
+                  GB: "UK",
+                  USA: "US",
+                  UNITEDSTATES: "US",
+                  UNITEDKINGDOM: "UK",
+                  GERMANY: "DE",
+                  DEU: "DE",
+                  AUSTRALIA: "AU",
+                  CANADA: "CA",
+                  BELGIUM: "BE",
+                  英国: "UK",
+                  美国: "US",
+                  德国: "DE",
+                  澳洲: "AU",
+                  澳大利亚: "AU",
+                  加拿大: "CA",
+                  比利时: "BE",
+                };
+                if (aliases[s]) return aliases[s];
+                return /^[A-Z]{2}$/.test(s) ? s : "";
+              }
+
+              function coerceStringArray(raw: unknown): string[] {
+                if (Array.isArray(raw)) {
+                  return raw.map((x) => String(x).trim()).filter(Boolean);
+                }
+                if (typeof raw === "string" && raw.trim()) {
+                  try {
+                    const p = JSON.parse(raw) as unknown;
+                    if (Array.isArray(p)) return p.map((x) => String(x).trim()).filter(Boolean);
+                  } catch {
+                    return raw
+                      .split(/[,，、\s]+/)
+                      .map((x) => x.trim())
+                      .filter(Boolean);
+                  }
+                }
+                return [];
+              }
+
+              function expandProductLine(productLine: string): string[] {
+                if (!productLine) return [];
+                const upper = productLine.toUpperCase();
+                if (/^OW01\d+/.test(upper)) return [upper];
+                for (const [key, codes] of Object.entries(PRODUCT_LINE_ALIASES)) {
+                  if (productLine.includes(key) || upper === key.toUpperCase()) return codes;
+                }
+                return [];
+              }
+
+              function mergeFilterCodes(filterCodes: string[], productLine: string): string[] {
+                const seen = new Set<string>();
+                const out: string[] = [];
+                for (const c of [...filterCodes, ...expandProductLine(productLine)]) {
+                  const code = c.toUpperCase();
+                  if (!seen.has(code)) {
+                    seen.add(code);
+                    out.push(code);
+                  }
+                }
+                return out;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const warehouseCode = normalizeWarehouseCode(params.warehouseCode);
+                const country = normalizeCountry(params.country);
+                const productLine = str(params.productLine);
+                const filterCodes = mergeFilterCodes(coerceStringArray(params.filterCodes), productLine);
+                const customerIntent = str(params.customerIntent);
+                const query = str(params.query);
+                const inputContext = params.inputContext ?? {};
+
+                return {
+                  validationOk: true,
+                  warehouseCode,
+                  country,
+                  productLine,
+                  filterCodes,
+                  query,
+                  customerIntent,
+                  inputContext,
+                  _meta: {
+                    hasWarehouseFilter: warehouseCode.length > 0,
+                    hasCodeFilter: filterCodes.length > 0,
+                    selfInspectionCodes: Array.from(SELF_INSPECTION_CODES),
+                    overseasInspectionCodes: Array.from(OVERSEAS_INSPECTION_CODES),
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-psc-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: warehouseCode
+                input:
+                    value:
+                        path: inputs.warehouseCode
+                        ref_node: "100001"
+              - name: country
+                input:
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: productLine
+                input:
+                    value:
+                        path: inputs.productLine
+                        ref_node: "100001"
+              - name: filterCodes
+                input:
+                    value:
+                        path: inputs.filterCodes
+                        ref_node: "100001"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              validationOk:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              warehouseCode:
+                  type: string
+                  value: null
+              country:
+                  type: string
+                  value: null
+              productLine:
+                  type: string
+                  value: null
+              filterCodes:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              query:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: kb-psc-products
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 707
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 入库 PSC 产品线对照表
+
+                        > API：`winit.wh.pms.getWinitProducts`（[查询头程服务](https://developer.winit.com.cn/document/detail/id/28.html)）
+
+                        ## productType 与产品线
+
+                        | productType | 产品线 | 说明 |
+                        |-------------|--------|------|
+                        | OW0101 | 标准海外仓入库 | Winit 头程全托管，返回 OW0101* 具体 PSC |
+                        | OW0102 | 直发自验入库 | 返回 OW01021*（Winit 承运自验）、OW01022*（卖家直发自验）等 |
+                        | OW0103 | 直发海外验入库 | 返回 OW01031*、OW01032* 等 |
+
+                        接口按 `productType` 分三次查询（或按 filter 只查相关类型）；**仅返回当前 app_key 可下单的产品**，无 `enabled` 字段。
+
+                        ## 权限标记规则（由 productCode 前缀推断）
+
+                        - **自验权限**（`hasSelfInspection`）：存在任意 `OW0102*` 产品
+                        - **海外验权限**（`hasOverseasInspection`）：存在任意 `OW0103*` / `OW0104*` 产品
+                        - **标准头程**（`hasStandardFirstLeg`）：存在任意 `OW0101*` 产品
+
+                        家族编码对照（filterCodes 常用）：
+
+                        | 家族编码 | 含义 | productCode 前缀 |
+                        |----------|------|------------------|
+                        | OW01011 | 标准头程 | OW0101* |
+                        | OW01021 | Winit 承运自验 | OW01021* |
+                        | OW01022 | 卖家直发自验 | OW01022* |
+                        | OW01031 | Winit 承运海外验 | OW01031* |
+                        | OW01032 | 直发海外验 | OW01032* |
+
+                        ## 对客原则
+
+                        - 简洁列举 API 返回的可下单产品及中文名称
+                        - 客户问某家族编码（如 OW01021）但 API 无匹配产品时，说明未开通并提示「如需申请，请通过万邑联客服渠道申请」
+                        - 不输出额度数字；额度查询见 inbound-capacity-availability
+                        - 本接口不含仓库维度；`warehouseCode` 仅作上下文，不用于 API 过滤
+
+                        ## 客户自助查看路径
+
+                        万邑联 → 个人中心 → 产品权限
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: code
+      title: build-available-product-request
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 947
+      parameters:
+          code: |-
+              /**
+               * 节点：为 winit.wh.pms.getWinitProducts 组装插件批处理动作
+               * 文档：https://developer.winit.com.cn/document/detail/id/28.html
+               * FaaS 单文件闭环，无 external import。
+               */
+
+              const GET_WINIT_PRODUCTS_ACTION = "winit.wh.pms.getWinitProducts";
+
+              const ALL_PRODUCT_TYPES = ["OW0101", "OW0102", "OW0103"] as const;
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function coerceStringArray(raw: unknown): string[] {
+                if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean);
+                return [];
+              }
+
+              /** 将 filterCodes / productLine 映射为 getWinitProducts 的 productType 入参 */
+              function resolveProductTypes(filterCodes: string[], productLine: string): string[] {
+                const hints = [...filterCodes, productLine].map((h) => h.toUpperCase()).filter(Boolean);
+                if (hints.length === 0) return [...ALL_PRODUCT_TYPES];
+
+                const types = new Set<string>();
+                for (const h of hints) {
+                  if (h.startsWith("OW0101") || h.includes("头程") || h.includes("标准")) types.add("OW0101");
+                  if (
+                    h.startsWith("OW0102") ||
+                    h === "OW01021" ||
+                    h === "OW01022" ||
+                    h.includes("自验") ||
+                    h === "SI" ||
+                    h === "QSI"
+                  ) {
+                    types.add("OW0102");
+                  }
+                  if (
+                    h.startsWith("OW0103") ||
+                    h.startsWith("OW0104") ||
+                    h === "OW01031" ||
+                    h === "OW01032" ||
+                    h.includes("海外验")
+                  ) {
+                    types.add("OW0103");
+                  }
+                }
+
+                return types.size > 0 ? Array.from(types) : [...ALL_PRODUCT_TYPES];
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipApi = params.validationOk !== true;
+
+                if (skipApi) {
+                  return {
+                    actions: [],
+                    actionPlans: [],
+                    winitPluginBatchActionsCount: 0,
+                    actionName: GET_WINIT_PRODUCTS_ACTION,
+                    skipApi: true,
+                    productTypes: [],
+                  };
+                }
+
+                const filterCodes = coerceStringArray(params.filterCodes).map((c) => c.toUpperCase());
+                const productLine = str(params.productLine);
+                const productTypes = resolveProductTypes(filterCodes, productLine);
+
+                const actions = productTypes.map((productType) => ({
+                  action: GET_WINIT_PRODUCTS_ACTION,
+                  data: JSON.stringify({ productType }),
+                }));
+
+                const actionPlans = productTypes.map((productType) => ({
+                  inputToken: productType,
+                  queryBy: "getWinitProducts" as const,
+                  productType,
+                }));
+
+                return {
+                  actions,
+                  actionPlans,
+                  winitPluginBatchActionsCount: actions.length,
+                  actionName: GET_WINIT_PRODUCTS_ACTION,
+                  skipApi: false,
+                  productTypes,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-available-product-request")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: filterCodes
+                input:
+                    value:
+                        path: filterCodes
+                        ref_node: "163000"
+              - name: productLine
+                input:
+                    value:
+                        path: productLine
+                        ref_node: "163000"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              winitPluginBatchActionsCount:
+                  type: integer
+                  value: null
+              actionName:
+                  type: string
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163003"
+      type: plugin
+      title: winit_get_winit_products_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 10
+              concurrentSize: 5
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163002"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163003"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163003"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163004"
+      type: code
+      title: fetch-available-product
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          code: |-
+              /**
+               * 节点：本地 Runner 补拉 winit.wh.pms.getWinitProducts（无插件输出时走 Coze workflow/run 代理）
+               * 返回 data 为产品数组：{ productCode, productName, description }
+               * FaaS 单文件闭环，无 external import。
+               */
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const GET_WINIT_PRODUCTS_ACTION = "winit.wh.pms.getWinitProducts";
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceListPayload(parsed: unknown): unknown[] {
+                if (parsed == null) return [];
+                if (Array.isArray(parsed)) return parsed;
+                if (typeof parsed !== "object") return [];
+
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coerceListPayload(o.output);
+
+                if (o.code === "0" || o.code === 0) {
+                  const inner = o.data;
+                  if (Array.isArray(inner)) return inner;
+                  if (typeof inner === "string") {
+                    try {
+                      return coerceListPayload(JSON.parse(inner));
+                    } catch {
+                      return [];
+                    }
+                  }
+                  if (inner != null && typeof inner === "object") return coerceListPayload(inner);
+                  return [];
+                }
+
+                if (Array.isArray(o.list)) return o.list;
+                if (Array.isArray(o.data)) return o.data;
+                return [];
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipApi === true) {
+                  return { rawPscData: { list: [], total: 0, _fetchMeta: { strategy: "skipped" } } };
+                }
+
+                const pluginList = params.winitPluginOutputList;
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  const list: unknown[] = [];
+                  for (const item of pluginList as Array<{ data?: unknown }>) {
+                    const parsed = parseCozeWorkflowDataField(item?.data);
+                    list.push(...coerceListPayload(parsed));
+                  }
+                  return {
+                    rawPscData: {
+                      list,
+                      total: list.length,
+                      _fetchMeta: { strategy: "plugin-batch", resolvedCount: list.length },
+                    },
+                  };
+                }
+
+                const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                  action: string;
+                  data: string;
+                }>;
+                const env = getCozeWinitEnv();
+                if (!env || actions.length === 0) {
+                  return {
+                    rawPscData: {
+                      list: [],
+                      total: 0,
+                      _fetchMeta: { strategy: "local-fetch-skipped", reason: "missing Coze env or actions" },
+                    },
+                  };
+                }
+
+                const errors: string[] = [];
+                const list: unknown[] = [];
+                for (const act of actions) {
+                  try {
+                    const data = JSON.parse(act.data) as Record<string, unknown>;
+                    const parsed = await runCozeWinitWorkflow(env, act.action || GET_WINIT_PRODUCTS_ACTION, data);
+                    list.push(...coerceListPayload(parsed));
+                  } catch (e) {
+                    errors.push(String(e instanceof Error ? e.message : e));
+                  }
+                }
+
+                return {
+                  rawPscData: {
+                    list,
+                    total: list.length,
+                    _fetchMeta: {
+                      strategy: "local-proxy",
+                      resolvedCount: list.length,
+                      errors: errors.length ? errors : undefined,
+                    },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-available-product")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163002"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163002"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163002"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163003"
+          node_outputs:
+              rawPscData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163005"
+      type: code
+      title: merge-available-product
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          code: |-
+              /**
+               * 节点：merge-get-winit-products — 解析 getWinitProducts 响应、过滤、计算权限标记
+               * API 仅返回可下单产品（无 enabled 字段）；未出现在结果中的 filterCode 视为未开通。
+               * FaaS 单文件闭环，无 external import。
+               */
+
+              type PscRow = {
+                productCode: string;
+                productName: string;
+                description: string;
+                enabled: boolean;
+                productType: string;
+                inspectionType: string;
+              };
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function inferProductType(code: string): string {
+                if (code.startsWith("OW0101")) return "OW0101";
+                if (code.startsWith("OW0102") || code.startsWith("OW0104")) return "OW0102";
+                if (code.startsWith("OW0103")) return "OW0103";
+                return "";
+              }
+
+              function inferInspectionType(code: string): string {
+                if (code.startsWith("OW01021")) return "self_inspection_winit_carrier";
+                if (code.startsWith("OW01022")) return "self_inspection_direct";
+                if (code.startsWith("OW0102")) return "self_inspection";
+                if (code.startsWith("OW01031")) return "overseas_inspection_winit_carrier";
+                if (code.startsWith("OW01032")) return "overseas_inspection_direct";
+                if (code.startsWith("OW0103") || code.startsWith("OW0104")) return "overseas_inspection";
+                if (code.startsWith("OW0101")) return "standard_first_leg";
+                return "other";
+              }
+
+              function matchesCodeFilter(productCode: string, filterCode: string): boolean {
+                const fc = filterCode.toUpperCase();
+                const pc = productCode.toUpperCase();
+                return pc === fc || pc.startsWith(fc);
+              }
+
+              function matchesProductLine(row: PscRow, productLine: string): boolean {
+                if (!productLine) return true;
+                const pl = productLine.toLowerCase();
+                if (pl.includes("自验") || pl === "si" || pl === "qsi") {
+                  return row.productCode.startsWith("OW0102");
+                }
+                if (pl.includes("海外验")) {
+                  return row.productCode.startsWith("OW0103") || row.productCode.startsWith("OW0104");
+                }
+                if (pl.includes("头程") || pl.includes("标准")) {
+                  return row.productCode.startsWith("OW0101");
+                }
+                if (/^OW01/.test(productLine.toUpperCase())) {
+                  return matchesCodeFilter(row.productCode, productLine.toUpperCase());
+                }
+                return true;
+              }
+
+              function normalizeRow(raw: unknown): PscRow | null {
+                if (!raw || typeof raw !== "object") return null;
+                const o = raw as Record<string, unknown>;
+                const productCode = str(o.productCode ?? o.pscCode ?? o.code).toUpperCase();
+                if (!productCode) return null;
+
+                return {
+                  productCode,
+                  productName: str(o.productName ?? o.name),
+                  description: str(o.description),
+                  enabled: true,
+                  productType: str(o.productType) || inferProductType(productCode),
+                  inspectionType: str(o.inspectionType) || inferInspectionType(productCode),
+                };
+              }
+
+              function dedupeRows(rows: PscRow[]): PscRow[] {
+                const seen = new Set<string>();
+                const out: PscRow[] = [];
+                for (const row of rows) {
+                  if (seen.has(row.productCode)) continue;
+                  seen.add(row.productCode);
+                  out.push(row);
+                }
+                return out;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const filterCodes = ((params.filterCodes as string[]) ?? []).map((c) => c.toUpperCase());
+                const productLine = str(params.productLine);
+                const warehouseCode = str(params.warehouseCode).toUpperCase();
+                const country = str(params.country);
+
+                if (params.skipApi === true) {
+                  return {
+                    pscList: [],
+                    pscFacts: {
+                      enabledProducts: [],
+                      disabledProducts: [],
+                      hasSelfInspection: false,
+                      hasOverseasInspection: false,
+                      hasStandardFirstLeg: false,
+                      apiAvailable: false,
+                      queryWarehouseCode: warehouseCode,
+                      queryCountry: country,
+                      apiAction: "winit.wh.pms.getWinitProducts",
+                    },
+                    apiAvailable: false,
+                  };
+                }
+
+                const rawPscData = (params.rawPscData ?? {}) as Record<string, unknown>;
+                const rawList = Array.isArray(rawPscData.list) ? rawPscData.list : [];
+                const allRows = dedupeRows(
+                  rawList.map(normalizeRow).filter((row): row is PscRow => row != null)
+                );
+
+                const fetchMeta = (rawPscData._fetchMeta ?? {}) as Record<string, unknown>;
+                const hadSuccessfulFetch =
+                  allRows.length > 0 ||
+                  fetchMeta.strategy === "plugin-batch" ||
+                  fetchMeta.strategy === "local-proxy";
+
+                let filtered = allRows.filter((r) => matchesProductLine(r, productLine));
+                if (filterCodes.length > 0) {
+                  filtered = filtered.filter((r) => filterCodes.some((fc) => matchesCodeFilter(r.productCode, fc)));
+                }
+
+                const enabledProducts = filtered.map((r) => ({
+                  productCode: r.productCode,
+                  productName: r.productName,
+                  description: r.description,
+                  productType: r.productType,
+                  inspectionType: r.inspectionType,
+                }));
+
+                const disabledProducts: Array<{
+                  productCode: string;
+                  productName: string;
+                  inspectionType: string;
+                }> = [];
+
+                if (filterCodes.length > 0 && hadSuccessfulFetch) {
+                  for (const fc of filterCodes) {
+                    const hasMatch = allRows.some((r) => matchesCodeFilter(r.productCode, fc));
+                    if (!hasMatch) {
+                      disabledProducts.push({
+                        productCode: fc,
+                        productName: "",
+                        inspectionType: inferInspectionType(fc),
+                      });
+                    }
+                  }
+                }
+
+                const hasSelfInspection = allRows.some((r) => r.productCode.startsWith("OW0102"));
+                const hasOverseasInspection = allRows.some(
+                  (r) => r.productCode.startsWith("OW0103") || r.productCode.startsWith("OW0104")
+                );
+                const hasStandardFirstLeg = allRows.some((r) => r.productCode.startsWith("OW0101"));
+
+                return {
+                  pscList: filtered,
+                  pscFacts: {
+                    enabledProducts,
+                    disabledProducts,
+                    hasSelfInspection,
+                    hasOverseasInspection,
+                    hasStandardFirstLeg,
+                    apiAvailable: hadSuccessfulFetch,
+                    queryWarehouseCode: warehouseCode,
+                    queryCountry: country,
+                    totalFromApi: allRows.length,
+                    apiAction: "winit.wh.pms.getWinitProducts",
+                  },
+                  apiAvailable: hadSuccessfulFetch,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("merge-available-product")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163002"
+              - name: rawPscData
+                input:
+                    value:
+                        path: rawPscData
+                        ref_node: "163004"
+              - name: filterCodes
+                input:
+                    value:
+                        path: filterCodes
+                        ref_node: "163000"
+              - name: productLine
+                input:
+                    value:
+                        path: productLine
+                        ref_node: "163000"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+          node_outputs:
+              pscList:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              pscFacts:
+                  type: object
+                  value: null
+              apiAvailable:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163006"
+      type: code
+      title: load-psc-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          code: |-
+              /**
+               * 节点：load-psc-kb — 从 kb-psc-products 语料提取 PSC 编码对照
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function parseCodeMap(kb: string): Record<string, { name: string; inspectionType: string; scene: string }> {
+                const map: Record<string, { name: string; inspectionType: string; scene: string }> = {};
+                const rowPattern = /\|\s*(OW01\d+)\s*\|\s*([^|]+)\|\s*([^|]+)\|\s*([^|]+)\|/g;
+                let m: RegExpExecArray | null;
+                while ((m = rowPattern.exec(kb)) !== null) {
+                  const code = m[1].trim().toUpperCase();
+                  map[code] = {
+                    name: m[2].trim(),
+                    inspectionType: m[3].trim(),
+                    scene: m[4].trim(),
+                  };
+                }
+                return map;
+              }
+
+              function filterKbByKeywords(kb: string, keywords: string[]): string {
+                if (!kb || keywords.length === 0) return kb;
+                const lines = kb.split("\n");
+                const hits = new Set<number>();
+                const lowerKeywords = keywords.map((k) => k.toLowerCase()).filter(Boolean);
+                for (let i = 0; i < lines.length; i++) {
+                  const line = lines[i].toLowerCase();
+                  if (lowerKeywords.some((k) => line.includes(k))) {
+                    for (let j = Math.max(0, i - 1); j <= Math.min(lines.length - 1, i + 2); j++) hits.add(j);
+                  }
+                }
+                if (hits.size === 0) return kb;
+                return Array.from(hits)
+                  .sort((a, b) => a - b)
+                  .map((i) => lines[i])
+                  .join("\n");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const kbPscProducts = str(params.kbPscProducts);
+                const productLine = str(params.productLine);
+                const country = str(params.country);
+                const keywords = [productLine, country].filter(Boolean);
+                const filteredKb = filterKbByKeywords(kbPscProducts, keywords);
+                const pscCodeMap = parseCodeMap(kbPscProducts);
+
+                return {
+                  pscCodeMap,
+                  kbScope: productLine ? `psc:${productLine}` : country ? `country:${country}` : "full",
+                  kbExcerpt: filteredKb.slice(0, 8000),
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-psc-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: productLine
+                input:
+                    value:
+                        path: productLine
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: kbPscProducts
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+          node_outputs:
+              pscCodeMap:
+                  type: object
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163007"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 入库 PSC 开通查询专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是入库 PSC 开通查询专家，根据 `pscFacts` 与 KB 简洁列举客户**可下单**的入库产品（来自 `winit.wh.pms.getWinitProducts`），并回答自验/海外验/头程权限相关问题。
+
+                        ## 禁止项
+
+                        - 不处理权限申请操作（引导至万邑联客服渠道，不含内部链接）
+                        - 不输出 CBM/SKU 额度数字
+                        - 不引用飞书或内部系统 URL
+                        - API 不可用时说明「请前往万邑联平台-个人中心-产品权限查看」
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **warehouseCode**：`{{warehouseCode}}`（上下文，API 不按仓过滤）
+                        - **country**：`{{country}}`
+                        - **productLine**：`{{productLine}}`
+                        - **filterCodes**：`{{filterCodes}}`
+                        - **pscFacts**：
+
+                        ```json
+                        {{pscFacts}}
+                        ```
+
+                        - **pscList**：
+
+                        ```json
+                        {{pscList}}
+                        ```
+
+                        - **pscCodeMap**：`{{pscCodeMap}}`
+                        - **apiAvailable**：`{{apiAvailable}}`
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "enabledProducts": [],
+                              "disabledProducts": [],
+                              "hasSelfInspection": false,
+                              "hasOverseasInspection": false,
+                              "hasStandardFirstLeg": false,
+                              "apiAvailable": true,
+                              "queryWarehouseCode": "",
+                              "queryCountry": "",
+                              "apiAction": "winit.wh.pms.getWinitProducts"
+                            },
+                            "analysis": "简洁列举可下单产品；filterCodes 未命中时说明未开通并提示申请路径。"
+                          }
+                        }
+                        ```
+
+                        ## 特殊规则
+
+                        - `enabledProducts` = API 返回的可下单 PSC（完整 productCode，如 OW01010343）
+                        - `pscFacts` 中的布尔标记优先填入 structured
+                        - 客户问「有没有海外验」且 `hasOverseasInspection=false` 时，说明未开通并提示申请路径
+                        - `apiAvailable=false` 时 structured 仍输出字段，analysis 注明无法实时查询
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: productLine
+                input:
+                    value:
+                        path: productLine
+                        ref_node: "163000"
+              - name: filterCodes
+                input:
+                    value:
+                        path: filterCodes
+                        ref_node: "163000"
+              - name: pscList
+                input:
+                    value:
+                        path: pscList
+                        ref_node: "163005"
+              - name: pscFacts
+                input:
+                    value:
+                        path: pscFacts
+                        ref_node: "163005"
+              - name: pscCodeMap
+                input:
+                    value:
+                        path: pscCodeMap
+                        ref_node: "163006"
+              - name: apiAvailable
+                input:
+                    value:
+                        path: apiAvailable
+                        ref_node: "163005"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163008"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const structured = coerced.structured ?? {};
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "PSC 开通查询完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {expertId: "inbound-psc-eligibility",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "" },
+                  enrichedContext: {
+                      enabledProducts: structured.enabledProducts,
+                      hasSelfInspection: structured.hasSelfInspection,
+                      hasOverseasInspection: structured.hasOverseasInspection,
+                      hasStandardFirstLeg: structured.hasStandardFirstLeg,
+                    },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163007"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "900001"

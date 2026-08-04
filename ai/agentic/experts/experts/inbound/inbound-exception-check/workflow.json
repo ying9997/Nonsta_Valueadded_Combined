@@ -1,0 +1,431 @@
+{
+  "nodes": [
+    {
+      "id": "resolve-inbound-lookup",
+      "file": "nodes/resolve-inbound-lookup.ts",
+      "inputs": [
+        "inboundOrderNos",
+        "queryAllExceptions"
+      ],
+      "outputs": [
+        "wiOrderNos",
+        "customerRefNos",
+        "inboundOrderNos",
+        "useListMode",
+        "lookupMeta"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "wiOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerRefNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "useListMode": {
+            "type": "boolean"
+          },
+          "lookupMeta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-winit-inbound-detail",
+      "file": "nodes/build-winit-inbound-detail.ts",
+      "inputs": [
+        "wiOrderNos",
+        "customerRefNos",
+        "useListMode",
+        "detailLevel",
+        "includePackageDetails"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount",
+        "actionName",
+        "skipDetailApi"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "winitPluginBatchActionsCount": {
+            "type": "integer"
+          },
+          "actionName": {
+            "type": "string"
+          },
+          "skipDetailApi": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "build-exception-list-request",
+      "file": "nodes/build-exception-list-request.ts",
+      "inputs": [
+        "wiOrderNos",
+        "useListMode",
+        "dateRange",
+        "queryAllExceptions"
+      ],
+      "outputs": [
+        "actions",
+        "exceptionActionPlans",
+        "exceptionActionName",
+        "skipExceptionApi"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "exceptionActionPlans": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "exceptionActionName": {
+            "type": "string"
+          },
+          "skipExceptionApi": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-inbound-order",
+      "file": "nodes/fetch-inbound-order.ts",
+      "inputs": [
+        "skipDetailApi",
+        "actions",
+        "actionPlans",
+        "winitPluginOutputList"
+      ],
+      "outputs": [
+        "rawOrderData"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-exception-list",
+      "file": "nodes/fetch-exception-list.ts",
+      "inputs": [
+        "skipExceptionApi",
+        "actions",
+        "exceptionActionPlans",
+        "winitExceptionPluginOutputList"
+      ],
+      "outputs": [
+        "rawExceptionData"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawExceptionData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "extract-inbound-detail",
+      "file": "nodes/extract-inbound-detail.ts",
+      "inputs": [
+        "rawOrderData",
+        "detailLevel",
+        "includePackageDetails",
+        "targetMerchandiseCodes",
+        "targetPackageNos",
+        "targetItemSernos",
+        "maxPackagesPerOrder",
+        "maxMerchandisePerPackage"
+      ],
+      "outputs": [
+        "rawOrderData",
+        "_detailExtractMeta",
+        "detailLevel",
+        "requiresNarrowing"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "_detailExtractMeta": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "detailLevel": {
+            "type": "string"
+          },
+          "requiresNarrowing": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "build-discrepancy-report",
+      "file": "nodes/build-discrepancy-report.ts",
+      "inputs": [
+        "rawOrderData",
+        "rawExceptionData",
+        "query",
+        "customerIntent",
+        "exceptionDescription",
+        "vasOrderNo",
+        "inputContext",
+        "inboundOrderNos",
+        "queryAllExceptions",
+        "requiresNarrowing"
+      ],
+      "outputs": [
+        "discrepancyReport",
+        "exceptionRecords",
+        "exceptionTypes",
+        "needsHumanReview",
+        "humanReviewReason",
+        "suggestedNextExpert",
+        "valueAddHandoff",
+        "hasMoreExceptions",
+        "totalExceptions",
+        "requiresNarrowing",
+        "needsClarification",
+        "clarificationFields",
+        "coverageGap",
+        "coverageGapReason",
+        "orderPhaseHint",
+        "isPutawayComparable",
+        "exceptionLookupStatus",
+        "exceptionLookupMessage",
+        "contextContinuity",
+        "followUpVasOrderNo",
+        "needsFollowUp",
+        "followUpReason"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "discrepancyReport": {
+            "type": ["object", "null"],
+            "additionalProperties": true
+          },
+          "exceptionRecords": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "exceptionTypes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "needsHumanReview": {
+            "type": "boolean"
+          },
+          "humanReviewReason": {
+            "type": "string"
+          },
+          "suggestedNextExpert": {
+            "type": "string"
+          },
+          "valueAddHandoff": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "hasMoreExceptions": {
+            "type": "boolean"
+          },
+          "totalExceptions": {
+            "type": "integer"
+          },
+          "requiresNarrowing": {
+            "type": "boolean"
+          },
+          "needsClarification": {
+            "type": "boolean"
+          },
+          "clarificationFields": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "coverageGap": {
+            "type": "boolean"
+          },
+          "coverageGapReason": {
+            "type": "string"
+          },
+          "orderPhaseHint": {
+            "type": "string"
+          },
+          "isPutawayComparable": {
+            "type": "boolean"
+          },
+          "exceptionLookupStatus": {
+            "type": "string"
+          },
+          "exceptionLookupMessage": {
+            "type": "string"
+          },
+          "contextContinuity": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "followUpVasOrderNo": {
+            "type": "string"
+          },
+          "needsFollowUp": {
+            "type": "boolean"
+          },
+          "followUpReason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "load-exception-kb",
+      "file": "nodes/load-exception-kb.ts",
+      "inputs": [
+        "exceptionTypes",
+        "exceptionTypeGuide",
+        "discrepancyThresholds"
+      ],
+      "outputs": [
+        "exceptionTypeGuideText",
+        "discrepancyThresholdsText"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "exceptionTypeGuideText": {
+            "type": "string"
+          },
+          "discrepancyThresholdsText": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "inboundOrderNos",
+        "exceptionDescription",
+        "discrepancyReport",
+        "exceptionRecords",
+        "exceptionTypes",
+        "needsHumanReview",
+        "humanReviewReason",
+        "suggestedNextExpert",
+        "valueAddHandoff",
+        "needsClarification",
+        "clarificationFields",
+        "coverageGap",
+        "coverageGapReason",
+        "orderPhaseHint",
+        "isPutawayComparable",
+        "exceptionLookupStatus",
+        "exceptionLookupMessage",
+        "contextContinuity",
+        "followUpVasOrderNo",
+        "needsFollowUp",
+        "followUpReason",
+        "exceptionTypeGuideText",
+        "discrepancyThresholdsText",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "discrepancyReport",
+        "needsClarification",
+        "clarificationFields",
+        "coverageGap",
+        "coverageGapReason",
+        "orderPhaseHint",
+        "isPutawayComparable",
+        "humanReviewReason",
+        "needsHumanReview",
+        "exceptionLookupStatus",
+        "exceptionLookupMessage",
+        "contextContinuity",
+        "followUpVasOrderNo",
+        "needsFollowUp",
+        "followUpReason",
+        "suggestedNextExpert",
+        "valueAddHandoff",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

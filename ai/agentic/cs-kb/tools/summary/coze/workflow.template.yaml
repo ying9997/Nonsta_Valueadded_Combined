@@ -1,0 +1,382 @@
+schema_version: 1.0.0
+name: cs_qa_summary
+id: 7591815477089812518
+description: "为Q-s库整理solution的summary，用于提炼精炼的描述"
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: "工作流的起始节点，用于设定启动工作流需要的信息"
+      position:
+        x: -834.5634951071843
+        y: 2.8746295298468425
+      parameters:
+        node_outputs:
+            debug_mode:
+                type: boolean
+                required: true
+                value: null
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: "工作流的最终节点，用于返回工作流运行后的结果信息"
+      position:
+        x: 1941.4362260442758
+        y: 163.37971151360995
+      parameters:
+        node_inputs:
+            - name: len
+              input:
+                type: integer
+                value:
+                    path: len
+                    ref_node: "1319073"
+            - name: response
+              input:
+                type: object
+                value:
+                    path: response
+                    ref_node: "1992439"
+        terminatePlan: returnVariables
+    - id: "198374"
+      type: code
+      title: init_param
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: -366.631169779406
+        y: -10.125370470153157
+      parameters:
+        code: "async function main({params}: Args): Promise<Output> {\n    // feishu app info\n    const lark_app_id = '__REDACTED__';\n    const lark_app_secret = '__REDACTED__';\n    \n    const tenant_access_token = await get_tenant_access_token(lark_app_id, lark_app_secret);\n\n    const ret = {\n        \"tenant_access_token\": tenant_access_token,\n    };\n\n    return ret;\n}\n\n\nasync function get_tenant_access_token(app_id:string, app_secret:string) {\n    const url = `https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal`;\n\n    const headers = {\n        'Content-Type': 'application/json',\n    };\n\n    const body = {\n        'app_id': app_id,\n        'app_secret': app_secret,\n    };\n\n    const response = await fetch(url, {\n        method: 'POST',\n        headers: headers,\n        body: JSON.stringify(body),\n    });\n\n    const response_body = await response.json();\n\n    return response_body.tenant_access_token;\n}"
+        language: 5
+        node_inputs:
+            - name: debug_mode
+              input:
+                value:
+                    path: debug_mode
+                    ref_node: "100001"
+        node_outputs:
+            tenant_access_token:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "1842134"
+      type: llm
+      title: gen_summaries
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "调用大语言模型,使用变量和提示词生成回复"
+      version: "3"
+      position:
+        x: 964.7158710112113
+        y: -62.12537047015314
+      parameters:
+        batch:
+            batchEnable: true
+            batchSize: 200
+            concurrentSize: 10
+            inputLists:
+                - name: item
+                  input:
+                    type: list
+                    items:
+                        type: object
+                        properties:
+                            fields:
+                                type: object
+                                properties:
+                                    qid:
+                                        type: string
+                                        value: null
+                                    question:
+                                        type: string
+                                        value: null
+                                    sys_solution_final:
+                                        type: string
+                                        value: null
+                                value: null
+                            record_id:
+                                type: string
+                                value: null
+                        value: null
+                    value:
+                        path: items
+                        ref_node: "1319073"
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: enabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: medium
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: ""
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: false
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "3"
+            - name: systemPrompt
+              input:
+                type: string
+                value: "# Role\nYou are a professional Q&A content summarization expert, skilled at extracting key points from questions and solutions to generate concise summaries.\n\n# Task\nBased on the provided question and solution, extract an extremely concise summary in a structured directory format. The summary should:\n- Organize information in a hierarchical structure like a table of contents\n- Each item should be concise and clear, not exceeding 20 characters\n- Use simple, accurate, and understandable language\n- Highlight key information and remove redundant descriptions\n- Pay attention to scenarios and prerequisites, do not omit them\n\n# Output Requirements\n- Output in structured markdown format with hierarchical levels (using `-` for list items)\n- Structure should follow this format:\n\n  问题概述\n  - 核心问题：[简要描述]\n  - 场景/前提：[如有]\n  \n  解决方案\n  - [主要步骤/要点1]\n  - [主要步骤/要点2]\n\n- Use indentation to show hierarchy (2 spaces per level)\n- Keep each item concise, one line per item\n- Do not include ```json or ```markdown or ```text in the output\n\n# Requirements\n- Output only the structured summary content, do not add any explanation or commentary\n- Use Mandarin for output\n- Ensure the summary can be understood independently without referring to the original text\n- Pay attention to extracting scenarios and prerequisites from the content\n- Maintain clear hierarchy and structure throughout the output\n- If a section is not applicable, omit it rather than leaving it empty\n\n## inputs\n\n### question\n```\n{{question}}\n```\n\n### solution\n```\n{{sys_solution_final}}\n```\n"
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: question
+              input:
+                type: string
+                value:
+                    path: item.fields.question
+                    ref_node: "1842134"
+            - name: sys_solution_final
+              input:
+                type: string
+                value:
+                    path: item.fields.sys_solution_final
+                    ref_node: "1842134"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    properties:
+                        reasoning_content:
+                            type: string
+                            value: null
+                        summary:
+                            type: string
+                            value: null
+                    value: null
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 600000
+    - id: "1992439"
+      type: code
+      title: update_records
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1410.1868338895817
+        y: -36.12537047015314
+      parameters:
+        code: "async function main({params}: Args): Promise<Output> {\n\n    const tenant_access_token = params.tenant_access_token;\n    const table_id = 'tblLEgFazhddZOUT';\n    const app_token = 'Oup1bQvrJabY24sOyphcQ0C1nic';\n\n\n    var items = params.items;\n    const summaries = params.summaries;\n\n    var records = [];\n    var i = 0;\n\n    for(var item of items) {\n        var summary = '';\n        if(summaries[i] && summaries[i][\"summary\"]) {\n            summary = summaries[i][\"summary\"];\n        }\n        \n        var record = {\n            \"fields\": {\n                \"sys_summary\": summary,\n                \"sys_op_flag\": \"done\",\n            },\n            \"record_id\": item.record_id,\n        };\n        records.push(record);\n        \n        i++;\n    }\n\n    const response = await batch_update_bitable_records(tenant_access_token, records, app_token, table_id);\n    const ret = {\n        \"response\": response,\n    };\n\n    return ret;\n}\n\nasync function batch_update_bitable_records(tenant_access_token: string, records: any[], app_token: string, table_id: string): Promise<any[]> {\n    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${app_token}/tables/${table_id}/records/batch_update`;\n    const headers = {\n        'Authorization': `Bearer ${tenant_access_token}`,\n        'Content-Type': 'application/json',\n    };\n    const body = {\n        'records': records,\n    };\n    const response = await fetch(url, {\n        method: 'POST',\n        headers: headers,\n        body: JSON.stringify(body),\n    });\n    const response_body = await response.json();\n    return response_body;\n}\n"
+        language: 5
+        node_inputs:
+            - name: summaries
+              input:
+                value:
+                    path: outputList
+                    ref_node: "1842134"
+            - name: items
+              input:
+                type: list
+                items:
+                    type: object
+                    properties:
+                        fields:
+                            type: object
+                            properties:
+                                qid:
+                                    type: string
+                                    value: null
+                                question:
+                                    type: string
+                                    value: null
+                                sys_solution_final:
+                                    type: string
+                                    value: null
+                            value: null
+                        record_id:
+                            type: string
+                            value: null
+                    value: null
+                value:
+                    path: items
+                    ref_node: "1319073"
+            - name: tenant_access_token
+              input:
+                value:
+                    path: tenant_access_token
+                    ref_node: "198374"
+        node_outputs:
+            response:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "1319073"
+      type: code
+      title: get_records
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 99.02245580888925
+        y: 101.87462952984686
+      parameters:
+        code: "async function main({params}: Args): Promise<Output> {\n\n    const tenant_access_token = params.tenant_access_token;\n    const table_id = 'tblLEgFazhddZOUT';\n    const app_token = 'Oup1bQvrJabY24sOyphcQ0C1nic';\n    const page_size = 200;\n\n    var field_names = [\n        'qid',\n        'question',\n        'sys_solution_final',\n    ];\n\n    const filter = {\n        \"conditions\": [\n            {\n                \"field_name\": \"sys_op_flag\",\n                \"operator\": \"is\",\n                \"value\": [\n                    \"pending\",\n                ],\n            }\n        ],\n        \"conjunction\": \"and\",\n    };\n\n    let response = await search_bitable_records(table_id, app_token, tenant_access_token, filter, field_names, page_size);\n\n\n    var items = [];\n\n    response.data.items.forEach(element => {\n        var item = {\n            \"fields\": {\n                \"qid\": get_value(element.fields, 'qid'),\n                \"question\": get_value(element.fields, 'question'),\n                \"sys_solution_final\": get_value(element.fields, 'sys_solution_final'),\n            },\n            \"record_id\": element.record_id,\n        };\n        items.push(item);\n    });\n\n    const ret = {\n        \"items\": items,\n        \"len\": items.length,\n    };\n\n    return ret;\n}\n\nasync function search_bitable_records(table_id:string, app_token:string, tenant_access_token:string, filter:any, field_names:any, page_size:number) {\n    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${app_token}/tables/${table_id}/records/search?page_size=${page_size}`;\n\n    const headers = {\n        'Authorization': `Bearer ${tenant_access_token}`,\n        'Content-Type': 'application/json',\n    };\n\n    const body = {\n        'filter': filter,\n        'field_names': field_names,\n    };\n\n    const response = await fetch(url, {\n        method: 'POST',\n        headers: headers,\n        body: JSON.stringify(body),\n    });\n\n    const response_body = await response.json();\n\n    return response_body;\n}\n\nfunction get_value(obj, head): string {\n    if (obj.hasOwnProperty(head)) {\n        var obj_dialog = obj[head];\n    \n        if (Array.isArray(obj_dialog)) {\n            var text = '';\n\n            obj_dialog.forEach(element => {\n                if(!element.hasOwnProperty('type')) {\n                    throw new Error(\"格式错误\");\n                }\n\n                var type = element['type'];\n\n                switch(type) {\n                    case 'text':\n                        text += element['text'];\n                        break;\n                    case 'url':\n                        if(element.hasOwnProperty('link')) {\n                            var link = element['link'];\n                            // var text_link = element['text'];\n                            // text += `[${text_link}](${link})`;\n                            text += `${link}`;\n                        } else {\n                            text += element['text'];\n                        }\n                        break;\n                    case 'mention':\n                        if(element.hasOwnProperty('link')) {\n                            var link = element['link'];\n                            text += `${link}`;\n                        } else {\n                            text += element['text'];\n                        }\n                        break;\n                    default:\n                        if (element.hasOwnProperty('text')) {\n                            text += element['text'];\n                        }\n                        break;\n                }\n            \n            });\n            return text;\n        } else if(typeof(obj_dialog)=='number'){\n            return String(obj_dialog);\n        } else if(typeof(obj_dialog)=='string'){\n            return obj_dialog;\n        }\n    }\n    return '';\n}"
+        language: 5
+        node_inputs:
+            - name: tenant_access_token
+              input:
+                value:
+                    path: tenant_access_token
+                    ref_node: "198374"
+        node_outputs:
+            items:
+                type: list
+                items:
+                    type: object
+                    properties:
+                        fields:
+                            type: object
+                            properties:
+                                qid:
+                                    type: string
+                                    value: null
+                                question:
+                                    type: string
+                                    value: null
+                                sys_solution_final:
+                                    type: string
+                                    value: null
+                            value: null
+                        record_id:
+                            type: string
+                            value: null
+                    value: null
+                value: null
+            len:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "190425"
+      type: condition
+      title: 选择器
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 509.0224558088893
+        y: 123.3995359412041
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: len
+                                ref_node: "1319073"
+                      operator: 13
+                      right:
+                        input:
+                            type: integer
+                            value: 0
+                logic: 2
+edges:
+    - source_node: "100001"
+      target_node: "198374"
+    - source_node: "1992439"
+      target_node: "900001"
+    - source_node: "190425"
+      target_node: "900001"
+      source_port: "false"
+    - source_node: "198374"
+      target_node: "1319073"
+    - source_node: "190425"
+      target_node: "1842134"
+      source_port: "true"
+    - source_node: "1842134"
+      target_node: "1992439"
+    - source_node: "1319073"
+      target_node: "190425"

@@ -1,0 +1,1415 @@
+schema_version: 1.0.0
+name: inbound_capacity_availability
+id: 7537426827874477735
+description: 库容与承接能力（validate → fetch-mks-quota → merge → eval-temperature → load-kb → LLM → format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      warehouseCode:
+                          type: string
+                          value: null
+                          description: 目标仓库编码
+                          required: true
+                      checkType:
+                          type: string
+                          value: null
+                          description: 查询维度：cbm / sku / overall 综合；slots 仅返回预约指引（不提供仓级 Slots 数据）
+                      cargoProfile:
+                          type: object
+                          value: null
+                          description: 货物属性（综合评估时使用）
+                          properties:
+                              cbmVolume:
+                                  type: float
+                                  value: null
+                              skuCount:
+                                  type: float
+                                  value: null
+                              deliveryWayType:
+                                  type: string
+                                  value: null
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163007"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163007"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163007"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163007"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-capacity-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-capacity-query — 校验 warehouseCode 与 checkType
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type CheckType = "cbm" | "sku" | "slots" | "overall";
+
+              const VALID_CHECK_TYPES = new Set<CheckType>(["cbm", "sku", "slots", "overall"]);
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function normalizeCheckType(raw: unknown): CheckType {
+                const s = str(raw).toLowerCase();
+                if (VALID_CHECK_TYPES.has(s as CheckType)) return s as CheckType;
+                return "overall";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const warehouseCode = str(params.warehouseCode).toUpperCase();
+                const checkType = normalizeCheckType(params.checkType);
+                const customerIntent = str(params.customerIntent);
+                const inputContext = params.inputContext ?? {};
+                const cargoProfile = params.cargoProfile ?? null;
+
+                const validationOk = warehouseCode.length > 0;
+
+                return validationOk
+                  ? {
+                      validationOk: true,
+                      warehouseCode,
+                      checkType,
+                      customerIntent,
+                      inputContext,
+                      cargoProfile,
+                    }
+                  : {
+                      validationOk: false,
+                      error: "warehouseCode 为必填项",
+                      warehouseCode,
+                      checkType,
+                      customerIntent,
+                      inputContext,
+                      cargoProfile,
+                    };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-capacity-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: warehouseCode
+                input:
+                    value:
+                        path: inputs.warehouseCode
+                        ref_node: "100001"
+              - name: checkType
+                input:
+                    value:
+                        path: inputs.checkType
+                        ref_node: "100001"
+              - name: cargoProfile
+                input:
+                    value:
+                        path: inputs.cargoProfile
+                        ref_node: "100001"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              validationOk:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              warehouseCode:
+                  type: string
+                  value: null
+              checkType:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+              cargoProfile:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: fetch-mks-quota
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 节点：fetch-mks-quota — InboundSkuLimitAggChart 额度查询（Coze 代理），失败时 KB 降级
+               * FaaS 单文件闭环，无外部 import。
+               *
+               * action: winit.huaweiDas.invoke
+               * data: OPC/Detail/InboundSkuLimitAggChart（与卖家中心 ajaxProcess form 同构）
+               */
+
+              const QUOTA_ACTION = "winit.huaweiDas.invoke";
+              const LIMIT_URI = "OPC/Detail/InboundSkuLimitAggChart";
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              type LimitRow = {
+                limitValue?: unknown;
+                limitValueRemain?: unknown;
+                actValueInv?: unknown;
+                actValueOnway?: unknown;
+                limitItemName?: unknown;
+                warehouseCode?: unknown;
+                limitTypeName?: unknown;
+                limitSkuAttr?: unknown;
+                skuSizeClass?: unknown;
+              };
+
+              function num(v: unknown): number {
+                const n = Number(v);
+                return Number.isFinite(n) ? n : 0;
+              }
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function buildHuaweiDasPayload(warehouseCode: string): Record<string, unknown> {
+                return {
+                  body: {
+                    countryCode: "",
+                    warehouseCode: warehouseCode || "",
+                    skuSizeClass: "",
+                    limitSkuAttr: "",
+                  },
+                  headers: { "x-stage": "RELEASE" },
+                  httpMethod: "POST",
+                  uri: LIMIT_URI,
+                };
+              }
+
+              function extractLimitRows(parsed: unknown, depth = 0): LimitRow[] {
+                if (parsed == null || depth > 8) return [];
+                if (typeof parsed === "string") {
+                  const trimmed = parsed.trim();
+                  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return [];
+                  try {
+                    return extractLimitRows(JSON.parse(trimmed) as unknown, depth + 1);
+                  } catch {
+                    return [];
+                  }
+                }
+                if (Array.isArray(parsed)) return parsed as LimitRow[];
+                if (typeof parsed !== "object") return [];
+
+                const o = parsed as Record<string, unknown>;
+
+                if (o.code != null && o.code !== "0" && o.code !== 0) {
+                  const msg = str(o.msg ?? o.info ?? o.message);
+                  if (msg) throw new Error(msg.slice(0, 120));
+                }
+
+                if (o.code === "0" || o.code === 0) return extractLimitRows(o.data, depth + 1);
+                if (o.output != null) return extractLimitRows(o.output, depth + 1);
+                if (o.status === 1 || o.status === "1") return extractLimitRows(o.data, depth + 1);
+
+                const data = o.data;
+                if (Array.isArray(data)) return data as LimitRow[];
+                if (data != null && typeof data === "object") {
+                  const inner = (data as Record<string, unknown>).data;
+                  if (Array.isArray(inner)) return inner as LimitRow[];
+                  return extractLimitRows(data, depth + 1);
+                }
+
+                return [];
+              }
+
+              function warehouseToken(code: string): string {
+                return code.toUpperCase().replace(/\s+/g, "");
+              }
+
+              function matchesWarehouse(rowWarehouse: string, inputCode: string): boolean {
+                const row = str(rowWarehouse);
+                if (!row || row.includes(",")) return false;
+                const token = warehouseToken(inputCode);
+                if (!token) return false;
+                const rowToken = warehouseToken(row.split(/\s+/)[0] ?? row);
+                if (rowToken === token) return true;
+                return warehouseToken(row).startsWith(token);
+              }
+
+              function isCbmItem(limitItemName: string): boolean {
+                return limitItemName.includes("CBM");
+              }
+
+              function isSkuCountItem(limitItemName: string): boolean {
+                return limitItemName === "SKU数量";
+              }
+
+              function isOrderLimit(limitTypeName: string): boolean {
+                return limitTypeName === "限制下单";
+              }
+
+              function isAppointmentLimit(limitTypeName: string): boolean {
+                return limitTypeName === "限制预约";
+              }
+
+              function rowUsed(row: LimitRow): number {
+                const inv = num(row.actValueInv);
+                const onway = num(row.actValueOnway);
+                if (inv > 0 || onway > 0) return inv + onway;
+                const total = num(row.limitValue);
+                const remain = num(row.limitValueRemain);
+                return Math.max(0, total - remain);
+              }
+
+              function buildFallbackSnapshot(warehouseCode: string, reason: string) {
+                return {
+                  totalCbm: null,
+                  usedCbm: null,
+                  remainingCbm: null,
+                  totalSkuSlots: null,
+                  usedSkuSlots: null,
+                  remainingSkuSlots: null,
+                  apiAvailable: false,
+                  warehouseCode,
+                  message: reason,
+                };
+              }
+
+              function aggregateWarehouseLimits(rows: LimitRow[], warehouseCode: string) {
+                const matched = rows.filter((row) => {
+                  const wh = str(row.warehouseCode);
+                  const attr = str(row.limitSkuAttr);
+                  const type = str(row.limitTypeName);
+                  if (!matchesWarehouse(wh, warehouseCode)) return false;
+                  if (attr && attr !== "普货") return false;
+                  return isOrderLimit(type) || isAppointmentLimit(type);
+                });
+
+                const orderRows = matched.filter((row) => isOrderLimit(str(row.limitTypeName)));
+                const sourceRows = orderRows.length > 0 ? orderRows : matched;
+
+                let totalCbm = 0;
+                let remainingCbm = 0;
+                let usedCbm = 0;
+                let totalSkuSlots = 0;
+                let remainingSkuSlots = 0;
+                let usedSkuSlots = 0;
+                let cbmBuckets = 0;
+                let skuBuckets = 0;
+
+                for (const row of sourceRows) {
+                  const item = str(row.limitItemName);
+                  const total = num(row.limitValue);
+                  const remain = num(row.limitValueRemain);
+                  const used = rowUsed(row);
+
+                  if (isCbmItem(item)) {
+                    totalCbm += total;
+                    remainingCbm += remain;
+                    usedCbm += used;
+                    cbmBuckets += 1;
+                  } else if (isSkuCountItem(item)) {
+                    totalSkuSlots += total;
+                    remainingSkuSlots += remain;
+                    usedSkuSlots += used;
+                    skuBuckets += 1;
+                  }
+                }
+
+                return {
+                  totalCbm: cbmBuckets > 0 ? totalCbm : null,
+                  usedCbm: cbmBuckets > 0 ? usedCbm : null,
+                  remainingCbm: cbmBuckets > 0 ? remainingCbm : null,
+                  totalSkuSlots: skuBuckets > 0 ? totalSkuSlots : null,
+                  usedSkuSlots: skuBuckets > 0 ? usedSkuSlots : null,
+                  remainingSkuSlots: skuBuckets > 0 ? remainingSkuSlots : null,
+                  bucketCount: { cbm: cbmBuckets, sku: skuBuckets, matched: sourceRows.length },
+                };
+              }
+
+              async function fetchInboundSkuLimitAggChart(
+                env: CozeWinitLocalEnv,
+                warehouseCode: string
+              ): Promise<LimitRow[]> {
+                const payloads = [buildHuaweiDasPayload(warehouseCode), buildHuaweiDasPayload("")];
+
+                for (const payload of payloads) {
+                  const parsed = await runCozeWinitWorkflow(env, QUOTA_ACTION, payload);
+                  const rows = extractLimitRows(parsed);
+                  if (rows.length > 0) return rows;
+                }
+
+                throw new Error("额度接口返回空列表");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validationOk = params.validationOk === true;
+                const warehouseCode = String(params.warehouseCode ?? "").trim().toUpperCase();
+
+                if (!validationOk || !warehouseCode) {
+                  return {
+                    quotaSnapshot: buildFallbackSnapshot(warehouseCode, "validation failed"),
+                    quotaFetchOk: false,
+                  };
+                }
+
+                const env = getCozeWinitEnv();
+                if (!env) {
+                  return {
+                    quotaSnapshot: buildFallbackSnapshot(warehouseCode, "额度数据暂时无法实时获取（缺少 Coze 环境配置）"),
+                    quotaFetchOk: false,
+                  };
+                }
+
+                try {
+                  const rows = await fetchInboundSkuLimitAggChart(env, warehouseCode);
+                  const agg = aggregateWarehouseLimits(rows, warehouseCode);
+
+                  if (agg.bucketCount.matched === 0) {
+                    return {
+                      quotaSnapshot: buildFallbackSnapshot(
+                        warehouseCode,
+                        `额度数据暂时无法实时获取（未找到 ${warehouseCode} 对应额度项）`
+                      ),
+                      quotaFetchOk: false,
+                    };
+                  }
+
+                  return {
+                    quotaSnapshot: {
+                      totalCbm: agg.totalCbm,
+                      usedCbm: agg.usedCbm,
+                      remainingCbm: agg.remainingCbm,
+                      totalSkuSlots: agg.totalSkuSlots,
+                      usedSkuSlots: agg.usedSkuSlots,
+                      remainingSkuSlots: agg.remainingSkuSlots,
+                      apiAvailable: true,
+                      warehouseCode,
+                      message: "",
+                      dataSource: "winit.huaweiDas.invoke/InboundSkuLimitAggChart",
+                      limitBucketCount: agg.bucketCount,
+                    },
+                    quotaFetchOk: true,
+                  };
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  return {
+                    quotaSnapshot: buildFallbackSnapshot(warehouseCode, `额度数据暂时无法实时获取（${msg.slice(0, 120)}）`),
+                    quotaFetchOk: false,
+                  };
+                }
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-mks-quota")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+          node_outputs:
+              quotaSnapshot:
+                  type: object
+                  value: null
+              quotaFetchOk:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: code
+      title: merge-capacity-signal
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 947
+      parameters:
+          code: |-
+              /**
+               * 节点：merge-capacity-signal — 组装 MKS 额度查询上下文
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v);
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const quotaSnapshot = (params.quotaSnapshot ?? {}) as Record<string, unknown>;
+                const warehouseCode = str(params.warehouseCode);
+                const checkType = str(params.checkType) || "overall";
+                const cargoProfile = params.cargoProfile ?? null;
+                const quotaFetchOk = params.quotaFetchOk === true;
+
+                const apiAvailable = quotaSnapshot.apiAvailable === true;
+                const dataSource = apiAvailable ? "api" : "kb_only";
+                const dataQuality = apiAvailable ? "real" : "mock";
+
+                return {
+                  mergedCapacity: {
+                    warehouseCode,
+                    checkType,
+                    quotaSnapshot,
+                    cargoProfile,
+                  },
+                  dataSource,
+                  dataQuality,
+                  quotaFetchOk,
+                  kbFallbackNeeded: !quotaFetchOk,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("merge-capacity-signal")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: quotaSnapshot
+                input:
+                    value:
+                        path: quotaSnapshot
+                        ref_node: "163001"
+              - name: quotaFetchOk
+                input:
+                    value:
+                        path: quotaFetchOk
+                        ref_node: "163001"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+              - name: checkType
+                input:
+                    value:
+                        path: checkType
+                        ref_node: "163000"
+              - name: cargoProfile
+                input:
+                    value:
+                        path: cargoProfile
+                        ref_node: "163000"
+          node_outputs:
+              mergedCapacity:
+                  type: object
+                  value: null
+              dataSource:
+                  type: string
+                  value: null
+              dataQuality:
+                  type: string
+                  value: null
+              quotaFetchOk:
+                  type: boolean
+                  value: null
+              kbFallbackNeeded:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163003"
+      type: code
+      title: eval-overall-temperature
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          code: |-
+              /**
+               * 节点：eval-overall-temperature — 基于 MKS 额度的库容温度
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type Temperature = "green" | "yellow" | "orange" | "red" | "unknown";
+
+              function num(v: unknown): number | null {
+                if (v == null) return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+              }
+
+              function pctRemaining(total: number | null, remaining: number | null): number | null {
+                if (total == null || remaining == null || total <= 0) return null;
+                return remaining / total;
+              }
+
+              function quotaTemperature(totalCbm: number | null, remainingCbm: number | null): Temperature {
+                const cbmPct = pctRemaining(totalCbm, remainingCbm);
+                if (cbmPct == null) return "unknown";
+                if (cbmPct < 0.05) return "red";
+                if (cbmPct < 0.2) return "orange";
+                if (cbmPct < 0.5) return "yellow";
+                return "green";
+              }
+
+              function adviceFor(temp: Temperature, checkType: string): string[] {
+                if (checkType === "slots") {
+                  return [
+                    "仓级 Slots 可约时间不在本专家查询范围",
+                    "请在万邑联平台预约送仓页面查看可约时段，或咨询 inbound-appointment-manage 操作指引",
+                  ];
+                }
+
+                const base: Record<Temperature, string[]> = {
+                  green: ["客户额度充裕，可正常安排入库"],
+                  yellow: ["客户额度偏紧，建议尽快安排入库并提前规划"],
+                  orange: ["客户额度紧张，建议拆批入库或申请额度扩容"],
+                  red: ["客户额度接近上限，建议换仓或扩容后再发", "请联系客服获取最新额度信息"],
+                  unknown: ["实时额度数据不可用，建议登录万邑联账户中心查看或联系客服"],
+                };
+                const lines = [...base[temp]];
+                if (checkType === "cbm") lines.unshift("聚焦 CBM 额度维度");
+                if (checkType === "sku") lines.unshift("聚焦 SKU 额度维度");
+                return lines;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const mergedCapacity = (params.mergedCapacity ?? {}) as Record<string, unknown>;
+                const quotaSnapshot = (mergedCapacity.quotaSnapshot ?? {}) as Record<string, unknown>;
+                const checkType = String(mergedCapacity.checkType ?? "overall");
+                const cargoProfile = mergedCapacity.cargoProfile as Record<string, unknown> | null;
+
+                const totalCbm = num(quotaSnapshot.totalCbm);
+                const remainingCbm = num(quotaSnapshot.remainingCbm);
+                const quotaTemp = quotaTemperature(totalCbm, remainingCbm);
+
+                let overallTemperature: Temperature =
+                  checkType === "slots" ? "unknown" : quotaTemp;
+
+                if (checkType !== "slots" && cargoProfile && overallTemperature !== "red") {
+                  const needCbm = num(cargoProfile.cbmVolume);
+                  const needSku = num(cargoProfile.skuCount);
+                  if (needCbm != null && remainingCbm != null && needCbm > remainingCbm) overallTemperature = "red";
+                  const remainingSku = num(quotaSnapshot.remainingSkuSlots);
+                  if (needSku != null && remainingSku != null && needSku > remainingSku) overallTemperature = "red";
+                }
+
+                if (checkType !== "slots" && quotaSnapshot.apiAvailable !== true) {
+                  overallTemperature = "unknown";
+                }
+
+                return {
+                  overallTemperature,
+                  capacityAdvice: adviceFor(overallTemperature, checkType),
+                  quotaTemperature: quotaTemp,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("eval-overall-temperature")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: mergedCapacity
+                input:
+                    value:
+                        path: mergedCapacity
+                        ref_node: "163002"
+          node_outputs:
+              overallTemperature:
+                  type: string
+                  value: null
+              capacityAdvice:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              quotaTemperature:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163004"
+      type: text
+      title: kb-capacity
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 库容额度与温度判断 KB
+
+                        ## MKS 额度字段说明
+
+                        | 字段 | 含义 |
+                        |------|------|
+                        | totalCbm | 客户 CBM 总额度 |
+                        | usedCbm | 已使用 CBM |
+                        | remainingCbm | 剩余 CBM |
+                        | totalSkuSlots | SKU 额度总数 |
+                        | usedSkuSlots | 已用 SKU 额度 |
+                        | remainingSkuSlots | 剩余 SKU 额度 |
+
+                        查询路径：万邑联 → 账户中心 → 库容额度
+
+                        ## 温度等级定义（仅基于客户 CBM 额度）
+
+                        | 温度 | 条件（参考） | 建议动作 |
+                        |------|-------------|----------|
+                        | green（充裕） | remainingCbm > 50% | 正常入库 |
+                        | yellow（偏紧） | remainingCbm 20%–50% | 尽快安排入库，提前规划 |
+                        | orange（紧张） | remainingCbm < 20% | 拆批或申请额度扩容 |
+                        | red（满载） | remainingCbm < 5% | 换仓或扩容后再发 |
+                        | unknown（未知） | 额度 API 不可用 | 登录万邑联账户中心或联系客服 |
+
+                        ## Slots / 预约送仓
+
+                        - **本专家不提供**仓级 Slots 可约数据或仓库负载信号（不对客透露内部仓容信息）
+                        - 客户问「还能不能约 Slots」：引导至万邑联 **预约送仓** 页面查看可约时段，或转 `inbound-appointment-manage` 操作指引
+
+                        ## API 数据源
+
+                        - Coze OpenAPI 代理：`action=winit.huaweiDas.invoke`
+                        - `data` 与卖家中心 ajaxProcess 的 `form` 同构（`uri=OPC/Detail/InboundSkuLimitAggChart`）
+                        - 本地需 `COZE_API_TOKEN` + `COZE_WINIT_*` 租户字段（与其他 inbound fetch 节点一致）
+                        - 按 `warehouseCode` 聚合该仓「普货 / 限制下单」各尺寸档 CBM 与 SKU 数量额度
+
+                        ## API 降级说明
+
+                        当额度接口不可用或缺少 Coze 环境配置时：
+                        - quotaSnapshot.apiAvailable = false
+                        - dataSource = kb_only
+                        - 引导客户登录万邑联账户中心查看，或联系客服
+
+                        ## 对客约束
+
+                        - 额度与温度仅供参考，实际以平台系统为准
+                        - 不承诺仓库一定能接货
+                        - 不输出仓级负载、Slots 温度等内部运营信号
+                        - 扩容申请见 inbound-permission-apply 专家
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163005"
+      type: code
+      title: load-capacity-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          code: |-
+              /**
+               * 节点：load-capacity-kb — KB 降级语料（API Gap 时）
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const kbCapacity = str(params.kbCapacity);
+                const kbFallbackNeeded = params.kbFallbackNeeded === true;
+                const checkType = str(params.checkType) || "overall";
+                const dataSource = str(params.dataSource) || "kb_only";
+
+                return {
+                  capacityKb: kbCapacity,
+                  kbFallbackNeeded,
+                  kbScope: kbFallbackNeeded || dataSource === "kb_only" ? "fallback" : "supplement",
+                  checkType,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-capacity-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: kbCapacity
+                input:
+                    value:
+                        path: output
+                        ref_node: "163004"
+              - name: kbFallbackNeeded
+                input:
+                    value:
+                        path: kbFallbackNeeded
+                        ref_node: "163002"
+              - name: checkType
+                input:
+                    value:
+                        path: checkType
+                        ref_node: "163000"
+              - name: dataSource
+                input:
+                    value:
+                        path: dataSource
+                        ref_node: "163002"
+          node_outputs:
+              capacityKb:
+                  type: string
+                  value: null
+              kbFallbackNeeded:
+                  type: boolean
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              checkType:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163006"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 库容与承接能力专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是库容与承接能力专家，汇总 MKS **客户** CBM/SKU 额度与额度温度，输出客观摘要与建议动作。
+
+                        ## 禁止项
+
+                        - 不承诺仓库一定能接货
+                        - 不引用 MKS 内部 URL
+                        - **禁止**输出仓级 Slots 可约性、仓库负载、内部运营温度等不对客信息
+                        - 明确标注 dataSource 与数据质量
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **warehouseCode**：`{{warehouseCode}}`
+                        - **checkType**：`{{checkType}}`（cbm/sku/slots/overall）
+                        - **mergedCapacity**：
+
+                        ```json
+                        {{mergedCapacity}}
+                        ```
+
+                        - **overallTemperature**：`{{overallTemperature}}`
+                        - **capacityAdvice**：`{{capacityAdvice}}`
+                        - **dataSource**：`{{dataSource}}`
+                        - **dataQuality**：`{{dataQuality}}`
+                        - **capacityKb**：`{{capacityKb}}`
+                        - **kbFallbackNeeded**：`{{kbFallbackNeeded}}`
+                        - **cargoProfile**：
+
+                        ```json
+                        {{cargoProfile}}
+                        ```
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "warehouseCode": "",
+                              "checkType": "overall",
+                              "quotaSnapshot": {},
+                              "dataSource": "api|kb_only",
+                              "overallTemperature": "green|yellow|orange|red|unknown",
+                              "capacityAdvice": [],
+                              "dataQuality": "real|mock"
+                            },
+                            "analysis": "摘要客户额度与温度；标注数据来源；给出建议动作。"
+                          }
+                        }
+                        ```
+
+                        ## 特殊规则
+
+                        - apiAvailable=false 时必须引用 KB 降级说明
+                        - checkType=slots：说明 Slots 请在万邑联预约送仓页面查询，**不要**编造可约时段或仓级负载
+                        - checkType 为 cbm/sku/overall 时聚焦对应额度维度
+                        - cargoProfile 存在时评估该批货是否超出**客户额度**（非仓级库容）
+                        - overallTemperature 使用英文枚举，analysis 可用 emoji 辅助可读性
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+              - name: checkType
+                input:
+                    value:
+                        path: checkType
+                        ref_node: "163005"
+              - name: mergedCapacity
+                input:
+                    value:
+                        path: mergedCapacity
+                        ref_node: "163002"
+              - name: overallTemperature
+                input:
+                    value:
+                        path: overallTemperature
+                        ref_node: "163003"
+              - name: capacityAdvice
+                input:
+                    value:
+                        path: capacityAdvice
+                        ref_node: "163003"
+              - name: dataSource
+                input:
+                    value:
+                        path: dataSource
+                        ref_node: "163002"
+              - name: dataQuality
+                input:
+                    value:
+                        path: dataQuality
+                        ref_node: "163002"
+              - name: capacityKb
+                input:
+                    value:
+                        path: capacityKb
+                        ref_node: "163005"
+              - name: kbFallbackNeeded
+                input:
+                    value:
+                        path: kbFallbackNeeded
+                        ref_node: "163005"
+              - name: cargoProfile
+                input:
+                    value:
+                        path: cargoProfile
+                        ref_node: "163000"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163007"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw.trim() || "解析失败。" };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const mergedCapacity = (params.mergedCapacity ?? {}) as Record<string, unknown>;
+
+                const structured = {
+                  ...coerced.structured,
+                  warehouseCode: coerced.structured?.warehouseCode ?? mergedCapacity.warehouseCode ?? params.warehouseCode ?? "",
+                  quotaSnapshot: coerced.structured?.quotaSnapshot ?? mergedCapacity.quotaSnapshot ?? params.quotaSnapshot ?? {},
+                  dataSource: coerced.structured?.dataSource ?? params.dataSource ?? "kb_only",
+                  overallTemperature: coerced.structured?.overallTemperature ?? params.overallTemperature ?? "unknown",
+                  capacityAdvice: coerced.structured?.capacityAdvice ?? params.capacityAdvice ?? [],
+                  dataQuality: coerced.structured?.dataQuality ?? params.dataQuality ?? "mock",
+                };
+
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "库容额度查询完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {
+                    expertId: "inbound-capacity-availability",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "",
+                  },
+                  enrichedContext: {
+                    warehouseCode: structured.warehouseCode,
+                    overallTemperature: structured.overallTemperature,
+                    dataSource: structured.dataSource,
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163006"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+              - name: mergedCapacity
+                input:
+                    value:
+                        path: mergedCapacity
+                        ref_node: "163002"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+              - name: quotaSnapshot
+                input:
+                    value:
+                        path: quotaSnapshot
+                        ref_node: "163001"
+              - name: dataSource
+                input:
+                    value:
+                        path: dataSource
+                        ref_node: "163002"
+              - name: overallTemperature
+                input:
+                    value:
+                        path: overallTemperature
+                        ref_node: "163003"
+              - name: capacityAdvice
+                input:
+                    value:
+                        path: capacityAdvice
+                        ref_node: "163003"
+              - name: dataQuality
+                input:
+                    value:
+                        path: dataQuality
+                        ref_node: "163002"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "900001"

@@ -1,0 +1,226 @@
+yamlBasename: inbound_customs_doc_manage-draft.yaml
+packageMainName: inbound_customs_doc_manage
+packageDescription: 清关资料与进口商（validate → TMS queryPage + UMS getVendorInfo → KB → LLM）
+
+textNodes:
+  - logicalId: kb-upload-guide-text
+    title: kb-upload-guide
+    insertAfter: merge-vendor-info
+    sourceFile: prompts/kb-upload-guide.md
+  - logicalId: kb-importer-register-text
+    title: kb-importer-register
+    insertAfter: merge-vendor-info
+    sourceFile: prompts/kb-importer-register.md
+  - logicalId: kb-importer-query-text
+    title: kb-importer-query
+    insertAfter: merge-vendor-info
+    sourceFile: prompts/kb-importer-query.md
+  - logicalId: kb-general-text
+    title: kb-general
+    insertAfter: merge-vendor-info
+    sourceFile: prompts/kb-general.md
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-tms-transport-order
+    logicalId: winit_tms_transport_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 10
+      concurrentSize: 5
+      actionsFrom:
+        logicalId: build-tms-transport-query
+        path: actions
+  - insertBefore: fetch-vendor-info
+    logicalId: winit_vendor_info_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 5
+      concurrentSize: 3
+      actionsFrom:
+        logicalId: build-vendor-info-request
+        path: actions
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+inputBindings:
+  prepare-tms-doc-lookup:
+    validationOk:
+      ref: validate-doc-intent
+      path: validationOk
+    inboundOrderNo:
+      ref: validate-doc-intent
+      path: inboundOrderNo
+    transportOrderNo:
+      ref: validate-doc-intent
+      path: transportOrderNo
+  build-tms-transport-query:
+    skipApi:
+      ref: prepare-tms-doc-lookup
+      path: skipApi
+    skipTms:
+      ref: prepare-tms-doc-lookup
+      path: skipTms
+    wiOrderNos:
+      ref: prepare-tms-doc-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: prepare-tms-doc-lookup
+      path: customerRefNos
+    transportOrderNo:
+      ref: prepare-tms-doc-lookup
+      path: transportOrderNo
+  fetch-tms-transport-order:
+    skipTms:
+      ref: build-tms-transport-query
+      path: skipTms
+    actions:
+      ref: build-tms-transport-query
+      path: actions
+    winitTmsPluginOutputList:
+      ref: winit_tms_transport_batch
+      path: outputList
+  summarize-tms-transport:
+    skipTms:
+      ref: build-tms-transport-query
+      path: skipTms
+    tmsRawList:
+      ref: fetch-tms-transport-order
+      path: tmsRawList
+  build-vendor-info-request:
+    validationOk:
+      ref: validate-doc-intent
+      path: validationOk
+    intent:
+      ref: validate-doc-intent
+      path: intent
+    country:
+      ref: validate-doc-intent
+      path: country
+  fetch-vendor-info:
+    skipUmsApi:
+      ref: build-vendor-info-request
+      path: skipUmsApi
+    actions:
+      ref: build-vendor-info-request
+      path: actions
+    winitUmsPluginOutputList:
+      ref: winit_vendor_info_batch
+      path: outputList
+  merge-vendor-info:
+    skipUmsApi:
+      ref: build-vendor-info-request
+      path: skipUmsApi
+    rawVendorData:
+      ref: fetch-vendor-info
+      path: rawVendorData
+    importerCode:
+      ref: validate-doc-intent
+      path: importerCode
+    intent:
+      ref: validate-doc-intent
+      path: intent
+    vendorCountryCode:
+      ref: build-vendor-info-request
+      path: vendorCountryCode
+  load-customs-doc-kb:
+    validationOk:
+      ref: validate-doc-intent
+      path: validationOk
+    intent:
+      ref: validate-doc-intent
+      path: intent
+    country:
+      ref: validate-doc-intent
+      path: country
+    inboundOrderNo:
+      ref: validate-doc-intent
+      path: inboundOrderNo
+    importerCode:
+      ref: validate-doc-intent
+      path: importerCode
+    registerGapNote:
+      ref: merge-vendor-info
+      path: registerGapNote
+    vendorFacts:
+      ref: merge-vendor-info
+      path: vendorFacts
+    umsDataAvailable:
+      ref: merge-vendor-info
+      path: umsDataAvailable
+    tmsTransportSummary:
+      ref: summarize-tms-transport
+      path: tmsTransportSummary
+    kbUploadGuide:
+      ref: kb-upload-guide-text
+      path: output
+    kbImporterRegister:
+      ref: kb-importer-register-text
+      path: output
+    kbImporterQuery:
+      ref: kb-importer-query-text
+      path: output
+    kbGeneral:
+      ref: kb-general-text
+      path: output
+  llm-analyze:
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: validate-doc-intent
+      path: customerIntent
+    intent:
+      ref: validate-doc-intent
+      path: intent
+    country:
+      ref: validate-doc-intent
+      path: country
+    inboundOrderNo:
+      ref: validate-doc-intent
+      path: inboundOrderNo
+    importerCode:
+      ref: validate-doc-intent
+      path: importerCode
+    kbContent:
+      ref: load-customs-doc-kb
+      path: kbContent
+    uploadAction:
+      ref: load-customs-doc-kb
+      path: uploadAction
+    umsDataAvailable:
+      ref: load-customs-doc-kb
+      path: umsDataAvailable
+    tmsDataAvailable:
+      ref: load-customs-doc-kb
+      path: tmsDataAvailable
+    tmsTransportSummary:
+      ref: summarize-tms-transport
+      path: tmsTransportSummary
+    inputContext:
+      ref: validate-doc-intent
+      path: inputContext
+  format-output:
+    analysisResult:
+      ref: llm-analyze
+      path: analysisResult
+    inputContext:
+      ref: validate-doc-intent
+      path: inputContext
+    umsDataAvailable:
+      ref: merge-vendor-info
+      path: umsDataAvailable
+    vendorList:
+      ref: merge-vendor-info
+      path: vendorList

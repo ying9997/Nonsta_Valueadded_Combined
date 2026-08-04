@@ -1,0 +1,286 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "country",
+        "lastMileProductName",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputs": [
+        "valid",
+        "error",
+        "query",
+        "trackingIds",
+        "country",
+        "lastMileProductName",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "country": {
+            "type": "string"
+          },
+          "lastMileProductName": {
+            "type": "string"
+          },
+          "carrierCode": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "outputs": {
+          "valid": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "country": {
+            "type": "string"
+          },
+          "lastMileProductName": {
+            "type": "string"
+          },
+          "carrierCode": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-supplier-tracking-knowledge",
+      "file": "nodes/load-supplier-tracking-knowledge.ts",
+      "inputs": [
+        "valid",
+        "error",
+        "query",
+        "trackingIds",
+        "country",
+        "lastMileProductName",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputs": [
+        "kbMd",
+        "valid",
+        "error",
+        "query",
+        "trackingIds",
+        "country",
+        "lastMileProductName",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "valid": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "country": {
+            "type": "string"
+          },
+          "lastMileProductName": {
+            "type": "string"
+          },
+          "carrierCode": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "outputs": {
+          "kbMd": {
+            "type": "string"
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "country": {
+            "type": "string"
+          },
+          "lastMileProductName": {
+            "type": "string"
+          },
+          "carrierCode": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "country",
+        "lastMileProductName",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext",
+        "kbMd"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

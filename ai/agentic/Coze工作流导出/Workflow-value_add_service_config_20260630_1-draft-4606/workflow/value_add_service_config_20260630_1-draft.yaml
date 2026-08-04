@@ -1,0 +1,1721 @@
+schema_version: 1.0.0
+name: value_add_service_config_20260630_1
+id: 7665289540650745906
+description: "增值服务配置（validate → resolve → load evidence → compose → LLM → format）"
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: "工作流的起始节点，用于设定启动工作流需要的信息"
+      position:
+        x: -150
+        y: 230
+      parameters:
+        node_outputs:
+            customerCode:
+                type: string
+                value: null
+                description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+            customerIntent:
+                type: string
+                value: null
+                description: 当前正在为客户解决的业务问题或诉求摘要
+            customerName:
+                type: string
+                value: null
+                description: 客户名称（租户展示上下文；可为空）
+            inputContext:
+                type: object
+                value: null
+                description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+            inputs:
+                type: object
+                properties:
+                    enrichedContext:
+                        type: object
+                        value: null
+                        description: 编排器聚合事实
+                    handoffToServiceConfig:
+                        type: object
+                        value: null
+                        description: 推荐专家输出的服务配置手交对象
+                    scenarioConditions:
+                        type: object
+                        value: null
+                        description: 对象层级、阶段、仓库、异常等场景条件
+                    serviceIntent:
+                        type: string
+                        value: null
+                        description: 服务配置意图
+                    vascCode:
+                        type: string
+                        value: null
+                        description: VASC 编码
+                    vascName:
+                        type: string
+                        value: null
+                        description: VASC 名称
+                value: null
+                description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+            language:
+                type: string
+                value: null
+                description: 语言/区域偏好（如 zh_CN；可为空）
+            query:
+                type: string
+                value: null
+                description: 上游 Agent 委托本专家需要完成的具体任务说明
+            username:
+                type: string
+                value: null
+                description: 操作者用户名（审计上下文；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: "工作流的最终节点，用于返回工作流运行后的结果信息"
+      position:
+        x: 3140
+        y: 310
+      parameters:
+        node_inputs:
+            - name: structured
+              input:
+                type: object
+                value:
+                    path: structured
+                    ref_node: "163013"
+            - name: analysis
+              input:
+                type: string
+                value:
+                    path: analysis
+                    ref_node: "163013"
+            - name: outputContext
+              input:
+                type: object
+                value:
+                    path: outputContext
+                    ref_node: "163013"
+            - name: enrichedContext
+              input:
+                type: object
+                value:
+                    path: enrichedContext
+                    ref_node: "163013"
+        terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 120
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：validate-input — 校验服务配置最小入参。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function latestContext(enrichedContext: Record<string, unknown>, key: string): Record<string, unknown> {
+              const value = enrichedContext[key];
+              if (Array.isArray(value)) return asRecord(value[value.length - 1]);
+              return asRecord(value);
+            }
+
+            function isSubmittedVasOrderNo(value: string): boolean {
+              return /^VASC0+\d+$/i.test(value);
+            }
+
+            function isStatusQuery(...parts: string[]): boolean {
+              const text = parts.filter(Boolean).join(" ");
+              return (
+                text.includes("已提交") ||
+                text.includes("处理到哪") ||
+                text.includes("处理进度") ||
+                text.includes("状态") ||
+                text.includes("进度") ||
+                text.toUpperCase().includes("VALUE_ADD_ORDER_STATUS")
+              );
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const enrichedContext = asRecord(params.enrichedContext);
+              const recommendationContext = latestContext(enrichedContext, "value-add/value-add-product-recommendation");
+              const handoff = {
+                ...asRecord(recommendationContext.handoffToServiceConfig),
+                ...asRecord(params.handoffToServiceConfig),
+              };
+              const vasc = asRecord(handoff.vasc);
+              const scenarioConditions = asRecord(params.scenarioConditions);
+              const directVascCode = asText(params.vascCode);
+              const directVascName = asText(params.vascName);
+              const handoffVascCode = asText(handoff.vascCode) || asText(vasc.vascCode) || asText(vasc.code);
+              const handoffVascName = asText(handoff.vascName) || asText(vasc.vascName) || asText(vasc.name);
+              const vascCode = handoffVascCode || directVascCode;
+              const vascName = handoffVascName || directVascName;
+              const vasOrderNo = asText(scenarioConditions.vasOrderNo) || asText(params.vasOrderNo);
+              const statusQuery = isStatusQuery(asText(params.query), asText(params.serviceIntent), asText(params.customerIntent)) || isSubmittedVasOrderNo(vasOrderNo);
+              const hasConflict = Boolean(
+                handoffVascCode &&
+                  directVascCode &&
+                  handoffVascCode.toUpperCase() !== directVascCode.toUpperCase()
+              );
+              const missingConfirmations = hasConflict
+                ? [
+                    {
+                      field: "vascConflict",
+                      reason: "直接入参与上游推荐 handoff 的 VASC 不一致，默认以上游 handoff 为准，并需要确认是否改用页面选择",
+                      source: "handoff_priority",
+                      blockingMissing: false,
+                    },
+                  ]
+                : [];
+              const outputPath = statusQuery ? "escalated" : hasConflict ? "conditional" : "";
+
+              return {
+                rawServiceConfigInput: {
+                  vascCode,
+                  vascName,
+                  serviceIntent:
+                    asText(params.serviceIntent) ||
+                    asText(handoff.customerActionIntent) ||
+                    asText(handoff.customerActionNormalized) ||
+                    asText(params.customerIntent) ||
+                    asText(params.query),
+                  scenarioConditions: {
+                    ...scenarioConditions,
+                    limitations: Array.isArray(handoff.limitations) ? handoff.limitations : [],
+                  },
+                  handoffToServiceConfig: handoff,
+                  directVascCode,
+                  directVascName,
+                  conflictWarnings: hasConflict ? ["vascCode"] : [],
+                  missingConfirmations,
+                  ...(outputPath ? { outputPath } : {}),
+                  ...(statusQuery ? { handoffExpertId: "value-add-order-status", vasOrderNo } : {}),
+                  enrichedContext,
+                },
+                validationResult: {
+                  ok: statusQuery ? false : Boolean(vascCode || vascName),
+                  outputPath,
+                  handoffExpertId: statusQuery ? "value-add-order-status" : "",
+                  missingConfirmations,
+                  missingEvidence: statusQuery || vascCode || vascName ? [] : ["vascCode_or_vascName"],
+                },
+                inputContext: asRecord(params.inputContext),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "validate-input failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrs6pbe3dyc
+        language: 5
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "100001"
+            - name: vascCode
+              input:
+                value:
+                    path: inputs.vascCode
+                    ref_node: "100001"
+            - name: vascName
+              input:
+                value:
+                    path: inputs.vascName
+                    ref_node: "100001"
+            - name: serviceIntent
+              input:
+                value:
+                    path: inputs.serviceIntent
+                    ref_node: "100001"
+            - name: scenarioConditions
+              input:
+                value:
+                    path: inputs.scenarioConditions
+                    ref_node: "100001"
+            - name: handoffToServiceConfig
+              input:
+                value:
+                    path: inputs.handoffToServiceConfig
+                    ref_node: "100001"
+            - name: enrichedContext
+              input:
+                value:
+                    path: inputs.enrichedContext
+                    ref_node: "100001"
+        node_outputs:
+            inputContext:
+                type: object
+                value: null
+            rawServiceConfigInput:
+                type: object
+                value: null
+            validationResult:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absm2q2fo81h
+    - id: "163001"
+      type: code
+      title: resolve-vasc-context
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 400
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：resolve-vasc-context — 输出统一 VASC 与服务意图上下文。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const validationResult = asRecord(params.validationResult);
+              const rawServiceConfigInput = asRecord(params.rawServiceConfigInput);
+              const validationOutputPath = asText(validationResult.outputPath);
+              const outputPath = validationOutputPath || (validationResult.ok === false ? "missing_vasc" : "");
+              return {
+                serviceConfigInput: {
+                  ...rawServiceConfigInput,
+                  ...(outputPath ? { outputPath } : {}),
+                  missingConfirmations: validationResult.missingConfirmations ?? rawServiceConfigInput.missingConfirmations ?? [],
+                  handoffExpertId: validationResult.handoffExpertId ?? rawServiceConfigInput.handoffExpertId ?? "",
+                },
+                validationResult,
+                inputContext: asRecord(params.inputContext),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-vasc-context")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "resolve-vasc-context failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abs38q5w17z4
+        language: 5
+        node_inputs:
+            - name: rawServiceConfigInput
+              input:
+                value:
+                    path: rawServiceConfigInput
+                    ref_node: "163000"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163000"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163000"
+        node_outputs:
+            inputContext:
+                type: object
+                value: null
+            serviceConfigInput:
+                type: object
+                value: null
+            validationResult:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absm2q2folel
+    - id: "163002"
+      type: text
+      title: kb-vasc-context
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 400
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# VASC 上下文层\n\n本文件为 `value-add-service-config` 提供 VASC 与服务意图的上下文解释。它不推荐 VASC，只解释已知 VASC 的配置入口。\n\n---\n\n## 使用规则\n\n- `vascCode` 是配置解释主键；命中下表后才能读取服务项编排。\n- 未命中 `vascCode` 时输出 `missing_vasc` 或 `conditional`，不得按方向概念猜测服务项。\n- `activeStatus=inactive` 的 VASC 只作历史或映射线索，不承诺页面可下单。\n- `OSF` / 库内 / 出库相关 VASC 可作为关联事实解释，但入库异常链路中不得跨阶段套用。\n\n---\n\n## 已知 VASC 编码映射\n\n当前运行时切片覆盖 18 个 VASC 产品，来自专项知识库中 normalized 映射的裁剪结果。\n\n| vascCode | vascName | PSCG | activeStatus | 服务方向 | 典型意图 | 对象层级 | 配置解释重点 |\n|---|---|---|---|---|---|---|---|\n| `VASC202407012141008` | 新单上架（WINIT创建入库单） | OW01 海外仓入库 | active | 新单上架 | 由 WINIT 创建或承接新入库单后上架 | `package` / `product` | 更换包装、商品条码、包裹条码、新单信息流 |\n| `VASC202407031456553` | 库内轻加工 | OSF632 库内增值 | active | 库内轻加工 | 库内包装、贴标、错装处理、拆分组合 | `product` / `item` | 库内服务项较多，入库异常链路只能作关联解释 |\n| `VASC202407031503503` | 原单上架 | OW01 海外仓入库 | active | 原单上架 | 异常货物继续关联原入库单上架 | `package` / `product` | 更换包装、商品条码、第三方条码、包裹条码 |\n| `VASC202407031507376` | 入库商品拍照 | OW01 海外仓入库 | inactive | 入库拍照 | 上架前商品开箱拍照辨识 | `product` | inactive，只作历史线索；不承诺可下单 |\n| `VASC202407031511413` | 库内商品拍照 | OSF632 库内增值 | active | 库内拍照 | 库内商品外观或开箱拍照 | `product` | 库内拍照事实解释，不能泛化为入库拍照入口 |\n| `VASC202407161056217` | 新单上架（客户创建入库单） | OW01 海外仓入库 | active | 新单上架 | 客户创建新入库单后关联上架 | `package` / `product` | 新入库单、包裹条码、商品条码 |\n| `VASC202409121753076` | 上架前销毁 | OW01 海外仓入库 | active | 销毁 | 上架前按包裹或商品销毁 | `package` / `product` | 销毁对象必须匹配，字段证据当前不足 |\n| `VASC202411192229072` | 库内非标增值（免审核） | OSF632 库内增值 | active | 库内非标 | 库内免审核非标动作 | `product` / `item` | 仅解释库内非标服务项，不作为入库标准 VASC |\n| `VASC202411192240522` | 上架前自提 | OW01 海外仓入库 | active | 自提 | 上架前客户自提，区分是否需打托 | `package` / `pallet` | 自提对象、是否打托、提货准备信息 |\n| `VASC202411192246131` | 入库非标增值（特批） | OW01 海外仓入库 | active | 入库非标 | 串仓调拨或其他入库特殊服务需求 | `package` / `order` | 需特批或人工确认，不替代标准 VASC |\n| `VASC202411192250069` | 库内非标增值（特批） | OSF632 库内增值 | active | 库内非标 | 库内特批非标动作 | `product` / `item` | 库内非标边界说明，不跨阶段推荐 |\n| `VASC202411192253186` | 出库非标增值（特批） | OSF8 海外仓出库 | active | 出库非标 | 出库其他服务需求 | `order` | 非入库链路；入库异常专家不得主动转入 |\n| `VASC202411271721537` | 入库非标拍照或提供视频 | OW01 海外仓入库 | active | 拍照/视频 | 上架前拍照、视频、少件调查 | `package` / `product` / `item` | 通常是调查/确认动作，不默认关闭异常 |\n| `VASC202412111831129` | 新单上架（客户提供预报单） | OW01 海外仓入库 | active | 新单上架 | 客户提供无箱单预报单后上架 | `order` / `product` | 预报单信息、无箱单场景限制 |\n| `VASC202412111836315` | 库内非标增值（需审核） | OSF632 库内增值 | active | 库内非标 | 需审核的库内非标动作 | `product` / `item` | 需要审核，不能承诺直接可选 |\n| `VASC202504171850278` | 库内销毁 | OSF6 库内 | active | 库内销毁 | 库内异常商品销毁 | `product` | 库内销毁，不等同上架前销毁 |\n| `VASC202504251617529` | 原单上架（直接上架） | OW01 海外仓入库 | active | 直接上架 | 原单路径直接上架 | `package` / `product` | 直接上架、覆盖包裹标签、补包裹条码 |\n| `VASC202505282347101` | 新单上架（直接上架） | OW01 海外仓入库 | active | 直接上架 | 新单路径直接上架 | `package` / `product` | 直接上架，服务项编排较窄 |\n\n---\n\n## 方向概念速查\n\n| VASC 方向 | 典型意图 | 对象层级 | 配置解释重点 |\n|---|---|---|---|\n| 原单上架 | 原单上架 | `package` / `product` | 原入库单关联、条码修复、异常货物继续上架 |\n| 新单上架 | 新单上架 | `package` / `product` | 新入库单号、重新关联、条码修复 |\n| 直接上架 | 原单/新单直接上架 | `package` / `product` | 只能在映射和规则支持时解释，不能因客户口述直接判断 |\n| 销毁处理 | 销毁 | `package` / `product` / `item` | 销毁对象、数量、客户授权 |\n| 拍照 / 视频 / 调查 | 拍照、视频、调查 | `package` / `product` / `item` | 多为调查或确认动作，后续仍可能需要继续处理 |\n| 自提 / 调拨 / 非标 | 自提 / 调拨 / 非标 | `order` / `package` / `pallet` | 仓库限制、审批、人工确认 |\n\n---\n\n## handoff 使用规则\n\n- `handoffToServiceConfig.vascCode` 是主键，优先级高于直接入参。\n- `customerActionNormalized` 可作为 `serviceIntent` 默认值。\n- `limitations` 写入 `configBoundaryNotes`，不自动等同于系统禁选。\n- `objectLevel` 决定服务项解释口径：包裹级不承诺商品级配置，商品级不承诺整单配置。\n- 当 handoff 只提供 `vascName` 未提供 `vascCode` 时，只能做方向级解释；不得输出确定服务项编排。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163003"
+      type: code
+      title: load-vasc-context
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 680
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：load-vasc-context — 加载 VASC 产品上下文 KB。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              return {
+                vascContextKb: asText(params.kbVascContext),
+                serviceConfigInput: asRecord(params.serviceConfigInput),
+                validationResult: asRecord(params.validationResult),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("load-vasc-context")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "load-vasc-context failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abromrhdau74
+        language: 5
+        node_inputs:
+            - name: serviceConfigInput
+              input:
+                value:
+                    path: serviceConfigInput
+                    ref_node: "163001"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163001"
+            - name: kbVascContext
+              input:
+                value:
+                    path: output
+                    ref_node: "163002"
+        node_outputs:
+            serviceConfigInput:
+                type: object
+                value: null
+            validationResult:
+                type: object
+                value: null
+            vascContextKb:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absm2q2foyrp
+    - id: "163004"
+      type: text
+      title: kb-service-orchestration
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 680
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 服务项编排层\n\n本文件提供 VASC 到服务项/原子的运行时编排切片。它只记录可解释的服务项顺序、互斥组和字段证据状态，不承诺页面字段完整性。\n\n---\n\n## 使用规则\n\n- 一行表示一个 VASC 产品中的一个服务项/原子。\n- `requiredInVasc=N` 来自当前 normalized 数据；不能解释为“客户一定可不选”，实际可选性还要结合原子规则、入口和页面动态配置。\n- `mutexGroup` 为空表示当前映射未提供互斥组，不代表没有任何互斥关系。\n- `attrSpecStatus=missing` 时，不得输出完整字段、附件、模板清单。\n\n---\n\n## 编排表\n\n| vascCode | vascName | activeStatus | seq | serviceItemCode | serviceItemName | requiredInVasc | mutexGroup | attrSpecStatus |\n|---|---|---|---:|---|---|---|---|---|\n| `VASC202407012141008` | 新单上架（WINIT创建入库单） | active | 1 | `OW01V1561` | 入库-更换商品包装 | N | 入库-更换商品包装 | covered_by_vas_event_attrs_slim |\n| `VASC202407012141008` | 新单上架（WINIT创建入库单） | active | 2 | `OW01V1559` | 入库-更换新商品条码 | N | 贴商品标 | covered_by_vas_event_attrs_slim |\n| `VASC202407012141008` | 新单上架（WINIT创建入库单） | active | 3 | `OW01V1558` | 入库-补贴原商品条码 | N | 贴商品标 | covered_by_vas_event_attrs_slim |\n| `VASC202407012141008` | 新单上架（WINIT创建入库单） | active | 4 | `OW01V1572` | 入库-第三方商品条码关联 | N | 贴商品标 | missing |\n| `VASC202407012141008` | 新单上架（WINIT创建入库单） | active | 5 | `OW01V1560` | 入库-补贴包裹条码 | N | 入库-补贴包裹条码 | covered_by_vas_event_attrs_slim |\n| `VASC202407031456553` | 库内轻加工 | active | 1 | `OSF6V1566` | 库内-更换商品包装 | N | 库内-更换商品包装 | covered_by_vas_event_attrs_slim |\n| `VASC202407031456553` | 库内轻加工 | active | 2 | `OSF6V1565` | 库内-更换新商品条码 | N | 贴标/换标 | covered_by_vas_event_attrs_slim |\n| `VASC202407031456553` | 库内轻加工 | active | 3 | `OSF6V1564` | 库内-补贴原商品条码 | N | 贴标/换标 | covered_by_vas_event_attrs_slim |\n| `VASC202407031456553` | 库内轻加工 | active | 4 | `OSF6V1681` | 错装商品直接上架 | N | 贴标/换标 | missing |\n| `VASC202407031456553` | 库内轻加工 | active | 5 | `OSF6V1574` | 库内-商品其他标签（非商品条码） | N | 库内-商品附加标签 | covered_by_vas_event_attrs_slim |\n| `VASC202407031456553` | 库内轻加工 | active | 6 | `OSF6V1591` | 拍照暂存后上架 | N | 拍照暂存后上架 | missing |\n| `VASC202407031456553` | 库内轻加工 | active | 7 | `OSF6V1576` | 库内-商品拆分 | N |  | missing |\n| `VASC202407031456553` | 库内轻加工 | active | 8 | `OSF6V1804` | 库内-商品组合 | N |  | missing |\n| `VASC202407031503503` | 原单上架 | active | 1 | `OW01V1561` | 入库-更换商品包装 | N | 入库-更换商品包装 | covered_by_vas_event_attrs_slim |\n| `VASC202407031503503` | 原单上架 | active | 2 | `OW01V1559` | 入库-更换新商品条码 | N | 贴商品标 | covered_by_vas_event_attrs_slim |\n| `VASC202407031503503` | 原单上架 | active | 3 | `OW01V1558` | 入库-补贴原商品条码 | N | 贴商品标 | covered_by_vas_event_attrs_slim |\n| `VASC202407031503503` | 原单上架 | active | 4 | `OW01V1572` | 入库-第三方商品条码关联 | N | 贴商品标 | missing |\n| `VASC202407031503503` | 原单上架 | active | 5 | `OW01V1825` | 入库-补贴原商品条码（带示例图） | N | 贴商品标 | covered_by_vas_event_attrs_slim |\n| `VASC202407031503503` | 原单上架 | active | 6 | `OW01V1573` | 入库-商品其他标签（非商品条码） | N | 入库-商品附加标签 | covered_by_vas_event_attrs_slim |\n| `VASC202407031503503` | 原单上架 | active | 7 | `OW01V1560` | 入库-补贴包裹条码 | N | 入库-补贴包裹条码 | covered_by_vas_event_attrs_slim |\n| `VASC202407031507376` | 入库商品拍照 | inactive | 1 | `OW01V1562` | 入库-商品开箱拍照 | N | 商品拍照辨识 | missing |\n| `VASC202407031511413` | 库内商品拍照 | active | 1 | `OSF6V1569` | 库内-商品外观拍照 | N | 拍照 | covered_by_vas_event_attrs_slim |\n| `VASC202407031511413` | 库内商品拍照 | active | 2 | `OSF6V1570` | 库内-商品开箱拍照 | N | 拍照 | covered_by_vas_event_attrs_slim |\n| `VASC202407161056217` | 新单上架（客户创建入库单） | active | 1 | `OW01V1561` | 入库-更换商品包装 | N | 入库-更换商品包装 | covered_by_vas_event_attrs_slim |\n| `VASC202407161056217` | 新单上架（客户创建入库单） | active | 2 | `OW01V1560` | 入库-补贴包裹条码 | N | 入库-补贴包裹条码 | covered_by_vas_event_attrs_slim |\n| `VASC202407161056217` | 新单上架（客户创建入库单） | active | 3 | `OW01V1558` | 入库-补贴原商品条码 | N |  | covered_by_vas_event_attrs_slim |\n| `VASC202407161056217` | 新单上架（客户创建入库单） | active | 4 | `OW01V1559` | 入库-更换新商品条码 | N |  | covered_by_vas_event_attrs_slim |\n| `VASC202409121753076` | 上架前销毁 | active | 1 | `OW01V1703` | 上架前包裹销毁 | N | 上架前销毁 | missing |\n| `VASC202409121753076` | 上架前销毁 | active | 2 | `OW01V1563` | 上架前商品销毁 | N | 上架前销毁 | missing |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 1 | `OSF6V1643` | 库内-清除商品标签 | N | 标签类 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 2 | `OSF6V1596` | 单品拆分后上架（拆分为一个SKU） | N | 商品组合/拆分 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 3 | `OSF6V1595` | 单品指定位置开箱拍照 | N | 商品拍照辨识 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 4 | `OSF6V1650` | 辨识单品配件后更换 | N | 商品拍照辨识 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 5 | `OSF6V1649` | 辨识单品配件后销毁 | N | 商品拍照辨识 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 6 | `OSF6V1627` | 单品辨识（不开箱） | N | 商品拍照辨识 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 7 | `OSF6V1651` | 库内商品拍摄视频 | N | 商品拍照辨识 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 8 | `OSF6V1677` | 退货商品补拍细节照 | N | 商品拍照辨识 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 9 | `OSF6V1639` | 测量商品内部配件尺重 | N | 商品尺重测量 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 10 | `OSF6V1640` | 柔性打包装箱/装袋测量尺重 | N | 商品尺重测量 | covered_by_vas_event_attrs_slim |\n| `VASC202411192229072` | 库内非标增值（免审核） | active | 11 | `OSF6V1626` | 指定商品盘点 | N | 盘点 | missing |\n| `VASC202411192240522` | 上架前自提 | active | 1 | `OW01V1594` | 上架前自提（无需WINIT打托） | N | 上架前自提（无需WINIT打托） | covered_by_vas_event_attrs_slim |\n| `VASC202411192240522` | 上架前自提 | active | 2 | `OW01V1604` | 上架前自提（需WINIT打托） | N | 上架前自提-托盘 | covered_by_vas_event_attrs_slim |\n| `VASC202411192246131` | 入库非标增值（特批） | active | 1 | `OW01V1654` | 包裹串仓异常调拨 | N | 包裹串仓异常调拨 | covered_by_vas_event_attrs_slim |\n| `VASC202411192246131` | 入库非标增值（特批） | active | 2 | `OW01V1602` | 入库其他服务需求 | N | 入库其他服务需求 | covered_by_vas_event_attrs_slim |\n| `VASC202411192250069` | 库内非标增值（特批） | active | 1 | `OSF6V1648` | 代采购包材物料 | N | 代采购包材物料 | covered_by_vas_event_attrs_slim |\n| `VASC202411192250069` | 库内非标增值（特批） | active | 2 | `OSF6V1660` | 审计盘点 | N | 审计盘点 | covered_by_vas_event_attrs_slim |\n| `VASC202411192250069` | 库内非标增值（特批） | active | 3 | `OSF6V1644` | DG商品销毁 | N | DG商品销毁 | covered_by_vas_event_attrs_slim |\n| `VASC202411192250069` | 库内非标增值（特批） | active | 4 | `OSF6V1646` | 货权转移（换标模式） | N | 货权转移（换标模式） | covered_by_vas_event_attrs_slim |\n| `VASC202411192250069` | 库内非标增值（特批） | active | 5 | `OSF6V1647` | 货权转移（改数模式） | N | 货权转移（改数模式） | covered_by_vas_event_attrs_slim |\n| `VASC202411192250069` | 库内非标增值（特批） | active | 6 | `OSF6V1603` | 库内其他服务需求 | N | 库内其他服务需求 | covered_by_vas_event_attrs_slim |\n| `VASC202411192253186` | 出库非标增值（特批） | active | 1 | `OSF8V1601` | 出库其他服务需求 | N | 出库其他服务需求 | covered_by_vas_event_attrs_slim |\n| `VASC202411271721537` | 入库非标拍照或提供视频 | active | 1 | `OW01V1610` | 入库-单品指定位置开箱拍照 | N | 入库-单品指定位置开箱拍照 | covered_by_vas_event_attrs_slim |\n| `VASC202411271721537` | 入库非标拍照或提供视频 | active | 2 | `OW01V1674` | 入库-异常包裹开箱拍照 | N | 入库-异常包裹开箱拍照 | covered_by_vas_event_attrs_slim |\n| `VASC202411271721537` | 入库非标拍照或提供视频 | active | 3 | `OW01V1599` | 提供海外仓监控视频-少包裹调查 | N | 提供海外仓监控视频-少包裹调查 | covered_by_vas_event_attrs_slim |\n| `VASC202411271721537` | 入库非标拍照或提供视频 | active | 4 | `OW01V1600` | 提供海外仓监控视频-少单品调查 | N | 提供海外仓监控视频-少单品调查 | covered_by_vas_event_attrs_slim |\n| `VASC202412111831129` | 新单上架（客户提供预报单） | active | 1 | `OW01V1622` | 入库-提供无箱单预报单上架 | N | 入库-提供无箱单预报单上架 | covered_by_vas_event_attrs_slim |\n| `VASC202412111836315` | 库内非标增值（需审核） | active | 1 | `OSF6V1597` | 单品拆分后上架（拆分为多个SKU） | N | 单品拆分后上架（拆分为多个SKU） | covered_by_vas_event_attrs_slim |\n| `VASC202412111836315` | 库内非标增值（需审核） | active | 2 | `OSF6V1625` | 检查商品尺重（退货商品） | N | 检查商品尺重（退货商品） | covered_by_vas_event_attrs_slim |\n| `VASC202504171850278` | 库内销毁 | active | 1 | `OSF6V1704` | 库内-异常商品销毁 | N | 库内-异常商品销毁 | missing |\n| `VASC202504251617529` | 原单上架（直接上架） | active | 1 | `OW01V1708` | 直接上架 | N | 直接上架 | covered_by_vas_event_attrs_slim |\n| `VASC202504251617529` | 原单上架（直接上架） | active | 2 | `OW01V1559` | 入库-更换新商品条码 | N |  | covered_by_vas_event_attrs_slim |\n| `VASC202504251617529` | 原单上架（直接上架） | active | 3 | `OW01V1736` | 入库-覆盖包裹标签 | N |  | covered_by_vas_event_attrs_slim |\n| `VASC202504251617529` | 原单上架（直接上架） | active | 4 | `OW01V1560` | 入库-补贴包裹条码 | N |  | covered_by_vas_event_attrs_slim |\n| `VASC202505282347101` | 新单上架（直接上架） | active | 1 | `OW01V1708` | 直接上架 | N | 直接上架 | covered_by_vas_event_attrs_slim |\n\n---\n\n## 编排限制\n\n- 本表只描述 VASC 与服务项/原子的已知编排关系，不承诺页面字段完整性。\n- `mutexGroup` 是来源映射中的互斥组说明；实际页面是否禁选须由原子可选性规则或运行时配置证明。\n- inactive、库内或出库 VASC 只能在用户明确查询时解释，不作为入库异常推荐链主路径。\n- 未在本表出现的 VASC 输出 `missing_vasc` 或 `conditional`，不得编造服务项。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163005"
+      type: code
+      title: load-service-orchestration
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 960
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：load-service-orchestration — 加载服务项/原子编排 KB。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              return {
+                serviceOrchestrationKb: asText(params.kbServiceOrchestration),
+                vascContextKb: asText(params.vascContextKb),
+                serviceConfigInput: asRecord(params.serviceConfigInput),
+                validationResult: asRecord(params.validationResult),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("load-service-orchestration")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "load-service-orchestration failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abru2wp6hhec
+        language: 5
+        node_inputs:
+            - name: serviceConfigInput
+              input:
+                value:
+                    path: serviceConfigInput
+                    ref_node: "163003"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163003"
+            - name: vascContextKb
+              input:
+                value:
+                    path: vascContextKb
+                    ref_node: "163003"
+            - name: kbServiceOrchestration
+              input:
+                value:
+                    path: output
+                    ref_node: "163004"
+        node_outputs:
+            serviceConfigInput:
+                type: object
+                value: null
+            serviceOrchestrationKb:
+                type: string
+                value: null
+            validationResult:
+                type: object
+                value: null
+            vascContextKb:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absm2q2fpd5t
+    - id: "163006"
+      type: text
+      title: kb-field-evidence
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 960
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 字段证据层\n\n本文件定义服务项普通属性字段证据覆盖状态。它只说明当前知识切片是否有字段证据，不提供完整下单字段、附件、模板或上传关系清单。\n\n---\n\n## 使用规则\n\n- `partial_field_evidence` 表示当前有普通属性字段证据覆盖，但不是完整字段配置映射。\n- `missing_field_evidence` 表示当前没有该服务项的普通属性字段证据；必须写入 `blockedClaims` 或 `informationalMissing`，不得解释成“无需字段”。\n- `not_full_config_mapping` 表示不能把该行当成完整字段、附件、模板配置。\n- `not_available_from_current_sources` 表示当前知识不足以给出字段配置结论。\n- 客户可准备信息只能作为提示，不得说成页面必填项。\n\n---\n\n## 覆盖统计\n\n| 指标 | 数量 | 说明 |\n|---|---:|---|\n| 唯一服务项 | 52 | 当前运行时切片覆盖的 VASC 编排服务项 |\n| 普通属性字段证据覆盖 | 42 | 可输出 `partial_field_evidence` |\n| 缺少普通属性字段证据 | 10 | 输出 `missing_field_evidence` |\n\n---\n\n## 服务项字段证据表\n\n| serviceItemCode | serviceItemName | fieldEvidenceStatus | configFieldMappingStatus | attrSpecStatus | usedInVascCodes |\n|---|---|---|---|---|---|\n| `OSF6V1564` | 库内-补贴原商品条码 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407031456553` |\n| `OSF6V1565` | 库内-更换新商品条码 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407031456553` |\n| `OSF6V1566` | 库内-更换商品包装 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407031456553` |\n| `OSF6V1569` | 库内-商品外观拍照 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407031511413` |\n| `OSF6V1570` | 库内-商品开箱拍照 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407031511413` |\n| `OSF6V1574` | 库内-商品其他标签（非商品条码） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407031456553` |\n| `OSF6V1576` | 库内-商品拆分 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202407031456553` |\n| `OSF6V1591` | 拍照暂存后上架 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202407031456553` |\n| `OSF6V1595` | 单品指定位置开箱拍照 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1596` | 单品拆分后上架（拆分为一个SKU） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1597` | 单品拆分后上架（拆分为多个SKU） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202412111836315` |\n| `OSF6V1603` | 库内其他服务需求 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192250069` |\n| `OSF6V1625` | 检查商品尺重（退货商品） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202412111836315` |\n| `OSF6V1626` | 指定商品盘点 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202411192229072` |\n| `OSF6V1627` | 单品辨识（不开箱） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1639` | 测量商品内部配件尺重 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1640` | 柔性打包装箱/装袋测量尺重 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1643` | 库内-清除商品标签 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1644` | DG商品销毁 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192250069` |\n| `OSF6V1646` | 货权转移（换标模式） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192250069` |\n| `OSF6V1647` | 货权转移（改数模式） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192250069` |\n| `OSF6V1648` | 代采购包材物料 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192250069` |\n| `OSF6V1649` | 辨识单品配件后销毁 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1650` | 辨识单品配件后更换 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1651` | 库内商品拍摄视频 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1660` | 审计盘点 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192250069` |\n| `OSF6V1677` | 退货商品补拍细节照 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192229072` |\n| `OSF6V1681` | 错装商品直接上架 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202407031456553` |\n| `OSF6V1704` | 库内-异常商品销毁 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202504171850278` |\n| `OSF6V1804` | 库内-商品组合 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202407031456553` |\n| `OSF8V1601` | 出库其他服务需求 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192253186` |\n| `OW01V1558` | 入库-补贴原商品条码 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407012141008`, `VASC202407031503503`, `VASC202407161056217` |\n| `OW01V1559` | 入库-更换新商品条码 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407012141008`, `VASC202407031503503`, `VASC202407161056217`, `VASC202504251617529` |\n| `OW01V1560` | 入库-补贴包裹条码 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407012141008`, `VASC202407031503503`, `VASC202407161056217`, `VASC202504251617529` |\n| `OW01V1561` | 入库-更换商品包装 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407012141008`, `VASC202407031503503`, `VASC202407161056217` |\n| `OW01V1562` | 入库-商品开箱拍照 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202407031507376` |\n| `OW01V1563` | 上架前商品销毁 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202409121753076` |\n| `OW01V1572` | 入库-第三方商品条码关联 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202407012141008`, `VASC202407031503503` |\n| `OW01V1573` | 入库-商品其他标签（非商品条码） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407031503503` |\n| `OW01V1594` | 上架前自提（无需WINIT打托） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192240522` |\n| `OW01V1599` | 提供海外仓监控视频-少包裹调查 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411271721537` |\n| `OW01V1600` | 提供海外仓监控视频-少单品调查 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411271721537` |\n| `OW01V1602` | 入库其他服务需求 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192246131` |\n| `OW01V1604` | 上架前自提（需WINIT打托） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192240522` |\n| `OW01V1610` | 入库-单品指定位置开箱拍照 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411271721537` |\n| `OW01V1622` | 入库-提供无箱单预报单上架 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202412111831129` |\n| `OW01V1654` | 包裹串仓异常调拨 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411192246131` |\n| `OW01V1674` | 入库-异常包裹开箱拍照 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202411271721537` |\n| `OW01V1703` | 上架前包裹销毁 | `missing_field_evidence` | `not_available_from_current_sources` | `missing` | `VASC202409121753076` |\n| `OW01V1708` | 直接上架 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202504251617529`, `VASC202505282347101` |\n| `OW01V1736` | 入库-覆盖包裹标签 | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202504251617529` |\n| `OW01V1825` | 入库-补贴原商品条码（带示例图） | `partial_field_evidence` | `not_full_config_mapping` | `covered_by_vas_event_attrs_slim` | `VASC202407031503503` |\n\n---\n\n## 客户可准备信息提示\n\n| 服务方向 | 可提示客户先准备 | 证据边界 |\n|---|---|---|\n| 原单上架 / 新单上架 | 原入库单号或新入库单号、异常包裹/商品标识、需补贴或更换的条码说明 | 只能说“可先准备”，不等于页面必填字段 |\n| 直接上架 | 入库单号、异常对象、是否需要覆盖包裹标签或补包裹条码 | 需结合 VASC 编排和原子规则，不得只按意图判断 |\n| 销毁 | 销毁对象、数量、客户授权确认 | 上架前销毁相关服务项当前缺字段证据 |\n| 拍照 / 视频 / 调查 | 拍照对象、拍照部位、调查对象、是否需要视频佐证 | 多数为 partial，不能承诺附件或模板要求 |\n| 自提 / 调拨 / 非标 | 自提对象、是否打托、调拨/非标诉求描述、人工确认材料 | 特批/审核场景不等于系统可直接下单 |\n\n---\n\n## blockedClaims 固定项\n\n- 没有完整字段配置证据时，不承诺“页面必填字段只有这些”。\n- 没有附件、模板、上传关系证据时，不承诺 `vaAtomFiles` 或附件模板完整清单。\n- `missing_field_evidence` 只表示当前缺少普通属性字段证据，不表示该服务项无需字段。\n- 已提交增值单上的字段事实只能解释订单事实，不能反推事前配置全量。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163007"
+      type: code
+      title: load-field-evidence
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1240
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：load-field-evidence — 加载字段/附件/模板证据 KB。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              return {
+                fieldEvidenceKb: asText(params.kbFieldEvidence),
+                serviceOrchestrationKb: asText(params.serviceOrchestrationKb),
+                vascContextKb: asText(params.vascContextKb),
+                serviceConfigInput: asRecord(params.serviceConfigInput),
+                validationResult: asRecord(params.validationResult),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("load-field-evidence")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "load-field-evidence failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrs9vrknt3o
+        language: 5
+        node_inputs:
+            - name: serviceConfigInput
+              input:
+                value:
+                    path: serviceConfigInput
+                    ref_node: "163005"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163005"
+            - name: vascContextKb
+              input:
+                value:
+                    path: vascContextKb
+                    ref_node: "163005"
+            - name: serviceOrchestrationKb
+              input:
+                value:
+                    path: serviceOrchestrationKb
+                    ref_node: "163005"
+            - name: kbFieldEvidence
+              input:
+                value:
+                    path: output
+                    ref_node: "163006"
+        node_outputs:
+            fieldEvidenceKb:
+                type: string
+                value: null
+            serviceConfigInput:
+                type: object
+                value: null
+            serviceOrchestrationKb:
+                type: string
+                value: null
+            validationResult:
+                type: object
+                value: null
+            vascContextKb:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absm2q2fpqix
+    - id: "163008"
+      type: text
+      title: kb-atom-selectability
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 1240
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 原子可选性层\n\n本文件为 `apply-atom-selectability-rules` 提供原子可选、禁选、互斥、置灰、隐藏和前置校验的规则摘要。来源口径为 `atom-selectability-rules.md` 的裁剪结果。\n\n---\n\n## 规则类型\n\n| ruleType | 含义 | 输出位置 |\n|---|---|---|\n| `hidden` | 前端隐藏或后端不展示 | `blockedServiceItems` / `blockingReasons` |\n| `disabled` | 前端置灰或后端禁用 | `blockedServiceItems` / `blockingReasons` |\n| `mutex` | 原子互斥 | `mutexGroups` |\n| `dependency` | 依赖其他字段或原子 | `missingConfirmations` |\n| `submit_validation` | 提交前校验 | `blockingReasons` |\n| `field_visibility` | 字段显隐 | `fieldEvidenceSummary` |\n| `option_filter` | 选项过滤 | `blockedClaims` |\n\n---\n\n## 条件字段示例\n\n| 条件字段 | 说明 |\n|---|---|\n| `shelveWay` | 原单上架 / 新单上架方式 |\n| `isEventVa` | 是否异常发起增值 |\n| `bookingStatus` | 预约或单据状态 |\n| `objectLevel` | 包裹/商品/整单对象层级 |\n| `warehouseSupport` | 仓库能力或白名单 |\n\n---\n\n## confirmed inbound 规则行\n\n以下为运行时裁剪规则，只保留入库域高价值、可解释的 confirmed 行。`confidence=conflict_fixed` 的行只能作为谨慎拦截说明，不能当作普通 confirmed 规则泛化。\n\n| ruleId | atomCode | atomName | ruleType | effectType | condition | result | messageOrCode | confidence | boundary |\n|---|---|---|---|---|---|---|---|---|---|\n| `INB-HID-001` | `OW01V1593` | 采集 A+ 包裹条码 | `hidden` | `backend_is_show_false` | 无条件隐藏 | 不展示、不可选 |  | `confirmed` | 只能解释该原子不可见，不反推 VASC 不可下单 |\n| `INB-HID-002` | `OW01V1794` | LPN 直接上架 | `hidden` | `backend_is_show_false` | 无条件隐藏 | 不展示、不可选 |  | `confirmed` | 只能解释该原子不可见 |\n| `INB-DIS-001` | `OW01V1708` | 不贴标直接上架 | `disabled` | `backend_is_disable` | 非异常单入口，即 `isEventVa=false` | 禁用 |  | `confirmed` | 缺少 `isEventVa` 时写入待确认 |\n| `INB-DIS-002` | `OW01V1708` | 不贴标直接上架 | `disabled` | `backend_is_disable` | `shelveWay` 不是 `USE_ORIGIN_INBOUND_ORDER` 且不是 `INBOUND_ORDER_OF_CUSTOMER` | 禁用 |  | `confirmed` | 缺少 `shelveWay` 时不得强判 |\n| `INB-FLD-001` | `OW01V1708` | 不贴标直接上架 | `field_visibility` | `frontend_disabled` | `shelveWay=USE_ORIGIN_INBOUND_ORDER` | 属性 `VAS_ATTR_REL_WRN` 自动填入入库单号并置灰 |  | `confirmed` | 只说明字段行为，不输出完整字段清单 |\n| `INB-DIS-004` | `OW01V1560` | 补贴包裹条码 | `disabled` | `backend_is_disable` | `shelveWay=USE_NEW_INBOUND_ORDER` | 禁用，不可手动勾选 | 当 VASC 的上架方式是新单上架，默认置灰补贴包裹条码，不能单独选择该原子 | `confirmed` | 可输出 blockedServiceItems |\n| `INB-AUTO-001` | `OW01V1560` | 补贴包裹条码 | `auto_select` | `auto_selected` | 新单上架且已选 `OW01V1558` / `OW01V1559` / `OW01V1572` 任一 | 系统自动勾选 `OW01V1560`，并设置 `LABEL_SIZE=10X6`、`LABEL_TYPE=PACKGE_SERNO`；`OTHER_LABEL` 非必填 |  | `confirmed` | 只在已知新单上架和已选商品级条码原子时使用 |\n| `INB-DIS-005` | `OW01V1558` | 补贴原 SKU 条码（入库） | `disabled` | `backend_is_disable` | 无 `MERCHANDISE` 类型商品 | 禁用 |  | `confirmed` | 缺少商品类型事实时待确认 |\n| `INB-DIS-006` | `OW01V1558` | 补贴原 SKU 条码（入库） | `disabled` | `backend_is_disable` | 任意商品条码 `goodsBarcode` 为空 | 禁用 |  | `confirmed` | 缺少条码事实时待确认 |\n| `INB-DIS-007` | `OW01V1558` | 补贴原 SKU 条码（入库） | `disabled` | `backend_is_disable` | 异常来源 + `USE_ORIGIN_INBOUND_ORDER` + 商品不在原入库单中 | 禁用 |  | `confirmed` | 需要同时具备异常来源、上架方式和原单商品关系 |\n| `INB-FLD-002` | `OW01V1558` | 补贴原 SKU 条码（入库） | `field_visibility` | `field_visibility_changed` | `LABEL_TYPE=THIRD_PARTY_SKU_SERNO_ITEM_SERNO` 且 `GEN_WAY!=CUSTOMER` | 显示 `OTHER_LABEL` 上传标签对应关系 |  | `confirmed` | 只说明显隐，不承诺附件模板完整性 |\n| `INB-FLD-003` | `OW01V1558` | 补贴原 SKU 条码（入库） | `field_visibility` | `field_visibility_changed` | `LABEL_TYPE=THIRD_PARTY_SKU_SERNO_ITEM_SERNO` 且 `GEN_WAY=CUSTOMER` | 显示 `LABEL_FILE_MERCHANDISE_REL_FILE` |  | `confirmed` | 只说明显隐 |\n| `INB-FLD-005` | `OW01V1559` | 更换新 SKU 条码（入库） | `field_visibility` | `field_visibility_changed` | `GEN_WAY!=CUSTOMER` | 显示 `OTHER_LABEL` 上传标签对应关系 |  | `confirmed` | 无后端禁用条件证据，不得额外禁选 |\n| `INB-DIS-008` | `OW01V1572` | 关联第三方条码 | `disabled` | `backend_is_disable` | 无 `MERCHANDISE` 类型商品 | 禁用 |  | `confirmed` | 缺少商品类型事实时待确认 |\n| `INB-DIS-009` | `OW01V1572` | 关联第三方条码 | `disabled` | `backend_is_disable` | 非异常单入口 | 禁用 | 该原子仅支持异常单入口下发 | `confirmed` | 可解释为非异常入口不可选 |\n| `INB-DIS-010` | `OW01V1572` | 关联第三方条码 | `disabled` | `backend_is_disable` | 异常单入口但任意商品第三方条码为空 | 禁用 | 异常信息未登记第三方商品条码，无法选择该增值 | `confirmed` | 需要异常信息里的第三方条码事实 |\n| `INB-DIS-011` | `OW01V1736` | 补贴包裹覆盖标签 | `disabled` | `backend_is_disable` | 下单列表入口且无 `PACKAGE` 类型商品 | 禁用 |  | `confirmed` | 缺少入口和商品类型事实时待确认 |\n| `INB-DIS-012` | `OW01V1736` | 补贴包裹覆盖标签 | `disabled` | `backend_is_disable` | 下单列表入口且任意包裹等级不是 `A` 或 `A+` | 禁用 |  | `confirmed` | 需要包裹等级事实 |\n| `INB-DIS-014` | `OW01V1745` | 采集 A+ 包裹序列号 | `disabled` | `backend_is_disable` | 无 vaOrder 场景：入库单号为空 | 禁用 + 隐藏 |  | `confirmed` | 缺入库单号时可作为 blockingMissing |\n| `INB-DIS-015` | `OW01V1745` | 采集 A+ 包裹序列号 | `disabled` | `backend_is_disable` | 无 vaOrder 场景：入库单下无 A+ 包裹 | 禁用 + 隐藏 |  | `confirmed` | 需要 A+ 包裹事实 |\n| `INB-DIS-016` | `OW01V1745` | 采集 A+ 包裹序列号 | `disabled` | `backend_is_disable` | 无 vaOrder 场景：入库单下无 SI 管理的 BOX 产品 | 禁用 + 隐藏 |  | `confirmed` | 需要 SI 管理与 BOX 商品事实 |\n| `INB-VAL-001` | `OW01V1561` | 更换商品包装（入库） | `submit_validation` | `submit_validation_error` | 入库单/异常单选了 `OW01V1561` 但未同时选 `OW01V1558` 或 `OW01V1559` | 提交时报错拦截 | `_02040501458` | `conflict_fixed` | 仅作提交校验风险说明；编码已按勘误修正 |\n| `INB-FLD-008` | `OW01V1561` | 更换商品包装（入库） | `dependency` | `frontend_disabled` | 勾选时未同时选 `OW01V1558` 或 `OW01V1559` | 前端提示；提交强校验另见 `INB-VAL-001` | 增值选项选择更换商品包装时，必须选择商品级-补贴原SKU条码或者商品级-更换新SKU条码 | `confirmed` | 前端提示不等于后端禁止勾选 |\n| `INB-FLD-009` | `OW01V1573` | 补贴其他商品类标签或文件 | `field_visibility` | `field_visibility_changed` | `ALL_GOODS_SAME_LABEL=Y` | 仅显示统一标签文件 |  | `confirmed` | 只说明显隐 |\n| `INB-FLD-010` | `OW01V1573` | 补贴其他商品类标签或文件 | `field_visibility` | `field_visibility_changed` | `ALL_GOODS_SAME_LABEL=N` | 显示逐条标签文件 + 对应关系文件 |  | `confirmed` | 只说明显隐 |\n| `INB-OPT-001` | `OW01V1573,OSF6V1574` | 补贴其他商品类标签 | `option_filter` | `field_option_filtered` | 商品只有 1 个 | `ALL_GOODS_SAME_LABEL` 排除 `N`，只能选统一 `Y` |  | `confirmed` | 只影响选项，不反推是否必填 |\n| `INB-OPT-002` | `*` | `PACKAGING_MODE` 属性 | `option_filter` | `field_option_filtered` | 非“全单品 SKU + 异常单入口” | 排除 `PACKAGING_CUSTOMER` |  | `confirmed` | 需要商品形态与入口事实 |\n| `INB-OPT-003` | `*` | `DEAL_WITH_WAY` 属性 | `option_filter` | `field_option_filtered` | `vaSource=REVA` | 排除 `storage` |  | `confirmed` | 仅在已知 `vaSource` 时使用 |\n\n---\n\n## 输出规则\n\n- 命中 confirmed 规则时，可输出 `selectableServiceItems` 或 `blockedServiceItems`。\n- 规则条件缺失时，写入 `missingConfirmations.informationalMissing` 或 `blockingMissing`。\n- 规则来源冲突时，写入 `blockedClaims`，不做强判断。\n- 动态配置、业务白名单或后台返回配置影响的规则，必须在 `configBoundaryNotes` 中说明可能变化。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163009"
+      type: code
+      title: apply-atom-selectability-rules
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1520
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：apply-atom-selectability-rules — 输出已覆盖规则和待确认规则证据。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function parseRuleRows(kb: string): Array<Record<string, string>> {
+              return kb
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.startsWith("|") && !/^\|\s*:?-{3,}/.test(line))
+                .map((line) => line.split("|").map((part) => part.trim()).filter(Boolean))
+                .filter((cells) => cells.length >= 10 && cells[0] !== "ruleId")
+                .map((cells) => ({
+                  ruleId: cells[0] || "",
+                  atomCode: cells[1] || "",
+                  atomName: cells[2] || "",
+                  ruleType: cells[3] || "",
+                  effectType: cells[4] || "",
+                  condition: cells[5] || "",
+                  result: cells[6] || "",
+                  messageOrCode: cells[7] || "",
+                  confidence: cells[8] || "",
+                  boundary: cells[9] || "",
+                }));
+            }
+
+            function parseServiceRows(kb: string, vascCode: string): Array<Record<string, unknown>> {
+              return kb
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.startsWith("|") && !/^\|\s*:?-{3,}/.test(line))
+                .map((line) => line.split("|").slice(1, -1).map((part) => part.trim().replace(/^`|`$/g, "")))
+                .filter((cells) => cells.length >= 9 && cells[0] !== "vascCode" && cells[0] === vascCode)
+                .map((cells) => ({
+                  vascCode: cells[0] || "",
+                  vascName: cells[1] || "",
+                  activeStatus: cells[2] || "",
+                  seq: Number(cells[3]) || 0,
+                  serviceItemCode: cells[4] || "",
+                  serviceItemName: cells[5] || "",
+                  atomCode: cells[4] || "",
+                  atomName: cells[5] || "",
+                  requiredInVasc: cells[6] || "",
+                  mutexGroup: cells[7] || "",
+                  attrSpecStatus: cells[8] || "",
+                }))
+                .sort((a, b) => Number(a.seq) - Number(b.seq));
+            }
+
+            function hasScenarioFacts(scenarioConditions: Record<string, unknown>): boolean {
+              return Object.keys(scenarioConditions).some((key) => {
+                const value = scenarioConditions[key];
+                return value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && value.length === 0);
+              });
+            }
+
+            function asStringArray(value: unknown): string[] {
+              return Array.isArray(value) ? value.map(asText).filter(Boolean) : [];
+            }
+
+            function selectedAtoms(scenarioConditions: Record<string, unknown>): Set<string> {
+              return new Set(asStringArray(scenarioConditions.selectedAtoms));
+            }
+
+            function buildScenarioBlockedItems(
+              serviceItems: Array<Record<string, unknown>>,
+              scenarioConditions: Record<string, unknown>
+            ): Array<Record<string, unknown>> {
+              const selected = selectedAtoms(scenarioConditions);
+              const atomCode = asText(scenarioConditions.atomCode);
+              const blocked: Array<Record<string, unknown>> = [];
+              const serviceByCode = new Map(serviceItems.map((item) => [asText(item.atomCode), item]));
+
+              if ((atomCode === "OW01V1561" || selected.has("OW01V1561")) && !selected.has("OW01V1558") && !selected.has("OW01V1559")) {
+                const item = serviceByCode.get("OW01V1561") ?? {};
+                blocked.push({
+                  ...item,
+                  atomCode: "OW01V1561",
+                  atomName: asText(item.atomName) || "入库-更换商品包装",
+                  ruleType: "dependency",
+                  condition: "selected OW01V1561 without OW01V1558 or OW01V1559",
+                  reason: "选择更换商品包装时，需要同时选择商品级补贴原 SKU 条码 OW01V1558 或更换新 SKU 条码 OW01V1559。",
+                  boundary: "frontend提示和提交校验",
+                });
+              }
+
+              const asksOw01v1572 = atomCode === "OW01V1572" || selected.has("OW01V1572");
+              const isEventVa = scenarioConditions.isEventVa === true || scenarioConditions.isEventVa === "true";
+              const thirdPartyBarcodeMissing =
+                scenarioConditions.thirdPartyBarcodeMissing === true || scenarioConditions.thirdPartyBarcodeMissing === "true";
+              if (asksOw01v1572 && (!isEventVa || thirdPartyBarcodeMissing)) {
+                const item = serviceByCode.get("OW01V1572") ?? {};
+                blocked.push({
+                  ...item,
+                  atomCode: "OW01V1572",
+                  atomName: asText(item.atomName) || "入库-第三方商品条码关联",
+                  ruleType: "disabled",
+                  condition: !isEventVa ? "not event value-add entry" : "third party barcode missing",
+                  reason: !isEventVa
+                    ? "第三方商品条码关联仅支持异常单入口下发，非异常单入口不可选。"
+                    : "异常单入口缺少第三方商品条码时，第三方商品条码关联不可选。",
+                  boundary: "confirmed",
+                });
+              }
+
+              return blocked;
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const serviceConfigInput = asRecord(params.serviceConfigInput);
+              const vascCode = asText(serviceConfigInput.vascCode);
+              const presetOutputPath = asText(serviceConfigInput.outputPath);
+              const serviceIntent = asText(serviceConfigInput.serviceIntent);
+              const scenarioConditions = asRecord(serviceConfigInput.scenarioConditions);
+              const serviceOrchestrationKb = asText(params.serviceOrchestrationKb);
+              const atomSelectabilityKb = asText(params.kbAtomSelectability);
+              const fieldEvidenceKb = asText(params.fieldEvidenceKb);
+              if (presetOutputPath === "escalated") {
+                return {
+                  configEvidence: {
+                    outputPath: "escalated",
+                    vasc: { vascCode, vascName: asText(serviceConfigInput.vascName), activeStatus: "" },
+                    serviceIntent,
+                    selectableServiceItems: [],
+                    serviceItems: [],
+                    blockedServiceItems: [],
+                    mutexGroups: [],
+                    blockingReasons: ["已提交增值单状态查询不属于服务配置解释范围"],
+                    pendingRuleEvidence: [],
+                    fieldEvidenceStatus: "not_applicable",
+                    fieldEvidenceSummary: { status: "not_applicable", reason: "submitted_value_add_order_status_query" },
+                    blockedClaims: ["不查询或解释已提交增值单状态"],
+                    missingConfirmations: [],
+                    handoffExpertId: asText(serviceConfigInput.handoffExpertId) || "value-add-order-status",
+                    scenarioConditions,
+                  },
+                  serviceConfigInput,
+                };
+              }
+              const ruleRows = parseRuleRows(atomSelectabilityKb);
+              const serviceItems = parseServiceRows(serviceOrchestrationKb, vascCode);
+              const activeStatus = asText(serviceItems[0]?.activeStatus);
+              const isInactiveVasc = activeStatus.toLowerCase() === "inactive";
+              const blockedServiceItems = buildScenarioBlockedItems(serviceItems, scenarioConditions);
+              const mutexGroups = ruleRows
+                .filter((row) => row.ruleType === "mutex")
+                .map((row) => ({
+                  atomCode: row.atomCode,
+                  atomName: row.atomName,
+                  condition: row.condition,
+                  reason: row.messageOrCode || row.result,
+                }));
+              const hasParsedRules = ruleRows.length > 0;
+              const needsScenarioEvidence =
+                hasParsedRules && !hasScenarioFacts(scenarioConditions) && ruleRows.some((row) => row.condition !== "无条件隐藏");
+              const pendingRuleEvidence =
+                !hasParsedRules || needsScenarioEvidence
+                  ? [
+                      {
+                        field: !hasParsedRules ? "atomSelectability" : "scenarioConditions",
+                        reason: !hasParsedRules
+                          ? "当前离线规则未覆盖或依赖动态配置，不能给确定可选/禁选结论"
+                          : "已加载原子规则，但缺少场景条件，不能强判可选、禁选或互斥",
+                        source: !hasParsedRules ? "knowledge_gap" : "ask_customer_or_upstream",
+                      },
+                    ]
+                  : [];
+
+              return {
+                configEvidence: {
+                  outputPath:
+                    presetOutputPath === "missing_vasc"
+                      ? "missing_vasc"
+                      : presetOutputPath === "conditional"
+                        ? "conditional"
+                        : isInactiveVasc ? "inactive_vasc" : "",
+                  vasc: {
+                    vascCode,
+                    vascName: asText(serviceConfigInput.vascName) || asText(serviceItems[0]?.vascName),
+                    activeStatus,
+                  },
+                  serviceIntent,
+                  selectableServiceItems:
+                    isInactiveVasc
+                      ? []
+                      : serviceItems,
+                  serviceItems:
+                    isInactiveVasc
+                      ? []
+                      : serviceItems,
+                  blockedServiceItems,
+                  mutexGroups,
+                  blockingReasons: [],
+                  pendingRuleEvidence,
+                  fieldEvidenceStatus: "partial_field_evidence",
+                  fieldEvidenceSummary: { status: "partial_field_evidence" },
+                  blockedClaims: [
+                    "不承诺完整字段、附件、模板、枚举和页面可下单状态",
+                    ...(isInactiveVasc ? ["activeStatus=inactive，只作历史线索，不承诺当前可下单"] : []),
+                  ],
+                  missingConfirmations: serviceConfigInput.missingConfirmations ?? [],
+                  handoffExpertId: asText(serviceConfigInput.handoffExpertId),
+                  scenarioConditions,
+                  evidenceSources: {
+                    serviceOrchestration: serviceOrchestrationKb.length > 0 ? "loaded" : "missing",
+                    atomSelectability: atomSelectabilityKb.length > 0 ? "loaded" : "missing",
+                    fieldEvidence: fieldEvidenceKb.length > 0 ? "loaded" : "missing",
+                  },
+                },
+                serviceConfigInput,
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("apply-atom-selectability-rules")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "apply-atom-selectability-rules failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrtmeli4jg5
+        language: 5
+        node_inputs:
+            - name: serviceConfigInput
+              input:
+                value:
+                    path: serviceConfigInput
+                    ref_node: "163007"
+            - name: serviceOrchestrationKb
+              input:
+                value:
+                    path: serviceOrchestrationKb
+                    ref_node: "163007"
+            - name: fieldEvidenceKb
+              input:
+                value:
+                    path: fieldEvidenceKb
+                    ref_node: "163007"
+            - name: kbAtomSelectability
+              input:
+                value:
+                    path: output
+                    ref_node: "163008"
+        node_outputs:
+            configEvidence:
+                type: object
+                value: null
+            serviceConfigInput:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absm2q2fq4w2
+    - id: "163010"
+      type: code
+      title: compose-conditional-config
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1800
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：compose-conditional-config — 缺证据时输出条件性配置结论。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function asArray(value: unknown): unknown[] {
+              return Array.isArray(value) ? value : [];
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const configEvidence = asRecord(params.configEvidence);
+              const pending = asArray(configEvidence.pendingRuleEvidence);
+              const existingOutputPath = configEvidence.outputPath;
+              const outputPath =
+                existingOutputPath === "missing_vasc"
+                  ? "missing_vasc"
+                  : existingOutputPath === "inactive_vasc"
+                    ? "inactive_vasc"
+                  : existingOutputPath === "escalated"
+                    ? "escalated"
+                  : existingOutputPath === "conditional"
+                    ? "conditional"
+                  : pending.length > 0
+                    ? "conditional"
+                    : "committed_candidate";
+
+              return {
+                conditionalConfigEvidence: {
+                  ...configEvidence,
+                  outputPath,
+                },
+                serviceConfigInput: asRecord(params.serviceConfigInput),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("compose-conditional-config")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "compose-conditional-config failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abs47fyko7zi
+        language: 5
+        node_inputs:
+            - name: serviceConfigInput
+              input:
+                value:
+                    path: serviceConfigInput
+                    ref_node: "163009"
+            - name: configEvidence
+              input:
+                value:
+                    path: configEvidence
+                    ref_node: "163009"
+        node_outputs:
+            conditionalConfigEvidence:
+                type: object
+                value: null
+            serviceConfigInput:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absm2q2fqia6
+    - id: "163011"
+      type: code
+      title: compose-committed-config
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 2080
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：compose-committed-config — 证据充分时输出确定配置结论。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const conditional = asRecord(params.conditionalConfigEvidence);
+              const outputPath =
+                conditional.outputPath === "missing_vasc"
+                  ? "missing_vasc"
+                  : conditional.outputPath === "inactive_vasc"
+                    ? "inactive_vasc"
+                  : conditional.outputPath === "escalated"
+                    ? "escalated"
+                  : conditional.outputPath === "committed_candidate"
+                    ? "committed"
+                    : "conditional";
+
+              return {
+                configEvidence: {
+                  ...conditional,
+                  outputPath,
+                },
+                serviceConfigInput: asRecord(params.serviceConfigInput),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("compose-committed-config")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "compose-committed-config failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abs6yzn11tzx
+        language: 5
+        node_inputs:
+            - name: serviceConfigInput
+              input:
+                value:
+                    path: serviceConfigInput
+                    ref_node: "163010"
+            - name: conditionalConfigEvidence
+              input:
+                value:
+                    path: conditionalConfigEvidence
+                    ref_node: "163010"
+        node_outputs:
+            configEvidence:
+                type: object
+                value: null
+            serviceConfigInput:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absm2q2fqvna
+    - id: "163012"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "调用大语言模型,使用变量和提示词生成回复"
+      version: "3"
+      position:
+        x: 2360
+        y: 310
+      parameters:
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: temperature
+              input:
+                type: string
+                value: "0.5"
+            - name: topP
+              input:
+                type: string
+                value: "1"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: disabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: minimal
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: ""
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: false
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "3"
+            - name: systemPrompt
+              input:
+                type: string
+                value: |
+                    # Value-Add 服务配置专家 - LLM Prompt
+
+                    ## 角色
+
+                    你是增值服务配置证据解释器，在 VASC 已知的前提下，解释服务项编排、字段证据和原子可选性规则。**不推荐新的 VASC。**
+
+                    ## 禁止项
+
+                    - 不推荐新的 VASC
+                    - 不查询或解释已提交增值单状态
+                    - 不把证据缺失解释为无需字段或无需附件
+                    - 不承诺页面可下单、字段全量、附件模板或上传关系
+                    - 不引用内部系统 URL、接口文档或离线来源名称
+
+                    ## 输入
+
+                    - **query**：`{{query}}`
+                    - **customerIntent**：`{{customerIntent}}`
+                    - **serviceConfigInput**（resolve-vasc-context 输出）：
+
+                    ```json
+                    {{serviceConfigInput}}
+                    ```
+
+                    - **configEvidence**（compose-conditional-config / compose-committed-config 输出）：
+
+                    ```json
+                    {{configEvidence}}
+                    ```
+
+                    - **inputContext**（参考）：
+
+                    ```json
+                    {{inputContext}}
+                    ```
+
+                    ## 输出格式
+
+                    返回完整四字段结构：
+
+                    ```json
+                    {
+                      "structured": {
+                        "outputPath": "committed|conditional|missing_vasc|escalated",
+                        "vasc": {
+                          "vascCode": "",
+                          "vascName": "",
+                          "serviceDirection": "",
+                          "evidenceStatus": ""
+                        },
+                        "serviceItems": [],
+                        "selectedServiceItems": [],
+                        "selectableServiceItems": [],
+                        "blockedServiceItems": [],
+                        "mutexGroups": [],
+                        "blockingReasons": [],
+                        "missingConfirmations": {
+                          "blockingMissing": [],
+                          "informationalMissing": []
+                        },
+                        "fieldEvidenceSummary": {},
+                        "customerInputHints": [],
+                        "blockedClaims": [],
+                        "configBoundaryNotes": []
+                      },
+                      "analysis": "说明当前 VASC、服务项/原子可选性、字段证据边界和客户可准备信息。",
+                      "outputContext": {
+                        "expertId": "value-add-service-config",
+                        "resultSummary": "",
+                        "chainId": ""
+                      },
+                      "enrichedContext": {
+                        "valueAddServiceConfig": {}
+                      }
+                    }
+                    ```
+
+                    ## 特殊规则
+
+                    - VASC 缺失或未命中时输出 `missing_vasc`，不要猜服务项
+                    - 字段、附件、模板证据不足时输出 `conditional` 或 `escalated`
+                    - `blockedClaims` 必须保留并用客户能理解的话说明
+                    - 对客户可准备的信息只说“可先准备”，不要说“必填”
+                    - `outputContext.resultSummary` 不超过 200 字
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: serviceConfigInput
+              input:
+                value:
+                    path: serviceConfigInput
+                    ref_node: "163011"
+            - name: configEvidence
+              input:
+                value:
+                    path: configEvidence
+                    ref_node: "163011"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163001"
+        node_outputs:
+            analysisResult:
+                type: object
+                properties:
+                    analysis:
+                        type: string
+                        value: null
+                    structured:
+                        type: object
+                        value: null
+                value: null
+            reasoning_content:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 180000
+    - id: "163013"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 2640
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：format-output — 归一化服务配置输出。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function asArray(value: unknown): unknown[] {
+              return Array.isArray(value) ? value : [];
+            }
+
+            function stripJsonFence(value: string): string {
+              const trimmed = value.trim();
+              const match = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+              return match ? match[1].trim() : trimmed;
+            }
+
+            function extractJsonStringField(text: string, fieldName: string): string {
+              const pattern = new RegExp(`"${fieldName}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "gs");
+              let match: RegExpExecArray | null;
+              let value = "";
+              while ((match = pattern.exec(text)) !== null) {
+                value = match[1] || "";
+              }
+              if (!value) return "";
+              try {
+                return JSON.parse(`"${value}"`);
+              } catch {
+                return value.replace(/\\"/g, '"').replace(/\\n/g, "\n");
+              }
+            }
+
+            function coerceAnalysisResult(raw: unknown): { structured: Record<string, unknown>; analysis: string } {
+              if (typeof raw === "string") {
+                const unfenced = stripJsonFence(raw);
+                try {
+                  return coerceAnalysisResult(JSON.parse(unfenced));
+                } catch {
+                  const extractedAnalysis = extractJsonStringField(unfenced, "analysis");
+                  if (extractedAnalysis) return { structured: {}, analysis: extractedAnalysis };
+                  return { structured: {}, analysis: raw };
+                }
+              }
+              const obj = asRecord(raw);
+              const analysis = asText(obj.analysis);
+              if (analysis.startsWith("```")) {
+                const unfencedAnalysis = stripJsonFence(analysis);
+                try {
+                  const parsed = coerceAnalysisResult(JSON.parse(unfencedAnalysis));
+                  if (parsed.analysis || Object.keys(parsed.structured).length > 0) return parsed;
+                } catch {
+                  const extractedAnalysis = extractJsonStringField(unfencedAnalysis, "analysis");
+                  if (extractedAnalysis) return { structured: asRecord(obj.structured), analysis: extractedAnalysis };
+                }
+              }
+              return {
+                structured: asRecord(obj.structured),
+                analysis,
+              };
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const configEvidence = asRecord(params.configEvidence);
+              const result = coerceAnalysisResult(params.analysisResult);
+              const selectableServiceItems = configEvidence.selectableServiceItems ?? [];
+              const serviceItems = asArray(configEvidence.serviceItems).length > 0
+                ? configEvidence.serviceItems
+                : selectableServiceItems;
+              const outputPath = asText(configEvidence.outputPath) || "conditional";
+              const structured = {
+                outputPath,
+                vasc: configEvidence.vasc ?? {},
+                serviceItems,
+                selectableServiceItems: configEvidence.selectableServiceItems ?? [],
+                blockedServiceItems: configEvidence.blockedServiceItems ?? [],
+                mutexGroups: configEvidence.mutexGroups ?? [],
+                blockingReasons: configEvidence.blockingReasons ?? [],
+                missingConfirmations: configEvidence.missingConfirmations ?? [],
+                pendingRuleEvidence: configEvidence.pendingRuleEvidence ?? [],
+                fieldEvidenceStatus: configEvidence.fieldEvidenceStatus ?? "partial_field_evidence",
+                fieldEvidenceSummary: configEvidence.fieldEvidenceSummary ?? { status: configEvidence.fieldEvidenceStatus ?? "partial_field_evidence" },
+                handoffExpertId: asText(configEvidence.handoffExpertId),
+                blockedClaims: configEvidence.blockedClaims ?? [],
+                configBoundaryNotes: [
+                  "字段、附件、模板和上传关系只输出证据状态，不作为完整下单配置。",
+                  ...(asText(asRecord(configEvidence.vasc).activeStatus).toLowerCase() === "inactive"
+                    ? ["activeStatus=inactive，只作历史线索，不承诺当前可下单。"]
+                    : []),
+                ],
+              };
+              const analysis =
+                result.analysis ||
+                (structured.outputPath === "escalated"
+                  ? "已提交增值单状态查询不属于服务配置解释范围，应转交 value-add-order-status 查询处理进度。"
+                  : structured.outputPath === "inactive_vasc"
+                  ? "该 VASC 当前 activeStatus=inactive，只能作为历史线索解释，不承诺当前页面可下单。"
+                  : "已整理当前 VASC 的服务配置证据边界；未覆盖或动态配置依赖的规则需保持待确认。");
+              const inputContext = asRecord(params.inputContext);
+              const chainId = asText(inputContext.chainId);
+
+              return {
+                structured,
+                analysis,
+                outputContext: {
+                  expertId: "value-add-service-config",
+                  resultSummary: analysis.slice(0, 200),
+                  chainId,
+                },
+                enrichedContext: {
+                  valueAddServiceConfig: structured,
+                },
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "format-output failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abri5shqv4ws
+        language: 5
+        node_inputs:
+            - name: analysisResult
+              input:
+                value:
+                    path: analysisResult
+                    ref_node: "163012"
+            - name: serviceConfigInput
+              input:
+                value:
+                    path: serviceConfigInput
+                    ref_node: "163011"
+            - name: configEvidence
+              input:
+                value:
+                    path: configEvidence
+                    ref_node: "163011"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163001"
+        node_outputs:
+            analysis:
+                type: string
+                value: null
+            enrichedContext:
+                type: object
+                value: null
+            outputContext:
+                type: object
+                value: null
+            structured:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absm2q2fra1e
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163013"
+      target_node: "900001"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"

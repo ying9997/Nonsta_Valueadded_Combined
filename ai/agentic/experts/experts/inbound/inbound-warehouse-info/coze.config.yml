@@ -1,0 +1,58 @@
+# 仓库基础信息查询 — Coze 工作流包导出
+# 导出：npm run export:coze -- experts/inbound/inbound-warehouse-info
+
+yamlBasename: inbound_warehouse_info-draft.yaml
+packageMainName: inbound_warehouse_info
+packageDescription: 仓库基础信息查询（validate → load-kb → extract → LLM → format）
+
+textNodes:
+  - logicalId: kb-warehouse-text
+    title: kb-warehouse
+    insertAfter: validate-warehouse-query
+    sourceFile: prompts/kb-warehouse.md
+
+inputBindings:
+  load-warehouse-kb:
+    kbWarehouse:
+      ref: kb-warehouse-text
+      path: output
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: -150
+    y: 230
+  __end__:
+    x: 1350
+    y: 310
+  validate-warehouse-query:
+    x: 200
+    y: 310
+  kb-warehouse-text:
+    x: 200
+    y: 520
+  load-warehouse-kb:
+    x: 500
+    y: 310
+  extract-warehouse-profile:
+    x: 750
+    y: 310
+  llm-analyze:
+    x: 1000
+    y: 310
+  format-output:
+    x: 1200
+    y: 310

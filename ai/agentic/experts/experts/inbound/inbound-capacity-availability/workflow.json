@@ -1,0 +1,235 @@
+{
+  "nodes": [
+    {
+      "id": "validate-capacity-query",
+      "file": "nodes/validate-capacity-query.ts",
+      "inputs": [
+        "warehouseCode",
+        "checkType",
+        "cargoProfile",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "error",
+        "warehouseCode",
+        "checkType",
+        "customerIntent",
+        "inputContext",
+        "cargoProfile"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "warehouseCode": {
+            "type": "string"
+          },
+          "checkType": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "cargoProfile": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-mks-quota",
+      "file": "nodes/fetch-mks-quota.ts",
+      "inputs": [
+        "validationOk",
+        "warehouseCode"
+      ],
+      "outputs": [
+        "quotaSnapshot",
+        "quotaFetchOk"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "quotaSnapshot": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "quotaFetchOk": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "merge-capacity-signal",
+      "file": "nodes/merge-capacity-signal.ts",
+      "inputs": [
+        "quotaSnapshot",
+        "quotaFetchOk",
+        "warehouseCode",
+        "checkType",
+        "cargoProfile"
+      ],
+      "outputs": [
+        "mergedCapacity",
+        "dataSource",
+        "dataQuality",
+        "quotaFetchOk",
+        "kbFallbackNeeded"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "mergedCapacity": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "dataSource": {
+            "type": "string"
+          },
+          "dataQuality": {
+            "type": "string"
+          },
+          "quotaFetchOk": {
+            "type": "boolean"
+          },
+          "kbFallbackNeeded": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "eval-overall-temperature",
+      "file": "nodes/eval-overall-temperature.ts",
+      "inputs": [
+        "mergedCapacity"
+      ],
+      "outputs": [
+        "overallTemperature",
+        "capacityAdvice",
+        "quotaTemperature"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "overallTemperature": {
+            "type": "string"
+          },
+          "capacityAdvice": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quotaTemperature": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "load-capacity-kb",
+      "file": "nodes/load-capacity-kb.ts",
+      "inputs": [
+        "kbCapacity",
+        "kbFallbackNeeded",
+        "checkType",
+        "dataSource"
+      ],
+      "outputs": [
+        "capacityKb",
+        "kbFallbackNeeded",
+        "kbScope",
+        "checkType"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "capacityKb": {
+            "type": "string"
+          },
+          "kbFallbackNeeded": {
+            "type": "boolean"
+          },
+          "kbScope": {
+            "type": "string"
+          },
+          "checkType": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "warehouseCode",
+        "checkType",
+        "mergedCapacity",
+        "overallTemperature",
+        "capacityAdvice",
+        "dataSource",
+        "dataQuality",
+        "capacityKb",
+        "kbFallbackNeeded",
+        "cargoProfile",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext",
+        "mergedCapacity",
+        "warehouseCode",
+        "quotaSnapshot",
+        "dataSource",
+        "overallTemperature",
+        "capacityAdvice",
+        "dataQuality"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

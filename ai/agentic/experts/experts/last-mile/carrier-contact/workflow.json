@@ -1,0 +1,180 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputs": [
+        "valid",
+        "error",
+        "query",
+        "trackingIds",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputSchema": {
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "carrierCode": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-carrier-knowledge",
+      "file": "nodes/load-carrier-knowledge.ts",
+      "inputs": [
+        "valid",
+        "error",
+        "query",
+        "trackingIds",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputs": [
+        "kbMd",
+        "valid",
+        "error",
+        "query",
+        "trackingIds",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputSchema": {
+        "properties": {
+          "kbMd": {
+            "type": "string"
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "carrierCode": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "carrierCode",
+        "region",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext",
+        "kbMd"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

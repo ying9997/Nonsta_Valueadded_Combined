@@ -1,0 +1,236 @@
+yamlBasename: inbound_appointment_manage-draft.yaml
+packageMainName: inbound_appointment_manage
+packageDescription: 预约送仓（validate → route → booking.list + getOrderDetail → summarize → LLM）
+
+textNodes:
+  - logicalId: kb-booking-sop-text
+    title: kb-booking-sop
+    insertAfter: validate-intent
+    sourceFile: prompts/booking-sop.md
+  - logicalId: kb-booking-rules-text
+    title: kb-booking-rules
+    insertAfter: validate-intent
+    sourceFile: prompts/booking-rules.md
+  - logicalId: kb-penalty-rules-text
+    title: kb-penalty-rules
+    insertAfter: validate-intent
+    sourceFile: prompts/penalty-rules.md
+  - logicalId: kb-split-shipment-text
+    title: kb-split-shipment
+    insertAfter: validate-intent
+    sourceFile: prompts/split-shipment.md
+  - logicalId: kb-premium-booking-text
+    title: kb-premium-booking
+    insertAfter: validate-intent
+    sourceFile: prompts/premium-booking.md
+  - logicalId: kb-booking-api-ref-text
+    title: kb-booking-api-ref
+    insertAfter: validate-intent
+    sourceFile: prompts/booking-api-reference.md
+  - logicalId: kb-pod-download-guide-text
+    title: kb-pod-download-guide
+    insertAfter: validate-intent
+    sourceFile: prompts/pod-download-guide.md
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-inbound-order
+    logicalId: winit_order_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-winit-inbound-detail
+        path: actions
+  - insertBefore: fetch-booking-list
+    logicalId: winit_booking_list_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 10
+      concurrentSize: 5
+      actionsFrom:
+        logicalId: build-booking-list-request
+        path: actions
+
+inputBindings:
+  route-intent:
+    validationOk:
+      ref: validate-intent
+      path: validationOk
+    intent:
+      ref: validate-intent
+      path: intent
+    inboundOrderNos:
+      ref: validate-intent
+      path: inboundOrderNos
+    bookingNo:
+      ref: validate-intent
+      path: bookingNo
+  resolve-inbound-lookup:
+    skipOrderDetail:
+      ref: route-intent
+      path: skipOrderDetail
+    inboundOrderNos:
+      ref: validate-intent
+      path: inboundOrderNos
+  build-winit-inbound-detail:
+    skipOrderDetail:
+      ref: route-intent
+      path: skipOrderDetail
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: resolve-inbound-lookup
+      path: customerRefNos
+  fetch-inbound-order:
+    skipOrderDetail:
+      ref: route-intent
+      path: skipOrderDetail
+    actions:
+      ref: build-winit-inbound-detail
+      path: actions
+    winitOrderDetailPluginOutputList:
+      ref: winit_order_detail_batch
+      path: outputList
+  build-booking-list-request:
+    skipApi:
+      ref: route-intent
+      path: skipApi
+    inboundOrderNos:
+      ref: validate-intent
+      path: inboundOrderNos
+    bookingNo:
+      ref: validate-intent
+      path: bookingNo
+  fetch-booking-list:
+    skipApi:
+      ref: route-intent
+      path: skipApi
+    actions:
+      ref: build-booking-list-request
+      path: actions
+    winitBookingPluginOutputList:
+      ref: winit_booking_list_batch
+      path: outputList
+  summarize-booking-records:
+    intent:
+      ref: validate-intent
+      path: intent
+    bookingRecords:
+      ref: fetch-booking-list
+      path: bookingRecords
+    rawOrderData:
+      ref: fetch-inbound-order
+      path: rawOrderData
+  scope-guard:
+    routePath:
+      ref: route-intent
+      path: routePath
+    rawOrderData:
+      ref: fetch-inbound-order
+      path: rawOrderData
+  load-booking-kb:
+    intent:
+      ref: validate-intent
+      path: intent
+    routePath:
+      ref: route-intent
+      path: routePath
+    kbOnly:
+      ref: route-intent
+      path: kbOnly
+    deliveryWayHint:
+      ref: validate-intent
+      path: deliveryWayHint
+    warehouseCode:
+      ref: validate-intent
+      path: warehouseCode
+    query:
+      ref: validate-intent
+      path: query
+    kbBookingSop:
+      ref: kb-booking-sop-text
+      path: output
+    kbBookingRules:
+      ref: kb-booking-rules-text
+      path: output
+    kbPenaltyRules:
+      ref: kb-penalty-rules-text
+      path: output
+    kbSplitShipment:
+      ref: kb-split-shipment-text
+      path: output
+    kbPremiumBooking:
+      ref: kb-premium-booking-text
+      path: output
+    kbBookingApiRef:
+      ref: kb-booking-api-ref-text
+      path: output
+    kbPodDownloadGuide:
+      ref: kb-pod-download-guide-text
+      path: output
+  llm-analyze:
+    query:
+      ref: validate-intent
+      path: query
+    customerIntent:
+      ref: validate-intent
+      path: customerIntent
+    intent:
+      ref: validate-intent
+      path: intent
+    routePath:
+      ref: route-intent
+      path: routePath
+    deliveryWayHint:
+      ref: validate-intent
+      path: deliveryWayHint
+    warehouseCode:
+      ref: validate-intent
+      path: warehouseCode
+    bookingSummary:
+      ref: summarize-booking-records
+      path: bookingSummary
+    bookingRecords:
+      ref: summarize-booking-records
+      path: bookingRecords
+    scopeGuard:
+      ref: scope-guard
+      path: scopeGuard
+    kbContent:
+      ref: load-booking-kb
+      path: kbContent
+    kbScope:
+      ref: load-booking-kb
+      path: kbScope
+    inputContext:
+      ref: validate-intent
+      path: inputContext
+  format-output:
+    analysisResult:
+      ref: llm-analyze
+      path: analysisResult
+    bookingSummary:
+      ref: summarize-booking-records
+      path: bookingSummary
+    scopeGuard:
+      ref: scope-guard
+      path: scopeGuard
+    inputContext:
+      ref: validate-intent
+      path: inputContext
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext

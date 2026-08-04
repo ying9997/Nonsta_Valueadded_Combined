@@ -1,0 +1,79 @@
+yamlBasename: inbound_putaway_expedite-draft.yaml
+packageMainName: inbound_putaway_expedite
+packageDescription: 上架催促与加急（resolve → build(getOrderDetail) → 批处理
+  cobra_winit_openapi_request → fetch → prune → evaluate-sla-breach → LLM）
+
+omitCodeNodeInputs:
+  extract-inbound-detail:
+    - detailLevel
+    - targetMerchandiseCodes
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-inbound-order
+    logicalId: winit_inbound_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-winit-inbound-detail
+        path: actions
+
+inputBindings:
+  build-winit-inbound-detail:
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: resolve-inbound-lookup
+      path: customerRefNos
+  fetch-inbound-order:
+    actions:
+      ref: build-winit-inbound-detail
+      path: actions
+    actionPlans:
+      ref: build-winit-inbound-detail
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_inbound_detail_batch
+      path: outputList
+  extract-inbound-detail:
+    rawOrderData:
+      ref: fetch-inbound-order
+      path: rawOrderData
+  prune-inbound-json:
+    rawOrderData:
+      ref: extract-inbound-detail
+      path: rawOrderData
+    maxTrajectoryNodes:
+      ref: __start__
+      path: inputs.maxTrajectoryNodes
+  evaluate-sla-breach:
+    prunedOrderData:
+      ref: prune-inbound-json
+      path: prunedOrderData
+    inboundOrderNos:
+      ref: resolve-inbound-lookup
+      path: inboundOrderNos
+  load-putaway-expedite-kb:
+    slaFacts:
+      ref: evaluate-sla-breach
+      path: slaFacts
+  format-output:
+    slaFacts:
+      ref: evaluate-sla-breach
+      path: slaFacts

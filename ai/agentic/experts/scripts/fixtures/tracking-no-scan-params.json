@@ -1,0 +1,170 @@
+{
+  "cases": [
+    {
+      "id": "validate_fail_empty",
+      "description": "无任何入参，validate 失败；fetch 不拉网；仍走 stub LLM + format",
+      "params": {},
+      "expect": {
+        "valid": false,
+        "fetchSkipped": false,
+        "trackingIdsRequested": 0,
+        "branch": "need_info"
+      }
+    },
+    {
+      "id": "need_context_no_ids",
+      "description": "仅有客户意图与 query，无单号；自拉无 trackingIds；供 LLM 判 need_info",
+      "params": {
+        "query": "客户问无上网",
+        "customerIntent": "轨迹一直无上网信息"
+      },
+      "expect": {
+        "valid": true,
+        "fetchSkipped": false,
+        "trajectoriesLength": 0,
+        "trackingIdsRequested": 0,
+        "branch": "need_human"
+      }
+    },
+    {
+      "id": "reuse_upstream_skip_winit",
+      "description": "前序 enrichedContext 带可复用 trajectories（含 SCAN 节点），应跳过 Winit 且 carrierScanDetected 为 true",
+      "params": {
+        "trackingIds": ["DEMO-TRACK-001"],
+        "customerIntent": "查件无上网",
+        "enrichedContext": {
+          "reuseUpstreamTrajectoryFacts": true,
+          "trajectories": [
+            {
+              "trackingNo": "DEMO-TRACK-001",
+              "nodes": [
+                {
+                  "time": "2026-01-02T10:00:00Z",
+                  "status": "SCAN",
+                  "description": "Hub scan"
+                }
+              ],
+              "summary": {
+                "winitBucket": "transportation",
+                "nodeCount": 1,
+                "created": "2025-12-15",
+                "lastInfo": "In transit"
+              }
+            }
+          ],
+          "orderDetails": [
+            {
+              "orderNo": "WO-DEMO-1",
+              "mockRegistered": true
+            }
+          ]
+        }
+      },
+      "expect": {
+        "valid": true,
+        "fetchSkipped": true,
+        "carrierScanDetected": true,
+        "trajectoriesLength": 1,
+        "scanStateSummary": "all_ascan",
+        "scanStateCount": 1,
+        "branch": "carrier_has_scan",
+        "suggestedNextExpertsIncludes": ["tracking-stale"]
+      }
+    },
+    {
+      "id": "negation_text_no_false_scan",
+      "description": "仅 trajectoryText 含「无扫描」否定语境、无 SCAN 节点时，不得误置 carrierScanDetected=true",
+      "params": {
+        "query": "客户问无上网",
+        "customerIntent": "轨迹无扫描",
+        "trajectoryText": "查询结果：该运单暂无扫描事件记录，请稍后再试。"
+      },
+      "expect": {
+        "valid": true,
+        "fetchSkipped": false,
+        "carrierScanDetected": false,
+        "trajectoriesLength": 0,
+        "trackingIdsRequested": 0,
+        "branch": "need_human"
+      }
+    },
+    {
+      "id": "domain_index_all_no_ascan_standard_review",
+      "description": "复用 delivery-status 域索引；两票无 Ascan 且约12天，确定性转 refund-standard 核验",
+      "params": {
+        "trackingIds": ["TRACK-NOASCAN-001", "TRACK-NOASCAN-002"],
+        "outboundOrderNos": ["WO-NOASCAN-001", "WO-NOASCAN-002"],
+        "enrichedContext": {
+          "last-mile/delivery-status": [
+            {
+              "noUpdateDays": 12,
+              "warehouseLastEventAt": "2026-07-18T08:00:00.000Z",
+              "trackingIds": ["TRACK-NOASCAN-001", "TRACK-NOASCAN-002"],
+              "trajectories": [
+                {"trackingNo":"TRACK-NOASCAN-001","nodes":[{"status":"DIC","time":"2026-07-18 08:00:00","description":"发货完成"}],"summary":{"winitBucket":"openapi","nodeCount":1}},
+                {"trackingNo":"TRACK-NOASCAN-002","nodes":[{"status":"DLI","time":"2026-07-18 09:00:00","description":"派送中"}],"summary":{"winitBucket":"openapi","nodeCount":1}}
+              ],
+              "computedScanFacts": [
+                {"trackingNo":"TRACK-NOASCAN-001","ascanEvents":[],"dscanEvents":[],"rdscanEvents":[],"deliveryFailureLikely":false},
+                {"trackingNo":"TRACK-NOASCAN-002","ascanEvents":[],"dscanEvents":[],"rdscanEvents":[],"deliveryFailureLikely":false}
+              ]
+            }
+          ]
+        }
+      },
+      "llmResult": {"branch":"need_human","analysis":"模型未识别无上网"},
+      "expect": {
+        "valid": true,
+        "fetchSkipped": true,
+        "trackingIdsRequested": 2,
+        "trajectoriesLength": 2,
+        "carrierScanDetected": false,
+        "scanStateSummary": "all_no_ascan",
+        "scanStateCount": 2,
+        "branch": "standard_claim_review",
+        "suggestedNextExpertsIncludes": ["refund-standard"],
+        "analysisIncludes": ["未出现 Ascan", "标准赔付规则核验"],
+        "analysisExcludes": ["必定可赔", "hasClaimService"]
+      }
+    },
+    {
+      "id": "domain_index_mixed_scan_state",
+      "description": "域索引中一票有 Ascan、一票无 Ascan，必须拆票",
+      "params": {
+        "trackingIds": ["TRACK-MIXED-A", "TRACK-MIXED-B"],
+        "enrichedContext": {
+          "last-mile/delivery-status": [
+            {
+              "trajectories": [
+                {"trackingNo":"TRACK-MIXED-A","nodes":[{"status":"Ascan","time":"2026-07-20 10:00:00"}],"summary":{"winitBucket":"openapi","nodeCount":1}},
+                {"trackingNo":"TRACK-MIXED-B","nodes":[{"status":"DIC","time":"2026-07-20 10:00:00"}],"summary":{"winitBucket":"openapi","nodeCount":1}}
+              ],
+              "computedScanFacts": [
+                {"trackingNo":"TRACK-MIXED-A","ascanEvents":[{"status":"Ascan","time":"2026-07-20 10:00:00"}],"dscanEvents":[],"rdscanEvents":[],"deliveryFailureLikely":false},
+                {"trackingNo":"TRACK-MIXED-B","ascanEvents":[],"dscanEvents":[],"rdscanEvents":[],"deliveryFailureLikely":false}
+              ]
+            }
+          ]
+        }
+      },
+      "expect": {
+        "valid": true,
+        "fetchSkipped": true,
+        "scanStateSummary": "mixed",
+        "scanStateCount": 2,
+        "branch": "mixed_scan_state",
+        "analysisIncludes": ["拆票"]
+      }
+    },
+    {
+      "id": "live_winit_fetch",
+      "description": "真实请求 Winit getTracking（需网络）。设置环境变量 TRACKING_NO_SCAN_LIVE=1 且 TRACKING_NO_SCAN_IDS 为 JSON 数组，如 [\"1US123\"] 时启用；否则跳过本用例",
+      "params": {},
+      "liveEnv": true,
+      "expect": {
+        "valid": true,
+        "fetchSkipped": false
+      }
+    }
+  ]
+}

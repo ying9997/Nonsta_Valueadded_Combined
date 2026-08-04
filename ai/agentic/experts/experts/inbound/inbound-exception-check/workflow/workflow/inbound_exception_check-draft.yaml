@@ -1,0 +1,4308 @@
+schema_version: 1.0.0
+name: inbound_exception_check
+id: 7470925282865777402
+description: 入库异常核实（resolve → 并行 build detail + exception list → fetch → discrepancy report → LLM）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      inboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 入库单号（WI 前缀）或客户参考号；与 queryAllExceptions 二选一
+                      queryAllExceptions:
+                          type: boolean
+                          value: null
+                          description: true 时拉取客户全部近期异常单
+                      exceptionDescription:
+                          type: string
+                          value: null
+                          description: 客户描述的异常关键词
+                      vasOrderNo:
+                          type: string
+                          value: null
+                          description: 用户后续补充的已提交增值单号；本专家只生成 value-add-order-status handoff，不查询增值单状态
+                      dateRange:
+                          type: object
+                          value: null
+                          description: 批量查时限制日期范围 { from, to }，格式 yyyy-MM-dd
+                      includePackageDetails:
+                          type: boolean
+                          value: null
+                          description: 兼容参数：true 时升级为 package_detail；默认 false → sku_summary
+                      detailLevel:
+                          type: string
+                          value: null
+                          description: getOrderDetail 详情分层；默认 sku_summary
+                      targetMerchandiseCodes:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: sku_filtered 时仅保留指定 SKU
+                      targetPackageNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 包裹级下钻时指定箱号/包裹号
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163013"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163013"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163013"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163013"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: resolve-inbound-lookup
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化入库单查询标识
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function isWiOrderToken(raw: string): boolean {
+                return /^WI/i.test(raw.trim());
+              }
+
+              function normalizeWiOrderNum(raw: string): string {
+                return raw.trim().toUpperCase();
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const raw = ((params.inboundOrderNos as string[]) ?? [])
+                  .map((o) => String(o ?? "").trim())
+                  .filter(Boolean);
+
+                const queryAllExceptions = params.queryAllExceptions === true;
+                const wiSeen = new Set<string>();
+                const refSeen = new Set<string>();
+                const wiOrderNos: string[] = [];
+                const customerRefNos: string[] = [];
+                const entries: Array<{ input: string; normalized: string; kind: "wi" | "customerRef" }> = [];
+
+                for (const token of raw) {
+                  if (isWiOrderToken(token)) {
+                    const normalized = normalizeWiOrderNum(token);
+                    entries.push({ input: token, normalized, kind: "wi" });
+                    if (!wiSeen.has(normalized)) {
+                      wiSeen.add(normalized);
+                      wiOrderNos.push(normalized);
+                    }
+                  } else {
+                    const normalized = token.trim();
+                    entries.push({ input: token, normalized, kind: "customerRef" });
+                    if (!refSeen.has(normalized)) {
+                      refSeen.add(normalized);
+                      customerRefNos.push(normalized);
+                    }
+                  }
+                }
+
+                const hasOrders = wiOrderNos.length > 0 || customerRefNos.length > 0;
+                const useListMode = queryAllExceptions && !hasOrders;
+
+                return {
+                  wiOrderNos,
+                  customerRefNos,
+                  inboundOrderNos: [...wiOrderNos, ...customerRefNos],
+                  useListMode,
+                  lookupMeta: { entries, hasOrders, queryAllExceptions, useListMode },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-inbound-lookup")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inputs.inboundOrderNos
+                        ref_node: "100001"
+              - name: queryAllExceptions
+                input:
+                    value:
+                        path: inputs.queryAllExceptions
+                        ref_node: "100001"
+          node_outputs:
+              wiOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerRefNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              useListMode:
+                  type: boolean
+                  value: null
+              lookupMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: exception-type-guide
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 707
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 入库异常类型与处理路径
+
+                        ## QTY_DIFF（数量差异）
+
+                        - 场景：上架少包裹/少单品
+                        - 处理：分标准入库单与直发海外验/自验两套 SOP；客观陈述差异数量，不判责
+                        - 升级：差异率 ≥ 5% 或绝对差 ≥ 10 件时建议人工核实
+
+                        ## DAMAGE（包裹破损）
+
+                        - 场景：运输或卸货破损
+                        - 处理：要求拍照证明 + 提交核实工单
+                        - 升级：始终建议人工介入
+
+                        ## LABEL_MISSING（条码异常）
+
+                        - 场景：包裹条码缺失或异常
+                        - 处理：客户需补贴包裹条码上架（增值服务）
+                        - 下游：`value-add/value-add-exception-diagnosis`
+
+                        ## WRONG_WAREHOUSE（串仓异常）
+
+                        - 场景：直发订单发错仓
+                        - 处理：进入 value-add 推荐链判断串仓调拨或非标等可选路径
+                        - 下游：`value-add/value-add-exception-diagnosis`
+
+                        ## EXTRA_ITEM（订单外商品）
+
+                        - 场景：包裹内存在订单外商品
+                        - 处理：需下换新单上架
+
+                        ## OWNERLESS_GOODS（入库无主货）
+
+                        - 场景：无法匹配订单的货物
+                        - 处理：进入 value-add 推荐链判断无主货找回或后续处理路径
+                        - 下游：`value-add/value-add-exception-diagnosis`
+
+                        ## PRE_SHELVE_ACTION（上架前特殊处理）
+
+                        - 场景：自提/销毁/拦截/细节拍照
+                        - 处理：进入 value-add 推荐链判断自提、销毁、拦截或拍照路径
+                        - 下游：`value-add/value-add-exception-diagnosis`
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: text
+      title: discrepancy-thresholds
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 947
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 数量差异容差与升级条件
+
+                        ## 参考阈值（待仓库最终确认）
+
+                        | 指标 | 参考线 | 说明 |
+                        |------|--------|------|
+                        | 差异率 | ≥ 5% | 相对预报量的差异比例 |
+                        | 绝对差异 | ≥ 10 件 | 单品数量绝对差 |
+
+                        满足任一条件时 `needsHumanReview=true`。
+
+                        ## 四层数量说明
+
+                        | 层级 | 字段来源 | 含义 |
+                        |------|----------|------|
+                        | 预报量 | orderMerchandiseQty | 客户预报商品数 |
+                        | 签收量 | actualOrderMerchandiseQty | 仓库签收商品数 |
+                        | 验收量 | 异常单 receivedQty | 验货环节实收 |
+                        | 上架量 | actualOrderMerchandiseQty（EWC 后） | 最终上架数 |
+
+                        ## 对客原则
+
+                        - AI 不做责任判定，差异结论需仓库确认
+                        - 客观报告数字，说明核实进行中
+                        - 不承诺赔付结果
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163003"
+      type: code
+      title: build-winit-inbound-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          code: |-
+              /* coze-inline: shared/inbound-get-order-detail.ts */
+              /**
+               * 入库单 getOrderDetail 详情分层：detailLevel ↔ isIncludePackage、extract、SKU/包裹聚合
+               * 官方 id/39：N 不返回 merchandiseList/packageList；无包裹分页 API
+               */
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              type DetailLevel =
+                | "header"
+                | "sku_summary"
+                | "sku_filtered"
+                | "package_summary"
+                | "package_detail"
+                | "item_lookup";
+
+              type IsIncludePackage = "Y" | "N";
+
+              interface DetailExtractOptions {
+                detailLevel: DetailLevel;
+                targetMerchandiseCodes?: string[];
+                targetPackageNos?: string[];
+                targetItemSernos?: string[];
+                maxPackagesPerOrder?: number;
+                maxMerchandisePerPackage?: number;
+                packageFetchThreshold?: number;
+              }
+
+              interface DetailExtractMeta {
+                detailLevel: DetailLevel;
+                originalPackageCount: number;
+                packagesDiscarded: boolean;
+                merchandiseRowCount: number;
+                requiresNarrowing?: boolean;
+                largeOrderSkuOnly?: boolean;
+                packagesRetained?: number;
+              }
+
+              interface SkuPutawaySummary {
+                totalSkus: number;
+                completedSkus: number;
+                partialSkus: number;
+                pendingSkus: number;
+                putawayRate: number;
+                anomalySkus: Array<{
+                  merchandiseCode: string;
+                  quantity: number;
+                  actualQuantity: number;
+                  inspectionQty?: number;
+                }>;
+                targetSkusOnly: boolean;
+              }
+
+              interface PackagePutawaySummary {
+                totalPackages: number;
+                byStatus: Record<string, number>;
+                recentUnshelvedSample: Array<{
+                  packageNo?: string;
+                  sellerCaseNo?: string;
+                  status?: string;
+                  unloadingTime?: string;
+                  shelvesTime?: string;
+                }>;
+                expectedPackages?: number;
+                receivedPackages?: number;
+                discrepancy?: number;
+              }
+
+              const PLUGIN_BATCH_MAX_DEFAULT = 100;
+              const DEFAULT_MAX_PACKAGES = 50;
+              const DEFAULT_MAX_MERCH_PER_PKG = 20;
+              const DEFAULT_PACKAGE_THRESHOLD = 200;
+
+              function __coze_shared_inbound_get_order_detail_ts_str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_num(v: unknown): number {
+                const n = Number(v);
+                return Number.isFinite(n) ? n : 0;
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_arr(v: unknown): string[] {
+                if (!Array.isArray(v)) return [];
+                return v.map((x) => __coze_shared_inbound_get_order_detail_ts_str(x)).filter(Boolean);
+              }
+
+              function getPluginBatchMaxActions(): number {
+                if (typeof process !== "undefined" && process.env?.COZE_WINIT_PLUGIN_BATCH_MAX) {
+                  const n = Number(process.env.COZE_WINIT_PLUGIN_BATCH_MAX);
+                  if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+                }
+                return PLUGIN_BATCH_MAX_DEFAULT;
+              }
+
+              function isIncludePackageForLevel(level: DetailLevel): IsIncludePackage {
+                return level === "header" ? "N" : "Y";
+              }
+
+              /** 解析 detailLevel：兼容 includePackageDetails / checkPackageQty */
+              function resolveDetailLevel(
+                params: Record<string, unknown>,
+                defaultLevel: DetailLevel
+              ): DetailLevel {
+                if (params.includePackageDetails === true) return "package_detail";
+                const raw = __coze_shared_inbound_get_order_detail_ts_str(params.detailLevel);
+                const levels: DetailLevel[] = [
+                  "header",
+                  "sku_summary",
+                  "sku_filtered",
+                  "package_summary",
+                  "package_detail",
+                  "item_lookup",
+                ];
+                if (raw && levels.includes(raw as DetailLevel)) return raw as DetailLevel;
+                if (params.checkPackageQty === true && defaultLevel === "header") return "package_summary";
+                return defaultLevel;
+              }
+
+              /** 统一官方字段名与历史别名 */
+              function normalizeInboundOrderFields(order: Record<string, unknown>): Record<string, unknown> {
+                const copy = { ...order };
+                if (!copy.packageList && Array.isArray(copy.inboundPackageVos)) {
+                  copy.packageList = copy.inboundPackageVos;
+                }
+                if (!copy.merchandiseList && Array.isArray(copy.inboundMerchandiseVos)) {
+                  copy.merchandiseList = copy.inboundMerchandiseVos;
+                }
+                return copy;
+              }
+
+              type InboundDetailActionPlan = {
+                inputToken: string;
+                queryBy: "orderNo" | "customerOrderNo";
+              };
+
+              function buildInboundDetailActions(
+                wiOrderNos: string[],
+                customerRefNos: string[],
+                detailLevel: DetailLevel
+              ): {
+                actions: Array<{ action: string; data: string }>;
+                actionPlans: InboundDetailActionPlan[];
+                winitPluginBatchActionsCount: number;
+                actionName: string;
+                detailLevel: DetailLevel;
+                isIncludePackage: IsIncludePackage;
+              } {
+                const actionPlans: InboundDetailActionPlan[] = [];
+                for (const no of wiOrderNos) {
+                  if (no?.trim()) actionPlans.push({ inputToken: no.trim(), queryBy: "orderNo" });
+                }
+                for (const ref of customerRefNos) {
+                  if (ref?.trim()) actionPlans.push({ inputToken: ref.trim(), queryBy: "customerOrderNo" });
+                }
+
+                const isIncludePackage = isIncludePackageForLevel(detailLevel);
+                const maxActions = getPluginBatchMaxActions();
+                const forPlugin = actionPlans.slice(0, maxActions);
+
+                const actions = forPlugin.map((p) => {
+                  const data: Record<string, string> = { isIncludePackage };
+                  if (p.queryBy === "orderNo") data.orderNo = p.inputToken;
+                  else data.customerOrderNo = p.inputToken;
+                  return { action: INBOUND_DETAIL_ACTION, data: JSON.stringify(data) };
+                });
+
+                return {
+                  actions,
+                  actionPlans: forPlugin,
+                  winitPluginBatchActionsCount: actions.length,
+                  actionName: INBOUND_DETAIL_ACTION,
+                  detailLevel,
+                  isIncludePackage,
+                };
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_pruneMerchandiseList(
+                merchandiseList: unknown[],
+                maxMerchandise: number,
+                includeItemList: boolean
+              ): unknown[] {
+                const mapRow = (m: unknown) => {
+                  const copy = { ...(m as Record<string, unknown>) };
+                  if (!includeItemList) {
+                    delete copy.itemList;
+                    delete copy.batchList;
+                  }
+                  return copy;
+                };
+                if (merchandiseList.length <= maxMerchandise) {
+                  return merchandiseList.map(mapRow);
+                }
+                const pruned = merchandiseList.slice(0, maxMerchandise).map(mapRow);
+                pruned.push({ _truncated: true, _remainingCount: merchandiseList.length - maxMerchandise });
+                return pruned;
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_prunePackageList(
+                packageList: unknown[],
+                maxPackages: number,
+                maxMerchandise: number,
+                includeItemList: boolean,
+                targetPackageNos?: string[]
+              ): unknown[] {
+                let list = packageList;
+                if (targetPackageNos?.length) {
+                  const targets = new Set(targetPackageNos.map((t) => t.toUpperCase()));
+                  list = packageList.filter((pkg) => {
+                    const p = pkg as Record<string, unknown>;
+                    const keys = [p.packageNo, p.sellerCaseNo, p.packageNum, p.barcode].map(__coze_shared_inbound_get_order_detail_ts_str);
+                    return keys.some((k) => k && targets.has(k.toUpperCase()));
+                  });
+                }
+
+                if (list.length <= maxPackages) {
+                  return list.map((pkg) => {
+                    const p = pkg as Record<string, unknown>;
+                    const merchList = (p.merchandiseList as unknown[]) ?? [];
+                    const copy = { ...p };
+                    if (merchList.length > 0) {
+                      copy.merchandiseList = __coze_shared_inbound_get_order_detail_ts_pruneMerchandiseList(merchList, maxMerchandise, includeItemList);
+                    }
+                    if (!includeItemList) delete copy.itemList;
+                    return copy;
+                  });
+                }
+
+                const sorted = [...list].sort((a, b) => {
+                  const pa = a as Record<string, unknown>;
+                  const pb = b as Record<string, unknown>;
+                  const sa = __coze_shared_inbound_get_order_detail_ts_str(pa.status).toUpperCase();
+                  const sb = __coze_shared_inbound_get_order_detail_ts_str(pb.status).toUpperCase();
+                  const unshelved = (s: string) => (s === "SCP" || s === "SHD" ? 1 : 0);
+                  if (unshelved(sa) !== unshelved(sb)) return unshelved(sa) - unshelved(sb);
+                  return __coze_shared_inbound_get_order_detail_ts_str(pb.unloadingTime ?? pb.shelvesTime).localeCompare(__coze_shared_inbound_get_order_detail_ts_str(pa.unloadingTime ?? pa.shelvesTime));
+                });
+
+                const retained = sorted.slice(0, maxPackages).map((pkg) => {
+                  const p = pkg as Record<string, unknown>;
+                  const merchList = (p.merchandiseList as unknown[]) ?? [];
+                  const copy = { ...p };
+                  if (merchList.length > 0) {
+                    copy.merchandiseList = __coze_shared_inbound_get_order_detail_ts_pruneMerchandiseList(merchList, maxMerchandise, includeItemList);
+                  }
+                  return copy;
+                });
+                retained.push({ _truncated: true, _remainingCount: list.length - maxPackages });
+                return retained;
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_filterItemLookup(packageList: unknown[], targetItemSernos: string[]): unknown[] {
+                const targets = new Set(targetItemSernos.map((t) => t.toUpperCase()));
+                const out: unknown[] = [];
+                for (const pkg of packageList) {
+                  const p = pkg as Record<string, unknown>;
+                  const merchList = (p.merchandiseList as unknown[]) ?? [];
+                  const keptMerch: unknown[] = [];
+                  for (const m of merchList) {
+                    const row = m as Record<string, unknown>;
+                    const items = (row.itemList as unknown[]) ?? [];
+                    const hitItems = items.filter((it) => {
+                      const i = it as Record<string, unknown>;
+                      return targets.has(__coze_shared_inbound_get_order_detail_ts_str(i.itemSerno).toUpperCase());
+                    });
+                    if (hitItems.length > 0) {
+                      keptMerch.push({ ...row, itemList: hitItems });
+                    }
+                  }
+                  if (keptMerch.length > 0) {
+                    out.push({ ...p, merchandiseList: keptMerch });
+                  }
+                }
+                return out;
+              }
+
+              function extractInboundOrderDetail(
+                order: Record<string, unknown>,
+                options: DetailExtractOptions
+              ): { order: Record<string, unknown>; meta: DetailExtractMeta } {
+                const normalized = normalizeInboundOrderFields(order);
+                const level = options.detailLevel;
+                const maxPackages = options.maxPackagesPerOrder ?? DEFAULT_MAX_PACKAGES;
+                const maxMerch = options.maxMerchandisePerPackage ?? DEFAULT_MAX_MERCH_PER_PKG;
+                const threshold = options.packageFetchThreshold ?? DEFAULT_PACKAGE_THRESHOLD;
+                const targetSkus = __coze_shared_inbound_get_order_detail_ts_arr(options.targetMerchandiseCodes as unknown);
+                const targetPkgs = __coze_shared_inbound_get_order_detail_ts_arr(options.targetPackageNos as unknown);
+                const targetItems = __coze_shared_inbound_get_order_detail_ts_arr(options.targetItemSernos as unknown);
+
+                const packageList = (normalized.packageList as unknown[]) ?? [];
+                const merchandiseList = (normalized.merchandiseList as unknown[]) ?? [];
+                const totalPackageQty = __coze_shared_inbound_get_order_detail_ts_num(normalized.totalPackageQty) || packageList.length;
+
+                const meta: DetailExtractMeta = {
+                  detailLevel: level,
+                  originalPackageCount: packageList.length,
+                  packagesDiscarded: false,
+                  merchandiseRowCount: merchandiseList.length,
+                };
+
+                const copy = { ...normalized };
+
+                if (level === "header") {
+                  delete copy.packageList;
+                  delete copy.inboundPackageVos;
+                  delete copy.merchandiseList;
+                  delete copy.inboundMerchandiseVos;
+                  meta.packagesDiscarded = packageList.length > 0;
+                  return { order: copy, meta };
+                }
+
+                if (level === "sku_summary" || level === "sku_filtered") {
+                  delete copy.packageList;
+                  delete copy.inboundPackageVos;
+                  meta.packagesDiscarded = packageList.length > 0;
+                  if (totalPackageQty > threshold) meta.largeOrderSkuOnly = true;
+
+                  let merch = merchandiseList;
+                  if (level === "sku_filtered" && targetSkus.length > 0) {
+                    const set = new Set(targetSkus.map((s) => s.toUpperCase()));
+                    merch = merchandiseList.filter((m) => {
+                      const code = __coze_shared_inbound_get_order_detail_ts_str((m as Record<string, unknown>).merchandiseCode).toUpperCase();
+                      return set.has(code);
+                    });
+                    meta.merchandiseRowCount = merch.length;
+                  }
+                  copy.merchandiseList = merch;
+                  delete copy.inboundMerchandiseVos;
+                  return { order: copy, meta };
+                }
+
+                if (level === "package_summary") {
+                  delete copy.packageList;
+                  delete copy.inboundPackageVos;
+                  meta.packagesDiscarded = true;
+                  copy._packageListForAggregate = packageList;
+                  return { order: copy, meta };
+                }
+
+                if (level === "package_detail" || level === "item_lookup") {
+                  if (
+                    totalPackageQty > threshold &&
+                    targetPkgs.length === 0 &&
+                    targetItems.length === 0
+                  ) {
+                    delete copy.packageList;
+                    delete copy.inboundPackageVos;
+                    meta.requiresNarrowing = true;
+                    meta.packagesDiscarded = true;
+                    return { order: copy, meta };
+                  }
+
+                  const includeItemList = level === "item_lookup";
+                  let pruned: unknown[];
+                  if (level === "item_lookup" && targetItems.length > 0) {
+                    pruned = __coze_shared_inbound_get_order_detail_ts_filterItemLookup(packageList, targetItems);
+                  } else {
+                    pruned = __coze_shared_inbound_get_order_detail_ts_prunePackageList(packageList, maxPackages, maxMerch, includeItemList, targetPkgs);
+                  }
+                  copy.packageList = pruned;
+                  delete copy.inboundPackageVos;
+                  meta.packagesRetained = pruned.filter((p) => !(p as Record<string, unknown>)._truncated).length;
+                  return { order: copy, meta };
+                }
+
+                return { order: copy, meta };
+              }
+
+              function extractInboundDetailBatch(
+                rawOrderData: Record<string, unknown>,
+                options: DetailExtractOptions
+              ): {
+                rawOrderData: Record<string, unknown>;
+                _detailExtractMeta: { orders: DetailExtractMeta[]; requiresNarrowing: boolean };
+              } {
+                const list = (rawOrderData.list as unknown[]) ?? [];
+                const extracted: unknown[] = [];
+                const metas: DetailExtractMeta[] = [];
+                let requiresNarrowing = false;
+
+                for (const item of list) {
+                  if (!item || typeof item !== "object") continue;
+                  const { order, meta } = extractInboundOrderDetail(item as Record<string, unknown>, options);
+                  extracted.push(order);
+                  metas.push(meta);
+                  if (meta.requiresNarrowing) requiresNarrowing = true;
+                }
+
+                return {
+                  rawOrderData: { ...rawOrderData, list: extracted, _detailExtractMeta: { orders: metas, requiresNarrowing } },
+                  _detailExtractMeta: { orders: metas, requiresNarrowing },
+                };
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_effectiveParts(row: Record<string, unknown>): number {
+                const spn = __coze_shared_inbound_get_order_detail_ts_num(row.standardPartsNum);
+                return spn > 0 ? spn : 1;
+              }
+
+              function aggregateSkuPutaway(
+                merchandiseList: unknown[],
+                targetMerchandiseCodes?: string[]
+              ): SkuPutawaySummary {
+                let rows = merchandiseList.filter((m) => m && typeof m === "object") as Record<string, unknown>[];
+                const targetSkusOnly = (targetMerchandiseCodes?.length ?? 0) > 0;
+                if (targetSkusOnly) {
+                  const set = new Set(targetMerchandiseCodes!.map((s) => s.toUpperCase()));
+                  rows = rows.filter((r) => set.has(__coze_shared_inbound_get_order_detail_ts_str(r.merchandiseCode).toUpperCase()));
+                }
+
+                let completedSkus = 0;
+                let partialSkus = 0;
+                let pendingSkus = 0;
+                const anomalySkus: SkuPutawaySummary["anomalySkus"] = [];
+
+                for (const row of rows) {
+                  const parts = __coze_shared_inbound_get_order_detail_ts_effectiveParts(row);
+                  const expected = __coze_shared_inbound_get_order_detail_ts_num(row.quantity) * parts;
+                  const actual = __coze_shared_inbound_get_order_detail_ts_num(row.actualQuantity) * parts;
+                  const inspectionQty = __coze_shared_inbound_get_order_detail_ts_num(row.inspectionQty) * parts;
+
+                  if (actual >= expected && expected > 0) completedSkus++;
+                  else if (actual > 0) partialSkus++;
+                  else pendingSkus++;
+
+                  // 以验收量为准判断异常：验收量存在时用它比较，否则回退到上架量
+                  // 避免「已验收通过但未上架」被误判为数量差异
+                  const effectiveReceived = inspectionQty > 0 ? inspectionQty : actual;
+                  if (expected > 0 && effectiveReceived !== expected) {
+                    anomalySkus.push({
+                      merchandiseCode: __coze_shared_inbound_get_order_detail_ts_str(row.merchandiseCode),
+                      quantity: expected,
+                      actualQuantity: actual,
+                      inspectionQty: inspectionQty || undefined,
+                    });
+                  }
+                }
+
+                const totalSkus = rows.length;
+                const putawayRate = totalSkus > 0 ? Math.round((completedSkus / totalSkus) * 100) / 100 : 0;
+
+                return {
+                  totalSkus,
+                  completedSkus,
+                  partialSkus,
+                  pendingSkus,
+                  putawayRate,
+                  anomalySkus: anomalySkus.slice(0, 50),
+                  targetSkusOnly,
+                };
+              }
+
+              function aggregatePackagePutaway(
+                order: Record<string, unknown>,
+                packageListOverride?: unknown[]
+              ): PackagePutawaySummary {
+                const packageList =
+                  packageListOverride ??
+                  (order._packageListForAggregate as unknown[]) ??
+                  (order.packageList as unknown[]) ??
+                  [];
+                const byStatus: Record<string, number> = {};
+                const unshelved: PackagePutawaySummary["recentUnshelvedSample"] = [];
+
+                for (const pkg of packageList) {
+                  if (!pkg || typeof pkg !== "object") continue;
+                  const p = pkg as Record<string, unknown>;
+                  if (p._truncated) continue;
+                  const status = __coze_shared_inbound_get_order_detail_ts_str(p.status) || "UNKNOWN";
+                  byStatus[status] = (byStatus[status] ?? 0) + 1;
+                  const shelved = ["SCP", "SHD"].includes(status.toUpperCase());
+                  if (!shelved && unshelved.length < 10) {
+                    unshelved.push({
+                      packageNo: __coze_shared_inbound_get_order_detail_ts_str(p.packageNo) || undefined,
+                      sellerCaseNo: __coze_shared_inbound_get_order_detail_ts_str(p.sellerCaseNo) || undefined,
+                      status,
+                      unloadingTime: __coze_shared_inbound_get_order_detail_ts_str(p.unloadingTime) || undefined,
+                      shelvesTime: __coze_shared_inbound_get_order_detail_ts_str(p.shelvesTime) || undefined,
+                    });
+                  }
+                }
+
+                const expectedPackages = __coze_shared_inbound_get_order_detail_ts_num(order.totalPackageQty ?? order.orderPackageQty);
+                const receivedPackages = __coze_shared_inbound_get_order_detail_ts_num(order.actualOrderPackageQty) || packageList.length;
+
+                return {
+                  totalPackages: packageList.filter((p) => !(p as Record<string, unknown>)?._truncated).length,
+                  byStatus,
+                  recentUnshelvedSample: unshelved,
+                  expectedPackages: expectedPackages || undefined,
+                  receivedPackages: receivedPackages || undefined,
+                  discrepancy:
+                    expectedPackages > 0 ? expectedPackages - receivedPackages : undefined,
+                };
+              }
+
+              /* coze-inline: node */
+              /**
+               * 节点：getOrderDetail 批处理（默认 sku_summary / isIncludePackage=Y）
+               */
+
+
+              const DEFAULT_DETAIL_LEVEL: DetailLevel = "sku_summary";
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const useListMode = params.useListMode === true;
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const customerRefNos = ((params.customerRefNos as string[]) ?? []).filter((o) => o?.trim());
+                const skipDetailApi = useListMode || (wiOrderNos.length === 0 && customerRefNos.length === 0);
+
+                if (skipDetailApi) {
+                  return {
+                    actions: [],
+                    actionPlans: [],
+                    winitPluginBatchActionsCount: 0,
+                    actionName: "winit.wh.inbound.getOrderDetail",
+                    skipDetailApi: true,
+                    detailLevel: DEFAULT_DETAIL_LEVEL,
+                    isIncludePackage: "Y" as const,
+                  };
+                }
+
+                const detailLevel = resolveDetailLevel(params, DEFAULT_DETAIL_LEVEL);
+                const batch = buildInboundDetailActions(wiOrderNos, customerRefNos, detailLevel);
+                return { ...batch, skipDetailApi: false };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-winit-inbound-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163000"
+              - name: customerRefNos
+                input:
+                    value:
+                        path: customerRefNos
+                        ref_node: "163000"
+              - name: useListMode
+                input:
+                    value:
+                        path: useListMode
+                        ref_node: "163000"
+              - name: detailLevel
+                input:
+                    value:
+                        path: inputs.detailLevel
+                        ref_node: "100001"
+              - name: includePackageDetails
+                input:
+                    value:
+                        path: inputs.includePackageDetails
+                        ref_node: "100001"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              winitPluginBatchActionsCount:
+                  type: integer
+                  value: null
+              actionName:
+                  type: string
+                  value: null
+              skipDetailApi:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163004"
+      type: code
+      title: build-exception-list-request
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          code: |-
+              /**
+               * 节点：组装入库单异常查询请求
+               * - 有单号：wh.inboundOrder.queryExceptionList（按单明细）
+               * - 批量/列表：wh.inboundOrderException.list（分页总览）
+               * FaaS 单文件闭环，无 external import。
+               */
+
+              const EXCEPTION_LIST_ACTION = "wh.inboundOrderException.list";
+              const ORDER_EXCEPTION_DETAIL_ACTION = "wh.inboundOrder.queryExceptionList";
+              const PAGE_SIZE = 20;
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const useListMode = params.useListMode === true;
+                const queryAllExceptions = params.queryAllExceptions === true;
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const dateRange = (params.dateRange ?? {}) as Record<string, unknown>;
+
+                const skipExceptionApi = !queryAllExceptions && wiOrderNos.length === 0 && !useListMode;
+
+                let actions: Array<{ action: string; data: string }> = [];
+                let exceptionActionPlans: Array<{ inputToken: string; queryBy: string; orderNo?: string }> = [];
+
+                if (wiOrderNos.length > 0) {
+                  actions = wiOrderNos.map((orderNo) => ({
+                    action: ORDER_EXCEPTION_DETAIL_ACTION,
+                    data: JSON.stringify({ orderNo }),
+                  }));
+                  exceptionActionPlans = wiOrderNos.map((orderNo) => ({
+                    inputToken: orderNo,
+                    queryBy: "queryExceptionList",
+                    orderNo,
+                  }));
+                } else if (queryAllExceptions || useListMode) {
+                  const data: Record<string, unknown> = {
+                    pageNo: 1,
+                    pageSize: PAGE_SIZE,
+                  };
+                  if (dateRange.from) data.orderDateStart = dateRange.from;
+                  if (dateRange.to) data.orderDateEnd = dateRange.to;
+                  actions = [{ action: EXCEPTION_LIST_ACTION, data: JSON.stringify(data) }];
+                  exceptionActionPlans = [{ inputToken: "all", queryBy: "inboundOrderException.list" }];
+                }
+
+                return {
+                  actions,
+                  exceptionActionPlans,
+                  exceptionActionName: wiOrderNos.length > 0 ? ORDER_EXCEPTION_DETAIL_ACTION : EXCEPTION_LIST_ACTION,
+                  skipExceptionApi,
+                  pageSize: PAGE_SIZE,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-exception-list-request")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163000"
+              - name: useListMode
+                input:
+                    value:
+                        path: useListMode
+                        ref_node: "163000"
+              - name: dateRange
+                input:
+                    value:
+                        path: inputs.dateRange
+                        ref_node: "100001"
+              - name: queryAllExceptions
+                input:
+                    value:
+                        path: inputs.queryAllExceptions
+                        ref_node: "100001"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              exceptionActionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              exceptionActionName:
+                  type: string
+                  value: null
+              skipExceptionApi:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163005"
+      type: plugin
+      title: winit_inbound_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163003"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163005"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163005"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163006"
+      type: code
+      title: fetch-inbound-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          code: |-
+              /**
+               * 节点：本地 Runner 补拉入库单详情
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceDetailPayload(parsed: unknown): Record<string, unknown> | null {
+                if (parsed == null || typeof parsed !== "object") return null;
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null && typeof o.output === "object") return coerceDetailPayload(o.output);
+                if (o.code === "0" || o.code === 0) {
+                  const inner = o.data;
+                  if (typeof inner === "string") {
+                    try {
+                      return coerceDetailPayload(JSON.parse(inner));
+                    } catch {
+                      return null;
+                    }
+                  }
+                  if (inner != null && typeof inner === "object") return coerceDetailPayload(inner);
+                  return null;
+                }
+                if (o.orderNo != null || o.inboundOrderNum != null || o.inboundOrderNo != null) return o;
+                return null;
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              function mergePluginOutputs(params: Record<string, unknown>): Record<string, unknown> {
+                const outputList = (Array.isArray(params.winitPluginOutputList) ? params.winitPluginOutputList : []) as Array<{
+                  data?: unknown;
+                }>;
+                const rowsByKey = new Map<string, Record<string, unknown>>();
+                for (const item of outputList) {
+                  const row = coerceDetailPayload(parseCozeWorkflowDataField(item?.data));
+                  if (!row) continue;
+                  const key = String(row.orderNo ?? row.inboundOrderNum ?? "").trim().toUpperCase();
+                  if (key) rowsByKey.set(key, row);
+                }
+                const list = Array.from(rowsByKey.values());
+                return { list, total: list.length, _fetchMeta: { strategy: "detail-batch", resolvedCount: list.length } };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipDetailApi === true) {
+                  return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "list-mode-skip-detail" } } };
+                }
+
+                const pluginList = params.winitPluginOutputList;
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  return { rawOrderData: mergePluginOutputs(params) };
+                }
+
+                const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{ action: string; data: string }>;
+                const env = getCozeWinitEnv();
+                const list: Record<string, unknown>[] = [];
+                const errors: string[] = [];
+
+                if (!env) {
+                  return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "skipped", reason: "missing Coze env" } } };
+                }
+
+                for (const act of actions) {
+                  try {
+                    const data = JSON.parse(act.data) as Record<string, unknown>;
+                    const parsed = await runCozeWinitWorkflow(env, act.action || INBOUND_DETAIL_ACTION, data);
+                    const row = coerceDetailPayload(parsed);
+                    if (row) list.push(row);
+                  } catch (e) {
+                    errors.push(String(e instanceof Error ? e.message : e));
+                  }
+                }
+
+                return {
+                  rawOrderData: {
+                    list,
+                    total: list.length,
+                    _fetchMeta: { strategy: "local-proxy", resolvedCount: list.length, errors: errors.length ? errors : undefined },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-inbound-order")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipDetailApi
+                input:
+                    value:
+                        path: skipDetailApi
+                        ref_node: "163003"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163003"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163003"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163005"
+          node_outputs:
+              rawOrderData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163007"
+      type: plugin
+      title: winit_exception_list_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 10
+              concurrentSize: 5
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163004"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163007"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163007"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163008"
+      type: code
+      title: fetch-exception-list
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          code: |-
+              /* coze-inline: shared/fms-token-url.ts */
+              type FmsRegion = "CN" | "US" | "EU" | "AU" | "DEFAULT";
+
+              type FmsCredential = {
+                fmsUrl: string;
+                clientId: string;
+                clientSecret: string;
+                edsUser: string;
+                edsToken: string;
+              };
+
+              type FmsRuntimeConfig = Partial<Record<FmsRegion, FmsCredential>>;
+
+              type FmsTokenUrlResult = {
+                rawUrl: string;
+                signedUrl: string;
+                region: FmsRegion | "";
+                status: "ok" | "not_fms" | "missing_config" | "invalid_url";
+              };
+
+              const FMS_REGIONS: FmsRegion[] = ["CN", "US", "EU", "AU"];
+
+              function __coze_shared_fms_token_url_ts_fmsEnv(name: string, fallback: string): string {
+                if (typeof process !== "undefined" && process.env?.[name]) {
+                  return String(process.env[name]).trim();
+                }
+                return fallback;
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsPlaceholder(region: FmsRegion, name: "CLIENT_KEY" | "CLIENT_SECRET" | "USER_KEY" | "USER_SECRET"): string {
+                const placeholders: Record<FmsRegion, Record<"CLIENT_KEY" | "CLIENT_SECRET" | "USER_KEY" | "USER_SECRET", string>> = {
+                  CN: {
+                    CLIENT_KEY: "__FMS_CN_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_CN_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_CN_USER_KEY__",
+                    USER_SECRET: "__FMS_CN_USER_SECRET__",
+                  },
+                  US: {
+                    CLIENT_KEY: "__FMS_US_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_US_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_US_USER_KEY__",
+                    USER_SECRET: "__FMS_US_USER_SECRET__",
+                  },
+                  AU: {
+                    CLIENT_KEY: "__FMS_AU_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_AU_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_AU_USER_KEY__",
+                    USER_SECRET: "__FMS_AU_USER_SECRET__",
+                  },
+                  EU: {
+                    CLIENT_KEY: "__FMS_EU_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_EU_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_EU_USER_KEY__",
+                    USER_SECRET: "__FMS_EU_USER_SECRET__",
+                  },
+                  DEFAULT: {
+                    CLIENT_KEY: "__FMS_US_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_US_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_US_USER_KEY__",
+                    USER_SECRET: "__FMS_US_USER_SECRET__",
+                  },
+                };
+                return placeholders[region][name];
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsCredentialFromEnv(region: FmsRegion, defaultUrl: string): FmsCredential {
+                return {
+                  fmsUrl: __coze_shared_fms_token_url_ts_fmsEnv(`FMS_${region}_URL`, defaultUrl).replace(/\/+$/, ""),
+                  clientId: __coze_shared_fms_token_url_ts_fmsEnv(`FMS_${region}_CLIENT_KEY`, __coze_shared_fms_token_url_ts_fmsPlaceholder(region, "CLIENT_KEY")),
+                  clientSecret: __coze_shared_fms_token_url_ts_fmsEnv(`FMS_${region}_CLIENT_SECRET`, __coze_shared_fms_token_url_ts_fmsPlaceholder(region, "CLIENT_SECRET")),
+                  edsUser: __coze_shared_fms_token_url_ts_fmsEnv(`FMS_${region}_USER_KEY`, __coze_shared_fms_token_url_ts_fmsPlaceholder(region, "USER_KEY")),
+                  edsToken: __coze_shared_fms_token_url_ts_fmsEnv(`FMS_${region}_USER_SECRET`, __coze_shared_fms_token_url_ts_fmsPlaceholder(region, "USER_SECRET")),
+                };
+              }
+
+              function defaultFmsRuntimeConfig(): FmsRuntimeConfig {
+                const us = __coze_shared_fms_token_url_ts_fmsCredentialFromEnv("US", "https://usfmsstream.winit.com.cn");
+                return {
+                  CN: __coze_shared_fms_token_url_ts_fmsCredentialFromEnv("CN", "https://cnfmsstream.winit.com.cn"),
+                  US: us,
+                  AU: __coze_shared_fms_token_url_ts_fmsCredentialFromEnv("AU", "https://aufmsstream.winit.com.cn"),
+                  EU: __coze_shared_fms_token_url_ts_fmsCredentialFromEnv("EU", "https://eufmsstream.winit.com.cn"),
+                  DEFAULT: us,
+                };
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsIsConfigured(value: string): boolean {
+                const s = value.trim();
+                return Boolean(s) && !/^__FMS_[A-Z]+_[A-Z_]+__$/.test(s);
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsHasCredential(credential: FmsCredential | undefined): credential is FmsCredential {
+                return Boolean(
+                  credential &&
+                    __coze_shared_fms_token_url_ts_fmsIsConfigured(credential.fmsUrl) &&
+                    __coze_shared_fms_token_url_ts_fmsIsConfigured(credential.clientId) &&
+                    __coze_shared_fms_token_url_ts_fmsIsConfigured(credential.clientSecret) &&
+                    __coze_shared_fms_token_url_ts_fmsIsConfigured(credential.edsUser) &&
+                    __coze_shared_fms_token_url_ts_fmsIsConfigured(credential.edsToken)
+                );
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsParseUrl(rawUrl: string): { isAbsolute: boolean; host: string; path: string } | null {
+                const trimmed = rawUrl.trim();
+                if (!trimmed) return null;
+                if (/^https?:\/\//i.test(trimmed)) {
+                  const match = trimmed.match(/^https?:\/\/([^/?#]+)([^?#]*)/i);
+                  if (!match) return null;
+                  return {
+                    isAbsolute: true,
+                    host: match[1] ?? "",
+                    path: match[2] || "/",
+                  };
+                }
+                const pathOnly = trimmed.split(/[?#]/)[0] ?? "";
+                return { isAbsolute: false, host: "", path: pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}` };
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsRegionByUrl(rawUrl: string, config: FmsRuntimeConfig): FmsRegion | "" {
+                const trimmed = rawUrl.trim();
+                for (const region of FMS_REGIONS) {
+                  const cfgUrl = config[region]?.fmsUrl?.replace(/\/+$/, "");
+                  if (cfgUrl && trimmed.startsWith(cfgUrl)) return region;
+                }
+
+                const parsed = __coze_shared_fms_token_url_ts_fmsParseUrl(trimmed);
+                if (parsed?.isAbsolute) {
+                  const match = parsed.host.match(/^([a-z]+)fmsstream\.winit\.com/i);
+                  const region = match?.[1]?.toUpperCase() as FmsRegion | undefined;
+                  if (region && FMS_REGIONS.includes(region)) return region;
+                  return "";
+                }
+
+                return config.DEFAULT ? "DEFAULT" : "";
+              }
+
+              function isFmsUrl(rawUrl: unknown, config: FmsRuntimeConfig = defaultFmsRuntimeConfig()): rawUrl is string {
+                return typeof rawUrl === "string" && __coze_shared_fms_token_url_ts_fmsRegionByUrl(rawUrl, config) !== "";
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsUrlForSigning(rawUrl: string, credential: FmsCredential): string {
+                const parsed = __coze_shared_fms_token_url_ts_fmsParseUrl(rawUrl);
+                const path = parsed?.path || "/";
+                const base = credential.fmsUrl.replace(/\/+$/, "");
+                return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsObjectUri(fileUrl: string): string {
+                return __coze_shared_fms_token_url_ts_fmsParseUrl(fileUrl)?.path || "/";
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsUtf8Bytes(input: string): number[] {
+                const bytes: number[] = [];
+                for (let i = 0; i < input.length; i++) {
+                  let code = input.charCodeAt(i);
+                  if (code < 0x80) {
+                    bytes.push(code);
+                  } else if (code < 0x800) {
+                    bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+                  } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < input.length) {
+                    const next = input.charCodeAt(++i);
+                    code = 0x10000 + ((code & 0x3ff) << 10) + (next & 0x3ff);
+                    bytes.push(
+                      0xf0 | (code >> 18),
+                      0x80 | ((code >> 12) & 0x3f),
+                      0x80 | ((code >> 6) & 0x3f),
+                      0x80 | (code & 0x3f)
+                    );
+                  } else {
+                    bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+                  }
+                }
+                return bytes;
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsLeftRotate(value: number, bits: number): number {
+                return ((value << bits) | (value >>> (32 - bits))) >>> 0;
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsSha1(bytes: number[]): number[] {
+                const message = bytes.slice();
+                const bitLength = message.length * 8;
+                message.push(0x80);
+                while ((message.length % 64) !== 56) message.push(0);
+                for (let i = 7; i >= 0; i--) message.push((bitLength / Math.pow(2, i * 8)) & 0xff);
+
+                let h0 = 0x67452301;
+                let h1 = 0xefcdab89;
+                let h2 = 0x98badcfe;
+                let h3 = 0x10325476;
+                let h4 = 0xc3d2e1f0;
+
+                for (let offset = 0; offset < message.length; offset += 64) {
+                  const w = new Array<number>(80);
+                  for (let i = 0; i < 16; i++) {
+                    const j = offset + i * 4;
+                    w[i] = ((message[j]! << 24) | (message[j + 1]! << 16) | (message[j + 2]! << 8) | message[j + 3]!) >>> 0;
+                  }
+                  for (let i = 16; i < 80; i++) {
+                    w[i] = __coze_shared_fms_token_url_ts_fmsLeftRotate((w[i - 3]! ^ w[i - 8]! ^ w[i - 14]! ^ w[i - 16]!) >>> 0, 1);
+                  }
+
+                  let a = h0;
+                  let b = h1;
+                  let c = h2;
+                  let d = h3;
+                  let e = h4;
+
+                  for (let i = 0; i < 80; i++) {
+                    let f = 0;
+                    let k = 0;
+                    if (i < 20) {
+                      f = (b & c) | (~b & d);
+                      k = 0x5a827999;
+                    } else if (i < 40) {
+                      f = b ^ c ^ d;
+                      k = 0x6ed9eba1;
+                    } else if (i < 60) {
+                      f = (b & c) | (b & d) | (c & d);
+                      k = 0x8f1bbcdc;
+                    } else {
+                      f = b ^ c ^ d;
+                      k = 0xca62c1d6;
+                    }
+                    const temp = (__coze_shared_fms_token_url_ts_fmsLeftRotate(a, 5) + f + e + k + w[i]!) >>> 0;
+                    e = d;
+                    d = c;
+                    c = __coze_shared_fms_token_url_ts_fmsLeftRotate(b, 30);
+                    b = a;
+                    a = temp;
+                  }
+
+                  h0 = (h0 + a) >>> 0;
+                  h1 = (h1 + b) >>> 0;
+                  h2 = (h2 + c) >>> 0;
+                  h3 = (h3 + d) >>> 0;
+                  h4 = (h4 + e) >>> 0;
+                }
+
+                const out: number[] = [];
+                for (const h of [h0, h1, h2, h3, h4]) {
+                  out.push((h >>> 24) & 0xff, (h >>> 16) & 0xff, (h >>> 8) & 0xff, h & 0xff);
+                }
+                return out;
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsHmacSha1Hex(key: string, message: string): string {
+                let keyBytes = __coze_shared_fms_token_url_ts_fmsUtf8Bytes(key);
+                if (keyBytes.length > 64) keyBytes = __coze_shared_fms_token_url_ts_fmsSha1(keyBytes);
+                while (keyBytes.length < 64) keyBytes.push(0);
+
+                const outer = keyBytes.map((b) => b ^ 0x5c);
+                const inner = keyBytes.map((b) => b ^ 0x36);
+                const digest = __coze_shared_fms_token_url_ts_fmsSha1(inner.concat(__coze_shared_fms_token_url_ts_fmsUtf8Bytes(message)));
+                return __coze_shared_fms_token_url_ts_fmsSha1(outer.concat(digest))
+                  .map((b) => b.toString(16).padStart(2, "0"))
+                  .join("")
+                  .toUpperCase();
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsBase64Utf8(input: string): string {
+                const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+                const bytes = __coze_shared_fms_token_url_ts_fmsUtf8Bytes(input);
+                let out = "";
+                for (let i = 0; i < bytes.length; i += 3) {
+                  const a = bytes[i]!;
+                  const b = bytes[i + 1];
+                  const c = bytes[i + 2];
+                  out += alphabet[a >> 2];
+                  out += alphabet[((a & 3) << 4) | ((b ?? 0) >> 4)];
+                  out += b === undefined ? "=" : alphabet[((b & 15) << 2) | ((c ?? 0) >> 6)];
+                  out += c === undefined ? "=" : alphabet[c & 63];
+                }
+                return out;
+              }
+
+              function buildFmsTokenUrl(
+                rawUrl: string,
+                config: FmsRuntimeConfig = defaultFmsRuntimeConfig(),
+                nowMs = Date.now()
+              ): FmsTokenUrlResult {
+                const parsed = __coze_shared_fms_token_url_ts_fmsParseUrl(rawUrl);
+                if (!parsed) return { rawUrl, signedUrl: rawUrl, region: "", status: "invalid_url" };
+
+                const region = __coze_shared_fms_token_url_ts_fmsRegionByUrl(rawUrl, config);
+                if (!region) return { rawUrl, signedUrl: rawUrl, region: "", status: "not_fms" };
+
+                const credential = config[region] ?? config.DEFAULT;
+                if (!__coze_shared_fms_token_url_ts_fmsHasCredential(credential)) {
+                  return { rawUrl, signedUrl: rawUrl, region, status: "missing_config" };
+                }
+
+                const fileUrl = __coze_shared_fms_token_url_ts_fmsUrlForSigning(rawUrl, credential);
+                const objectUri = __coze_shared_fms_token_url_ts_fmsObjectUri(fileUrl);
+                const date = Math.floor(nowMs);
+                const canonical = `GET\n${objectUri}?clientId=${credential.clientId}&date=${date}&user=${credential.edsUser}`;
+                const clientSign = __coze_shared_fms_token_url_ts_fmsHmacSha1Hex(credential.clientSecret, canonical);
+                const userSign = __coze_shared_fms_token_url_ts_fmsHmacSha1Hex(credential.edsToken, canonical);
+                const tokenContent =
+                  `${objectUri}?clientSign=${clientSign}` +
+                  `&userSign=${userSign}` +
+                  `&version=V1.0` +
+                  `&date=${date}` +
+                  `&user=${credential.edsUser}` +
+                  `&clientId=${credential.clientId}`;
+                return {
+                  rawUrl,
+                  signedUrl: `${fileUrl}?token=${__coze_shared_fms_token_url_ts_fmsBase64Utf8(tokenContent)}`,
+                  region,
+                  status: "ok",
+                };
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsSignedKey(key: string): string {
+                if (key === "fileUrl") return "signedFileUrl";
+                if (key === "url") return "signedUrl";
+                return `signed${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsSignStatusKey(key: string): string {
+                if (key === "fileUrl") return "fileUrlSignStatus";
+                if (key === "url") return "urlSignStatus";
+                return `${key}SignStatus`;
+              }
+
+              function __coze_shared_fms_token_url_ts_fmsShouldSignScalarKey(key: string): boolean {
+                return key === "fileUrl" || key === "url" || /url$/i.test(key);
+              }
+
+              function signFmsUrlDeep(
+                value: unknown,
+                config: FmsRuntimeConfig = defaultFmsRuntimeConfig(),
+                nowMs = Date.now()
+              ): unknown {
+                if (Array.isArray(value)) return value.map((item) => signFmsUrlDeep(item, config, nowMs));
+                if (!value || typeof value !== "object") return value;
+
+                const source = value as Record<string, unknown>;
+                const out: Record<string, unknown> = {};
+
+                for (const [key, raw] of Object.entries(source)) {
+                  out[key] = signFmsUrlDeep(raw, config, nowMs);
+                  if (__coze_shared_fms_token_url_ts_fmsShouldSignScalarKey(key) && typeof raw === "string") {
+                    const signed = buildFmsTokenUrl(raw, config, nowMs);
+                    if (signed.status === "ok") {
+                      out[__coze_shared_fms_token_url_ts_fmsSignedKey(key)] = signed.signedUrl;
+                    } else if (signed.status === "missing_config") {
+                      out[__coze_shared_fms_token_url_ts_fmsSignStatusKey(key)] = signed.status;
+                    }
+                  }
+                }
+
+                if (Array.isArray(source.unusualFiles)) {
+                  const signedUnusualFiles: string[] = [];
+                  const statuses: string[] = [];
+                  for (const raw of source.unusualFiles) {
+                    if (typeof raw !== "string") continue;
+                    const signed = buildFmsTokenUrl(raw, config, nowMs);
+                    if (signed.status === "ok") signedUnusualFiles.push(signed.signedUrl);
+                    else if (signed.status === "missing_config") statuses.push(signed.status);
+                  }
+                  if (signedUnusualFiles.length > 0) out.signedUnusualFiles = signedUnusualFiles;
+                  if (statuses.length > 0) out.unusualFilesSignStatus = Array.from(new Set(statuses)).join(",");
+                }
+
+                return out;
+              }
+
+              /* coze-inline: node */
+              /**
+               * 节点：本地 Runner 补拉入库单异常（list / queryExceptionList）
+               * FaaS 单文件闭环，无 external import。
+               */
+
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const EXCEPTION_LIST_ACTION = "wh.inboundOrderException.list";
+              const ORDER_EXCEPTION_DETAIL_ACTION = "wh.inboundOrder.queryExceptionList";
+
+              type ExceptionLookupStatus =
+                | "success_with_records"
+                | "success_empty"
+                | "api_error"
+                | "parse_error"
+                | "partial_failure"
+                | "skipped";
+
+              type CoercedExceptionList = {
+                list: unknown[];
+                total: number;
+                recognized: boolean;
+              };
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function flattenOrderExceptionDetails(orderNo: string, items: unknown[]): unknown[] {
+                const rows: unknown[] = [];
+                for (const item of items) {
+                  if (!item || typeof item !== "object") continue;
+                  const o = item as Record<string, unknown>;
+                  const exceptionName = str(o.exceptionName);
+                  const exceptionDesc = str(o.exceptionDesc);
+                  const details = Array.isArray(o.exceptionDetailList) ? o.exceptionDetailList : [];
+                  if (details.length === 0) {
+                    rows.push({
+                      orderNo,
+                      exceptionType: exceptionName,
+                      type: exceptionName,
+                      exceptionReason: exceptionDesc,
+                      errormsg: exceptionDesc,
+                    });
+                    continue;
+                  }
+                  for (const d of details) {
+                    if (!d || typeof d !== "object") continue;
+                    const detail = d as Record<string, unknown>;
+                    rows.push({
+                      orderNo,
+                      exceptionType: exceptionName,
+                      type: exceptionName,
+                      exceptionReason: exceptionDesc,
+                      errormsg: exceptionDesc,
+                      merchandiseCode: str(detail.merchandiseSerno),
+                      packageNo: str(detail.packageSerno),
+                    });
+                  }
+                }
+                return rows;
+              }
+
+              function coerceExceptionList(parsed: unknown, orderNoHint?: string): CoercedExceptionList {
+                if (parsed == null || parsed === "") return { list: [], total: 0, recognized: true };
+
+                if (Array.isArray(parsed)) {
+                  const orderNo = orderNoHint ?? "";
+                  const list = orderNo ? flattenOrderExceptionDetails(orderNo, parsed) : parsed;
+                  return { list, total: list.length, recognized: true };
+                }
+
+                if (typeof parsed !== "object") return { list: [], total: 0, recognized: false };
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coerceExceptionList(o.output, orderNoHint);
+
+                if (o.code === "0" || o.code === 0) {
+                  const inner = o.data;
+                  if (typeof inner === "string") {
+                    try {
+                      return coerceExceptionList(JSON.parse(inner), orderNoHint);
+                    } catch {
+                      return inner.trim() === ""
+                        ? { list: [], total: 0, recognized: true }
+                        : { list: [], total: 0, recognized: false };
+                    }
+                  }
+                  if (inner != null) return coerceExceptionList(inner, orderNoHint);
+                  return { list: [], total: 0, recognized: true };
+                }
+
+                const hasListField = Array.isArray(o.list) || Array.isArray(o.records);
+                if (!hasListField) return { list: [], total: 0, recognized: false };
+                const list = Array.isArray(o.list) ? o.list : (o.records as unknown[]);
+                const pageParams = (o.pageParams ?? {}) as Record<string, unknown>;
+                const total =
+                  typeof pageParams.totalCount === "number"
+                    ? pageParams.totalCount
+                    : typeof o.totalCount === "number"
+                      ? o.totalCount
+                      : typeof o.total === "number"
+                        ? o.total
+                        : list.length;
+                return { list, total, recognized: true };
+              }
+
+              function resolveLookupStatus(
+                resolvedCount: number,
+                emptySuccessCount: number,
+                apiErrorCount: number,
+                parseErrorCount: number,
+              ): ExceptionLookupStatus {
+                if (apiErrorCount > 0 || parseErrorCount > 0) {
+                  if (resolvedCount > 0 || emptySuccessCount > 0) return "partial_failure";
+                  return apiErrorCount > 0 ? "api_error" : "parse_error";
+                }
+                return resolvedCount > 0 ? "success_with_records" : "success_empty";
+              }
+
+              function pluginError(item: Record<string, unknown>): string | null {
+                const code = item.code;
+                if (code === 0 || code === "0") return null;
+                if (code == null) return "plugin code missing";
+                return `plugin code=${String(code)}`;
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipExceptionApi === true) {
+                  return {
+                    rawExceptionData: {
+                      list: [],
+                      total: 0,
+                      _fetchMeta: { strategy: "skipped", status: "skipped", requestCount: 0, resolvedCount: 0 },
+                    },
+                  };
+                }
+
+                const pluginList = params.winitExceptionPluginOutputList ?? params.winitPluginOutputList;
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  const allList: unknown[] = [];
+                  let total = 0;
+                  let emptySuccessCount = 0;
+                  let apiErrorCount = 0;
+                  let parseErrorCount = 0;
+                  const errors: string[] = [];
+                  const plans = (Array.isArray(params.exceptionActionPlans) ? params.exceptionActionPlans : []) as Array<{
+                    orderNo?: string;
+                  }>;
+                  for (let i = 0; i < pluginList.length; i++) {
+                    const item = (pluginList[i] ?? {}) as Record<string, unknown>;
+                    const error = pluginError(item);
+                    if (error) {
+                      apiErrorCount += 1;
+                      errors.push(error);
+                      continue;
+                    }
+                    const orderNoHint = str(plans[i]?.orderNo);
+                    const parsed = parseCozeWorkflowDataField(item.data);
+                    const { list, total: t, recognized } = coerceExceptionList(parsed, orderNoHint || undefined);
+                    if (!recognized) {
+                      parseErrorCount += 1;
+                      errors.push(`unrecognized response at batch index ${i}`);
+                      continue;
+                    }
+                    if (list.length === 0) emptySuccessCount += 1;
+                    allList.push(...list);
+                    total += t;
+                  }
+                  const signedList = signFmsUrlDeep(allList) as unknown[];
+                  const status = resolveLookupStatus(signedList.length, emptySuccessCount, apiErrorCount, parseErrorCount);
+                  return {
+                    rawExceptionData: {
+                      list: signedList,
+                      total: total || signedList.length,
+                      _fetchMeta: {
+                        strategy: "plugin-batch",
+                        status,
+                        requestCount: pluginList.length,
+                        resolvedCount: signedList.length,
+                        emptySuccessCount,
+                        apiErrorCount,
+                        parseErrorCount,
+                        errors: errors.length ? errors : undefined,
+                      },
+                    },
+                  };
+                }
+
+                const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                  action: string;
+                  data: string;
+                }>;
+                const env = getCozeWinitEnv();
+                if (!env || actions.length === 0) {
+                  return {
+                    rawExceptionData: {
+                      list: [],
+                      total: 0,
+                      _fetchMeta: {
+                        strategy: "skipped",
+                        status: "skipped",
+                        requestCount: actions.length,
+                        resolvedCount: 0,
+                      },
+                    },
+                  };
+                }
+
+                const errors: string[] = [];
+                const allList: unknown[] = [];
+                let total = 0;
+                let emptySuccessCount = 0;
+                let parseErrorCount = 0;
+                for (const act of actions) {
+                  try {
+                    const data = JSON.parse(act.data) as Record<string, unknown>;
+                    const orderNoHint = str(data.orderNo);
+                    const action = act.action || EXCEPTION_LIST_ACTION;
+                    const parsed = await runCozeWinitWorkflow(
+                      env,
+                      action,
+                      data
+                    );
+                    const result = coerceExceptionList(parsed, orderNoHint || undefined);
+                    if (!result.recognized) {
+                      parseErrorCount += 1;
+                      errors.push(`unrecognized response for action ${action}`);
+                      continue;
+                    }
+                    if (result.list.length === 0) emptySuccessCount += 1;
+                    allList.push(...result.list);
+                    total += result.total;
+                  } catch (e) {
+                    errors.push(e instanceof SyntaxError ? "invalid action data" : "exception lookup request failed");
+                  }
+                }
+
+                const signedList = signFmsUrlDeep(allList) as unknown[];
+                const apiErrorCount = errors.length - parseErrorCount;
+                const status = resolveLookupStatus(signedList.length, emptySuccessCount, apiErrorCount, parseErrorCount);
+                return {
+                  rawExceptionData: {
+                    list: signedList,
+                    total: total || signedList.length,
+                    _fetchMeta: {
+                      strategy: "local-proxy",
+                      status,
+                      requestCount: actions.length,
+                      resolvedCount: signedList.length,
+                      emptySuccessCount,
+                      apiErrorCount,
+                      parseErrorCount,
+                      errors: errors.length ? errors : undefined,
+                    },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-exception-list")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipExceptionApi
+                input:
+                    value:
+                        path: skipExceptionApi
+                        ref_node: "163004"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163004"
+              - name: exceptionActionPlans
+                input:
+                    value:
+                        path: exceptionActionPlans
+                        ref_node: "163004"
+              - name: winitExceptionPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163007"
+          node_outputs:
+              rawExceptionData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163009"
+      type: code
+      title: extract-inbound-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2627
+      parameters:
+          code: |-
+              /* coze-inline: shared/inbound-get-order-detail.ts */
+              /**
+               * 入库单 getOrderDetail 详情分层：detailLevel ↔ isIncludePackage、extract、SKU/包裹聚合
+               * 官方 id/39：N 不返回 merchandiseList/packageList；无包裹分页 API
+               */
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              type DetailLevel =
+                | "header"
+                | "sku_summary"
+                | "sku_filtered"
+                | "package_summary"
+                | "package_detail"
+                | "item_lookup";
+
+              type IsIncludePackage = "Y" | "N";
+
+              interface DetailExtractOptions {
+                detailLevel: DetailLevel;
+                targetMerchandiseCodes?: string[];
+                targetPackageNos?: string[];
+                targetItemSernos?: string[];
+                maxPackagesPerOrder?: number;
+                maxMerchandisePerPackage?: number;
+                packageFetchThreshold?: number;
+              }
+
+              interface DetailExtractMeta {
+                detailLevel: DetailLevel;
+                originalPackageCount: number;
+                packagesDiscarded: boolean;
+                merchandiseRowCount: number;
+                requiresNarrowing?: boolean;
+                largeOrderSkuOnly?: boolean;
+                packagesRetained?: number;
+              }
+
+              interface SkuPutawaySummary {
+                totalSkus: number;
+                completedSkus: number;
+                partialSkus: number;
+                pendingSkus: number;
+                putawayRate: number;
+                anomalySkus: Array<{
+                  merchandiseCode: string;
+                  quantity: number;
+                  actualQuantity: number;
+                  inspectionQty?: number;
+                }>;
+                targetSkusOnly: boolean;
+              }
+
+              interface PackagePutawaySummary {
+                totalPackages: number;
+                byStatus: Record<string, number>;
+                recentUnshelvedSample: Array<{
+                  packageNo?: string;
+                  sellerCaseNo?: string;
+                  status?: string;
+                  unloadingTime?: string;
+                  shelvesTime?: string;
+                }>;
+                expectedPackages?: number;
+                receivedPackages?: number;
+                discrepancy?: number;
+              }
+
+              const PLUGIN_BATCH_MAX_DEFAULT = 100;
+              const DEFAULT_MAX_PACKAGES = 50;
+              const DEFAULT_MAX_MERCH_PER_PKG = 20;
+              const DEFAULT_PACKAGE_THRESHOLD = 200;
+
+              function __coze_shared_inbound_get_order_detail_ts_str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_num(v: unknown): number {
+                const n = Number(v);
+                return Number.isFinite(n) ? n : 0;
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_arr(v: unknown): string[] {
+                if (!Array.isArray(v)) return [];
+                return v.map((x) => __coze_shared_inbound_get_order_detail_ts_str(x)).filter(Boolean);
+              }
+
+              function getPluginBatchMaxActions(): number {
+                if (typeof process !== "undefined" && process.env?.COZE_WINIT_PLUGIN_BATCH_MAX) {
+                  const n = Number(process.env.COZE_WINIT_PLUGIN_BATCH_MAX);
+                  if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+                }
+                return PLUGIN_BATCH_MAX_DEFAULT;
+              }
+
+              function isIncludePackageForLevel(level: DetailLevel): IsIncludePackage {
+                return level === "header" ? "N" : "Y";
+              }
+
+              /** 解析 detailLevel：兼容 includePackageDetails / checkPackageQty */
+              function resolveDetailLevel(
+                params: Record<string, unknown>,
+                defaultLevel: DetailLevel
+              ): DetailLevel {
+                if (params.includePackageDetails === true) return "package_detail";
+                const raw = __coze_shared_inbound_get_order_detail_ts_str(params.detailLevel);
+                const levels: DetailLevel[] = [
+                  "header",
+                  "sku_summary",
+                  "sku_filtered",
+                  "package_summary",
+                  "package_detail",
+                  "item_lookup",
+                ];
+                if (raw && levels.includes(raw as DetailLevel)) return raw as DetailLevel;
+                if (params.checkPackageQty === true && defaultLevel === "header") return "package_summary";
+                return defaultLevel;
+              }
+
+              /** 统一官方字段名与历史别名 */
+              function normalizeInboundOrderFields(order: Record<string, unknown>): Record<string, unknown> {
+                const copy = { ...order };
+                if (!copy.packageList && Array.isArray(copy.inboundPackageVos)) {
+                  copy.packageList = copy.inboundPackageVos;
+                }
+                if (!copy.merchandiseList && Array.isArray(copy.inboundMerchandiseVos)) {
+                  copy.merchandiseList = copy.inboundMerchandiseVos;
+                }
+                return copy;
+              }
+
+              type InboundDetailActionPlan = {
+                inputToken: string;
+                queryBy: "orderNo" | "customerOrderNo";
+              };
+
+              function buildInboundDetailActions(
+                wiOrderNos: string[],
+                customerRefNos: string[],
+                detailLevel: DetailLevel
+              ): {
+                actions: Array<{ action: string; data: string }>;
+                actionPlans: InboundDetailActionPlan[];
+                winitPluginBatchActionsCount: number;
+                actionName: string;
+                detailLevel: DetailLevel;
+                isIncludePackage: IsIncludePackage;
+              } {
+                const actionPlans: InboundDetailActionPlan[] = [];
+                for (const no of wiOrderNos) {
+                  if (no?.trim()) actionPlans.push({ inputToken: no.trim(), queryBy: "orderNo" });
+                }
+                for (const ref of customerRefNos) {
+                  if (ref?.trim()) actionPlans.push({ inputToken: ref.trim(), queryBy: "customerOrderNo" });
+                }
+
+                const isIncludePackage = isIncludePackageForLevel(detailLevel);
+                const maxActions = getPluginBatchMaxActions();
+                const forPlugin = actionPlans.slice(0, maxActions);
+
+                const actions = forPlugin.map((p) => {
+                  const data: Record<string, string> = { isIncludePackage };
+                  if (p.queryBy === "orderNo") data.orderNo = p.inputToken;
+                  else data.customerOrderNo = p.inputToken;
+                  return { action: INBOUND_DETAIL_ACTION, data: JSON.stringify(data) };
+                });
+
+                return {
+                  actions,
+                  actionPlans: forPlugin,
+                  winitPluginBatchActionsCount: actions.length,
+                  actionName: INBOUND_DETAIL_ACTION,
+                  detailLevel,
+                  isIncludePackage,
+                };
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_pruneMerchandiseList(
+                merchandiseList: unknown[],
+                maxMerchandise: number,
+                includeItemList: boolean
+              ): unknown[] {
+                const mapRow = (m: unknown) => {
+                  const copy = { ...(m as Record<string, unknown>) };
+                  if (!includeItemList) {
+                    delete copy.itemList;
+                    delete copy.batchList;
+                  }
+                  return copy;
+                };
+                if (merchandiseList.length <= maxMerchandise) {
+                  return merchandiseList.map(mapRow);
+                }
+                const pruned = merchandiseList.slice(0, maxMerchandise).map(mapRow);
+                pruned.push({ _truncated: true, _remainingCount: merchandiseList.length - maxMerchandise });
+                return pruned;
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_prunePackageList(
+                packageList: unknown[],
+                maxPackages: number,
+                maxMerchandise: number,
+                includeItemList: boolean,
+                targetPackageNos?: string[]
+              ): unknown[] {
+                let list = packageList;
+                if (targetPackageNos?.length) {
+                  const targets = new Set(targetPackageNos.map((t) => t.toUpperCase()));
+                  list = packageList.filter((pkg) => {
+                    const p = pkg as Record<string, unknown>;
+                    const keys = [p.packageNo, p.sellerCaseNo, p.packageNum, p.barcode].map(__coze_shared_inbound_get_order_detail_ts_str);
+                    return keys.some((k) => k && targets.has(k.toUpperCase()));
+                  });
+                }
+
+                if (list.length <= maxPackages) {
+                  return list.map((pkg) => {
+                    const p = pkg as Record<string, unknown>;
+                    const merchList = (p.merchandiseList as unknown[]) ?? [];
+                    const copy = { ...p };
+                    if (merchList.length > 0) {
+                      copy.merchandiseList = __coze_shared_inbound_get_order_detail_ts_pruneMerchandiseList(merchList, maxMerchandise, includeItemList);
+                    }
+                    if (!includeItemList) delete copy.itemList;
+                    return copy;
+                  });
+                }
+
+                const sorted = [...list].sort((a, b) => {
+                  const pa = a as Record<string, unknown>;
+                  const pb = b as Record<string, unknown>;
+                  const sa = __coze_shared_inbound_get_order_detail_ts_str(pa.status).toUpperCase();
+                  const sb = __coze_shared_inbound_get_order_detail_ts_str(pb.status).toUpperCase();
+                  const unshelved = (s: string) => (s === "SCP" || s === "SHD" ? 1 : 0);
+                  if (unshelved(sa) !== unshelved(sb)) return unshelved(sa) - unshelved(sb);
+                  return __coze_shared_inbound_get_order_detail_ts_str(pb.unloadingTime ?? pb.shelvesTime).localeCompare(__coze_shared_inbound_get_order_detail_ts_str(pa.unloadingTime ?? pa.shelvesTime));
+                });
+
+                const retained = sorted.slice(0, maxPackages).map((pkg) => {
+                  const p = pkg as Record<string, unknown>;
+                  const merchList = (p.merchandiseList as unknown[]) ?? [];
+                  const copy = { ...p };
+                  if (merchList.length > 0) {
+                    copy.merchandiseList = __coze_shared_inbound_get_order_detail_ts_pruneMerchandiseList(merchList, maxMerchandise, includeItemList);
+                  }
+                  return copy;
+                });
+                retained.push({ _truncated: true, _remainingCount: list.length - maxPackages });
+                return retained;
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_filterItemLookup(packageList: unknown[], targetItemSernos: string[]): unknown[] {
+                const targets = new Set(targetItemSernos.map((t) => t.toUpperCase()));
+                const out: unknown[] = [];
+                for (const pkg of packageList) {
+                  const p = pkg as Record<string, unknown>;
+                  const merchList = (p.merchandiseList as unknown[]) ?? [];
+                  const keptMerch: unknown[] = [];
+                  for (const m of merchList) {
+                    const row = m as Record<string, unknown>;
+                    const items = (row.itemList as unknown[]) ?? [];
+                    const hitItems = items.filter((it) => {
+                      const i = it as Record<string, unknown>;
+                      return targets.has(__coze_shared_inbound_get_order_detail_ts_str(i.itemSerno).toUpperCase());
+                    });
+                    if (hitItems.length > 0) {
+                      keptMerch.push({ ...row, itemList: hitItems });
+                    }
+                  }
+                  if (keptMerch.length > 0) {
+                    out.push({ ...p, merchandiseList: keptMerch });
+                  }
+                }
+                return out;
+              }
+
+              function extractInboundOrderDetail(
+                order: Record<string, unknown>,
+                options: DetailExtractOptions
+              ): { order: Record<string, unknown>; meta: DetailExtractMeta } {
+                const normalized = normalizeInboundOrderFields(order);
+                const level = options.detailLevel;
+                const maxPackages = options.maxPackagesPerOrder ?? DEFAULT_MAX_PACKAGES;
+                const maxMerch = options.maxMerchandisePerPackage ?? DEFAULT_MAX_MERCH_PER_PKG;
+                const threshold = options.packageFetchThreshold ?? DEFAULT_PACKAGE_THRESHOLD;
+                const targetSkus = __coze_shared_inbound_get_order_detail_ts_arr(options.targetMerchandiseCodes as unknown);
+                const targetPkgs = __coze_shared_inbound_get_order_detail_ts_arr(options.targetPackageNos as unknown);
+                const targetItems = __coze_shared_inbound_get_order_detail_ts_arr(options.targetItemSernos as unknown);
+
+                const packageList = (normalized.packageList as unknown[]) ?? [];
+                const merchandiseList = (normalized.merchandiseList as unknown[]) ?? [];
+                const totalPackageQty = __coze_shared_inbound_get_order_detail_ts_num(normalized.totalPackageQty) || packageList.length;
+
+                const meta: DetailExtractMeta = {
+                  detailLevel: level,
+                  originalPackageCount: packageList.length,
+                  packagesDiscarded: false,
+                  merchandiseRowCount: merchandiseList.length,
+                };
+
+                const copy = { ...normalized };
+
+                if (level === "header") {
+                  delete copy.packageList;
+                  delete copy.inboundPackageVos;
+                  delete copy.merchandiseList;
+                  delete copy.inboundMerchandiseVos;
+                  meta.packagesDiscarded = packageList.length > 0;
+                  return { order: copy, meta };
+                }
+
+                if (level === "sku_summary" || level === "sku_filtered") {
+                  delete copy.packageList;
+                  delete copy.inboundPackageVos;
+                  meta.packagesDiscarded = packageList.length > 0;
+                  if (totalPackageQty > threshold) meta.largeOrderSkuOnly = true;
+
+                  let merch = merchandiseList;
+                  if (level === "sku_filtered" && targetSkus.length > 0) {
+                    const set = new Set(targetSkus.map((s) => s.toUpperCase()));
+                    merch = merchandiseList.filter((m) => {
+                      const code = __coze_shared_inbound_get_order_detail_ts_str((m as Record<string, unknown>).merchandiseCode).toUpperCase();
+                      return set.has(code);
+                    });
+                    meta.merchandiseRowCount = merch.length;
+                  }
+                  copy.merchandiseList = merch;
+                  delete copy.inboundMerchandiseVos;
+                  return { order: copy, meta };
+                }
+
+                if (level === "package_summary") {
+                  delete copy.packageList;
+                  delete copy.inboundPackageVos;
+                  meta.packagesDiscarded = true;
+                  copy._packageListForAggregate = packageList;
+                  return { order: copy, meta };
+                }
+
+                if (level === "package_detail" || level === "item_lookup") {
+                  if (
+                    totalPackageQty > threshold &&
+                    targetPkgs.length === 0 &&
+                    targetItems.length === 0
+                  ) {
+                    delete copy.packageList;
+                    delete copy.inboundPackageVos;
+                    meta.requiresNarrowing = true;
+                    meta.packagesDiscarded = true;
+                    return { order: copy, meta };
+                  }
+
+                  const includeItemList = level === "item_lookup";
+                  let pruned: unknown[];
+                  if (level === "item_lookup" && targetItems.length > 0) {
+                    pruned = __coze_shared_inbound_get_order_detail_ts_filterItemLookup(packageList, targetItems);
+                  } else {
+                    pruned = __coze_shared_inbound_get_order_detail_ts_prunePackageList(packageList, maxPackages, maxMerch, includeItemList, targetPkgs);
+                  }
+                  copy.packageList = pruned;
+                  delete copy.inboundPackageVos;
+                  meta.packagesRetained = pruned.filter((p) => !(p as Record<string, unknown>)._truncated).length;
+                  return { order: copy, meta };
+                }
+
+                return { order: copy, meta };
+              }
+
+              function extractInboundDetailBatch(
+                rawOrderData: Record<string, unknown>,
+                options: DetailExtractOptions
+              ): {
+                rawOrderData: Record<string, unknown>;
+                _detailExtractMeta: { orders: DetailExtractMeta[]; requiresNarrowing: boolean };
+              } {
+                const list = (rawOrderData.list as unknown[]) ?? [];
+                const extracted: unknown[] = [];
+                const metas: DetailExtractMeta[] = [];
+                let requiresNarrowing = false;
+
+                for (const item of list) {
+                  if (!item || typeof item !== "object") continue;
+                  const { order, meta } = extractInboundOrderDetail(item as Record<string, unknown>, options);
+                  extracted.push(order);
+                  metas.push(meta);
+                  if (meta.requiresNarrowing) requiresNarrowing = true;
+                }
+
+                return {
+                  rawOrderData: { ...rawOrderData, list: extracted, _detailExtractMeta: { orders: metas, requiresNarrowing } },
+                  _detailExtractMeta: { orders: metas, requiresNarrowing },
+                };
+              }
+
+              function __coze_shared_inbound_get_order_detail_ts_effectiveParts(row: Record<string, unknown>): number {
+                const spn = __coze_shared_inbound_get_order_detail_ts_num(row.standardPartsNum);
+                return spn > 0 ? spn : 1;
+              }
+
+              function aggregateSkuPutaway(
+                merchandiseList: unknown[],
+                targetMerchandiseCodes?: string[]
+              ): SkuPutawaySummary {
+                let rows = merchandiseList.filter((m) => m && typeof m === "object") as Record<string, unknown>[];
+                const targetSkusOnly = (targetMerchandiseCodes?.length ?? 0) > 0;
+                if (targetSkusOnly) {
+                  const set = new Set(targetMerchandiseCodes!.map((s) => s.toUpperCase()));
+                  rows = rows.filter((r) => set.has(__coze_shared_inbound_get_order_detail_ts_str(r.merchandiseCode).toUpperCase()));
+                }
+
+                let completedSkus = 0;
+                let partialSkus = 0;
+                let pendingSkus = 0;
+                const anomalySkus: SkuPutawaySummary["anomalySkus"] = [];
+
+                for (const row of rows) {
+                  const parts = __coze_shared_inbound_get_order_detail_ts_effectiveParts(row);
+                  const expected = __coze_shared_inbound_get_order_detail_ts_num(row.quantity) * parts;
+                  const actual = __coze_shared_inbound_get_order_detail_ts_num(row.actualQuantity) * parts;
+                  const inspectionQty = __coze_shared_inbound_get_order_detail_ts_num(row.inspectionQty) * parts;
+
+                  if (actual >= expected && expected > 0) completedSkus++;
+                  else if (actual > 0) partialSkus++;
+                  else pendingSkus++;
+
+                  // 以验收量为准判断异常：验收量存在时用它比较，否则回退到上架量
+                  // 避免「已验收通过但未上架」被误判为数量差异
+                  const effectiveReceived = inspectionQty > 0 ? inspectionQty : actual;
+                  if (expected > 0 && effectiveReceived !== expected) {
+                    anomalySkus.push({
+                      merchandiseCode: __coze_shared_inbound_get_order_detail_ts_str(row.merchandiseCode),
+                      quantity: expected,
+                      actualQuantity: actual,
+                      inspectionQty: inspectionQty || undefined,
+                    });
+                  }
+                }
+
+                const totalSkus = rows.length;
+                const putawayRate = totalSkus > 0 ? Math.round((completedSkus / totalSkus) * 100) / 100 : 0;
+
+                return {
+                  totalSkus,
+                  completedSkus,
+                  partialSkus,
+                  pendingSkus,
+                  putawayRate,
+                  anomalySkus: anomalySkus.slice(0, 50),
+                  targetSkusOnly,
+                };
+              }
+
+              function aggregatePackagePutaway(
+                order: Record<string, unknown>,
+                packageListOverride?: unknown[]
+              ): PackagePutawaySummary {
+                const packageList =
+                  packageListOverride ??
+                  (order._packageListForAggregate as unknown[]) ??
+                  (order.packageList as unknown[]) ??
+                  [];
+                const byStatus: Record<string, number> = {};
+                const unshelved: PackagePutawaySummary["recentUnshelvedSample"] = [];
+
+                for (const pkg of packageList) {
+                  if (!pkg || typeof pkg !== "object") continue;
+                  const p = pkg as Record<string, unknown>;
+                  if (p._truncated) continue;
+                  const status = __coze_shared_inbound_get_order_detail_ts_str(p.status) || "UNKNOWN";
+                  byStatus[status] = (byStatus[status] ?? 0) + 1;
+                  const shelved = ["SCP", "SHD"].includes(status.toUpperCase());
+                  if (!shelved && unshelved.length < 10) {
+                    unshelved.push({
+                      packageNo: __coze_shared_inbound_get_order_detail_ts_str(p.packageNo) || undefined,
+                      sellerCaseNo: __coze_shared_inbound_get_order_detail_ts_str(p.sellerCaseNo) || undefined,
+                      status,
+                      unloadingTime: __coze_shared_inbound_get_order_detail_ts_str(p.unloadingTime) || undefined,
+                      shelvesTime: __coze_shared_inbound_get_order_detail_ts_str(p.shelvesTime) || undefined,
+                    });
+                  }
+                }
+
+                const expectedPackages = __coze_shared_inbound_get_order_detail_ts_num(order.totalPackageQty ?? order.orderPackageQty);
+                const receivedPackages = __coze_shared_inbound_get_order_detail_ts_num(order.actualOrderPackageQty) || packageList.length;
+
+                return {
+                  totalPackages: packageList.filter((p) => !(p as Record<string, unknown>)?._truncated).length,
+                  byStatus,
+                  recentUnshelvedSample: unshelved,
+                  expectedPackages: expectedPackages || undefined,
+                  receivedPackages: receivedPackages || undefined,
+                  discrepancy:
+                    expectedPackages > 0 ? expectedPackages - receivedPackages : undefined,
+                };
+              }
+
+              /* coze-inline: node */
+              /**
+               * 节点：SKU 差异路径剥离 packageList
+               */
+
+
+              const DEFAULT_DETAIL_LEVEL: DetailLevel = "sku_summary";
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawOrderData = (params.rawOrderData ?? {}) as Record<string, unknown>;
+                const detailLevel = resolveDetailLevel(params, DEFAULT_DETAIL_LEVEL);
+
+                const { rawOrderData: extracted, _detailExtractMeta } = extractInboundDetailBatch(rawOrderData, {
+                  detailLevel,
+                  targetMerchandiseCodes: params.targetMerchandiseCodes as string[] | undefined,
+                  targetPackageNos: params.targetPackageNos as string[] | undefined,
+                  targetItemSernos: params.targetItemSernos as string[] | undefined,
+                  maxPackagesPerOrder: params.maxPackagesPerOrder as number | undefined,
+                  maxMerchandisePerPackage: params.maxMerchandisePerPackage as number | undefined,
+                });
+
+                return { rawOrderData: extracted, _detailExtractMeta, detailLevel, requiresNarrowing: _detailExtractMeta.requiresNarrowing };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("extract-inbound-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163006"
+              - name: detailLevel
+                input:
+                    value:
+                        path: inputs.detailLevel
+                        ref_node: "100001"
+              - name: includePackageDetails
+                input:
+                    value:
+                        path: inputs.includePackageDetails
+                        ref_node: "100001"
+              - name: targetMerchandiseCodes
+                input:
+                    value:
+                        path: inputs.targetMerchandiseCodes
+                        ref_node: "100001"
+              - name: targetPackageNos
+                input:
+                    value:
+                        path: inputs.targetPackageNos
+                        ref_node: "100001"
+          node_outputs:
+              rawOrderData:
+                  type: object
+                  value: null
+              _detailExtractMeta:
+                  type: object
+                  value: null
+              detailLevel:
+                  type: string
+                  value: null
+              requiresNarrowing:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163010"
+      type: code
+      title: build-discrepancy-report
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2867
+      parameters:
+          code: |-
+              /**
+               * 节点：build-discrepancy-report — 四层数量聚合与升级判断
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const VAS_EXCEPTION_TYPES = new Set([
+                "WRONG_WAREHOUSE",
+                "OWNERLESS_GOODS",
+                "PRE_SHELVE_ACTION",
+                "EXTRA_ITEM",
+                "LABEL_MISSING",
+              ]);
+              const HUMAN_REVIEW_TYPES = new Set(["DAMAGE", "QTY_DIFF"]);
+              const DISCREPANCY_RATE_THRESHOLD = 0.05;
+              const DISCREPANCY_ABS_THRESHOLD = 10;
+              const PAGE_SIZE = 50;
+              const HEAD_LEG_STATUSES = new Set(["TS"]);
+              const PACKAGE_COMPARABLE_STATUSES = new Set(["EWC", "SHD", "SCP"]);
+              const PACKAGE_CONCERN_KEYWORDS = ["箱", "包裹", "少箱", "多箱", "package", "carton", "box"];
+              const HEAD_LEG_KEYWORDS = [
+                "头程",
+                "清关",
+                "海关",
+                "查验",
+                "送仓进口",
+                "实物查验",
+                "到港",
+                "离港",
+                "船期",
+                "航班",
+                "customs",
+                "clearance",
+                "inspection",
+                "first leg",
+                "first-leg",
+              ];
+
+              function num(v: unknown): number {
+                const n = Number(v);
+                return Number.isFinite(n) ? n : 0;
+              }
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function asRecord(value: unknown): Record<string, unknown> {
+                if (value && typeof value === "object" && !Array.isArray(value)) {
+                  return value as Record<string, unknown>;
+                }
+                if (typeof value === "string" && value.trim()) {
+                  try {
+                    const parsed = JSON.parse(value) as unknown;
+                    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+                      ? (parsed as Record<string, unknown>)
+                      : {};
+                  } catch {
+                    return {};
+                  }
+                }
+                return {};
+              }
+
+              function stringArray(value: unknown): string[] {
+                return Array.isArray(value)
+                  ? value.map((item) => str(item)).filter(Boolean)
+                  : [];
+              }
+
+              function textIncludesAny(text: string, keywords: string[]): boolean {
+                const haystack = text.toLowerCase();
+                return keywords.some((keyword) => haystack.includes(keyword.toLowerCase()));
+              }
+
+              function extractVasOrderNo(params: Record<string, unknown>, customerQuestion: string): string {
+                const explicit = str(params.vasOrderNo);
+                if (explicit) return explicit;
+                const match = customerQuestion.toUpperCase().match(/\b(?:VASC[A-Z0-9-]{6,}|V\d{6,})\b/);
+                return match?.[0] ?? "";
+              }
+
+              function buildContextContinuity(
+                inputContextValue: unknown,
+                exceptionLookupStatus: string,
+                followUpVasOrderNo: string,
+              ): Record<string, unknown> {
+                const inputContext = asRecord(inputContextValue);
+                const previousOutput = asRecord(inputContext.previousOutput);
+                const nestedResult = asRecord(previousOutput.result);
+                const previousStructured = asRecord(previousOutput.structured ?? nestedResult.structured);
+                const previousAnalysis = str(previousOutput.analysis ?? nestedResult.analysis);
+                const hasPreviousOutput = Object.keys(previousOutput).length > 0 || previousAnalysis.length > 0;
+                const currentLookupDoesNotOverridePrevious =
+                  hasPreviousOutput && ["success_empty", "api_error", "parse_error", "partial_failure"].includes(exceptionLookupStatus);
+
+                return {
+                  hasPreviousOutput,
+                  previousOrderNo: str(previousStructured.orderNo),
+                  previousExceptionCount:
+                    typeof previousStructured.totalExceptions === "number" ? previousStructured.totalExceptions : null,
+                  previousExceptionTypes: stringArray(previousStructured.exceptionTypes),
+                  currentLookupDoesNotOverridePrevious,
+                  followUpVasOrderNo,
+                };
+              }
+
+              function isHeadLegProduct(order: Record<string, unknown>): boolean {
+                const productCode = str(order.winitProductCode);
+                const productName = str(order.winitProductName);
+                return (
+                  /^OW01011/i.test(productCode) ||
+                  textIncludesAny(productName, ["头程", "海运", "空运", "散货", "海卡", "快船", "普船"])
+                );
+              }
+
+              function hasHeadLegTransportSignals(order: Record<string, unknown>): boolean {
+                return Boolean(
+                  str(order.containerNo) ||
+                    str(order.logisticsPlanName) ||
+                    str(order.logisticsPlanNo) ||
+                    str(order.pickupAddressCode) ||
+                    str(order.inspectionWarehouseCode),
+                );
+              }
+
+              function orderSuggestsHeadLegBeforePutaway(order: Record<string, unknown>): boolean {
+                const status = str(order.status).toUpperCase();
+                return HEAD_LEG_STATUSES.has(status) && (isHeadLegProduct(order) || hasHeadLegTransportSignals(order));
+              }
+
+              function exceptionLookupMessage(status: string): string {
+                if (status === "success_with_records") return "异常单接口已返回异常明细。";
+                if (status === "success_empty") return "异常单接口调用成功，但未返回异常明细。";
+                if (status === "api_error") return "异常单接口调用失败，当前无法确认异常明细。";
+                if (status === "parse_error") return "异常单接口返回结构无法识别，当前无法确认异常明细。";
+                if (status === "partial_failure") return "异常单查询仅部分成功，当前结果可能不完整。";
+                if (status === "skipped") return "本次未执行异常单接口查询。";
+                return "异常单查询状态未知。";
+              }
+
+              function buildCoverageGap(
+                order: Record<string, unknown> | undefined,
+                exceptionDescription: string,
+                exceptionRecordCount: number,
+              ): { coverageGap: boolean; coverageGapReason: string; orderPhaseHint: string; isPutawayComparable: boolean } {
+                const hasHeadLegKeyword = textIncludesAny(exceptionDescription, HEAD_LEG_KEYWORDS);
+                const hasHeadLegOrderFacts = order ? orderSuggestsHeadLegBeforePutaway(order) : false;
+                const coverageGap = exceptionRecordCount === 0 && (hasHeadLegKeyword || hasHeadLegOrderFacts);
+                if (!coverageGap) {
+                  return {
+                    coverageGap: false,
+                    coverageGapReason: "",
+                    orderPhaseHint: "",
+                    isPutawayComparable: true,
+                  };
+                }
+                const reason = hasHeadLegKeyword
+                  ? "用户描述命中头程/清关/海关查验类异常，但当前对客入库异常接口未返回头程/清关异常明细，需人工通过内部系统核实。"
+                  : "订单状态或产品链路显示仍处于头程/运输/清关相关阶段，当前对客入库异常接口未返回头程异常明细，不能按上架数为 0 判定入库数量差异，需人工通过内部系统核实。";
+                return {
+                  coverageGap: true,
+                  coverageGapReason: reason,
+                  orderPhaseHint: "first_leg_or_customs",
+                  isPutawayComparable: false,
+                };
+              }
+
+              function normalizeException(raw: unknown): Record<string, unknown> | null {
+                if (!raw || typeof raw !== "object") return null;
+                const o = raw as Record<string, unknown>;
+                const exceptionType = str(o.exceptionType ?? o.type ?? o.exceptionName).toUpperCase();
+                if (!exceptionType) return null;
+                return {
+                  exceptionType,
+                  exceptionCode: str(o.exceptionCode ?? o.eventCode),
+                  exceptionName: str(o.exceptionName ?? o.eventName ?? o.type),
+                  eventNo: str(o.eventNo),
+                  exceptionQty: num(o.exceptionQty ?? o.qty ?? o.orderItemQty),
+                  receivedQty: num(o.receivedQty),
+                  expectedQty: num(o.expectedQty ?? o.forecastQty),
+                  merchandiseCode: str(o.merchandiseCode ?? o.merchandiseSerno ?? o.sku),
+                  packageNo: str(o.packageNo ?? o.packageSerno),
+                  status: str(o.status),
+                  exceptionReason: str(o.exceptionReason ?? o.reason ?? o.errormsg ?? o.exceptionDesc),
+                  exceptionObject: str(o.exceptionObjectName ?? o.exceptionObject),
+                  inboundOrderNo: str(o.inboundOrderNo ?? o.orderNo),
+                  winitProductName: str(o.winitProductName),
+                  destWhName: str(o.destWhName),
+                };
+              }
+
+              function buildOrderReport(order: Record<string, unknown>): Record<string, unknown> {
+                const merchList = (order.merchandiseList ?? order.inboundMerchandiseVos) as unknown[] | undefined;
+                let forecastQty = num(order.totalMerchandiseQty) || num(order.orderMerchandiseQty);
+                let receivedQty = num(order.actualOrderMerchandiseQty);
+                let putawayQty = num(order.actualOrderMerchandiseQty);
+
+                if (Array.isArray(merchList) && merchList.length > 0) {
+                  let sumQty = 0;
+                  let sumActual = 0;
+                  let sumInspection = 0;
+                  for (const m of merchList) {
+                    if (!m || typeof m !== "object") continue;
+                    const row = m as Record<string, unknown>;
+                    const parts = num(row.standardPartsNum) || 1;
+                    sumQty += num(row.quantity) * parts;
+                    sumActual += num(row.actualQuantity) * parts;
+                    sumInspection += num(row.inspectionQty) * parts;
+                  }
+                  if (sumQty > 0) forecastQty = sumQty;
+                  if (sumActual > 0) putawayQty = sumActual;
+                  if (sumInspection > 0) receivedQty = sumInspection;
+                  else if (sumActual > 0) receivedQty = sumActual;
+                }
+
+                const forecastPackageRaw = order.totalPackageQty ?? order.orderPackageQty;
+                const receivedPackageRaw = order.actualOrderPackageQty;
+                const hasForecastPackageFact = forecastPackageRaw != null && String(forecastPackageRaw).trim() !== "";
+                const hasReceivedPackageFact = receivedPackageRaw != null && String(receivedPackageRaw).trim() !== "";
+                const forecastPackageQty = hasForecastPackageFact ? num(forecastPackageRaw) : null;
+                const receivedPackageQty = hasReceivedPackageFact ? num(receivedPackageRaw) : null;
+                const hasComparablePackageFacts = hasForecastPackageFact && hasReceivedPackageFact;
+                const packageDiscrepancy = hasComparablePackageFacts
+                  ? num(forecastPackageQty) - num(receivedPackageQty)
+                  : null;
+                const packageDiscrepancyRate =
+                  hasComparablePackageFacts && num(forecastPackageQty) > 0
+                    ? Math.abs(num(packageDiscrepancy)) / num(forecastPackageQty)
+                    : null;
+                const discrepancy = forecastQty - receivedQty;
+                const discrepancyRate = forecastQty > 0 ? Math.abs(discrepancy) / forecastQty : 0;
+
+                return {
+                  orderNo: str(order.orderNo ?? order.inboundOrderNum),
+                  forecastQty,
+                  receivedQty,
+                  putawayQty,
+                  forecastPackageQty,
+                  receivedPackageQty,
+                  packageDiscrepancy,
+                  packageDiscrepancyRate:
+                    packageDiscrepancyRate == null ? null : Math.round(packageDiscrepancyRate * 10000) / 10000,
+                  hasForecastPackageFact,
+                  hasReceivedPackageFact,
+                  hasPackageDiscrepancy: hasComparablePackageFacts && packageDiscrepancy !== 0,
+                  discrepancy,
+                  discrepancyRate: Math.round(discrepancyRate * 10000) / 10000,
+                  isAbnormal: order.isAbnormal === true || order.isAbnormal === "Y",
+                  skuLevel: Array.isArray(merchList) && merchList.length > 0,
+                };
+              }
+
+              function suggestNextExpert(types: string[]): string {
+                if (types.some((t) => VAS_EXCEPTION_TYPES.has(t))) return "value-add/value-add-exception-diagnosis";
+                return "";
+              }
+
+              function normalizeObjectLevel(record: Record<string, unknown> | undefined): string {
+                const raw = str(record?.exceptionObject).toLowerCase();
+                const type = str(record?.exceptionType);
+                if (raw.includes("订单") || raw.includes("order")) return "order";
+                if (raw.includes("包裹") || raw.includes("package") || type === "LABEL_MISSING") return "package";
+                if (raw.includes("商品") || raw.includes("product") || type === "EXTRA_ITEM") return "product";
+                if (raw.includes("单品") || raw.includes("item")) return "item";
+                if (raw.includes("托") || raw.includes("pallet")) return "pallet";
+                return "";
+              }
+
+              function buildValueAddHandoff(
+                suggestedNextExpert: string,
+                exceptionRecords: Record<string, unknown>[],
+                primaryReport: Record<string, unknown>,
+                exceptionDescription: string,
+              ): Record<string, unknown> {
+                if (!suggestedNextExpert) return {};
+                const record =
+                  exceptionRecords.find((r) => VAS_EXCEPTION_TYPES.has(str(r.exceptionType))) ?? exceptionRecords[0] ?? {};
+                return {
+                  exceptionCode: str(record.exceptionCode),
+                  exceptionName: str(record.exceptionName) || str(record.exceptionType),
+                  exceptionCategory: str(record.exceptionType),
+                  exceptionObject: str(record.exceptionObject),
+                  objectLevel: normalizeObjectLevel(record),
+                  inboundOrderNo: str(record.inboundOrderNo) || str(primaryReport.orderNo),
+                  eventNo: str(record.eventNo),
+                  customerActionHint: exceptionDescription,
+                  evidenceSummary: {
+                    discrepancyReport: primaryReport,
+                    exceptionReason: str(record.exceptionReason),
+                    packageNo: str(record.packageNo),
+                    merchandiseCode: str(record.merchandiseCode),
+                    status: str(record.status),
+                  },
+                  recommendedEntryExpert: suggestedNextExpert,
+                };
+              }
+
+              function buildOrderStatusHandoff(
+                vasOrderNo: string,
+                inboundOrderNo: string,
+                exceptionLookupStatus: string,
+                contextContinuity: Record<string, unknown>,
+              ): Record<string, unknown> {
+                if (!vasOrderNo) return {};
+                return {
+                  vasOrderNo,
+                  businessNo: inboundOrderNo,
+                  inboundOrderNo,
+                  sourceExpertId: "inbound-exception-check",
+                  currentExceptionLookupStatus: exceptionLookupStatus,
+                  contextContinuity,
+                  recommendedEntryExpert: "value-add/value-add-order-status",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawOrderData = (params.rawOrderData ?? {}) as Record<string, unknown>;
+                const rawExceptionData = (params.rawExceptionData ?? {}) as Record<string, unknown>;
+                const exceptionDescription = str(params.exceptionDescription);
+                const customerQuestion = [str(params.query), str(params.customerIntent), exceptionDescription]
+                  .filter(Boolean)
+                  .join(" ");
+
+                const orderList = Array.isArray(rawOrderData.list) ? rawOrderData.list : [];
+                const exceptionRawList = Array.isArray(rawExceptionData.list) ? rawExceptionData.list : [];
+                const fetchMeta = (rawExceptionData._fetchMeta ?? {}) as Record<string, unknown>;
+                const exceptionLookupStatus =
+                  str(fetchMeta.status) || (exceptionRawList.length > 0 ? "success_with_records" : "unknown");
+                const exceptionLookupMessageText = exceptionLookupMessage(exceptionLookupStatus);
+                const followUpVasOrderNo = extractVasOrderNo(params, customerQuestion);
+                const contextContinuity = buildContextContinuity(
+                  params.inputContext,
+                  exceptionLookupStatus,
+                  followUpVasOrderNo,
+                );
+                const totalExceptions =
+                  typeof rawExceptionData.total === "number" ? rawExceptionData.total : exceptionRawList.length;
+                const hasMoreExceptions = totalExceptions > PAGE_SIZE;
+                const queryAllExceptions = params.queryAllExceptions === true;
+                const requestedOrderNos = stringArray(params.inboundOrderNos);
+                const hasRequestedOrder = requestedOrderNos.length > 0;
+                const followUpSuggestedNextExpert = followUpVasOrderNo
+                  ? "value-add/value-add-order-status"
+                  : "";
+                const followUpValueAddHandoff = buildOrderStatusHandoff(
+                  followUpVasOrderNo,
+                  requestedOrderNos[0] || "",
+                  exceptionLookupStatus,
+                  contextContinuity,
+                );
+                const continuityNeedsResolution = contextContinuity.currentLookupDoesNotOverridePrevious === true;
+                const needsFollowUp = Boolean(followUpVasOrderNo) || continuityNeedsResolution;
+                const followUpReason = followUpVasOrderNo
+                  ? "用户已补充已提交增值单号，应转 value-add/value-add-order-status 查询主状态与执行进度；当前入库异常快照不能代替增值单状态。"
+                  : continuityNeedsResolution
+                    ? "当前异常查询结果不能覆盖或否定上一轮上下文，需要结合上一轮事实继续核实。"
+                    : "";
+
+                if (orderList.length === 0 && exceptionRawList.length === 0 && (!queryAllExceptions || hasRequestedOrder)) {
+                  return {
+                    discrepancyReport: null,
+                    orderReports: [],
+                    exceptionRecords: [],
+                    exceptionTypes: [],
+                    needsHumanReview: false,
+                    humanReviewReason: "",
+                    suggestedNextExpert: followUpSuggestedNextExpert,
+                    valueAddHandoff: followUpValueAddHandoff,
+                    hasMoreExceptions: false,
+                    totalExceptions: 0,
+                    requiresNarrowing: false,
+                    needsClarification: !followUpVasOrderNo,
+                    clarificationFields: followUpVasOrderNo ? [] : ["inboundOrderNo"],
+                    coverageGap: false,
+                    coverageGapReason: "",
+                    orderPhaseHint: "",
+                    isPutawayComparable: true,
+                    exceptionLookupStatus,
+                    exceptionLookupMessage: exceptionLookupMessageText,
+                    contextContinuity,
+                    followUpVasOrderNo,
+                    needsFollowUp,
+                    followUpReason,
+                  };
+                }
+
+                if (orderList.length === 0 && exceptionRawList.length === 0) {
+                  return {
+                    discrepancyReport: null,
+                    orderReports: [],
+                    exceptionRecords: [],
+                    exceptionTypes: [],
+                    needsHumanReview: false,
+                    humanReviewReason: "",
+                    suggestedNextExpert: followUpSuggestedNextExpert,
+                    valueAddHandoff: followUpValueAddHandoff,
+                    hasMoreExceptions: false,
+                    totalExceptions: 0,
+                    requiresNarrowing: false,
+                    needsClarification: false,
+                    clarificationFields: [],
+                    coverageGap: false,
+                    coverageGapReason: "",
+                    orderPhaseHint: "",
+                    isPutawayComparable: true,
+                    exceptionLookupStatus,
+                    exceptionLookupMessage: exceptionLookupMessageText,
+                    contextContinuity,
+                    followUpVasOrderNo,
+                    needsFollowUp,
+                    followUpReason,
+                  };
+                }
+
+                const reports = orderList
+                  .filter((o) => o && typeof o === "object")
+                  .map((o) => buildOrderReport(o as Record<string, unknown>));
+
+                let primaryReport = reports[0] ?? {
+                  orderNo: "",
+                  forecastQty: 0,
+                  receivedQty: 0,
+                  putawayQty: 0,
+                  forecastPackageQty: null,
+                  receivedPackageQty: null,
+                  packageDiscrepancy: null,
+                  packageDiscrepancyRate: null,
+                  hasForecastPackageFact: false,
+                  hasReceivedPackageFact: false,
+                  hasPackageDiscrepancy: false,
+                  discrepancy: 0,
+                  discrepancyRate: 0,
+                  isAbnormal: false,
+                };
+                const primaryOrder =
+                  orderList.find((o) => o && typeof o === "object") as Record<string, unknown> | undefined;
+                const coverage = buildCoverageGap(primaryOrder, customerQuestion, exceptionRawList.length);
+                if (coverage.coverageGap) {
+                  primaryReport = {
+                    ...primaryReport,
+                    discrepancy: 0,
+                    discrepancyRate: 0,
+                    isPutawayComparable: false,
+                    comparisonSuppressedReason: coverage.coverageGapReason,
+                  };
+                } else {
+                  primaryReport = {
+                    ...primaryReport,
+                    isPutawayComparable: coverage.isPutawayComparable,
+                  };
+                }
+
+                const exceptionRecords: Record<string, unknown>[] = [];
+                const typeSet = new Set<string>();
+                for (const item of exceptionRawList.slice(0, PAGE_SIZE)) {
+                  const rec = normalizeException(item);
+                  if (!rec) continue;
+                  exceptionRecords.push(rec);
+                  typeSet.add(rec.exceptionType as string);
+                }
+
+                const exceptionTypes = Array.from(typeSet);
+                const discrepancyRate = num(primaryReport.discrepancyRate);
+                const discrepancy = num(primaryReport.discrepancy);
+                const packageDiscrepancy = num(primaryReport.packageDiscrepancy);
+                const hasPackageDiscrepancy = primaryReport.hasPackageDiscrepancy === true;
+                const primaryOrderStatus = str(primaryOrder?.status).toUpperCase();
+                const asksAboutPackages = textIncludesAny(customerQuestion, PACKAGE_CONCERN_KEYWORDS);
+                const packageGapRequiresReview =
+                  hasPackageDiscrepancy &&
+                  (asksAboutPackages || PACKAGE_COMPARABLE_STATUSES.has(primaryOrderStatus));
+                const lookupFailed = ["api_error", "parse_error", "partial_failure"].includes(exceptionLookupStatus);
+                const rateExceeded = discrepancyRate >= DISCREPANCY_RATE_THRESHOLD;
+                const absExceeded = Math.abs(discrepancy) >= DISCREPANCY_ABS_THRESHOLD;
+                const hasDamage = exceptionTypes.includes("DAMAGE");
+                const needsHumanReview =
+                  coverage.coverageGap ||
+                  rateExceeded ||
+                  absExceeded ||
+                  packageGapRequiresReview ||
+                  lookupFailed ||
+                  hasDamage ||
+                  primaryReport.isAbnormal === true ||
+                  exceptionDescription.includes("破损");
+                const requiresNarrowing = params.requiresNarrowing === true;
+
+                const reasons: string[] = [];
+                if (rateExceeded) reasons.push(`差异率 ${(discrepancyRate * 100).toFixed(1)}% 超过 5% 参考线`);
+                if (absExceeded) reasons.push(`绝对差异 ${Math.abs(discrepancy)} 件超过 10 件参考线`);
+                if (packageGapRequiresReview) {
+                  const direction = packageDiscrepancy > 0 ? "少" : "多";
+                  reasons.push(
+                    `包裹预报 ${num(primaryReport.forecastPackageQty)} 箱、实收 ${num(primaryReport.receivedPackageQty)} 箱，差异${direction} ${Math.abs(packageDiscrepancy)} 箱`,
+                  );
+                }
+                if (lookupFailed) reasons.push(exceptionLookupMessageText);
+                if (hasDamage) reasons.push("存在包裹破损（DAMAGE）异常");
+                if (primaryReport.isAbnormal === true) reasons.push("入库单标记为异常");
+                if (coverage.coverageGap) reasons.push(coverage.coverageGapReason);
+
+                const suggestedNextExpert = followUpVasOrderNo
+                  ? "value-add/value-add-order-status"
+                  : suggestNextExpert(exceptionTypes);
+                const valueAddHandoff = followUpVasOrderNo
+                  ? buildOrderStatusHandoff(
+                      followUpVasOrderNo,
+                      str(primaryReport.orderNo) || requestedOrderNos[0] || "",
+                      exceptionLookupStatus,
+                      contextContinuity,
+                    )
+                  : buildValueAddHandoff(
+                      suggestedNextExpert,
+                      exceptionRecords,
+                      primaryReport,
+                      exceptionDescription,
+                    );
+
+                return {
+                  discrepancyReport: primaryReport,
+                  orderReports: reports,
+                  exceptionRecords,
+                  exceptionTypes,
+                  needsHumanReview,
+                  humanReviewReason: reasons.join("；") || "",
+                  suggestedNextExpert,
+                  valueAddHandoff,
+                  hasMoreExceptions,
+                  totalExceptions,
+                  requiresNarrowing,
+                  needsClarification: false,
+                  clarificationFields: [],
+                  coverageGap: coverage.coverageGap,
+                  coverageGapReason: coverage.coverageGapReason,
+                  orderPhaseHint: coverage.orderPhaseHint,
+                  isPutawayComparable: coverage.isPutawayComparable,
+                  exceptionLookupStatus,
+                  exceptionLookupMessage: exceptionLookupMessageText,
+                  contextContinuity,
+                  followUpVasOrderNo,
+                  needsFollowUp,
+                  followUpReason,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-discrepancy-report")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163009"
+              - name: rawExceptionData
+                input:
+                    value:
+                        path: rawExceptionData
+                        ref_node: "163008"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: exceptionDescription
+                input:
+                    value:
+                        path: inputs.exceptionDescription
+                        ref_node: "100001"
+              - name: vasOrderNo
+                input:
+                    value:
+                        path: inputs.vasOrderNo
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163000"
+              - name: queryAllExceptions
+                input:
+                    value:
+                        path: inputs.queryAllExceptions
+                        ref_node: "100001"
+              - name: requiresNarrowing
+                input:
+                    value:
+                        path: requiresNarrowing
+                        ref_node: "163009"
+          node_outputs:
+              discrepancyReport:
+                  type: string
+                  value: null
+              exceptionRecords:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              exceptionTypes:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              needsHumanReview:
+                  type: boolean
+                  value: null
+              humanReviewReason:
+                  type: string
+                  value: null
+              suggestedNextExpert:
+                  type: string
+                  value: null
+              valueAddHandoff:
+                  type: object
+                  value: null
+              hasMoreExceptions:
+                  type: boolean
+                  value: null
+              totalExceptions:
+                  type: integer
+                  value: null
+              requiresNarrowing:
+                  type: boolean
+                  value: null
+              needsClarification:
+                  type: boolean
+                  value: null
+              clarificationFields:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              coverageGap:
+                  type: boolean
+                  value: null
+              coverageGapReason:
+                  type: string
+                  value: null
+              orderPhaseHint:
+                  type: string
+                  value: null
+              isPutawayComparable:
+                  type: boolean
+                  value: null
+              exceptionLookupStatus:
+                  type: string
+                  value: null
+              exceptionLookupMessage:
+                  type: string
+                  value: null
+              contextContinuity:
+                  type: object
+                  value: null
+              followUpVasOrderNo:
+                  type: string
+                  value: null
+              needsFollowUp:
+                  type: boolean
+                  value: null
+              followUpReason:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163011"
+      type: code
+      title: load-exception-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3107
+      parameters:
+          code: |-
+              /**
+               * 节点：load-exception-kb — 按异常类型过滤 KB 片段
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function filterByTypes(kb: string, types: string[]): string {
+                if (!kb || types.length === 0) return kb;
+                const lines = kb.split("\n");
+                const hits = new Set<number>();
+                const upperTypes = types.map((t) => t.toUpperCase());
+                for (let i = 0; i < lines.length; i++) {
+                  const line = lines[i].toUpperCase();
+                  if (upperTypes.some((t) => line.includes(t))) {
+                    for (let j = Math.max(0, i - 1); j <= Math.min(lines.length - 1, i + 3); j++) hits.add(j);
+                  }
+                }
+                if (hits.size === 0) return kb;
+                return Array.from(hits)
+                  .sort((a, b) => a - b)
+                  .map((i) => lines[i])
+                  .join("\n");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const exceptionTypes = Array.isArray(params.exceptionTypes)
+                  ? (params.exceptionTypes as string[]).map((t) => String(t))
+                  : [];
+                const exceptionTypeGuide = str(params.exceptionTypeGuide);
+                const discrepancyThresholds = str(params.discrepancyThresholds);
+
+                return {
+                  exceptionTypeGuideText: filterByTypes(exceptionTypeGuide, exceptionTypes) || exceptionTypeGuide,
+                  discrepancyThresholdsText: discrepancyThresholds,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-exception-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: exceptionTypes
+                input:
+                    value:
+                        path: exceptionTypes
+                        ref_node: "163010"
+              - name: exceptionTypeGuide
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+              - name: discrepancyThresholds
+                input:
+                    value:
+                        path: output
+                        ref_node: "163002"
+          node_outputs:
+              exceptionTypeGuideText:
+                  type: string
+                  value: null
+              discrepancyThresholdsText:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163012"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 3347
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 入库异常核实专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是入库异常核实专家，根据 `discrepancyReport` 与 `exceptionRecords` 客观陈述各层数量差异与异常单事实，归纳可能处理路径。**不做责任判定，不承诺赔付**。
+
+                        ## 禁止项
+
+                        - 不说「是仓库的错」或「是客户的错」
+                        - 不承诺赔付或减免结果
+                        - 不引用飞书或内部系统 URL
+                        - 只引用 JSON 中出现的字段与数值
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **inboundOrderNos**：`{{inboundOrderNos}}`
+                        - **exceptionDescription**：`{{exceptionDescription}}`
+                        - **discrepancyReport**：
+
+                        ```json
+                        {{discrepancyReport}}
+                        ```
+
+                        - **exceptionRecords**：
+
+                        ```json
+                        {{exceptionRecords}}
+                        ```
+
+                        - **exceptionTypes**：`{{exceptionTypes}}`
+                        - **needsHumanReview**：`{{needsHumanReview}}`
+                        - **humanReviewReason**：`{{humanReviewReason}}`
+                        - **suggestedNextExpert**：`{{suggestedNextExpert}}`
+                        - **valueAddHandoff**：
+
+                        ```json
+                        {{valueAddHandoff}}
+                        ```
+
+                        - **needsClarification**：`{{needsClarification}}`
+                        - **clarificationFields**：`{{clarificationFields}}`
+                        - **coverageGap**：`{{coverageGap}}`
+                        - **coverageGapReason**：`{{coverageGapReason}}`
+                        - **orderPhaseHint**：`{{orderPhaseHint}}`
+                        - **isPutawayComparable**：`{{isPutawayComparable}}`
+                        - **exceptionLookupStatus**：`{{exceptionLookupStatus}}`
+                        - **exceptionLookupMessage**：`{{exceptionLookupMessage}}`
+                        - **contextContinuity**：
+
+                        ```json
+                        {{contextContinuity}}
+                        ```
+
+                        - **followUpVasOrderNo**：`{{followUpVasOrderNo}}`
+                        - **needsFollowUp**：`{{needsFollowUp}}`
+                        - **followUpReason**：`{{followUpReason}}`
+
+                        - **exceptionTypeGuideText**：`{{exceptionTypeGuideText}}`
+                        - **discrepancyThresholdsText**：`{{discrepancyThresholdsText}}`
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "orderNo": "",
+                              "discrepancyReport": null,
+                              "exceptionRecords": [],
+                              "exceptionTypes": [],
+                              "needsHumanReview": false,
+                              "hasMoreExceptions": false,
+                              "totalExceptions": 0,
+                              "needsClarification": false,
+                              "clarificationFields": [],
+                              "coverageGap": false,
+                              "coverageGapReason": "",
+                              "orderPhaseHint": "",
+                              "isPutawayComparable": true,
+                              "exceptionLookupStatus": "",
+                              "exceptionLookupMessage": "",
+                              "contextContinuity": {},
+                              "followUpVasOrderNo": "",
+                              "needsFollowUp": false,
+                              "followUpReason": "",
+                              "suggestedNextExpert": "",
+                              "valueAddHandoff": {},
+                              "humanReviewReason": ""
+                            },
+                            "analysis": "客观陈述各层数量与差异；超阈值时说明已建议人工核实；增值类异常说明已进入 value-add 推荐链判断。"
+                          }
+                        }
+                        ```
+
+                        ## 特殊规则
+
+                        - 差异率 ≥ 5% 或绝对差 ≥ 10 件时 `needsHumanReview=true`
+                        - `needsClarification=true` 时，只追问 `clarificationFields` 中的字段；不得把缺失入参解释成 0 差异、无异常或无需人工核实
+                        - `discrepancyReport=null` 表示没有取得入库单数量事实；不得把缺失事实写成预报量、签收量、验收量或上架量均为 0，也不得据此判断无数量差异
+                        - `coverageGap=true` 表示当前对客入库异常接口未覆盖用户所问的头程/清关/海关查验异常明细；不得回答「未查询到异常单」等同于「无异常」，必须说明需人工通过内部系统核实
+                        - `isPutawayComparable=false` 时，不得把 `actualQuantity=0` 写成入库上架差异 100%，只能说明当前订单阶段不适合用上架数判断入库异常
+                        - `discrepancyReport.hasPackageDiscrepancy=true` 时，必须客观说明预报包裹数、实收包裹数和差值；不得因为商品件数一致而回答“无数量差异”
+                        - `discrepancyReport.hasReceivedPackageFact=false` 时，实收包裹数、包裹差异数和包裹差异率均为未知；不得写成“实收 0 箱”“差异 27 箱”或据此判断无需核实
+                        - 包裹差异只能证明数量不一致，不得把差值自行解释为“待上架”“丢失”或“已生成异常单”
+                        - `exceptionLookupStatus=success_empty` 只表示异常单接口调用成功但未返回明细，不等于订单不存在异常
+                        - `contextContinuity.currentLookupDoesNotOverridePrevious=true` 时，必须说明当前快照不能覆盖或否定上一轮事实，不得把多轮状态变化改写成“此前无异常”
+                        - `followUpVasOrderNo` 非空时，说明用户补充的是已提交增值单，必须保留 `suggestedNextExpert=value-add/value-add-order-status` 与 `valueAddHandoff.vasOrderNo`；不得在本专家内猜测增值单已完成、已退回或已解决原异常
+                        - `needsFollowUp=true` 时，不得回答“暂未触发人工核实条件”后直接结束；应按 `followUpReason` 给出下一步
+                        - `exceptionLookupStatus=api_error/parse_error/partial_failure` 时，必须说明当前异常明细不可确认，不得降级成“未查询到异常”
+                        - DAMAGE 类型须建议拍照证明并升级人工
+                        - `suggestedNextExpert=value-add/value-add-exception-diagnosis` 时，只说明进入 value-add 推荐链判断可选处理路径，不直接推荐 VASC 或服务项
+                        - `suggestedNextExpert=value-add/value-add-order-status` 时，只说明需查询已提交增值单的主状态与执行进度；当前异常接口空结果不能替代增值单状态
+                        - `valueAddHandoff` 必须原样保留在 structured 中，供下游 value-add 链消费；如果 `valueAddHandoff` 为空，不得只靠文本或 `suggestedNextExpert` 宣称已进入下游链路
+                        - `hasMoreExceptions=true` 时注明仅展示前 50 条
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163000"
+              - name: exceptionDescription
+                input:
+                    value:
+                        path: inputs.exceptionDescription
+                        ref_node: "100001"
+              - name: discrepancyReport
+                input:
+                    value:
+                        path: discrepancyReport
+                        ref_node: "163010"
+              - name: exceptionRecords
+                input:
+                    value:
+                        path: exceptionRecords
+                        ref_node: "163010"
+              - name: exceptionTypes
+                input:
+                    value:
+                        path: exceptionTypes
+                        ref_node: "163010"
+              - name: needsHumanReview
+                input:
+                    value:
+                        path: needsHumanReview
+                        ref_node: "163010"
+              - name: humanReviewReason
+                input:
+                    value:
+                        path: humanReviewReason
+                        ref_node: "163010"
+              - name: suggestedNextExpert
+                input:
+                    value:
+                        path: suggestedNextExpert
+                        ref_node: "163010"
+              - name: valueAddHandoff
+                input:
+                    value:
+                        path: valueAddHandoff
+                        ref_node: "163010"
+              - name: needsClarification
+                input:
+                    value:
+                        path: needsClarification
+                        ref_node: "163010"
+              - name: clarificationFields
+                input:
+                    value:
+                        path: clarificationFields
+                        ref_node: "163010"
+              - name: coverageGap
+                input:
+                    value:
+                        path: coverageGap
+                        ref_node: "163010"
+              - name: coverageGapReason
+                input:
+                    value:
+                        path: coverageGapReason
+                        ref_node: "163010"
+              - name: orderPhaseHint
+                input:
+                    value:
+                        path: orderPhaseHint
+                        ref_node: "163010"
+              - name: isPutawayComparable
+                input:
+                    value:
+                        path: isPutawayComparable
+                        ref_node: "163010"
+              - name: exceptionLookupStatus
+                input:
+                    value:
+                        path: exceptionLookupStatus
+                        ref_node: "163010"
+              - name: exceptionLookupMessage
+                input:
+                    value:
+                        path: exceptionLookupMessage
+                        ref_node: "163010"
+              - name: contextContinuity
+                input:
+                    value:
+                        path: contextContinuity
+                        ref_node: "163010"
+              - name: followUpVasOrderNo
+                input:
+                    value:
+                        path: followUpVasOrderNo
+                        ref_node: "163010"
+              - name: needsFollowUp
+                input:
+                    value:
+                        path: needsFollowUp
+                        ref_node: "163010"
+              - name: followUpReason
+                input:
+                    value:
+                        path: followUpReason
+                        ref_node: "163010"
+              - name: exceptionTypeGuideText
+                input:
+                    value:
+                        path: exceptionTypeGuideText
+                        ref_node: "163011"
+              - name: discrepancyThresholdsText
+                input:
+                    value:
+                        path: discrepancyThresholdsText
+                        ref_node: "163011"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163013"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3587
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function asRecord(value: unknown): Record<string, unknown> {
+                return value && typeof value === "object" && !Array.isArray(value)
+                  ? (value as Record<string, unknown>)
+                  : {};
+              }
+
+              function hasObjectFields(value: unknown): boolean {
+                return Object.keys(asRecord(value)).length > 0;
+              }
+
+              function hasParam(params: Record<string, unknown>, key: string): boolean {
+                return Object.prototype.hasOwnProperty.call(params, key);
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const structured = coerced.structured ?? {};
+                if (hasParam(params, "discrepancyReport")) {
+                  structured.discrepancyReport = params.discrepancyReport;
+                }
+                if (hasParam(params, "needsClarification")) {
+                  structured.needsClarification = params.needsClarification;
+                }
+                if (hasParam(params, "clarificationFields")) {
+                  structured.clarificationFields = params.clarificationFields;
+                }
+                if (hasParam(params, "coverageGap")) {
+                  structured.coverageGap = params.coverageGap;
+                }
+                if (hasParam(params, "coverageGapReason")) {
+                  structured.coverageGapReason = params.coverageGapReason;
+                }
+                if (hasParam(params, "orderPhaseHint")) {
+                  structured.orderPhaseHint = params.orderPhaseHint;
+                }
+                if (hasParam(params, "isPutawayComparable")) {
+                  structured.isPutawayComparable = params.isPutawayComparable;
+                }
+                if (hasParam(params, "humanReviewReason")) {
+                  structured.humanReviewReason = params.humanReviewReason;
+                }
+                if (hasParam(params, "needsHumanReview")) {
+                  structured.needsHumanReview = params.needsHumanReview;
+                }
+                if (hasParam(params, "exceptionLookupStatus")) {
+                  structured.exceptionLookupStatus = params.exceptionLookupStatus;
+                }
+                if (hasParam(params, "exceptionLookupMessage")) {
+                  structured.exceptionLookupMessage = params.exceptionLookupMessage;
+                }
+                if (hasParam(params, "contextContinuity")) {
+                  structured.contextContinuity = params.contextContinuity;
+                }
+                if (hasParam(params, "followUpVasOrderNo")) {
+                  structured.followUpVasOrderNo = params.followUpVasOrderNo;
+                }
+                if (hasParam(params, "needsFollowUp")) {
+                  structured.needsFollowUp = params.needsFollowUp;
+                }
+                if (hasParam(params, "followUpReason")) {
+                  structured.followUpReason = params.followUpReason;
+                }
+                if (hasParam(params, "suggestedNextExpert")) {
+                  structured.suggestedNextExpert = params.suggestedNextExpert;
+                }
+                if (hasParam(params, "valueAddHandoff")) {
+                  structured.valueAddHandoff = params.valueAddHandoff;
+                }
+                if (!hasObjectFields(structured.valueAddHandoff)) {
+                  structured.valueAddHandoff = {};
+                  structured.suggestedNextExpert = "";
+                }
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "入库异常核实完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {expertId: "inbound-exception-check",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "" },
+                  enrichedContext: {
+                      discrepancyReport: structured.discrepancyReport,
+                      exceptionTypes: structured.exceptionTypes,
+                      needsHumanReview: structured.needsHumanReview,
+                      exceptionLookupStatus: structured.exceptionLookupStatus,
+                      contextContinuity: structured.contextContinuity,
+                      followUpVasOrderNo: structured.followUpVasOrderNo,
+                      needsFollowUp: structured.needsFollowUp,
+                      followUpReason: structured.followUpReason,
+                      suggestedNextExpert: structured.suggestedNextExpert,
+                      coverageGap: structured.coverageGap,
+                      orderPhaseHint: structured.orderPhaseHint,
+                      isPutawayComparable: structured.isPutawayComparable,
+                      valueAddHandoff: structured.valueAddHandoff,
+                    },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163012"
+              - name: discrepancyReport
+                input:
+                    value:
+                        path: discrepancyReport
+                        ref_node: "163010"
+              - name: needsClarification
+                input:
+                    value:
+                        path: needsClarification
+                        ref_node: "163010"
+              - name: clarificationFields
+                input:
+                    value:
+                        path: clarificationFields
+                        ref_node: "163010"
+              - name: coverageGap
+                input:
+                    value:
+                        path: coverageGap
+                        ref_node: "163010"
+              - name: coverageGapReason
+                input:
+                    value:
+                        path: coverageGapReason
+                        ref_node: "163010"
+              - name: orderPhaseHint
+                input:
+                    value:
+                        path: orderPhaseHint
+                        ref_node: "163010"
+              - name: isPutawayComparable
+                input:
+                    value:
+                        path: isPutawayComparable
+                        ref_node: "163010"
+              - name: humanReviewReason
+                input:
+                    value:
+                        path: humanReviewReason
+                        ref_node: "163010"
+              - name: needsHumanReview
+                input:
+                    value:
+                        path: needsHumanReview
+                        ref_node: "163010"
+              - name: exceptionLookupStatus
+                input:
+                    value:
+                        path: exceptionLookupStatus
+                        ref_node: "163010"
+              - name: exceptionLookupMessage
+                input:
+                    value:
+                        path: exceptionLookupMessage
+                        ref_node: "163010"
+              - name: contextContinuity
+                input:
+                    value:
+                        path: contextContinuity
+                        ref_node: "163010"
+              - name: followUpVasOrderNo
+                input:
+                    value:
+                        path: followUpVasOrderNo
+                        ref_node: "163010"
+              - name: needsFollowUp
+                input:
+                    value:
+                        path: needsFollowUp
+                        ref_node: "163010"
+              - name: followUpReason
+                input:
+                    value:
+                        path: followUpReason
+                        ref_node: "163010"
+              - name: suggestedNextExpert
+                input:
+                    value:
+                        path: suggestedNextExpert
+                        ref_node: "163010"
+              - name: valueAddHandoff
+                input:
+                    value:
+                        path: valueAddHandoff
+                        ref_node: "163010"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "900001"

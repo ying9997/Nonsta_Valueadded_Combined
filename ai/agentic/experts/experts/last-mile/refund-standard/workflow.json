@@ -1,0 +1,177 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "scenario",
+        "customerIntent",
+        "trackingIds",
+        "outboundOrderNos",
+        "enrichedContext",
+        "inputContext",
+        "country",
+        "destinationCountry",
+        "destinationRegion"
+      ],
+      "outputs": [
+        "valid",
+        "error",
+        "scenario",
+        "customerIntent",
+        "trackingIds",
+        "outboundOrderNos",
+        "enrichedContext",
+        "inputContext",
+        "countryResolved",
+        "countrySource",
+        "scenarioGuard"
+      ],
+      "outputSchema": {
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "scenario": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "countryResolved": {
+            "type": "string"
+          },
+          "countrySource": {
+            "type": "string"
+          },
+          "scenarioGuard": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-refund-knowledge",
+      "file": "nodes/load-refund-knowledge.ts",
+      "inputs": [
+        "country",
+        "destinationCountry",
+        "enrichedContext",
+        "countryResolved"
+      ],
+      "outputs": [
+        "refundLexicon",
+        "clauseMatrix",
+        "designatedCountryShard",
+        "calculationGuide",
+        "countryResolved",
+        "countryShardMode"
+      ],
+      "outputSchema": {
+        "properties": {
+          "refundLexicon": {
+            "type": "string"
+          },
+          "clauseMatrix": {
+            "type": "string"
+          },
+          "designatedCountryShard": {
+            "type": "string"
+          },
+          "calculationGuide": {
+            "type": "string"
+          },
+          "countryResolved": {
+            "type": "string"
+          },
+          "countryShardMode": {
+            "type": "string",
+            "description": "hit | index | unsupported"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "scenario",
+        "customerIntent",
+        "trackingIds",
+        "outboundOrderNos",
+        "enrichedContext",
+        "inputContext",
+        "countryResolved",
+        "countryShardMode",
+        "refundLexicon",
+        "clauseMatrix",
+        "designatedCountryShard",
+        "calculationGuide",
+        "examplesMd"
+        ,"scenarioGuard"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext",
+        "scenarioGuard"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

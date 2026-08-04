@@ -1,0 +1,137 @@
+yamlBasename: inbound_transit_tracking-draft.yaml
+packageMainName: inbound_transit_tracking
+packageDescription: 头程在途追踪（resolve → TMS queryPage → OMS getOrderDetail → extract → check-tms-gap → LLM）
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-tms-transport-order
+    logicalId: winit_tms_transport_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 10
+      concurrentSize: 5
+      actionsFrom:
+        logicalId: build-tms-transport-query
+        path: actions
+  - insertBefore: fetch-inbound-order
+    logicalId: winit_inbound_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-winit-inbound-detail
+        path: actions
+
+textNodes:
+  - logicalId: kb-transit-milestones-text
+    title: kb-transit-milestones
+    insertAfter: check-tms-gap
+    sourceFile: prompts/kb-transit-milestones.md
+  - logicalId: tms-gap-notice-text
+    title: tms-gap-notice
+    insertAfter: check-tms-gap
+    sourceFile: prompts/tms-gap-notice.md
+
+inputBindings:
+  build-tms-transport-query:
+    skipApi:
+      ref: resolve-inbound-lookup
+      path: skipApi
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: resolve-inbound-lookup
+      path: customerRefNos
+    transportOrderNo:
+      ref: __start__
+      path: inputs.transportOrderNo
+    containerNo:
+      ref: __start__
+      path: inputs.containerNo
+  fetch-tms-transport-order:
+    skipTms:
+      ref: build-tms-transport-query
+      path: skipTms
+    actions:
+      ref: build-tms-transport-query
+      path: actions
+    winitTmsPluginOutputList:
+      ref: winit_tms_transport_batch
+      path: outputList
+  summarize-tms-transport:
+    skipTms:
+      ref: build-tms-transport-query
+      path: skipTms
+    tmsRawList:
+      ref: fetch-tms-transport-order
+      path: tmsRawList
+  build-winit-inbound-detail:
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: resolve-inbound-lookup
+      path: customerRefNos
+    skipApi:
+      ref: resolve-inbound-lookup
+      path: skipApi
+  fetch-inbound-order:
+    actions:
+      ref: build-winit-inbound-detail
+      path: actions
+    actionPlans:
+      ref: build-winit-inbound-detail
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_inbound_detail_batch
+      path: outputList
+    skipApi:
+      ref: build-winit-inbound-detail
+      path: skipApi
+  prune-inbound-json:
+    rawOrderData:
+      ref: fetch-inbound-order
+      path: rawOrderData
+    maxTrajectoryNodes:
+      ref: __start__
+      path: inputs.maxTrajectoryNodes
+  extract-ts-facts:
+    prunedOrderData:
+      ref: prune-inbound-json
+      path: prunedOrderData
+    tmsTransportSummary:
+      ref: summarize-tms-transport
+      path: tmsTransportSummary
+  check-tms-gap:
+    tmsTransportSummary:
+      ref: summarize-tms-transport
+      path: tmsTransportSummary
+  load-transit-kb:
+    kbTransitMilestones:
+      ref: kb-transit-milestones-text
+      path: output
+    tmsGapNotice:
+      ref: tms-gap-notice-text
+      path: output
+    queryFocus:
+      ref: __start__
+      path: inputs.queryFocus
+  format-output:
+    tmsDataAvailable:
+      ref: check-tms-gap
+      path: tmsDataAvailable

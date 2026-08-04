@@ -1,0 +1,2033 @@
+schema_version: 1.0.0
+name: value_add_product_recommendation_20260630_1
+id: 7665289414466306099
+description: "增值产品推荐（validate → classify/clarify → mapping/filter/gate → recommend → format）"
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: "工作流的起始节点，用于设定启动工作流需要的信息"
+      position:
+        x: -150
+        y: 230
+      parameters:
+        node_outputs:
+            customerCode:
+                type: string
+                value: null
+                description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+            customerIntent:
+                type: string
+                value: null
+                description: 当前正在为客户解决的业务问题或诉求摘要
+            customerName:
+                type: string
+                value: null
+                description: 客户名称（租户展示上下文；可为空）
+            inputContext:
+                type: object
+                value: null
+                description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+            inputs:
+                type: object
+                properties:
+                    customerActionIntent:
+                        type: string
+                        value: null
+                        description: 客户处理意图，如继续上架、新单上架、销毁、自提
+                    enrichedContext:
+                        type: object
+                        value: null
+                        description: 编排器聚合事实
+                    exceptionCategory:
+                        type: string
+                        value: null
+                        description: 异常类别
+                    exceptionCode:
+                        type: string
+                        value: null
+                        description: 异常编码
+                    exceptionName:
+                        type: string
+                        value: null
+                        description: 异常名称
+                    exceptionObject:
+                        type: string
+                        value: null
+                        description: 异常对象，如包裹、商品、单品、托盘
+                    handoffFacts:
+                        type: object
+                        value: null
+                        description: 上游异常诊断输出的 handoff facts
+                    inboundOrderNo:
+                        type: string
+                        value: null
+                        description: 关联入库单号，仅作上下文
+                    orderStatusHint:
+                        type: string
+                        value: null
+                        description: 上游已知入库单状态提示
+                value: null
+                description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+            language:
+                type: string
+                value: null
+                description: 语言/区域偏好（如 zh_CN；可为空）
+            query:
+                type: string
+                value: null
+                description: 上游 Agent 委托本专家需要完成的具体任务说明
+            username:
+                type: string
+                value: null
+                description: 操作者用户名（审计上下文；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: "工作流的最终节点，用于返回工作流运行后的结果信息"
+      position:
+        x: 3140
+        y: 310
+      parameters:
+        node_inputs:
+            - name: structured
+              input:
+                type: object
+                value:
+                    path: structured
+                    ref_node: "163013"
+            - name: analysis
+              input:
+                type: string
+                value:
+                    path: analysis
+                    ref_node: "163013"
+            - name: outputContext
+              input:
+                type: object
+                value:
+                    path: outputContext
+                    ref_node: "163013"
+            - name: enrichedContext
+              input:
+                type: object
+                value:
+                    path: enrichedContext
+                    ref_node: "163013"
+        terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 120
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：validate-input — 归一化并校验 VASC 推荐入参。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function latestContext(enrichedContext: Record<string, unknown>, key: string): Record<string, unknown> {
+              const value = enrichedContext[key];
+              if (Array.isArray(value)) return asRecord(value[value.length - 1]);
+              return asRecord(value);
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const enrichedContext = asRecord(params.enrichedContext);
+              const diagnosisContext = latestContext(enrichedContext, "value-add/value-add-exception-diagnosis");
+              const contextFacts =
+                asRecord(diagnosisContext.handoffFacts).exceptionCode || asRecord(diagnosisContext.handoffFacts).exceptionName
+                  ? asRecord(diagnosisContext.handoffFacts)
+                  : asRecord(diagnosisContext.valueAddExceptionDiagnosis);
+              const handoffFacts = {
+                ...contextFacts,
+                ...asRecord(params.handoffFacts),
+              };
+              const recommendationInput = {
+                exceptionCode: asText(params.exceptionCode) || asText(handoffFacts.exceptionCode),
+                exceptionName: asText(params.exceptionName) || asText(handoffFacts.exceptionName),
+                exceptionCategory: asText(params.exceptionCategory) || asText(handoffFacts.exceptionCategory),
+                exceptionObject: asText(params.exceptionObject) || asText(handoffFacts.exceptionObject),
+                customerActionIntent:
+                  asText(params.customerActionIntent) || asText(params.customerIntent) || asText(params.query),
+                inboundOrderNo: asText(params.inboundOrderNo) || asText(handoffFacts.inboundOrderNo),
+                orderStatusHint: asText(params.orderStatusHint),
+                handoffFacts,
+                enrichedContext,
+              };
+              const hasExceptionFact = Boolean(
+                recommendationInput.exceptionCode ||
+                  recommendationInput.exceptionName ||
+                  recommendationInput.exceptionCategory ||
+                  recommendationInput.exceptionObject
+              );
+
+              return {
+                recommendationInput,
+                validationResult: {
+                  ok: hasExceptionFact,
+                  intentClarity: recommendationInput.customerActionIntent ? "clear" : "missing",
+                  missingEvidence: hasExceptionFact ? [] : ["exception_fact"],
+                },
+                inputContext: asRecord(params.inputContext),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "validate-input failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrxdvyk8peq
+        language: 5
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "100001"
+            - name: exceptionCode
+              input:
+                value:
+                    path: inputs.exceptionCode
+                    ref_node: "100001"
+            - name: exceptionName
+              input:
+                value:
+                    path: inputs.exceptionName
+                    ref_node: "100001"
+            - name: exceptionCategory
+              input:
+                value:
+                    path: inputs.exceptionCategory
+                    ref_node: "100001"
+            - name: exceptionObject
+              input:
+                value:
+                    path: inputs.exceptionObject
+                    ref_node: "100001"
+            - name: customerActionIntent
+              input:
+                value:
+                    path: inputs.customerActionIntent
+                    ref_node: "100001"
+            - name: inboundOrderNo
+              input:
+                value:
+                    path: inputs.inboundOrderNo
+                    ref_node: "100001"
+            - name: orderStatusHint
+              input:
+                value:
+                    path: inputs.orderStatusHint
+                    ref_node: "100001"
+            - name: handoffFacts
+              input:
+                value:
+                    path: inputs.handoffFacts
+                    ref_node: "100001"
+            - name: enrichedContext
+              input:
+                value:
+                    path: inputs.enrichedContext
+                    ref_node: "100001"
+        node_outputs:
+            inputContext:
+                type: object
+                value: null
+            recommendationInput:
+                type: object
+                value: null
+            validationResult:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3abslver52glw
+    - id: "163001"
+      type: text
+      title: kb-flow-context
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 120
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 入库流程语境 · 流程复原推理背景\n\n本文件为 `value-add-product-recommendation` 提供推理背景。增值服务处理的是**入库正常流程在某阶段被阻断**的异常 case，推荐 VASC 的本质是选出能**恢复流程继续走完**的增值服务。\n\n---\n\n## Section 1：通用入库阶段（与 PSC 无关）\n\n所有入库单在海外仓侧都经过以下核心阶段：\n\n| 阶段编号 | 阶段名称 | 正常完成的标志 | PSC 决定是否存在 |\n|---|---|---|---|\n| S1 | 卸货到仓 | 包裹/托盘按预约码到仓，系统记录 `PEWC`→`EWC` | 所有 PSC |\n| S2 | 验货核对 | 开箱点数、SKU 与箱单核对通过 | 仅 OW01031/032 海外验；OW01011 在国内仓已完成；OW01021/022 由客户在发货前完成 |\n| S3 | 上架入库 | 货物按 SKU 分区上架，状态变 `SHD` | 所有 PSC |\n\n**正常流程目标**：货物经过 S1（→S2）→S3，最终完成上架存储，等待后续出库。\n\n---\n\n## Section 2：异常类型与阻断阶段\n\n### 2.1 条码类异常 → 阻断 S3（上架）\n\n货物无法上架，仓库将其移至**异常暂存区**，等待客户下发增值指令。\n\n| 条码异常场景 | 阻断原因 | 适用 PSC |\n|---|---|---|\n| 包裹条码缺失/破损/状态异常/冲突 | 扫描枪无法识别，系统无法匹配入库单 | 全部 |\n| 商品/SKU 条码无法识别（无条码、不完整、未录入） | 无法完成商品级验收 | 全部 |\n| 商品条码无法扫描（磨损，人工可读） | 仓库直接补打，属**操作类异常**，不需客户增值 | 全部 |\n\n**结论**：条码类异常阻断上架阶段，VASC 的目的是「补/换/贴条码，使货物可重新上架」。\n\n---\n\n### 2.2 数量差异异常 → 阻断 S2 或 S3（PSC 影响责任与路径，见 Section 3）\n\n| 数量异常场景 | 阻断原因 |\n|---|---|\n| 到货数量与入库单不符 | 无法完成验收确认，或已上架但数量有疑议 |\n| 货物混仓（送到错误仓库） | 当前仓无对应入库单，无法上架 |\n\n---\n\n### 2.3 包装/质量异常 → 阻断 S3（上架）\n\n仓库将货物移至暂存区，等待客户指令。\n\n| 包装质量异常场景 | 常见处理方向 |\n|---|---|\n| 外包装破损/受潮/未封口 | 包装加固增值 或 销毁增值 |\n| 商品裸装（无外包装） | 冻结上架；客户选择裸货标签或出库加包装 |\n| 商品质量明显异常（碎裂等） | 销毁增值 |\n\n**结论**：包装质量异常阻断上架阶段，VASC 的目的是「修复或处置货物，使其可上架或安全处置」。\n\n---\n\n### 2.4 尺重异常\n\n- 实物尺重与系统不符 → 仓库复测后修改系统，**操作类**，无需客户增值。\n- SKU 出库超重拦截 → 需申请「库内随机检查商品体积重量」增值服务复测。\n\n---\n\n## Section 3：PSC 差异矩阵\n\nPSC 系列决定了**验货发生在哪里**，进而影响**数量差异异常的责任归属**和推荐路径。\n\n### 三条 PSC 轨道\n\n| PSC 系列 | 轨道标识 | 验货阶段 | 验货位置 | 对应阶段 |\n|---|---|---|---|---|\n| `OW01011*` 标准头程 | `standard_firstleg` | 发货前 | Winit 国内仓 | S2 在国内已完成 |\n| `OW01021*` / `OW01022*` 客户自验 | `self_inspection` | 发货前 | 客户自行完成（PDA/API/Excel） | S2 由客户完成 |\n| `OW01031*` / `OW01032*` 海外验 | `overseas_inspection` | 到仓后 | Winit 海外仓开箱 | S2 是海外仓正常工序 |\n\n### 数量差异异常的 PSC 差异\n\n| 维度 | `standard_firstleg` OW01011 | `self_inspection` OW01021/022 | `overseas_inspection` OW01031/032 |\n|---|---|---|---|\n| 验货责任方 | Winit（国内仓已验） | 客户（已自验发货） | Winit（海外仓正在验） |\n| 数量差异的第一反应 | 优先核实 Winit 责任，可能无需增值 | 客户已确认数量，差异由客户负责，通常需申请库内盘点增值 | 验货结果即为事实，差异在验货过程中已记录，直接驱动增值或上架 |\n| 推荐路径 | **先转 `inbound-exception-check` 核实**；如核实后确需增值，再推荐 | 推荐「库内盘点」类 VASC | 视验货结论推荐对应 VASC |\n| 是否直接给 VASC | 慎重；建议先核实责任 | 是 | 是 |\n\n### 条码/包装异常的 PSC 差异\n\n| PSC 轨道 | 条码类异常 | 包装质量异常 |\n|---|---|---|\n| `standard_firstleg` | VASC 贴标/换标 | VASC 包装加固/销毁 |\n| `self_inspection` | 同上 | 同上 |\n| `overseas_inspection` | 同上（在海外验过程中发现）| 同上 |\n\n> 条码类和包装质量异常的推荐路径在三条 PSC 轨道上一致。差异仅影响数量差异异常。\n\n---\n\n## Section 4：流程复原目标速查\n\n| 客户意图 | 流程复原目标 | 对应阶段 |\n|---|---|---|\n| 原单上架 | 修复异常后，使原入库单的货物完成 S3 上架 | S3 恢复 |\n| 新单上架 | 原单无法继续操作，重新创建入库单并上架 | S1→S3 重走 |\n| 销毁 | 货物无上架价值，通过增值服务安全销毁处置 | S3 替代路径 |\n| 自提 | 客户自行取走货物，不走正常上架流程 | S3 替代路径 |\n| 拍照/测量/质检 | 对货物做存证或检验，辅助后续决策 | S2/S3 辅助 |\n| 补/换条码 | 修复条码异常，使货物满足上架扫描要求 | S3 前置修复 |\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163002"
+      type: code
+      title: load-flow-context
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 400
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：load-flow-context — 加载流程语境 KB。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              return {
+                flowContextKb: asText(params.kbFlowContext),
+                recommendationInput: asRecord(params.recommendationInput),
+                validationResult: asRecord(params.validationResult),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("load-flow-context")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "load-flow-context failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abs21b4332ti
+        language: 5
+        node_inputs:
+            - name: recommendationInput
+              input:
+                value:
+                    path: recommendationInput
+                    ref_node: "163000"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163000"
+            - name: kbFlowContext
+              input:
+                value:
+                    path: output
+                    ref_node: "163001"
+        node_outputs:
+            flowContextKb:
+                type: string
+                value: null
+            recommendationInput:
+                type: object
+                value: null
+            validationResult:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3abslver52tz1
+    - id: "163003"
+      type: llm
+      title: llm-classify
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "调用大语言模型,使用变量和提示词生成回复"
+      version: "3"
+      position:
+        x: 680
+        y: 310
+      parameters:
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: temperature
+              input:
+                type: string
+                value: "0.5"
+            - name: topP
+              input:
+                type: string
+                value: "1"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: disabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: minimal
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: ""
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: false
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "3"
+            - name: systemPrompt
+              input:
+                type: string
+                value: |
+                    # Value-Add 产品推荐专家 - 分类 Prompt
+
+                    ## 角色
+
+                    你是增值产品推荐的前置分类节点，只判断异常阻断阶段、PSC 轨道、对象层级和客户处理意图是否清晰。**不推荐 VASC。**
+
+                    ## 禁止项
+
+                    - 不输出 VASC 编码或服务名称
+                    - 不承诺页面可下单
+                    - 不把示例或常识当作当前事实
+                    - 数量差异类异常不直接给推荐路径
+
+                    ## 输入
+
+                    - **query**：`{{query}}`
+                    - **customerIntent**：`{{customerIntent}}`
+                    - **recommendationInput**（validate-input 输出）：
+
+                    ```json
+                    {{recommendationInput}}
+                    ```
+
+                    - **flowContextKb**（load-flow-context 输出）：
+
+                    ```text
+                    {{flowContextKb}}
+                    ```
+
+                    - **inputContext**（参考）：
+
+                    ```json
+                    {{inputContext}}
+                    ```
+
+                    ## 输出格式
+
+                    ```json
+                    {
+                      "structured": {
+                        "blockedStage": "S1|S2|S3|unknown",
+                        "blockedStageName": "",
+                        "exceptionCategory": "",
+                        "objectLevel": "package|product|item|pallet|unknown",
+                        "pscTrack": "standard_firstleg|self_inspection|overseas_inspection|unknown",
+                        "customerActionNormalized": "USE_ORIGIN_INBOUND_ORDER|USE_NEW_INBOUND_ORDER|DESTROY|PICKUP|PHOTO_MEASURE|REPAIR_OR_REPLACE_LABEL|UNKNOWN",
+                        "intentClarity": "clear|ambiguous|missing",
+                        "needsResponsibilityCheck": false,
+                        "blockingMissing": [],
+                        "informationalMissing": [],
+                        "recommendedIntentHints": []
+                      },
+                      "analysis": "一句话说明分类结论。"
+                    }
+                    ```
+
+                    ## 特殊规则
+
+                    - 阻断阶段必须结合 `recommendationInput` 与 `flowContextKb` 判断
+                    - `customerActionNormalized` 只能用输出格式中的枚举
+                    - `intentClarity=clear` 时必须能明确客户希望如何恢复流程
+                    - standard_firstleg 的数量差异类异常，优先标记 `needsResponsibilityCheck=true`
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: recommendationInput
+              input:
+                value:
+                    path: recommendationInput
+                    ref_node: "163002"
+            - name: flowContextKb
+              input:
+                value:
+                    path: flowContextKb
+                    ref_node: "163002"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163000"
+        node_outputs:
+            analysisResult:
+                type: object
+                properties:
+                    analysis:
+                        type: string
+                        value: null
+                    structured:
+                        type: object
+                        value: null
+                value: null
+            classificationResult:
+                type: object
+                value: null
+            reasoning_content:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 180000
+    - id: "163004"
+      type: llm
+      title: llm-clarify
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "调用大语言模型,使用变量和提示词生成回复"
+      version: "3"
+      position:
+        x: 960
+        y: 170
+      parameters:
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: temperature
+              input:
+                type: string
+                value: "0.5"
+            - name: topP
+              input:
+                type: string
+                value: "1"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: disabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: minimal
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: ""
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: false
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "3"
+            - name: systemPrompt
+              input:
+                type: string
+                value: |
+                    # Value-Add 产品推荐专家 - 意图追问 Prompt
+
+                    ## 角色
+
+                    你是增值产品推荐的意图追问节点。当分类结果显示客户处理意图不清晰时，生成补充问题。**不推荐 VASC。**
+
+                    ## 禁止项
+
+                    - 不输出 VASC 编码、服务项、原子、字段或附件
+                    - 不给最终处理方案
+                    - 不在 `intentClarity=clear` 时强行追问
+
+                    ## 输入
+
+                    - **query**：`{{query}}`
+                    - **customerIntent**：`{{customerIntent}}`
+                    - **recommendationInput**（validate-input 输出）：
+
+                    ```json
+                    {{recommendationInput}}
+                    ```
+
+                    - **classificationResult**（llm-classify 输出）：
+
+                    ```json
+                    {{classificationResult}}
+                    ```
+
+                    - **inputContext**（参考）：
+
+                    ```json
+                    {{inputContext}}
+                    ```
+
+                    ## 输出格式
+
+                    ```json
+                    {
+                      "structured": {
+                        "outputPath": "clarify_intent|already_clear",
+                        "intentClarity": "ambiguous|missing|clear",
+                        "clarificationQuestion": "",
+                        "intentOptions": [
+                          {
+                            "intent": "USE_ORIGIN_INBOUND_ORDER",
+                            "label": "",
+                            "whenToChoose": ""
+                          }
+                        ],
+                        "blockingMissing": []
+                      },
+                      "analysis": "一句话说明为什么需要追问，或说明意图已清晰。"
+                    }
+                    ```
+
+                    ## 特殊规则
+
+                    - 先读取 `classificationResult.structured.intentClarity`
+                    - `clear`：输出 `already_clear`，不生成追问选项
+                    - `ambiguous/missing`：围绕当前异常阻断阶段生成 2-4 个客户可选处理意图
+                    - 数量差异类且需要责任核实时，优先追问核实事实
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: recommendationInput
+              input:
+                value:
+                    path: recommendationInput
+                    ref_node: "163002"
+            - name: classificationResult
+              input:
+                value:
+                    path: classificationResult
+                    ref_node: "163003"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163000"
+        node_outputs:
+            analysisResult:
+                type: object
+                properties:
+                    analysis:
+                        type: string
+                        value: null
+                    structured:
+                        type: object
+                        value: null
+                value: null
+            clarificationResult:
+                type: object
+                value: null
+            reasoning_content:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 180000
+    - id: "163005"
+      type: text
+      title: kb-intent-guide
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 960
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 客户意图导航 · VASC 候选推荐指引\n\n本文件按**客户处理意图**组织 VASC 候选，每个意图独立成段，说明该意图的业务语义、适用条件、候选 VASC 方向和关键约束。\n\n> 使用规则：以 `customerActionNormalized` 定位对应意图段；首选 VASC 需结合 `kb-mapping-table.md` 验证异常编码关系，并通过 `kb-vasc-constraints.md` 过滤启用态。\n\n---\n\n## 意图一：原单上架（USE_ORIGIN_INBOUND_ORDER）\n\n### 业务语义\n\n货物因异常无法正常上架，但**原入库单仍可继续操作**，客户希望修复异常后继续使用原单完成上架。\n\n### 适用前提\n\n- 原入库单状态为**可操作**（如「待上架」、验货未完成等，非已关闭/已完成）。\n- 异常对象为包裹级或商品级，通过增值处理后可与原入库单关联上架。\n\n### 关键确认项（blocking）\n\n- **原入库单是否仍可操作**：必须确认；若入库单已关闭或已完成，原单上架不可行，应引导改为新单上架。\n\n### 候选 VASC 方向\n\n| 异常类型 | 典型 VASC 方向 | 核心操作 |\n|---|---|---|\n| 包裹条码异常 | 原单上架（包裹条码修复类） | 补贴/重打/换贴包裹条码，关联原入库单 |\n| 商品/SKU 条码异常 | 原单上架（商品条码修复类） | 补贴原 SKU 条码或更换新 SKU 条码 |\n| 混合条码异常（包裹+商品） | 原单上架（组合修复类） | 同时处理包裹和商品条码 |\n\n### 流程复原路径\n\n异常暂存区货物 → 增值贴标/换标 → 重新扫描关联原入库单 → S3 上架完成\n\n---\n\n## 意图二：新单上架（USE_NEW_INBOUND_ORDER）\n\n### 业务语义\n\n原入库单**无法继续操作**（已关闭、已完成或客户主动选择放弃），客户需要创建新的入库单并重新走上架流程。\n\n### 适用前提\n\n- 原入库单已不可操作，或客户明确表示不用原单。\n- 客户能够（或已经）创建新入库单。\n\n### 关键确认项（blocking）\n\n- **新入库单号**：客户是否已创建；创建后才能触发增值关联。\n\n### 候选 VASC 方向\n\n| 异常类型 | 典型 VASC 方向 | 核心操作 |\n|---|---|---|\n| 包裹条码异常 | 新单上架（包裹条码类） | 补贴包裹条码，关联新入库单 |\n| 商品条码异常 | 新单上架（商品条码类） | 补/换商品条码，关联新单 |\n| 无条码/全异常 | 新单上架（综合类） | 重新制作完整条码体系后关联新单 |\n\n### 流程复原路径\n\n新建入库单 → 增值补码/贴标 → 关联新入库单 → S1→S3 重新走上架流程\n\n### 与原单上架的互斥关系\n\n同一异常同一时间只能选其一；选择新单上架后，原入库单关联关系断开，后续不再补充进原单。\n\n---\n\n## 意图三：销毁（DESTROY）\n\n### 业务语义\n\n货物异常严重（包装破损、质量问题、无经济回收价值），客户放弃货物，要求仓库按规定销毁并出具销毁证明。\n\n### 适用前提\n\n- 客户已明确确认放弃货物并授权销毁。\n- 销毁对象须明确：包裹/商品/部分数量。\n\n### 关键确认项（blocking）\n\n- **销毁授权确认**：客户须在增值单中明确填写销毁对象和数量。\n- **仓库限制**：部分目的仓对危险品/液体等有特殊销毁规定；需确认是否有特殊货型限制。\n\n### 候选 VASC 方向\n\n| 异常类型 | 典型 VASC 方向 |\n|---|---|\n| 包装严重破损/受潮 | 销毁处理 VASC |\n| 商品质量明显异常（碎裂） | 销毁处理 VASC |\n| 客户主动放弃 | 销毁处理 VASC |\n\n### 流程复原路径\n\n暂存货物 → 客户提交销毁增值单并授权 → 仓库执行销毁 → 出具销毁凭证 → 流程终止\n\n---\n\n## 意图四：自提（SELF_PICKUP）\n\n### 业务语义\n\n客户希望自行取走货物，不通过正常上架流程，由客户或指定提货人到仓提货。\n\n### 适用前提\n\n- 仓库支持客户自提（需确认目的仓是否开放自提）。\n- 货物处于可提取状态（已到仓，异常已登记）。\n\n### 关键确认项（blocking）\n\n- **仓库是否支持自提**：部分海外仓不开放自提。\n- **提货人信息**：姓名、证件、取货时间窗口。\n\n### 候选 VASC 方向\n\n| 场景 | 典型 VASC 方向 |\n|---|---|\n| 货物异常，客户不走上架改自提 | 自提处理类 VASC（非标服务） |\n| 串仓后客户选择在当前仓自提 | 自提处理类 VASC |\n\n### 流程复原路径\n\n货物暂存 → 客户提交自提增值申请 → 仓库准备提货 → 客户/提货人到仓取货 → 流程终止\n\n---\n\n## 意图五：拍照 / 测量 / 质检（PHOTO / MEASURE / QC）\n\n### 业务语义\n\n客户不确定货物实际状态，或需要存证记录，申请拍照、测量尺寸重量或质量检查，辅助后续决策（是否上架、是否销毁、是否退回供应商等）。\n\n### 适用前提\n\n- 货物已到仓。\n- 客户需要视觉存证或数据核实。\n\n### 关键确认项（informational）\n\n- **拍照维度**：包裹外观 / 商品内件 / 条码特写 / 全景。\n- **测量项目**：尺寸 / 重量 / 体积重量。\n- **质检标准**：是否有客户自定义质检表。\n\n### 候选 VASC 方向\n\n| 服务类型 | 典型 VASC 方向 | 说明 |\n|---|---|---|\n| 拍照 | 库前拍照 VASC | 货物到仓后，上架前对外包装/内件拍照存证 |\n| 测量 | 库前测量 VASC | 核实实物尺重，解决尺重异常问题 |\n| 质检 | 质检服务 VASC | 按标准或客户定制质检表逐件检验 |\n| 综合（先拍照再决策） | 先拍照，再根据拍照结果决定是否上架/销毁 | 拍照不影响货物状态，可与其他 VASC 组合 |\n\n### 流程复原路径\n\n货物暂存/在库 → 增值拍照/测量/质检 → 客户查看结果决策 → 后续再触发上架/销毁/自提等意图\n\n---\n\n## 意图六：补/换条码 · 贴标 / 换标（LABEL / RELABEL）\n\n### 业务语义\n\n客户已明确知道需要补贴或更换条码，但**尚未确定是要原单上架还是新单上架**，处于「先修复条码，再决定上架方式」的阶段。\n\n> 若客户已明确上架方式，应优先路由到意图一（原单上架）或意图二（新单上架），本意图作为过渡。\n\n### 候选 VASC 方向\n\n| 操作类型 | VASC 方向 |\n|---|---|\n| 补贴包裹条码 | 包裹贴标 VASC |\n| 更换包裹条码 | 包裹换标 VASC |\n| 补贴商品/SKU 条码（原 SKU） | 商品条码补贴 VASC |\n| 更换商品条码（新 SKU） | 商品条码更换 VASC |\n| 补贴第三方条码（FNSKU 等）关联 | 第三方条码关联 VASC |\n\n### 与上架意图的联动\n\n补换条码完成后，货物通常进入原单上架或新单上架流程。建议在提供本意图候选时，同步询问客户上架方式，以便在 `handoffToServiceConfig` 中提前注入上架意图。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163006"
+      type: code
+      title: load-intent-guide
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1240
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：load-intent-guide — 加载客户处理意图导航 KB。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              return {
+                intentGuideKb: asText(params.kbIntentGuide),
+                recommendationInput: asRecord(params.recommendationInput),
+                classificationResult: asRecord(params.classificationResult),
+                clarificationResult: asRecord(params.clarificationResult),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("load-intent-guide")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "load-intent-guide failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrs9vrkmal8
+        language: 5
+        node_inputs:
+            - name: recommendationInput
+              input:
+                value:
+                    path: recommendationInput
+                    ref_node: "163002"
+            - name: classificationResult
+              input:
+                value:
+                    path: classificationResult
+                    ref_node: "163003"
+            - name: clarificationResult
+              input:
+                value:
+                    path: clarificationResult
+                    ref_node: "163004"
+            - name: kbIntentGuide
+              input:
+                value:
+                    path: output
+                    ref_node: "163005"
+        node_outputs:
+            clarificationResult:
+                type: object
+                value: null
+            classificationResult:
+                type: object
+                value: null
+            intentGuideKb:
+                type: string
+                value: null
+            recommendationInput:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3abslver538d5
+    - id: "163007"
+      type: text
+      title: kb-mapping-table
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 1240
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 异常 → VASC 紧凑映射表\n\n本文件是**验证层**，用于核实意图导航推荐的 VASC 候选是否有异常关系支撑，以及补充意图导航未覆盖的候选。\n\n> 使用规则：\n> - 先通过 `kb-intent-guide.md` 确定候选方向，再用本表验证「异常编码 ↔ VASC」关系是否存在。\n> - 本表只记录编码关系，不解释业务原因；解释见意图导航层。\n> - 全量来源：`docs/value-add/relationship-mappings/inbound-exception-to-vasc-product-mapping.md`（168 条关系，18 个 VASC）。\n> - inactive VASC 标注 `[inactive]`，不作可下单推荐，仅作历史线索。\n\n---\n\n## 包裹条码类异常\n\n| 异常编码 | 异常名称（简） | 关联 VASC 编码 | VASC 名称（简） | 对象层级 |\n|---|---|---|---|---|\n| B01E1615 | 包裹条码状态异常 | VASC202407031503503 | 原单上架 | package |\n| B01E1615 | 包裹条码状态异常 | VASC202407161056217 | 新单上架（客户创建） | package |\n| B01E1614 | 包裹条码缺失 | VASC202407031503503 | 原单上架 | package |\n| B01E1614 | 包裹条码缺失 | VASC202407161056217 | 新单上架（客户创建） | package |\n| B01E1613 | 包裹条码破损 | VASC202407031503503 | 原单上架 | package |\n| B01E1613 | 包裹条码破损 | VASC202407161056217 | 新单上架（客户创建） | package |\n| B01E1616 | 多个冲突条码 | VASC202407031503503 | 原单上架 | package |\n| B01E1616 | 多个冲突条码 | VASC202407161056217 | 新单上架（客户创建） | package |\n\n---\n\n## 商品/SKU 条码类异常\n\n| 异常编码 | 异常名称（简） | 关联 VASC 编码 | VASC 名称（简） | 对象层级 |\n|---|---|---|---|---|\n| B01E1315 | 商品条码异常（需客户处理） | VASC202407031503503 | 原单上架 | product |\n| B01E1315 | 商品条码异常（需客户处理） | VASC202407161056217 | 新单上架（客户创建） | product |\n| B01E1316 | 商品条码无法识别 | VASC202407031503503 | 原单上架 | product |\n| B01E1317 | 商品条码未录入系统 | VASC202407031503503 | 原单上架 | product |\n| B01E1317 | 商品条码未录入系统 | VASC202407161056217 | 新单上架（客户创建） | product |\n\n---\n\n## 包装/质量类异常\n\n| 异常编码 | 异常名称（简） | 关联 VASC 编码 | VASC 名称（简） | 对象层级 |\n|---|---|---|---|---|\n| B01E2101 | 外包装破损 | VASC_REPACK_001 | 重新包装/包装加固 | package |\n| B01E2101 | 外包装破损 | VASC_DESTROY_001 | 销毁处理 | package |\n| B01E2102 | 外包装受潮 | VASC_REPACK_001 | 重新包装/包装加固 | package |\n| B01E2102 | 外包装受潮 | VASC_DESTROY_001 | 销毁处理 | package |\n| B01E2103 | 商品质量明显异常 | VASC_DESTROY_001 | 销毁处理 | product |\n\n---\n\n## 数量差异类异常\n\n| 异常编码 | 异常名称（简） | 关联 VASC 编码 | VASC 名称（简） | 对象层级 | PSC 限制 |\n|---|---|---|---|---|---|\n| B01E3001 | 到货数量不符 | VASC_INVENTORY_001 | 库内盘点 | order | 建议仅 self_inspection 轨道直接推荐；standard_firstleg 轨道先核实责任 |\n| B01E3002 | 货物串仓 | VASC_TRANSFER_001 | 非标调拨/转运 | order | 全 PSC |\n\n---\n\n## 拍照/测量/质检类\n\n| 适用场景 | 关联 VASC 编码 | VASC 名称（简） | 说明 |\n|---|---|---|---|\n| 存证拍照 | VASC_PHOTO_001 | 库前拍照 | 上架前对包裹或商品拍照 |\n| 尺重测量 | VASC_MEASURE_001 | 库前测量 | 核实或记录实物尺重 |\n| 质量检验 | VASC_QC_001 | 质检服务 | 按标准或客户定制表检验 |\n\n---\n\n## 映射覆盖说明\n\n- 当前口径：168 条去重关系，覆盖 18 个 VASC。\n- 全量 normalized 来源待补齐至 `docs/value-add/source-references/exception-vas-data-package/data/normalized/`。\n- 本表为摘要版本，仅覆盖高频异常编码；未在本表出现的异常编码，以 `docs/value-add/relationship-mappings/inbound-exception-to-vasc-product-mapping.md` 为准。\n- **不能仅凭本表反推 VASC 适用性**；异常到 VASC 映射证明「有关联」，不替代意图和对象层级判断。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163008"
+      type: text
+      title: kb-vasc-constraints
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 1240
+        y: 620
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# VASC 约束过滤层\n\n本文件为 `filter-by-constraints` 节点提供过滤依据。候选 VASC 在经过意图导航和映射验证后，须通过本层约束检查，排除**不可用**的候选。\n\n> 使用规则：\n> - inactive VASC 不得作为可下单推荐，只能作为历史线索或待确认项。\n> - 约束的具体命中值依赖知识库同步，v1 不调用 `pms.VascTomService_queryVascPage` 刷新。\n> - 约束有疑义时输出 `informationalMissing`，不编造系统限制。\n\n---\n\n## 一、VASC 启用态约束\n\n| VASC 类别 | 启用态 | 使用限制 |\n|---|---|---|\n| 原单上架类 VASC | active | 可推荐为首选 |\n| 新单上架类 VASC | active | 可推荐为首选 |\n| 拍照/测量/质检类 VASC | active | 可推荐为辅助服务 |\n| 销毁类 VASC | active | 可推荐，需客户授权确认 |\n| 自提类 VASC | active（部分仓库限制）| 需确认目的仓是否支持 |\n| 调拨/转运类 VASC | active（非标服务）| 需人工评估，建议升级 |\n| inactive VASC | inactive | 不作可下单推荐；作为历史/待确认线索，在 `notRecommendedOptions` 中注明 |\n\n---\n\n## 二、入库单状态依赖约束\n\n以下约束影响特定 VASC 的可用性，缺失时产生 `blockingMissing` 或 `informationalMissing`。\n\n| VASC 意图 | 依赖的入库单状态 | 状态不满足时的处理 | 缺失信息类型 |\n|---|---|---|---|\n| 原单上架 | 入库单须为**可操作状态**（待上架、验货中等，非已关闭/已完成） | 降级：提示改为新单上架；原单上架候选降为条件性推荐 | `blockingMissing`（dimension: orderStatus） |\n| 新单上架 | 无强依赖，但新入库单号有助于后续服务配置 | 可先推荐，新单号作 `informationalMissing` | `informationalMissing`（dimension: newOrderNo） |\n| 库内盘点 | 无强依赖 | 直接推荐 | — |\n| 销毁 | 无状态依赖，但需客户授权 | 授权确认作 `informationalMissing` | `informationalMissing`（dimension: destroyAuthorization） |\n| 自提 | 仓库须支持自提 | 仓库限制不满足时降级 | `blockingMissing`（dimension: warehousePickupSupport） |\n\n---\n\n## 三、对象层级兼容约束\n\n候选 VASC 有对象层级适用范围；异常对象层级与 VASC 适用范围不匹配时，该候选应降级或排除。\n\n| VASC 类别 | 适用对象层级 | 不兼容时处理 |\n|---|---|---|\n| 包裹条码修复类（原单/新单） | `package` | 若异常对象为 `product` 或 `item`，此类 VASC 不适用 |\n| 商品条码修复类（原单/新单） | `product`、`item` | 若异常对象为 `package`，此类 VASC 不适用 |\n| 拍照/测量 | `package`、`product`（均支持）| 通常无层级限制 |\n| 销毁 | `package`、`product`、`item`（均支持）| 通常无层级限制 |\n| 库内盘点 | `order`、`package` | 通常按入库单整体盘点 |\n| 自提/调拨 | `order`（整单操作）| 不适用于单件操作 |\n\n---\n\n## 四、实物包装方式约束\n\n| 实物包装方式 | 约束说明 |\n|---|---|\n| 托盘（pallet）装 | 托盘层异常不能直接做商品级贴标；需先「拆托盘」才能操作商品层级 VASC；`objectLevel=pallet` 时此约束作为 `informationalMissing` 提示 |\n| 散件/箱装 | 无额外约束 |\n\n---\n\n## 五、其他不推荐原因参考\n\n| 原因类型 | 说明 | 输出位置 |\n|---|---|---|\n| 意图不匹配 | VASC 适用的上架方式与客户意图相悖（如意图原单上架但 VASC 是新单上架类） | `notRecommendedOptions` |\n| 对象层级不匹配 | 见第三节 | `notRecommendedOptions` |\n| inactive | VASC 当前未启用 | `notRecommendedOptions`（附历史线索说明） |\n| PSC 轨道限制 | 数量差异类 VASC 在 standard_firstleg 轨道不建议直接推荐（优先核实责任） | `notRecommendedOptions` 或 `missingConfirmations` |\n| 仓库不支持 | 特定仓库不支持此 VASC（如自提仓库限制）| `notRecommendedOptions` |\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163009"
+      type: code
+      title: verify-with-mapping
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1520
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：verify-with-mapping — 用异常到 VASC 映射表验证/补充候选。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function extractVasc(line: string): { vascCode: string; vascName: string } {
+              const code = line.match(/\bVASC[A-Z0-9_-]*\b/i)?.[0] || line.match(/\b[A-Z]{2,}\d{2,}[A-Z0-9_-]*\b/)?.[0] || "";
+              const parts = line.split("|").map((part) => part.trim()).filter(Boolean);
+              const codeIndex = parts.findIndex((part) => part === code);
+              return {
+                vascCode: code,
+                vascName:
+                  codeIndex >= 0 && parts[codeIndex + 1] && parts[codeIndex + 1] !== code
+                    ? parts[codeIndex + 1]
+                    : parts[parts.length - 1] && parts[parts.length - 1] !== code
+                      ? parts[parts.length - 1]
+                      : "",
+              };
+            }
+
+            function isDeprecatedOrRedirectNote(line: string): boolean {
+              const lower = line.toLowerCase();
+              return (
+                lower.includes("deprecated") ||
+                line.includes("已废弃") ||
+                line.includes("废弃") ||
+                line.includes("请使用") ||
+                line.includes("替代")
+              );
+            }
+
+            function parseTableCells(line: string): string[] {
+              if (!line.includes("|")) return [];
+              return line
+                .split("|")
+                .map((part) => part.trim())
+                .filter((part) => part.length > 0);
+            }
+
+            function isSeparatorRow(cells: string[]): boolean {
+              return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+            }
+
+            function mappingRowMatches(line: string, needles: string[]): boolean {
+              if (isDeprecatedOrRedirectNote(line)) return false;
+              const cells = parseTableCells(line);
+              if (cells.length > 0) {
+                if (isSeparatorRow(cells)) return false;
+                const identityCells = cells.slice(0, Math.min(2, cells.length)).join(" ").toLowerCase();
+                return needles.some((needle) => identityCells.includes(needle.toLowerCase()));
+              }
+              const lower = line.toLowerCase();
+              return needles.some((needle) => lower.includes(needle.toLowerCase()));
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const recommendationInput = asRecord(params.recommendationInput);
+              const mappingKb = asText(params.kbMappingTable);
+              const exceptionCode = asText(recommendationInput.exceptionCode);
+              const exceptionName = asText(recommendationInput.exceptionName);
+              const needles = [exceptionCode, exceptionName].filter((item) => item.length > 0);
+              const candidateSeed = mappingKb
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0 && mappingRowMatches(line, needles))
+                .map((line) => {
+                  const vasc = extractVasc(line);
+                  return {
+                    ...vasc,
+                    active: true,
+                    source: "kb-mapping-table",
+                    reason: line.slice(0, 300),
+                  };
+                })
+                .filter((candidate) => candidate.vascCode || candidate.vascName);
+
+              return {
+                candidateSeed,
+                mappingEvidence: {
+                  matched: candidateSeed.length > 0,
+                  source: "kb-mapping-table",
+                  missingEvidence: candidateSeed.length > 0 ? [] : ["exception_to_vasc_mapping"],
+                },
+                recommendationInput,
+                intentGuideKb: asText(params.intentGuideKb),
+                constraintsKb: asText(params.kbVascConstraints),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("verify-with-mapping")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "verify-with-mapping failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrx75tc5944
+        language: 5
+        node_inputs:
+            - name: recommendationInput
+              input:
+                value:
+                    path: recommendationInput
+                    ref_node: "163006"
+            - name: intentGuideKb
+              input:
+                value:
+                    path: intentGuideKb
+                    ref_node: "163006"
+            - name: kbMappingTable
+              input:
+                value:
+                    path: output
+                    ref_node: "163007"
+            - name: kbVascConstraints
+              input:
+                value:
+                    path: output
+                    ref_node: "163008"
+        node_outputs:
+            candidateSeed:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            constraintsKb:
+                type: string
+                value: null
+            intentGuideKb:
+                type: string
+                value: null
+            mappingEvidence:
+                type: object
+                value: null
+            recommendationInput:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3abslver53lq9
+    - id: "163010"
+      type: code
+      title: filter-by-constraints
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1800
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：filter-by-constraints — 过滤不可作为可下单推荐的 VASC 候选。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asCandidateArray(value: unknown): Record<string, unknown>[] {
+              return Array.isArray(value) ? value.map(asRecord) : [];
+            }
+
+            function isInactive(candidate: Record<string, unknown>): boolean {
+              const status = String(candidate.status ?? candidate.activeStatus ?? "").toLowerCase();
+              return candidate.active === false || status === "inactive" || status === "disabled";
+            }
+
+            function normalizedIntent(recommendationInput: Record<string, unknown>): string {
+              return [
+                recommendationInput.customerActionIntent,
+                recommendationInput.customerActionNormalized,
+                recommendationInput.customerIntent,
+                recommendationInput.query,
+              ]
+                .map(asText)
+                .filter(Boolean)
+                .join(" ")
+                .toUpperCase();
+            }
+
+            function isSubmittedOrderStatusQuery(intent: string): boolean {
+              const compact = intent.replace(/[\s_-]+/g, "");
+              return (
+                compact.includes("QUERYSUBMITTEDVALUEADDSTATUS") ||
+                compact.includes("VALUEADDORDERSTATUS") ||
+                compact.includes("VASORDERSTATUS") ||
+                compact.includes("VAORDERSTATUS") ||
+                intent === "ORDER_STATUS" ||
+                intent.includes("增值单状态") ||
+                (intent.includes("已提交") && intent.includes("增值单")) ||
+                ((intent.includes("处理到哪") || intent.includes("没处理完")) && intent.includes("增值单")) ||
+                (/VALUE[-_\s]*ADD/.test(intent) && /ORDER/.test(intent) && /STATUS/.test(intent))
+              );
+            }
+
+            function candidateText(candidate: Record<string, unknown>): string {
+              return [
+                candidate.vascCode,
+                candidate.vascName,
+                candidate.reason,
+                candidate.source,
+              ]
+                .map(asText)
+                .join(" ")
+                .toUpperCase();
+            }
+
+            function wantsNewInboundOrder(intent: string): boolean {
+              return (
+                intent.includes("USE_NEW_INBOUND_ORDER") ||
+                intent.includes("新单上架") ||
+                intent.includes("新建入库单") ||
+                intent.includes("新入库单") ||
+                intent.includes("重新下一单") ||
+                intent.includes("创建新单")
+              );
+            }
+
+            function wantsOriginInboundOrder(intent: string): boolean {
+              return (
+                intent.includes("USE_ORIGIN_INBOUND_ORDER") ||
+                intent.includes("原单上架") ||
+                intent.includes("原入库单") ||
+                intent.includes("继续使用原单") ||
+                intent.includes("关联原单")
+              );
+            }
+
+            function isAmbiguousActionIntent(intent: string): boolean {
+              if (wantsNewInboundOrder(intent) || wantsOriginInboundOrder(intent)) return false;
+              return (
+                intent.includes("意图缺失") ||
+                intent.includes("处理方式") ||
+                intent.includes("怎么处理") ||
+                intent.includes("如何处理") ||
+                intent.includes("处理方向") ||
+                intent.includes("异常明确但")
+              );
+            }
+
+            function hasBothShelvingDirections(candidates: Record<string, unknown>[]): boolean {
+              const labels = candidates.map(candidateText);
+              const hasOrigin = labels.some((text) => text.includes("VASC202407031503503") || text.includes("原单"));
+              const hasNew = labels.some((text) => text.includes("VASC202407161056217") || text.includes("新单"));
+              return hasOrigin && hasNew;
+            }
+
+            function scoreCandidate(candidate: Record<string, unknown>, intent: string): number {
+              const text = candidateText(candidate);
+              let score = 0;
+              if (wantsNewInboundOrder(intent)) {
+                if (text.includes("VASC202407161056217") || text.includes("新单") || text.includes("NEW")) score += 100;
+                if (text.includes("原单")) score -= 20;
+              }
+              if (wantsOriginInboundOrder(intent)) {
+                if (text.includes("VASC202407031503503") || text.includes("原单") || text.includes("ORIGIN")) score += 100;
+                if (text.includes("新单")) score -= 20;
+              }
+              if (intent.includes("DESTROY")) {
+                if (text.includes("VASC202409121753076") || text.includes("DESTROY") || text.includes("销毁")) score += 100;
+                if (text.includes("REPACK") || text.includes("包装加固") || text.includes("重新包装")) score -= 30;
+              }
+              if (intent.includes("PHOTO") || intent.includes("MEASURE") || intent.includes("VIDEO") || intent.includes("拍照") || intent.includes("视频")) {
+                if (text.includes("VASC202411271721537") || text.includes("拍照") || text.includes("视频") || text.includes("PHOTO")) score += 100;
+              }
+              return score;
+            }
+
+            function intentSeedCandidates(intent: string): Record<string, unknown>[] {
+              if (intent.includes("PHOTO") || intent.includes("MEASURE") || intent.includes("VIDEO") || intent.includes("拍照") || intent.includes("视频")) {
+                return [
+                  {
+                    vascCode: "VASC202411271721537",
+                    vascName: "入库非标拍照或提供视频",
+                    active: true,
+                    source: "intent_seed",
+                    reason: "客户明确提出拍照、视频或调查诉求，按意图补充拍照/视频方向候选。",
+                  },
+                ];
+              }
+              return [];
+            }
+
+            function mergeCandidates(candidates: Record<string, unknown>[], seededCandidates: Record<string, unknown>[]): Record<string, unknown>[] {
+              const seen = new Set<string>();
+              const merged: Record<string, unknown>[] = [];
+              for (const candidate of [...candidates, ...seededCandidates]) {
+                const key = asText(candidate.vascCode) || `${asText(candidate.vascName)}:${asText(candidate.source)}`;
+                if (!key || seen.has(key)) continue;
+                seen.add(key);
+                merged.push(candidate);
+              }
+              return merged;
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const recommendationInput = asRecord(params.recommendationInput);
+              const intent = normalizedIntent(recommendationInput);
+              const candidates = mergeCandidates(asCandidateArray(params.candidateSeed), intentSeedCandidates(intent));
+              if (isSubmittedOrderStatusQuery(intent)) {
+                return {
+                  filteredRecommendation: {
+                    recommendedVascCandidates: [],
+                    primaryRecommendation: null,
+                    notRecommendedOptions: [],
+                    missingConfirmations: [],
+                    outputPath: "handoff_to_order_status",
+                    handoffExpertId: "value-add-order-status",
+                  },
+                  recommendationInput,
+                };
+              }
+
+              const recommendedVascCandidates = candidates
+                .filter((candidate) => !isInactive(candidate))
+                .map((candidate, index) => ({ candidate, index, score: scoreCandidate(candidate, intent) }))
+                .sort((a, b) => b.score - a.score || a.index - b.index)
+                .map((item) => item.candidate);
+              const notRecommendedOptions = candidates
+                .filter(isInactive)
+                .map((candidate) => ({
+                  ...candidate,
+                  reason: candidate.reason || "VASC 未启用，不能作为可下单推荐",
+                }));
+              const requiresActionConfirmation =
+                isAmbiguousActionIntent(intent) && hasBothShelvingDirections(recommendedVascCandidates);
+              const missingConfirmations = requiresActionConfirmation
+                ? [
+                    {
+                      field: "customerActionIntent",
+                      reason: "包裹/商品条码异常存在原单上架与新单上架等多个处理方向，需要客户先确认处理方式",
+                      source: "ask_customer",
+                      blockingMissing: true,
+                    },
+                  ]
+                : recommendedVascCandidates.length > 0
+                  ? []
+                  : [
+                      {
+                        field: "customerActionIntent",
+                        reason: "缺少足够事实，无法给出首选 VASC",
+                        source: "ask_customer",
+                        blockingMissing: true,
+                      },
+                    ];
+
+              return {
+                filteredRecommendation: {
+                  recommendedVascCandidates,
+                  primaryRecommendation: requiresActionConfirmation ? null : (recommendedVascCandidates[0] ?? null),
+                  notRecommendedOptions,
+                  outputPath: recommendedVascCandidates.length > 0 && !requiresActionConfirmation ? "recommendation_ready" : "needs_confirmation",
+                  missingConfirmations,
+                },
+                recommendationInput,
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("filter-by-constraints")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e);
+                  process.exit(1);
+                });
+            }
+        functionID: 3abs38q5vxwqf
+        language: 5
+        node_inputs:
+            - name: recommendationInput
+              input:
+                value:
+                    path: recommendationInput
+                    ref_node: "163009"
+            - name: candidateSeed
+              input:
+                value:
+                    path: candidateSeed
+                    ref_node: "163009"
+        node_outputs:
+            filteredRecommendation:
+                type: object
+                value: null
+            recommendationInput:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3abslver53z4d
+    - id: "163011"
+      type: code
+      title: evidence-gate
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 2080
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：evidence-gate — 检查候选证据质量并决定推荐路径。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function asArray(value: unknown): unknown[] {
+              return Array.isArray(value) ? value : [];
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const filtered = asRecord(params.filteredRecommendation);
+              const missing = asArray(filtered.missingConfirmations);
+              const candidates = asArray(filtered.recommendedVascCandidates);
+              const presetOutputPath = typeof filtered.outputPath === "string" ? filtered.outputPath : "";
+              const outputPath =
+                presetOutputPath === "handoff_to_order_status"
+                  ? presetOutputPath
+                  : candidates.length > 0 && missing.length === 0
+                    ? "recommendation_ready"
+                    : "needs_confirmation";
+
+              return {
+                filteredRecommendation: {
+                  ...filtered,
+                  outputPath,
+                  evidenceStatus: outputPath === "recommendation_ready" ? "sufficient" : "conditional",
+                  missingConfirmations: missing,
+                },
+                recommendationInput: asRecord(params.recommendationInput),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("evidence-gate")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "evidence-gate failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abri5shqtlfc
+        language: 5
+        node_inputs:
+            - name: recommendationInput
+              input:
+                value:
+                    path: recommendationInput
+                    ref_node: "163010"
+            - name: filteredRecommendation
+              input:
+                value:
+                    path: filteredRecommendation
+                    ref_node: "163010"
+        node_outputs:
+            filteredRecommendation:
+                type: object
+                value: null
+            recommendationInput:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3abslver54dhh
+    - id: "163012"
+      type: llm
+      title: llm-recommend
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "调用大语言模型,使用变量和提示词生成回复"
+      version: "3"
+      position:
+        x: 2360
+        y: 310
+      parameters:
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: temperature
+              input:
+                type: string
+                value: "0.5"
+            - name: topP
+              input:
+                type: string
+                value: "1"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: disabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: minimal
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: ""
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: false
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "3"
+            - name: systemPrompt
+              input:
+                type: string
+                value: |
+                    # Value-Add 产品推荐专家 - LLM Prompt
+
+                    ## 角色
+
+                    你是增值服务产品推荐顾问，根据异常阻断阶段、客户复原目标、意图导航和已过滤候选，推荐最能恢复入库流程的 VASC。**只从已给候选和 KB 证据中推荐。**
+
+                    ## 禁止项
+
+                    - 不编造 VASC 编码或服务名称
+                    - 不承诺页面一定可下单
+                    - 不推荐 inactive VASC，只能放入 `notRecommendedOptions`
+                    - 不绕过 `filteredRecommendation` 自行扩展候选
+                    - standard_firstleg 的数量差异类异常，必须先提示优先核实 Winit 责任
+
+                    ## 输入
+
+                    - **query**：`{{query}}`
+                    - **customerIntent**：`{{customerIntent}}`
+                    - **recommendationInput**（validate-input 输出）：
+
+                    ```json
+                    {{recommendationInput}}
+                    ```
+
+                    - **filteredRecommendation**（evidence-gate 输出）：
+
+                    ```json
+                    {{filteredRecommendation}}
+                    ```
+
+                    - **intentGuideKb**（load-intent-guide 输出）：
+
+                    ```text
+                    {{intentGuideKb}}
+                    ```
+
+                    - **inputContext**（参考）：
+
+                    ```json
+                    {{inputContext}}
+                    ```
+
+                    ## 输出格式
+
+                    返回完整四字段结构：
+
+                    ```json
+                    {
+                      "structured": {
+                        "outputPath": "committed",
+                        "primaryRecommendation": {
+                          "vascCode": "",
+                          "vascName": "",
+                          "reason": "",
+                          "confidence": "high|medium|low"
+                        },
+                        "otherOptions": [],
+                        "notRecommendedOptions": [],
+                        "handoffToServiceConfig": {
+                          "vascCode": "",
+                          "vascName": "",
+                          "customerActionNormalized": "",
+                          "objectLevel": "",
+                          "exceptionCode": "",
+                          "limitations": []
+                        },
+                        "missingConfirmations": {
+                          "blockingMissing": [],
+                          "informationalMissing": []
+                        }
+                      },
+                      "analysis": "先说明异常阻断情境和客户复原目标，再说明首选推荐。",
+                      "outputContext": {
+                        "expertId": "value-add-product-recommendation",
+                        "resultSummary": "",
+                        "chainId": ""
+                      },
+                      "enrichedContext": {
+                        "valueAddRecommendation": {}
+                      }
+                    }
+                    ```
+
+                    ## 特殊规则
+
+                    - 首选 VASC 必须来自 `filteredRecommendation` 的有效候选
+                    - 若多个候选置信度相同，按 `intentGuideKb` 的推荐顺序选择
+                    - `handoffToServiceConfig` 仅在首选推荐非空时填充
+                    - `analysis` 开头先写“流程在哪个阶段被什么异常阻断、客户希望如何恢复”
+                    - `outputContext.resultSummary` 不超过 200 字
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: recommendationInput
+              input:
+                value:
+                    path: recommendationInput
+                    ref_node: "163011"
+            - name: filteredRecommendation
+              input:
+                value:
+                    path: filteredRecommendation
+                    ref_node: "163011"
+            - name: intentGuideKb
+              input:
+                value:
+                    path: intentGuideKb
+                    ref_node: "163009"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163000"
+        node_outputs:
+            analysisResult:
+                type: object
+                properties:
+                    analysis:
+                        type: string
+                        value: null
+                    structured:
+                        type: object
+                        value: null
+                value: null
+            reasoning_content:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 180000
+    - id: "163013"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 2640
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：format-output — 归一化 VASC 推荐输出。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function recommendationLabel(value: unknown): string {
+              const recommendation = asRecord(value);
+              const code = asText(recommendation.vascCode);
+              const name = asText(recommendation.vascName);
+              return [code, name].filter(Boolean).join(" ");
+            }
+
+            function analysisConflictsWithPrimary(analysis: string, primaryCode: string): boolean {
+              if (!analysis || !primaryCode) return false;
+              const mentionedCodes = analysis.match(/\bVASC[A-Z0-9_-]*\b/gi) ?? [];
+              return mentionedCodes.length > 0 && !mentionedCodes.some((code) => code.toUpperCase() === primaryCode.toUpperCase());
+            }
+
+            function analysisSemanticallyConflictsWithPrimary(analysis: string, primaryLabel: string): boolean {
+              if (!analysis || !primaryLabel) return false;
+              if (primaryLabel.includes("新单上架")) {
+                return analysis.includes("原单上架") || analysis.includes("原入库单");
+              }
+              if (primaryLabel.includes("原单上架")) {
+                return analysis.includes("新单上架") || analysis.includes("新建入库单");
+              }
+              if (primaryLabel.includes("销毁")) {
+                return analysis.includes("重新包装") || analysis.includes("包装加固");
+              }
+              if (primaryLabel.includes("拍照") || primaryLabel.includes("视频")) {
+                return analysis.includes("销毁") || analysis.includes("重新包装");
+              }
+              return false;
+            }
+
+            function coerceAnalysisResult(raw: unknown): { structured: Record<string, unknown>; analysis: string } {
+              if (typeof raw === "string") {
+                try {
+                  return coerceAnalysisResult(JSON.parse(raw));
+                } catch {
+                  return { structured: {}, analysis: raw };
+                }
+              }
+              const obj = asRecord(raw);
+              return {
+                structured: asRecord(obj.structured),
+                analysis: asText(obj.analysis),
+              };
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const recommendationInput = asRecord(params.recommendationInput);
+              const filtered = asRecord(params.filteredRecommendation);
+              const result = coerceAnalysisResult(params.analysisResult);
+              const primaryRecommendation = filtered.primaryRecommendation ?? null;
+              const outputPath = asText(filtered.outputPath) || (primaryRecommendation ? "recommendation_ready" : "needs_confirmation");
+              const handoffExpertId = asText(filtered.handoffExpertId);
+              const structured = {
+                outputPath,
+                recommendedVascCandidates: filtered.recommendedVascCandidates ?? [],
+                primaryRecommendation,
+                notRecommendedOptions: filtered.notRecommendedOptions ?? [],
+                missingConfirmations: filtered.missingConfirmations ?? [],
+                handoffExpertId,
+                handoffToServiceConfig: primaryRecommendation
+                  ? {
+                      vasc: primaryRecommendation,
+                      customerActionIntent: asText(recommendationInput.customerActionIntent),
+                      limitations: [],
+                    }
+                  : null,
+              };
+              const primaryCode = asText(asRecord(primaryRecommendation).vascCode);
+              const primaryLabel = recommendationLabel(primaryRecommendation);
+              let analysis = result.analysis;
+              if (outputPath === "handoff_to_order_status") {
+                analysis =
+                  analysis && analysis.includes("value-add-order-status")
+                    ? analysis
+                    : "该问题属于已提交增值单状态查询，应转交 value-add-order-status；本专家不做 VASC 推荐。";
+              } else if (primaryLabel) {
+                analysis = analysisConflictsWithPrimary(analysis, primaryCode) || analysisSemanticallyConflictsWithPrimary(analysis, primaryLabel)
+                  ? `首选推荐为 ${primaryLabel}；该结论以结构化候选排序为准，后续服务项/原子配置请交给 value-add-service-config。`
+                  : analysis || `首选推荐为 ${primaryLabel}；如需服务项/原子配置，请交给 value-add-service-config。`;
+                if (!analysis.includes(primaryCode)) {
+                  analysis = `${analysis} 首选 VASC：${primaryLabel}。`;
+                }
+              } else if (!analysis) {
+                analysis = "已基于异常事实和客户处理意图整理 VASC 候选；如需服务项/原子配置，请交给 value-add-service-config。";
+              }
+              const inputContext = asRecord(params.inputContext);
+              const chainId = asText(inputContext.chainId);
+
+              return {
+                structured,
+                analysis,
+                outputContext: {
+                  expertId: "value-add-product-recommendation",
+                  resultSummary: analysis.slice(0, 200),
+                  chainId,
+                },
+                enrichedContext: {
+                  valueAddProductRecommendation: structured,
+                  handoffToServiceConfig: structured.handoffToServiceConfig,
+                },
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "format-output failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrdttjzhg1j
+        language: 5
+        node_inputs:
+            - name: analysisResult
+              input:
+                value:
+                    path: analysisResult
+                    ref_node: "163012"
+            - name: recommendationInput
+              input:
+                value:
+                    path: recommendationInput
+                    ref_node: "163011"
+            - name: filteredRecommendation
+              input:
+                value:
+                    path: filteredRecommendation
+                    ref_node: "163011"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163000"
+        node_outputs:
+            analysis:
+                type: string
+                value: null
+            enrichedContext:
+                type: object
+                value: null
+            outputContext:
+                type: object
+                value: null
+            structured:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3abslver54qul
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163013"
+      target_node: "900001"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"

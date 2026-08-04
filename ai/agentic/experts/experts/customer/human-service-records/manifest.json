@@ -1,0 +1,68 @@
+{
+  "id": "human-service-records",
+  "domain": "customer",
+  "name": "人工客服历史沟通摘要",
+  "description": "基于当前用户自己的历史人工客服沟通记录，回答客服曾给出的操作建议、事实说明或处理结果，并附可核验的关键依据；用户明确索要历史图片或附件时返回可访问链接。Use when 用户要求确认之前人工客服怎么说、怎么操作、是否提到某事、历史沟通的处理结果或历史附件。",
+  "capabilities": [
+    "人工客服历史沟通摘要",
+    "历史客服答复回忆",
+    "账号级权限过滤",
+    "消息级时间筛选",
+    "历史图片与附件链接返回"
+  ],
+  "version": "1.1.0",
+  "x_framework_input_required": [
+    "username"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "timeRangeText": {
+        "type": "string",
+        "description": "用户表达的时间范围，例如昨天、上周、上上周、上月、两个月前、上次、之前、2026-07-11；今天的记录需次日才能查询"
+      },
+      "timeStart": {
+        "type": "string",
+        "description": "可选，明确开始时间，格式 YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss，按 Asia/Shanghai 解释"
+      },
+      "timeEnd": {
+        "type": "string",
+        "description": "可选，明确结束时间，格式 YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss，按 Asia/Shanghai 解释"
+      },
+      "keywords": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "可选，用户要确认的订单号、问题关键词或客服曾提到的内容"
+      }
+    },
+    "x_invoke_contract": "调用 JSON 顶层必须包含 username，并使用它匹配客户邮箱；customerCode 与 customerName 仅作为可选诊断上下文，不能作为权限查询条件。inputs 内可传 timeRangeText/timeStart/timeEnd/keywords。"
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "可对外传递的历史沟通摘要状态、证据覆盖范围和已校验事实；用户明确索要附件时可包含附件链接；不包含身份核验状态和内部查询细节",
+        "properties": {
+          "answerStatus": { "type": "string" },
+          "matchedConversationCount": { "type": "integer" },
+          "matchedMessageCount": { "type": "integer" },
+          "evidenceConversationCount": { "type": "integer" },
+          "evidenceMessageCount": { "type": "integer" },
+          "dataCompleteness": { "type": "string" },
+          "keyFacts": { "type": "array" },
+          "unconfirmedItems": { "type": "array" },
+          "evidenceRefs": { "type": "array" },
+          "attachments": { "type": "array", "description": "仅在用户明确索要图片或附件时输出，包含附件类型、发送方、时间和原始链接" }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客自然语言摘要：直接回答用户问题，并展示带日期的关键依据与未确认项；用户明确索要附件时由代码附可点击链接及过期提示；不得提及内部来源或称为完整聊天记录"
+      }
+    }
+  }
+}

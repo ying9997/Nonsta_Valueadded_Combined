@@ -1,0 +1,93 @@
+# 增值异常诊断 — Coze 工作流包导出
+yamlBasename: value_add_exception_diagnosis-draft.yaml
+packageMainName: value_add_exception_diagnosis
+packageDescription: 增值异常诊断（validate → normalize → classify → decide → clarify/analyze → format）
+
+textNodes:
+  - logicalId: kb-exception-entity-text
+    title: kb-exception-entity
+    insertAfter: normalize-exception-facts
+    sourceFile: prompts/kb-exception-entity.md
+  - logicalId: kb-value-add-entry-text
+    title: kb-value-add-entry
+    insertAfter: llm-classify
+    sourceFile: prompts/kb-value-add-entry.md
+  - logicalId: kb-exception-mapping-summary-text
+    title: kb-exception-mapping-summary
+    insertAfter: load-value-add-entry
+    sourceFile: prompts/kb-exception-mapping-summary.md
+
+inputBindings:
+  load-exception-entity:
+    kbExceptionEntity:
+      ref: kb-exception-entity-text
+      path: output
+  load-value-add-entry:
+    kbValueAddEntry:
+      ref: kb-value-add-entry-text
+      path: output
+  load-exception-mapping-summary:
+    kbExceptionMappingSummary:
+      ref: kb-exception-mapping-summary-text
+      path: output
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: -150
+    y: 230
+  __end__:
+    x: 2900
+    y: 310
+  validate-input:
+    x: 120
+    y: 310
+  normalize-exception-facts:
+    x: 400
+    y: 310
+  kb-exception-entity-text:
+    x: 400
+    y: 480
+  load-exception-entity:
+    x: 680
+    y: 310
+  llm-classify:
+    x: 960
+    y: 310
+  kb-value-add-entry-text:
+    x: 960
+    y: 480
+  load-value-add-entry:
+    x: 1240
+    y: 310
+  kb-exception-mapping-summary-text:
+    x: 1240
+    y: 480
+  load-exception-mapping-summary:
+    x: 1520
+    y: 310
+  decide-value-add-candidacy:
+    x: 1800
+    y: 310
+  llm-clarify:
+    x: 2080
+    y: 170
+  llm-analyze:
+    x: 2080
+    y: 450
+  format-output:
+    x: 2520
+    y: 310

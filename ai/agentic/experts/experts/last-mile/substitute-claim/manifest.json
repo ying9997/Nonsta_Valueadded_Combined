@@ -1,0 +1,82 @@
+{
+  "id": "substitute-claim",
+  "domain": "last-mile",
+  "name": "代客索赔进度与流程",
+  "description": "标准出库单下**代客向尾程供应商**索赔的申请入口、材料、进度、时效与到款节奏查询；不包含《WINIT 赔付标准》下的万邑通标准索赔（该项由 refund-standard）。Use when 用户咨询代客索赔、代客赔付进度、代客索赔材料或时效。",
+  "capabilities": [
+    "代客索赔申请与进度",
+    "代客索赔时效与节点",
+    "代客赔付款到账节奏"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "出库单号"
+      },
+      "claimIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "代客索赔单号（流水号）"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "上游专家合并的上下文（轨迹、订单摘要等）；可选",
+        "additionalProperties": true
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "代客索赔结构化输出（事实节点会覆盖 LLM 同名字段）",
+        "properties": {
+          "queryKeys": {
+            "type": "object",
+            "properties": {
+              "trackingIds": { "type": "array", "items": { "type": "string" } },
+              "outboundOrderNos": { "type": "array", "items": { "type": "string" } },
+              "claimIds": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "records": {
+            "type": "array",
+            "description": "pageList 列表行（compensateStatus 等先透传）",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "statusSummary": {
+            "type": "object",
+            "description": "列表拉取状态、接口码、备注等",
+            "additionalProperties": true
+          },
+          "nextAction": { "type": "string" },
+          "missingFacts": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "分析结论与建议"
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "id": "product-info",
+  "domain": "last-mile",
+  "name": "尾程产品信息获取",
+  "description": "从知识库获取 PSC/WF/Pallet 尾程产品介绍、规格、限制与增值服务。Use when 用户查询尾程产品详情、规格限制、带电政策、时效、保险等。",
+  "capabilities": ["产品信息", "规格查询", "带电政策", "保险说明"],
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "country": {
+        "type": "string",
+        "description": "目的国 ISO2（如 US、DE、UK、AU、CA）。上游可选传入，未传时从 query 文本自动提取"
+      },
+      "destinationCountry": {
+        "type": "string",
+        "description": "同 country，便于上游字段命名对齐"
+      },
+      "productLine": {
+        "type": "string",
+        "description": "产品线：psc（标准尾程）/ wf（Winit Fulfillment）/ pallet（托盘）。大小写不敏感；空或未识别时由工作流归一为 \"\"，并从 query 文本补充推断。上游可选传入"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "上游合并的上下文，可含 country/destinationCountry/productLine 等",
+        "additionalProperties": true
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "产品信息结构化结果",
+        "properties": {
+          "countryResolved": { "type": "string" },
+          "productLine": { "type": "string" },
+          "matchedProducts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "category": { "type": "string" },
+                "weightLimit": { "type": "string" },
+                "dimensionLimit": { "type": "string" },
+                "deliveryTime": { "type": "string" }
+              }
+            }
+          },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "产品介绍、规格说明、限制解读（自然语言）"
+      }
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": ["orderIdentifiers", "customerCode", "username"],
+      "outputs": ["valid", "errorCode", "errorMessage", "orderIdentifiers", "requestedIdentifiers", "customerCode"],
+      "outputSchema": {
+        "properties": {
+          "valid": { "type": "boolean" },
+          "errorCode": { "type": "string" },
+          "errorMessage": { "type": "string" },
+          "orderIdentifiers": { "type": "array", "items": { "type": "string" } },
+          "requestedIdentifiers": { "type": "array", "items": { "type": "string" } },
+          "customerCode": { "type": "string" }
+        }
+      }
+    },
+    {
+      "id": "build-order-resolution-actions",
+      "file": "nodes/build-order-resolution-actions.ts",
+      "inputs": ["valid", "orderIdentifiers"],
+      "outputs": ["requestedIdentifiers", "directOrders", "actions", "actionPlans", "resolutionPluginBatchActionsCount"],
+      "outputSchema": {
+        "properties": {
+          "requestedIdentifiers": { "type": "array", "items": { "type": "string" } },
+          "directOrders": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "action": { "type": "string" }, "data": { "type": "string" } }
+            }
+          },
+          "actionPlans": { "type": "array", "items": { "type": "object", "additionalProperties": true }, "description": "输入标识及查询字段映射" },
+          "resolutionPluginBatchActionsCount": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "id": "merge-order-resolution",
+      "file": "nodes/merge-order-resolution.ts",
+      "inputs": ["requestedIdentifiers", "directOrders", "actionPlans", "resolutionPluginOutputList"],
+      "outputs": ["resolution"],
+      "outputSchema": {
+        "properties": {
+          "resolution": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-label-actions",
+      "file": "nodes/build-label-actions.ts",
+      "inputs": ["valid", "customerCode", "resolution"],
+      "outputs": ["actions", "actionPlans", "labelPluginBatchActionsCount"],
+      "outputSchema": {
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "action": { "type": "string" }, "data": { "type": "string" } }
+            }
+          },
+          "actionPlans": { "type": "array", "items": { "type": "object", "additionalProperties": true }, "description": "WO 与原始输入映射" },
+          "labelPluginBatchActionsCount": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "id": "merge-label-results",
+      "file": "nodes/merge-label-results.ts",
+      "inputs": ["resolution", "actionPlans", "labelPluginOutputList"],
+      "outputs": ["orderResults", "unresolvedIdentifiers"],
+      "outputSchema": {
+        "properties": {
+          "orderResults": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "unresolvedIdentifiers": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        }
+      }
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": ["valid", "errorCode", "errorMessage", "requestedIdentifiers", "resolution", "orderResults", "unresolvedIdentifiers", "inputContext"],
+      "outputs": ["structured", "analysis", "outputContext", "enrichedContext"],
+      "cozeIo": {
+        "outputs": {
+          "structured": { "type": "object", "additionalProperties": true },
+          "analysis": { "type": "string" },
+          "outputContext": { "type": "object", "additionalProperties": true },
+          "enrichedContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,2144 @@
+schema_version: 1.0.0
+name: pod_request
+id: 7176346110773567454
+description: 申请获取POD（validate → queryOutboundOrder 归属校验 → exportOutboundPod → fetch → LLM → format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: 0
+          y: 200
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      trackingIds:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 轨迹单号
+                      outboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 万邑通出库单号（WO…）；exportOutboundPod 仅识别归并后的 WO 形态
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 可选；编排前置 delivery-status 等合并的轨迹与事实，供 LLM 引用
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1100
+          y: 200
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "165005"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "165005"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "165005"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "165005"
+          terminatePlan: returnVariables
+    - id: "165000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 120
+          y: 120
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 校验入参并按是否有万邑通出库单号（WO…）分流
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 一致。
+               *
+               * 【输出】branch：`export`（有出库单号，可走 exportOutboundPod）| `guidance`（仅跟踪号或缺单号，不调用 OpenAPI）
+               * 归一化规则与 delivery-status 一致：WO 开头归 outbound；WO 末尾 A/a 剥离；其余归 trackingIds。
+               */
+
+              function stripTrailingAForWoOrder(s: string): string {
+                const t = s.trim();
+                if (!/^WO/i.test(t)) return t;
+                if (/[Aa]$/.test(t)) return t.slice(0, -1);
+                return t;
+              }
+
+              function partitionIdentifiers(rawList: string[]): { trackingIds: string[]; outboundOrderNos: string[] } {
+                const trackingIds: string[] = [];
+                const outboundOrderNos: string[] = [];
+                const seenT = new Set<string>();
+                const seenO = new Set<string>();
+
+                for (const raw of rawList) {
+                  const s = String(raw ?? "").trim();
+                  if (!s) continue;
+                  if (/^WO/i.test(s)) {
+                    const normalized = stripTrailingAForWoOrder(s);
+                    const u = normalized.toUpperCase();
+                    if (seenO.has(u)) continue;
+                    seenO.add(u);
+                    outboundOrderNos.push(normalized);
+                  } else {
+                    const u = s.toUpperCase();
+                    if (seenT.has(u)) continue;
+                    seenT.add(u);
+                    trackingIds.push(s);
+                  }
+                }
+                return { trackingIds, outboundOrderNos };
+              }
+
+              function passthroughEnrichedContext(ec: unknown): Record<string, unknown> {
+                if (ec !== undefined && ec !== null && typeof ec === "object" && !Array.isArray(ec)) {
+                  return { ...(ec as Record<string, unknown>) };
+                }
+                return {};
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const fromTracking = ((params.trackingIds as string[]) ?? []).map((t) => String(t ?? "").trim()).filter(Boolean);
+                const fromOrders = ((params.outboundOrderNos as string[]) ?? []).map((o) => String(o ?? "").trim()).filter(Boolean);
+                const merged = [...fromTracking, ...fromOrders];
+                const { trackingIds, outboundOrderNos } = partitionIdentifiers(merged);
+
+                const query = String(params.query ?? "").trim();
+                const customerIntent = String(params.customerIntent ?? "").trim();
+                const enrichedContext = passthroughEnrichedContext(params.enrichedContext);
+                const inputContext =
+                  params.inputContext !== undefined && params.inputContext !== null && typeof params.inputContext === "object"
+                    ? (params.inputContext as Record<string, unknown>)
+                    : {};
+
+                const hasOrder = outboundOrderNos.length > 0;
+                const hasTracking = trackingIds.length > 0;
+                const hasTextIntent = query.length > 0 || customerIntent.length > 0;
+                const hasEnriched =
+                  Object.keys(enrichedContext).length > 0 &&
+                  Object.keys(enrichedContext).some((k) => k !== "analysisClock");
+
+                const valid = hasOrder || hasTracking || hasTextIntent || hasEnriched;
+                const error = valid ? "" : "请至少提供 trackingIds、outboundOrderNos、query、customerIntent 或 enrichedContext 之一";
+
+                const branch = valid && hasOrder ? "export" : "guidance";
+
+                return {
+                  valid,
+                  branch,
+                  error,
+                  query,
+                  trackingIds,
+                  outboundOrderNos,
+                  customerIntent: valid ? customerIntent : `[输入校验] ${error}`,
+                  enrichedContext,
+                  inputContext,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inputs.trackingIds
+                        ref_node: "100001"
+              - name: outboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inputs.outboundOrderNos
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              branch:
+                  type: string
+                  value: null
+              error:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              outboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "165001"
+      type: condition
+      title: 按 branch 分流
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: 连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支
+      position:
+          x: 120
+          y: 240
+      parameters:
+          branches:
+              - condition:
+                    conditions:
+                        - left:
+                              input:
+                                  value:
+                                      path: branch
+                                      ref_node: "165000"
+                          operator: 7
+                          right:
+                              input:
+                                  type: string
+                                  value: export
+                    logic: 2
+              - condition:
+                    conditions:
+                        - left:
+                              input:
+                                  value:
+                                      path: branch
+                                      ref_node: "165000"
+                          operator: 7
+                          right:
+                              input:
+                                  type: string
+                                  value: guidance
+                    logic: 2
+    - id: "165006"
+      type: code
+      title: build-verify-outbound-winit-data
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 300
+          y: 60
+      parameters:
+          code: |-
+              /**
+               * 节点：为 `queryOutboundOrder`（id/55）组装插件批处理动作，用于 POD 导出前的客户归属校验。
+               * exportOutboundPod 无鉴权，须先经本节点 + 插件确认出库单属于当前客户。
+               *
+               * 【输入】branch、`outboundOrderNos`
+               * 【输出】`actions`（批处理插件）、`actionPlans`（与 actions 一一对应）
+               */
+
+              type ActionPlan = {
+                outboundOrderNum: string;
+              };
+
+              function normalizeWoMainOrderNum(raw: string): string {
+                const s = raw.trim();
+                if (!s) return s;
+                const m = /^WO(\d+)[A-Za-z]*$/i.exec(s);
+                if (m) return `WO${m[1]}`;
+                return s;
+              }
+
+              function uniqueWoOrders(rawNos: string[]): string[] {
+                const seen = new Set<string>();
+                const out: string[] = [];
+                for (const raw of rawNos) {
+                  const normalized = normalizeWoMainOrderNum(String(raw ?? "").trim());
+                  if (!normalized || !/^WO\d+/i.test(normalized)) continue;
+                  const key = normalized.toUpperCase();
+                  if (seen.has(key)) continue;
+                  seen.add(key);
+                  out.push(normalized);
+                }
+                return out;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const branch = String(params.branch ?? "").trim();
+                const list = Array.isArray(params.outboundOrderNos)
+                  ? (params.outboundOrderNos as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+
+                if (branch !== "export" || list.length === 0) {
+                  return { actions: [], actionPlans: [] as ActionPlan[] };
+                }
+
+                const outboundOrderNos = uniqueWoOrders(list);
+                const actionPlans: ActionPlan[] = outboundOrderNos.map((outboundOrderNum) => ({ outboundOrderNum }));
+
+                const actions = actionPlans.map((p) => ({
+                  action: "queryOutboundOrder",
+                  data: JSON.stringify({ outboundOrderNum: p.outboundOrderNum }),
+                }));
+
+                return { actions, actionPlans };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-verify-outbound-winit-data")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: branch
+                input:
+                    type: string
+                    value:
+                        path: branch
+                        ref_node: "165000"
+              - name: outboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "165000"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "165007"
+      type: plugin
+      title: winit_verify_outbound_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 460
+          y: 60
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "165006"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "165007"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "165007"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "165008"
+      type: code
+      title: verify-outbound-ownership
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 620
+          y: 60
+      parameters:
+          code: |-
+              /**
+               * 节点：消费 `queryOutboundOrder` 批处理结果，校验出库单是否属于当前客户。
+               * exportOutboundPod 无鉴权，仅对经本节点确认的 `verifiedOutboundOrderNos` 继续导出 POD。
+               *
+               * 【输入】branch、outboundOrderNos、actionPlans、winitPluginOutputList；
+               *         本地兜底：customerCode / customerName / username
+               * 【输出】verifiedOutboundOrderNos、rejectedOutboundOrderNos、ownershipStatus、ownershipNotes
+               */
+
+              type OpenapiProxyWorkflowParameters = {
+                action: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                data: string;
+              };
+
+              type ActionPlan = {
+                outboundOrderNum: string;
+              };
+
+              type OwnershipStatus = "verified" | "partial" | "none" | "skipped";
+
+              interface OwnershipFacts {
+                verifiedOutboundOrderNos: string[];
+                rejectedOutboundOrderNos: string[];
+                ownershipStatus: OwnershipStatus;
+                ownershipNotes: string[];
+              }
+
+              interface VerifyOwnershipResult extends OwnershipFacts {
+                ownershipFacts: OwnershipFacts;
+              }
+
+              const VERIFY_OPENAPI_ACTION = "queryOutboundOrder";
+
+              function normalizeWoMainOrderNum(raw: string): string {
+                const s = raw.trim();
+                if (!s) return s;
+                const m = /^WO(\d+)[A-Za-z]*$/i.exec(s);
+                if (m) return `WO${m[1]}`;
+                return s;
+              }
+
+              function uniqueWoOrders(rawNos: string[]): string[] {
+                const seen = new Set<string>();
+                const out: string[] = [];
+                for (const raw of rawNos) {
+                  const normalized = normalizeWoMainOrderNum(String(raw ?? "").trim());
+                  if (!normalized || !/^WO\d+/i.test(normalized)) continue;
+                  const key = normalized.toUpperCase();
+                  if (seen.has(key)) continue;
+                  seen.add(key);
+                  out.push(normalized);
+                }
+                return out;
+              }
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function extractBusinessPayload(raw: unknown): Record<string, unknown> | null {
+                if (raw == null) return null;
+                if (typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+                return null;
+              }
+
+              function deepParseJsonValue(v: unknown, maxDepth: number): unknown {
+                let cur: unknown = v;
+                for (let d = 0; d < maxDepth; d++) {
+                  if (typeof cur !== "string") break;
+                  const t = cur.trim();
+                  if (!t.startsWith("{") && !t.startsWith("[")) break;
+                  try {
+                    cur = JSON.parse(t) as unknown;
+                  } catch {
+                    break;
+                  }
+                }
+                return cur;
+              }
+
+              function orderKeyFromRow(row: Record<string, unknown>): string {
+                const raw = String(row.outboundOrderNum ?? row.orderNo ?? row.documentNo ?? "").trim();
+                return normalizeWoMainOrderNum(raw).toUpperCase();
+              }
+
+              function coerceSingleOrder(parsed: unknown): Record<string, unknown> | null {
+                const unwrapped = deepParseJsonValue(parsed, 5);
+                const root = extractBusinessPayload(unwrapped);
+                if (!root) return null;
+
+                if (root.output != null && typeof root.output === "object") {
+                  return coerceSingleOrder(root.output);
+                }
+
+                if (root.code === "0" || root.code === 0) {
+                  const inner = root.data;
+                  if (inner != null) return coerceSingleOrder(inner);
+                  return null;
+                }
+
+                if (Array.isArray(root.list) && root.list.length > 0) {
+                  const first = root.list[0];
+                  if (first != null && typeof first === "object") return first as Record<string, unknown>;
+                  return null;
+                }
+
+                if (root.outboundOrderNum != null || root.orderNo != null || root.documentNo != null) {
+                  return root;
+                }
+
+                return null;
+              }
+
+              function asOutputList(raw: unknown): Array<{ data?: unknown }> {
+                if (raw == null || !Array.isArray(raw)) return [];
+                return raw as Array<{ data?: unknown }>;
+              }
+
+              async function runCozeOpenapiProxyWorkflow(options: {
+                apiToken: string;
+                workflowId: string;
+                baseUrl?: string;
+                parameters: OpenapiProxyWorkflowParameters;
+              }): Promise<unknown> {
+                const baseFromEnv = typeof process !== "undefined" ? process.env?.COZE_API_BASE_URL : undefined;
+                const baseUrl = (options.baseUrl ?? baseFromEnv ?? "https://api.coze.cn").replace(/\/$/, "");
+                const url = `${baseUrl}/v1/workflow/run`;
+
+                const res = await fetch(url, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${options.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: String(options.workflowId),
+                    parameters: options.parameters,
+                  }),
+                });
+
+                const text = await res.text();
+                let body: unknown;
+                try {
+                  body = JSON.parse(text) as unknown;
+                } catch {
+                  throw new Error(`Coze workflow/run 响应非 JSON（HTTP ${res.status}）: ${text.slice(0, 500)}`);
+                }
+
+                const obj = body as Record<string, unknown>;
+                if (!res.ok) {
+                  const msg = String(obj.msg ?? obj.message ?? text);
+                  throw new Error(`Coze workflow/run HTTP ${res.status}: ${msg.slice(0, 500)}`);
+                }
+
+                const code = obj.code;
+                if (code !== 0 && code !== "0") {
+                  const msg = String(obj.msg ?? obj.message ?? "unknown");
+                  const debug = obj.debug_url != null ? ` debug_url=${String(obj.debug_url)}` : "";
+                  throw new Error(`Coze workflow 失败 code=${String(code)} msg=${msg}${debug}`);
+                }
+
+                return parseCozeWorkflowDataField(obj.data);
+              }
+
+              function getCozeOpenapiProxyEnv(): {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                baseUrl?: string;
+              } | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId = process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  baseUrl: process.env.COZE_API_BASE_URL,
+                };
+              }
+
+              function buildOwnershipResult(requested: string[], verified: string[], notes: string[]): VerifyOwnershipResult {
+                const verifiedSet = new Set(verified.map((x) => x.toUpperCase()));
+                const rejected = requested.filter((x) => !verifiedSet.has(x.toUpperCase()));
+
+                let ownershipStatus: OwnershipStatus;
+                if (verified.length === 0) ownershipStatus = "none";
+                else if (rejected.length > 0) ownershipStatus = "partial";
+                else ownershipStatus = "verified";
+
+                const ownershipFacts: OwnershipFacts = {
+                  verifiedOutboundOrderNos: verified,
+                  rejectedOutboundOrderNos: rejected,
+                  ownershipStatus,
+                  ownershipNotes: notes,
+                };
+
+                return {
+                  ...ownershipFacts,
+                  ownershipFacts,
+                };
+              }
+
+              async function verifyViaPluginBatch(
+                requested: string[],
+                actionPlans: ActionPlan[],
+                outputList: Array<{ data?: unknown }>
+              ): Promise<VerifyOwnershipResult> {
+                const notes: string[] = [];
+                const verified: string[] = [];
+                const verifiedKeys = new Set<string>();
+
+                for (let i = 0; i < actionPlans.length; i++) {
+                  const plan = actionPlans[i];
+                  if (!plan) continue;
+                  const requestedNum = normalizeWoMainOrderNum(plan.outboundOrderNum);
+                  if (!requestedNum) continue;
+
+                  const slot = outputList[i]?.data;
+                  if (slot == null || String(slot).trim() === "") {
+                    notes.push(`出库单 ${requestedNum}：queryOutboundOrder 无返回，非当前客户或单号不存在`);
+                    continue;
+                  }
+
+                  const row = coerceSingleOrder(slot);
+                  if (!row) {
+                    notes.push(`出库单 ${requestedNum}：响应无法解析为有效出库单`);
+                    continue;
+                  }
+
+                  const key = orderKeyFromRow(row);
+                  const expectedKey = requestedNum.toUpperCase();
+                  if (!key || key !== expectedKey) {
+                    notes.push(`出库单 ${requestedNum}：返回单号 ${key || "空"} 与请求不一致`);
+                    continue;
+                  }
+
+                  if (!verifiedKeys.has(key)) {
+                    verifiedKeys.add(key);
+                    verified.push(requestedNum);
+                  }
+                }
+
+                for (const num of requested) {
+                  if (!verifiedKeys.has(num.toUpperCase())) {
+                    const alreadyNoted = notes.some((n) => n.includes(num));
+                    if (!alreadyNoted) {
+                      notes.push(`出库单 ${num}：未通过客户归属校验`);
+                    }
+                  }
+                }
+
+                if (verified.length > 0) {
+                  notes.unshift(`已通过 queryOutboundOrder 校验 ${verified.length}/${requested.length} 个出库单归属当前客户`);
+                } else if (requested.length > 0) {
+                  notes.unshift("所有出库单均未通过客户归属校验，跳过 exportOutboundPod");
+                }
+
+                return buildOwnershipResult(requested, verified, notes);
+              }
+
+              async function verifyViaLocalProxy(
+                requested: string[],
+                proxyCustomer: { customerCode: string; customerName: string; username: string },
+                env: NonNullable<ReturnType<typeof getCozeOpenapiProxyEnv>>
+              ): Promise<VerifyOwnershipResult> {
+                const notes: string[] = [];
+                const verified: string[] = [];
+
+                for (const num of requested) {
+                  try {
+                    const raw = await runCozeOpenapiProxyWorkflow({
+                      apiToken: env.apiToken,
+                      workflowId: env.workflowId,
+                      baseUrl: env.baseUrl,
+                      parameters: {
+                        action: VERIFY_OPENAPI_ACTION,
+                        customerCode: proxyCustomer.customerCode,
+                        customerName: proxyCustomer.customerName,
+                        username: proxyCustomer.username,
+                        data: JSON.stringify({ outboundOrderNum: num }),
+                      },
+                    });
+                    const row = coerceSingleOrder(raw);
+                    const key = row ? orderKeyFromRow(row) : "";
+                    if (row && key === num.toUpperCase()) {
+                      verified.push(num);
+                    } else {
+                      notes.push(`出库单 ${num}：queryOutboundOrder 无有效返回，非当前客户或单号不存在`);
+                    }
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    notes.push(`出库单 ${num}：queryOutboundOrder 异常：${msg}`);
+                  }
+                }
+
+                if (verified.length > 0) {
+                  notes.unshift(`本地代理已通过 queryOutboundOrder 校验 ${verified.length}/${requested.length} 个出库单`);
+                } else if (requested.length > 0) {
+                  notes.unshift("所有出库单均未通过客户归属校验，跳过 exportOutboundPod");
+                }
+
+                return buildOwnershipResult(requested, verified, notes);
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }): Promise<VerifyOwnershipResult> {
+                const branch = String(params.branch ?? "").trim();
+                const requested = uniqueWoOrders(
+                  Array.isArray(params.outboundOrderNos)
+                    ? (params.outboundOrderNos as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                    : []
+                );
+
+                if (branch !== "export" || requested.length === 0) {
+                  const ownershipFacts: OwnershipFacts = {
+                    verifiedOutboundOrderNos: [],
+                    rejectedOutboundOrderNos: [],
+                    ownershipStatus: "skipped",
+                    ownershipNotes: ["非 export 分支或无出库单号，跳过客户归属校验"],
+                  };
+                  return { ...ownershipFacts, ownershipFacts };
+                }
+
+                const actionPlans = (Array.isArray(params.actionPlans) ? params.actionPlans : []) as ActionPlan[];
+                const outputList = asOutputList(params.winitPluginOutputList);
+                const hasPluginBatch = outputList.length > 0 && actionPlans.length > 0;
+
+                if (hasPluginBatch) {
+                  return verifyViaPluginBatch(requested, actionPlans, outputList);
+                }
+
+                const env = getCozeOpenapiProxyEnv();
+                const customerCode = String(params.customerCode ?? "").trim();
+                const customerName = String(params.customerName ?? "").trim();
+                const username = String(params.username ?? "").trim();
+                const proxyCustomer = env
+                  ? { customerCode: env.customerCode, customerName: env.customerName, username: env.username }
+                  : { customerCode, customerName, username };
+
+                if (env && proxyCustomer.customerCode && proxyCustomer.customerName && proxyCustomer.username) {
+                  return verifyViaLocalProxy(requested, proxyCustomer, env);
+                }
+
+                const ownershipFacts: OwnershipFacts = {
+                  verifiedOutboundOrderNos: [],
+                  rejectedOutboundOrderNos: requested,
+                  ownershipStatus: "none",
+                  ownershipNotes: [
+                    "无 queryOutboundOrder 插件批处理结果且无 Coze 代理环境变量，无法校验客户归属，跳过 exportOutboundPod",
+                  ],
+                };
+                return { ...ownershipFacts, ownershipFacts };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("verify-outbound-ownership")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: branch
+                input:
+                    type: string
+                    value:
+                        path: branch
+                        ref_node: "165000"
+              - name: outboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "165000"
+              - name: actionPlans
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        path: actionPlans
+                        ref_node: "165006"
+              - name: winitPluginOutputList
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        path: outputList
+                        ref_node: "165007"
+              - name: customerCode
+                input:
+                    type: string
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    type: string
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: username
+                input:
+                    type: string
+                    value:
+                        path: username
+                        ref_node: "100001"
+          node_outputs:
+              verifiedOutboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              rejectedOutboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              ownershipStatus:
+                  type: string
+                  value: null
+              ownershipNotes:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              ownershipFacts:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "165002"
+      type: code
+      title: build-export-pod-winit-data
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 780
+          y: 60
+      parameters:
+          code: |-
+              /**
+               * 节点：为万邑通 OpenAPI `wh.outbound.exportOutboundPod` 拼装请求体 JSON 字符串。
+               * 置于 openapi 插件上游；**不作为**专家调用边界字段。
+               *
+               * 【输入】branch、`verifiedOutboundOrderNos`（经 queryOutboundOrder 校验后的出库单号）
+               * 【输出】`winitRequestData`：`{"outboundOrderNoList":[...]}` 的 JSON.stringify；非 export 分支或列表为空时为 `""`
+               */
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const branch = String(params.branch ?? "").trim();
+                const list = Array.isArray(params.verifiedOutboundOrderNos)
+                  ? (params.verifiedOutboundOrderNos as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+
+                if (branch !== "export" || list.length === 0) {
+                  return { winitRequestData: "" };
+                }
+
+                const body = { outboundOrderNoList: list };
+                return { winitRequestData: JSON.stringify(body) };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-export-pod-winit-data")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: branch
+                input:
+                    type: string
+                    value:
+                        path: branch
+                        ref_node: "165000"
+              - name: verifiedOutboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: verifiedOutboundOrderNos
+                        ref_node: "165008"
+          node_outputs:
+              winitRequestData:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "115282"
+      type: plugin
+      title: winit_openapi_plugin
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 940
+          y: 60
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value: wh.outbound.exportOutboundPod
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    value:
+                        path: winitRequestData
+                        ref_node: "165002"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              code:
+                  type: integer
+                  required: true
+                  value: null
+              data:
+                  type: string
+                  required: true
+                  value: null
+              msg:
+                  type: string
+                  required: true
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "165003"
+      type: code
+      title: fetch-export-pod
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 780
+          y: 180
+      parameters:
+          code: |-
+              /**
+               * 节点：消费万邑通 `wh.outbound.exportOutboundPod` 插件响应或本地 `workflow/run` 代理结果，产出 **podExportFacts**。
+               * 与 `workflow.json` 一致。guidance 分支或无请求体时不调 OpenAPI。
+               *
+               * **对客下载**：接口返回的完整 FMS URL（或相对路径 + 默认 `https://cnfmsstream.winit.com.cn` / 环境变量覆盖）经 **encodeURIComponent** 拼到
+               * `https://seller.winit.com.cn/User/fmsFileDownload?url=`，写入 `podFileUrls`（直连 FMS 通常不可访问）。
+               */
+
+              const POD_OPENAPI_ACTION = "wh.outbound.exportOutboundPod";
+
+              type OpenapiProxyWorkflowParameters = {
+                action: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                data: string;
+              };
+
+              interface OwnershipFacts {
+                verifiedOutboundOrderNos?: string[];
+                rejectedOutboundOrderNos?: string[];
+                ownershipStatus?: string;
+                ownershipNotes?: string[];
+              }
+
+              interface PodExportFacts {
+                exportStatus:
+                  | "success"
+                  | "failed"
+                  | "skipped_no_outbound"
+                  | "skipped_no_env"
+                  | "skipped_invalid_response"
+                  | "skipped_not_owner";
+                outboundOrderNos: string[];
+                trackingIds: string[];
+                podFileUrls: string[];
+                podRawPaths: string[];
+                verifiedOutboundOrderNos?: string[];
+                rejectedOutboundOrderNos?: string[];
+                ownershipStatus?: string;
+                apiStatus?: unknown;
+                apiInfo?: string;
+                apiErrorCode?: string;
+                notes: string[];
+              }
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              async function runCozeOpenapiProxyWorkflow(options: {
+                apiToken: string;
+                workflowId: string;
+                baseUrl?: string;
+                parameters: OpenapiProxyWorkflowParameters;
+              }): Promise<unknown> {
+                const baseFromEnv = typeof process !== "undefined" ? process.env?.COZE_API_BASE_URL : undefined;
+                const baseUrl = (options.baseUrl ?? baseFromEnv ?? "https://api.coze.cn").replace(/\/$/, "");
+                const url = `${baseUrl}/v1/workflow/run`;
+
+                const res = await fetch(url, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${options.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: String(options.workflowId),
+                    parameters: options.parameters,
+                  }),
+                });
+
+                const text = await res.text();
+                let body: unknown;
+                try {
+                  body = JSON.parse(text) as unknown;
+                } catch {
+                  throw new Error(`Coze workflow/run 响应非 JSON（HTTP ${res.status}）: ${text.slice(0, 500)}`);
+                }
+
+                const obj = body as Record<string, unknown>;
+
+                if (!res.ok) {
+                  const msg = String(obj.msg ?? obj.message ?? text);
+                  throw new Error(`Coze workflow/run HTTP ${res.status}: ${msg.slice(0, 500)}`);
+                }
+
+                const code = obj.code;
+                if (code !== 0 && code !== "0") {
+                  const msg = String(obj.msg ?? obj.message ?? "unknown");
+                  const debug = obj.debug_url != null ? ` debug_url=${String(obj.debug_url)}` : "";
+                  throw new Error(`Coze workflow 失败 code=${String(code)} msg=${msg}${debug}`);
+                }
+
+                return parseCozeWorkflowDataField(obj.data);
+              }
+
+              function getCozeOpenapiProxyEnv(): {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                baseUrl?: string;
+              } | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId = process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  baseUrl: process.env.COZE_API_BASE_URL,
+                };
+              }
+
+              /**
+               * 万邑通 FMS 文件流相对路径的默认根地址（与业务约定一致）。
+               * 可通过环境变量 **`WINIT_POD_FILE_BASE_URL`** 或 **`WINIT_FILE_BASE_URL`** 覆盖（无末尾 `/`）。
+               */
+              const DEFAULT_WINIT_FMS_FILE_BASE_URL = "https://cnfmsstream.winit.com.cn";
+
+              /** 相对路径 fileUrl 拼接用：优先读环境变量，否则使用默认 FMS 根址 */
+              function getPodFileBaseUrl(): string {
+                if (typeof process === "undefined" || !process.env) return DEFAULT_WINIT_FMS_FILE_BASE_URL;
+                const fromEnv = String(
+                  process.env.WINIT_POD_FILE_BASE_URL ?? process.env.WINIT_FILE_BASE_URL ?? ""
+                )
+                  .trim()
+                  .replace(/\/+$/, "");
+                return fromEnv || DEFAULT_WINIT_FMS_FILE_BASE_URL;
+              }
+
+              /** 卖家中心代理下载：内层 url 为接口返回的完整 FMS 地址（须 encodeURIComponent） */
+              const WINIT_SELLER_FMS_DOWNLOAD = "https://seller.winit.com.cn/User/fmsFileDownload";
+
+              function normalizeRawPath(raw: unknown): string {
+                if (typeof raw !== "string" || !raw.trim()) return "";
+                return raw.trim().replace(/\\/g, "/");
+              }
+
+              /**
+               * 解析出用于编码的内层 FMS URL：已为 http(s) 完整地址则直接用；否则与默认或环境变量中的 FMS 根址拼接。
+               */
+              function resolveFmsUrlForDownload(rawFromApi: string): string {
+                const pathNorm = normalizeRawPath(rawFromApi);
+                if (!pathNorm) return "";
+                if (/^https?:\/\//i.test(pathNorm)) return pathNorm;
+                const base = getPodFileBaseUrl();
+                if (!base) return "";
+                return pathNorm.startsWith("/") ? base + pathNorm : `${base}/${pathNorm}`;
+              }
+
+              /** 对客可打开的下载链接（经卖家网关，非直连 FMS） */
+              function buildSellerFmsDownloadUrl(fmsUrl: string): string {
+                const t = fmsUrl.trim();
+                if (!t) return "";
+                return `${WINIT_SELLER_FMS_DOWNLOAD}?url=${encodeURIComponent(t)}`;
+              }
+
+              function extractBusinessPayload(raw: unknown): Record<string, unknown> | null {
+                if (raw == null) return null;
+                if (typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+                return null;
+              }
+
+              /** 对象可能是 JSON 字符串（插件/网关多层序列化） */
+              function deepParseJsonValue(v: unknown, maxDepth: number): unknown {
+                let cur: unknown = v;
+                for (let d = 0; d < maxDepth; d++) {
+                  if (typeof cur !== "string") break;
+                  const t = cur.trim();
+                  if (!t.startsWith("{") && !t.startsWith("[")) break;
+                  try {
+                    cur = JSON.parse(t) as unknown;
+                  } catch {
+                    break;
+                  }
+                }
+                return cur;
+              }
+
+              const FILE_URL_KEYS = ["fileUrl", "fileURL", "FileUrl", "file_path", "filePath", "url"];
+              const NEST_UNDER_DATA_KEYS = ["data", "result", "payload", "body", "content"];
+
+              function pickFileUrlFromRecord(rec: Record<string, unknown>): string | undefined {
+                for (const k of FILE_URL_KEYS) {
+                  const v = rec[k];
+                  if (typeof v === "string" && v.trim()) return v.trim();
+                }
+                return undefined;
+              }
+
+              /** 在对象树中查找 fileUrl（有限深度，兼容 data 套 data、result 等） */
+              function findFileUrlDeep(obj: Record<string, unknown>, depth: number): string | undefined {
+                if (depth <= 0) return undefined;
+                const direct = pickFileUrlFromRecord(obj);
+                if (direct) return direct;
+                for (const key of NEST_UNDER_DATA_KEYS) {
+                  const rawChild = obj[key];
+                  const child = deepParseJsonValue(rawChild, 4);
+                  const childObj = extractBusinessPayload(child);
+                  if (childObj) {
+                    const got = findFileUrlDeep(childObj, depth - 1);
+                    if (got) return got;
+                  }
+                }
+                return undefined;
+              }
+
+              function readScalarFields(root: Record<string, unknown>): {
+                status: unknown;
+                code: unknown;
+                info?: string;
+                errorCode: string;
+              } {
+                const status = root.status ?? root.Status ?? root.state;
+                const code = root.code ?? root.Code;
+                const info =
+                  typeof root.info === "string"
+                    ? root.info
+                    : typeof root.msg === "string"
+                      ? root.msg
+                      : typeof root.message === "string"
+                        ? root.message
+                        : undefined;
+                const ecRaw = root.errorCode ?? root.error_code ?? root.errCode ?? "";
+                const errorCode = ecRaw != null ? String(ecRaw) : "";
+                return { status, code, info, errorCode };
+              }
+
+              /** 判断是否明确失败（有 fileUrl 时慎用） */
+              function isExplicitFailure(status: unknown): boolean {
+                return (
+                  status === 0 ||
+                  status === "0" ||
+                  status === false ||
+                  status === "fail" ||
+                  status === "failed" ||
+                  status === "error"
+                );
+              }
+
+              /**
+               * 解析 exportOutboundPod 响应（兼容：data 为 JSON 字符串、fileUrl 深层嵌套、大小写字段）。
+               */
+              function parseExportResponse(raw: unknown): {
+                ok: boolean;
+                fileUrl?: string;
+                status?: unknown;
+                info?: string;
+                errorCode?: string;
+              } {
+                const unwrapped = deepParseJsonValue(raw, 5);
+                const root = extractBusinessPayload(unwrapped);
+                if (!root) return { ok: false };
+
+                const { status, code, info, errorCode } = readScalarFields(root);
+
+                let fileUrl = findFileUrlDeep(root, 6);
+                if (!fileUrl && root.data !== undefined) {
+                  const dataLayer = deepParseJsonValue(root.data, 4);
+                  const dataObj = extractBusinessPayload(dataLayer);
+                  if (dataObj) {
+                    fileUrl = findFileUrlDeep(dataObj, 5);
+                  }
+                }
+
+                const ecNorm = String(errorCode ?? "").trim();
+                const codeOk = ecNorm === "";
+
+                const codeIndicatesOk = code === 0 || code === "0";
+                const strictStatusOk =
+                  status === 1 ||
+                  status === "1" ||
+                  status === true ||
+                  status === "success" ||
+                  (status === undefined && codeIndicatesOk);
+                const failed = isExplicitFailure(status);
+
+                let ok = Boolean(fileUrl && codeOk && strictStatusOk && !failed);
+                if (!ok && fileUrl && codeOk && !failed) {
+                  ok = true;
+                }
+
+                return { ok, fileUrl, status, info, errorCode: ecNorm };
+              }
+
+              function asOwnershipFacts(raw: unknown): OwnershipFacts {
+                if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
+                  return raw as OwnershipFacts;
+                }
+                return {};
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }): Promise<{ podExportFacts: PodExportFacts }> {
+                const branch = String(params.branch ?? "").trim();
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(params.outboundOrderNos)
+                  ? (params.outboundOrderNos as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                const ownership = asOwnershipFacts(params.ownershipFacts);
+                const verifiedOutboundOrderNos = Array.isArray(ownership.verifiedOutboundOrderNos)
+                  ? ownership.verifiedOutboundOrderNos.map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                const rejectedOutboundOrderNos = Array.isArray(ownership.rejectedOutboundOrderNos)
+                  ? ownership.rejectedOutboundOrderNos.map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                const ownershipStatus = String(ownership.ownershipStatus ?? "").trim();
+
+                const notes: string[] = [];
+                if (Array.isArray(ownership.ownershipNotes)) {
+                  for (const n of ownership.ownershipNotes) {
+                    const s = String(n ?? "").trim();
+                    if (s) notes.push(s);
+                  }
+                }
+
+                const emptyFacts = (status: PodExportFacts["exportStatus"]): PodExportFacts => ({
+                  exportStatus: status,
+                  outboundOrderNos,
+                  trackingIds,
+                  podFileUrls: [],
+                  podRawPaths: [],
+                  verifiedOutboundOrderNos,
+                  rejectedOutboundOrderNos,
+                  ownershipStatus: ownershipStatus || undefined,
+                  notes,
+                });
+
+                if (branch !== "export") {
+                  notes.push("无万邑通出库单号（WO…）或未走 export 分支，跳过 exportOutboundPod");
+                  return { podExportFacts: emptyFacts("skipped_no_outbound") };
+                }
+
+                if (ownershipStatus === "none" || (outboundOrderNos.length > 0 && verifiedOutboundOrderNos.length === 0)) {
+                  if (!notes.some((n) => n.includes("客户归属"))) {
+                    notes.push("出库单未通过客户归属校验，跳过 exportOutboundPod（该接口无鉴权）");
+                  }
+                  return { podExportFacts: emptyFacts("skipped_not_owner") };
+                }
+
+                const winitRequestData = typeof params.winitRequestData === "string" ? params.winitRequestData.trim() : "";
+                if (!winitRequestData) {
+                  notes.push("无已通过归属校验的出库单或 winitRequestData 为空，跳过 OpenAPI");
+                  return { podExportFacts: emptyFacts(verifiedOutboundOrderNos.length === 0 ? "skipped_not_owner" : "skipped_no_outbound") };
+                }
+
+                const env = getCozeOpenapiProxyEnv();
+                const customerCode = String(params.customerCode ?? "").trim();
+                const customerName = String(params.customerName ?? "").trim();
+                const username = String(params.username ?? "").trim();
+
+                const proxyCustomer = env
+                  ? { customerCode: env.customerCode, customerName: env.customerName, username: env.username }
+                  : { customerCode, customerName, username };
+
+                let raw: unknown;
+                const plug = params.winitOpenapiData;
+                const hasPlug = plug != null && String(plug).trim() !== "";
+
+                try {
+                  if (hasPlug) {
+                    raw = parseCozeWorkflowDataField(plug);
+                  } else if (env) {
+                    raw = await runCozeOpenapiProxyWorkflow({
+                      apiToken: env.apiToken,
+                      workflowId: env.workflowId,
+                      baseUrl: env.baseUrl,
+                      parameters: {
+                        action: POD_OPENAPI_ACTION,
+                        customerCode: proxyCustomer.customerCode,
+                        customerName: proxyCustomer.customerName,
+                        username: proxyCustomer.username,
+                        data: winitRequestData,
+                      },
+                    });
+                  } else {
+                    notes.push("无插件响应且无 Coze 代理环境变量（COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID 等），跳过 OpenAPI");
+                    return { podExportFacts: emptyFacts("skipped_no_env") };
+                  }
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  notes.push(`OpenAPI 调用异常：${msg}`);
+                  return {
+                    podExportFacts: {
+                      ...emptyFacts("failed"),
+                      apiInfo: msg,
+                    },
+                  };
+                }
+
+                const parsed = parseExportResponse(raw);
+                if (!parsed.ok) {
+                  notes.push(
+                    parsed.fileUrl ? "响应未满足成功条件（status/errorCode）" : "响应中无有效 data.fileUrl"
+                  );
+                  return {
+                    podExportFacts: {
+                      ...emptyFacts("skipped_invalid_response"),
+                      podRawPaths: parsed.fileUrl ? [normalizeRawPath(parsed.fileUrl)] : [],
+                      apiStatus: parsed.status,
+                      apiInfo: parsed.info,
+                      apiErrorCode: parsed.errorCode,
+                    },
+                  };
+                }
+
+                const rawPath = normalizeRawPath(parsed.fileUrl);
+                const fmsInnerUrl = resolveFmsUrlForDownload(parsed.fileUrl ?? "");
+                const sellerDownloadUrl = fmsInnerUrl ? buildSellerFmsDownloadUrl(fmsInnerUrl) : "";
+                const podFileUrls = sellerDownloadUrl ? [sellerDownloadUrl] : [];
+
+                if (rawPath && !fmsInnerUrl && !/^https?:\/\//i.test(rawPath)) {
+                  notes.push("fileUrl 为相对路径但未能解析出完整 FMS 地址，podFileUrls 留空（异常，请检查解析逻辑）");
+                }
+
+                return {
+                  podExportFacts: {
+                    exportStatus: "success",
+                    outboundOrderNos: verifiedOutboundOrderNos.length ? verifiedOutboundOrderNos : outboundOrderNos,
+                    trackingIds,
+                    podFileUrls,
+                    podRawPaths: rawPath ? [rawPath] : [],
+                    verifiedOutboundOrderNos,
+                    rejectedOutboundOrderNos,
+                    ownershipStatus: ownershipStatus || undefined,
+                    apiStatus: parsed.status,
+                    apiInfo: parsed.info,
+                    apiErrorCode: parsed.errorCode,
+                    notes,
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-export-pod")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: branch
+                input:
+                    type: string
+                    value:
+                        path: branch
+                        ref_node: "165000"
+              - name: trackingIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: trackingIds
+                        ref_node: "165000"
+              - name: outboundOrderNos
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "165000"
+              - name: ownershipFacts
+                input:
+                    type: object
+                    value:
+                        path: ownershipFacts
+                        ref_node: "165008"
+              - name: winitOpenapiData
+                input:
+                    type: string
+                    description: 插件响应 data
+                    value:
+                        path: data
+                        ref_node: "115282"
+              - name: winitRequestData
+                input:
+                    type: string
+                    value:
+                        path: winitRequestData
+                        ref_node: "165002"
+              - name: customerCode
+                input:
+                    type: string
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    type: string
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: username
+                input:
+                    type: string
+                    value:
+                        path: username
+                        ref_node: "100001"
+          node_outputs:
+              podExportFacts:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "165004"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 940
+          y: 180
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 申请获取 POD 专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是申请获取POD专家，负责指导用户申请或获取妥投证明（POD），结合系统已拉取的导出结果给出清晰指引。
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **trackingIds**：`{{trackingIds}}`
+                        - **outboundOrderNos**：`{{outboundOrderNos}}`
+                        - **enrichedContext**：`{{enrichedContext}}`（若有；推荐编排前置 `delivery-status`）
+                        - **inputContext**：`{{inputContext}}`
+                        - **podExportFacts**（代码节点产出，**以下载链接与状态为准，不得编造**）：
+
+                        ```json
+                        {{podExportFacts}}
+                        ```
+
+                        ## 规则
+
+                        1. **`podExportFacts.exportStatus === "success"`** 且 **`podExportFacts.podFileUrls`** 非空：`podFileUrls` 为 **卖家中心代理下载链接**（`https://seller.winit.com.cn/User/fmsFileDownload?url=…`，内层为接口返回的完整 FMS 地址经 URL 编码），**不是**直连 FMS。在 `analysis` 中给出该完整 URL（与 facts 一致），说明需在卖家中心登录态下打开/下载；可提示时效以业务方为准。
+                        2. **`exportStatus` 为 `skipped_no_outbound`**：说明需提供万邑通出库单号（`WO…`）；仅有承运商跟踪号时建议先走 **`delivery-status`** 或出库查询以取得 `WO`，再申请 POD。
+                        3. **`exportStatus` 为 `skipped_not_owner`**：说明所提供出库单经 **`queryOutboundOrder`** 校验**不属于当前客户**或单号不存在，**不会**调用无鉴权的 `exportOutboundPod`；请客户核对单号是否为本人订单，勿泄露他人 POD。
+                        4. **`ownershipStatus` 为 `partial`**：部分单号已通过归属校验（见 `verifiedOutboundOrderNos`），未通过者见 `rejectedOutboundOrderNos`；按实际导出结果说明，勿对未校验单号承诺链接。
+                        5. **`skipped_no_env`**：说明当前环境未配置自动导出，请走人工/TOM 或查件流程（话术与 SOP 一致，勿承诺自动下载）。
+                        6. **`failed` / `skipped_invalid_response`**：根据 `podNotes`、`apiInfo`、`apiErrorCode` 解释失败原因，引导查件或人工；**不得**虚构成功链接。
+                        7. **`podFileUrls` 为空但 `podRawPaths` 非空**：少见；多为解析异常或相对路径未能拼接 FMS；请核对接口返回或联系支持。
+                        8. 可补充 vPOD/ePOD 说明与承运商自助渠道（与知识库一致），但不要与上述事实矛盾。
+
+                        ## 输出格式（严格 JSON）
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "trackingIds": [],
+                              "outboundOrderNos": [],
+                              "podFileUrls": [],
+                              "podRawPaths": [],
+                              "exportStatus": ""
+                            },
+                            "analysis": "面向客户的完整说明与下一步建议。"
+                          }
+                        }
+                        ```
+
+                        **注意**：`structured` 中的 `podFileUrls`、`podRawPaths`、`exportStatus` 等将由后处理节点以 **`podExportFacts` 为准覆盖**；你仍应填入与 facts 一致的值，避免矛盾。
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "165000"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "165000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "165000"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+              - name: podExportFacts
+                input:
+                    value:
+                        path: podExportFacts
+                        ref_node: "165003"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "165005"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 940
+          y: 320
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 合并 LLM 输出与 **fetch-export-pod** 的确定性 POD 字段
+               * FaaS 单文件闭环。`podFileUrls` / `exportStatus` 等以 `podExportFacts` 为准覆盖 LLM 同名字段。
+               */
+
+              interface PodExportFacts {
+                exportStatus?: string;
+                outboundOrderNos?: string[];
+                trackingIds?: string[];
+                podFileUrls?: string[];
+                podRawPaths?: string[];
+                verifiedOutboundOrderNos?: string[];
+                rejectedOutboundOrderNos?: string[];
+                ownershipStatus?: string;
+                apiStatus?: unknown;
+                apiInfo?: string;
+                apiErrorCode?: string;
+                notes?: string[];
+              }
+
+              interface PodStructured {
+                outboundOrderNos?: string[];
+                trackingIds?: string[];
+                podFileUrls?: string[];
+                podRawPaths?: string[];
+                exportStatus?: string;
+                verifiedOutboundOrderNos?: string[];
+                rejectedOutboundOrderNos?: string[];
+                ownershipStatus?: string;
+                apiStatus?: unknown;
+                apiInfo?: string;
+                apiErrorCode?: string;
+                podNotes?: string[];
+                [key: string]: unknown;
+              }
+
+              interface PodAnalysisResult {
+                structured?: PodStructured;
+                analysis?: string;
+              }
+
+              interface PodInputContext {
+                chainId?: string;
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+              }
+
+              function coerceAnalysisResult(raw: unknown): { structured: PodStructured; analysis: string } {
+                if (raw == null) {
+                  return { structured: {}, analysis: "未收到模型输出。" };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as PodAnalysisResult;
+                    if (parsed && typeof parsed === "object") {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch {
+                    return { structured: {}, analysis: s || "解析失败。" };
+                  }
+                  return { structured: {}, analysis: s };
+                }
+
+                const o = raw as PodAnalysisResult;
+                const st = o.structured ?? {};
+                const analysis = typeof o.analysis === "string" ? o.analysis : "（无 analysis 字段）";
+                return { structured: typeof st === "object" && st !== null ? { ...st } : {}, analysis };
+              }
+
+              function asFacts(raw: unknown): PodExportFacts {
+                if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
+                  return raw as PodExportFacts;
+                }
+                return {};
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const facts = asFacts(params.podExportFacts);
+                const inputContext = (params.inputContext ?? {}) as PodInputContext;
+
+                const structured: PodStructured = { ...coerced.structured };
+
+                if (facts.exportStatus !== undefined) structured.exportStatus = facts.exportStatus;
+                if (facts.ownershipStatus !== undefined) structured.ownershipStatus = facts.ownershipStatus;
+                if (Array.isArray(facts.verifiedOutboundOrderNos) && facts.verifiedOutboundOrderNos.length)
+                  structured.verifiedOutboundOrderNos = facts.verifiedOutboundOrderNos;
+                if (Array.isArray(facts.rejectedOutboundOrderNos) && facts.rejectedOutboundOrderNos.length)
+                  structured.rejectedOutboundOrderNos = facts.rejectedOutboundOrderNos;
+                if (Array.isArray(facts.outboundOrderNos) && facts.outboundOrderNos.length)
+                  structured.outboundOrderNos = facts.outboundOrderNos;
+                if (Array.isArray(facts.trackingIds) && facts.trackingIds.length) structured.trackingIds = facts.trackingIds;
+                if (Array.isArray(facts.podFileUrls)) structured.podFileUrls = facts.podFileUrls;
+                if (Array.isArray(facts.podRawPaths)) structured.podRawPaths = facts.podRawPaths;
+                if (facts.apiStatus !== undefined) structured.apiStatus = facts.apiStatus;
+                if (facts.apiInfo !== undefined) structured.apiInfo = facts.apiInfo;
+                if (facts.apiErrorCode !== undefined) structured.apiErrorCode = facts.apiErrorCode;
+                if (Array.isArray(facts.notes) && facts.notes.length) structured.podNotes = facts.notes;
+
+                const summary =
+                  (coerced.analysis || "").slice(0, 200) ||
+                  (structured.exportStatus === "success" ? "POD 导出成功" : "POD 申请处理完成");
+
+                return {
+                  structured,
+                  analysis: coerced.analysis,
+                  outputContext: {
+                    expertId: "pod-request",
+                    resultSummary: summary,
+                    chainId: inputContext.chainId ?? "",
+                  },
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "165004"
+              - name: podExportFacts
+                input:
+                    type: object
+                    value:
+                        path: podExportFacts
+                        ref_node: "165003"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "165000"
+    - source_node: "165000"
+      target_node: "165001"
+    - source_node: "165001"
+      target_node: "165006"
+      source_port: "true"
+    - source_node: "165001"
+      target_node: "165003"
+      source_port: true_1
+    - source_node: "165001"
+      target_node: "165003"
+      source_port: "false"
+    - source_node: "165006"
+      target_node: "165007"
+    - source_node: "165007"
+      target_node: "165008"
+    - source_node: "165008"
+      target_node: "165002"
+    - source_node: "165002"
+      target_node: "115282"
+    - source_node: "115282"
+      target_node: "165003"
+    - source_node: "165003"
+      target_node: "165004"
+    - source_node: "165004"
+      target_node: "165005"
+    - source_node: "165005"
+      target_node: "900001"

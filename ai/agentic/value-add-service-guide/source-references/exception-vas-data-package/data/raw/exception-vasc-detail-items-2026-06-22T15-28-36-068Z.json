@@ -1,0 +1,1771 @@
+{
+  "VASC202407012141008": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1561",
+        "vasEventName": "入库-更换商品包装",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "客户要求增加、更换商品包装",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-更换商品包装",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Stock-in - replace product packaging",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1559",
+        "vasEventName": "入库-更换新商品条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原商品标签，使用原入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴商品标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Attach product labels",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 3,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1558",
+        "vasEventName": "入库-补贴原商品条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品条码异常（不含无条码），生成新商品标签并覆盖原商品标签，且使用新入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴商品标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Attach product labels",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 4,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1572",
+        "vasEventName": "入库-第三方商品条码关联",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "货物入库时未进行第三方条码关联，但实际物品贴有第三方条码。现在需要进行条码关联，并将货物上架至仓库。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴商品标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Attach product labels",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 5,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1560",
+        "vasEventName": "入库-补贴包裹条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原包裹标签，且使用原/新入库单上架 - 包裹标签：含包裹标签，第三方包裹标签（例如FBA箱唛，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-补贴包裹条码",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Stock-in - subsidized parcel barcode",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PEWC",
+        "TS"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "USE_NEW_INBOUND_ORDER"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202407031456553": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1566",
+        "vasEventName": "库内-更换商品包装",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"对库内商品，增加、更换、加固商品包装 注意：当更换包材尺寸与原商品尺寸不一致时，需注册新SKU，使用新SKU上架；\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "库内-更换商品包装",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "In-warehouse - Replace product packaging",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1565",
+        "vasEventName": "库内-更换新商品条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"随机拣选单品：适用于商品化管理，客户指定商品SKU在库所有商品，更换新SKU标签并覆盖原品SKU标签 指定单品/批次：适用于单品化管理、批次管理的商品，客户指定单品或批次，更换新SKU标签并覆盖原品SKU标签 - 商品标签：含商品标签，第三方商品标签（例如FNSKU标签，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴标/换标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Labeling / Relabeling",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 3,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1564",
+        "vasEventName": "库内-补贴原商品条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"随机拣选单品：适用于商品化管理，客户指定商品SKU在库所有商品，补贴原商品标签 指定单品/批次：适用于商品化管理，单品化管理、批次管理的商品，客户指定单品或批次或者随机拣选商品，补贴原商品标签 - 商品标签：含商品标签，第三方商品标签（例如FNSKU标签，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴标/换标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Labeling / Relabeling",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 4,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1681",
+        "vasEventName": "错装商品直接上架",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴标/换标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Labeling / Relabeling",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 5,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1574",
+        "vasEventName": "库内-商品其他标签（非商品条码）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "卖家指定在库商品，要求仓库针对商品粘贴标签（不含商品条码），这些标签通常包含有关商品的详细描述、用途等信息，例如含英代标签、欧代标签、尺寸标签、环保标签、产地标签、使用说明标签等。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "库内-商品附加标签",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "In-warehouse - Attach product labels (excluding product barcodes)",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 6,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1591",
+        "vasEventName": "拍照暂存后上架",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "拍照暂存后上架是指卖家在万邑通完成拍照增值服务后，选择将商品先暂存，然后在无需进行其他增值服务的情况下，直接将商品上架的一项服务。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "拍照暂存后上架",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Photograph, temporarily store, then shelve.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 7,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1576",
+        "vasEventName": "库内-商品拆分",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "将在库一个单品进行拆分后贴新SKU标签（拆分后的SKU为新SKU）后重新上架。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": null,
+        "mutexGroupTw": null,
+        "mutexGroupEn": null,
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 8,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1804",
+        "vasEventName": "库内-商品组合",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "将在库内多个SKU组合为1个SKU并按新SKU重新上架售卖；该服务仅支持单一产品库存，箱/套产品库存进行商品组合需同步提交套装/箱产品转单一产品分类库存调整单。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": null,
+        "mutexGroupTw": null,
+        "mutexGroupEn": null,
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VASC_RELATION_PSC": [
+        "OSF632008095"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "STOCK_SHELVES"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202407031503503": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1561",
+        "vasEventName": "入库-更换商品包装",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "客户要求增加、更换商品包装",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-更换商品包装",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Stock-in - replace product packaging",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1559",
+        "vasEventName": "入库-更换新商品条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原商品标签，使用原入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴商品标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Attach product labels",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 3,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1558",
+        "vasEventName": "入库-补贴原商品条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品条码异常（不含无条码），生成新商品标签并覆盖原商品标签，且使用新入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴商品标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Attach product labels",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 4,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1572",
+        "vasEventName": "入库-第三方商品条码关联",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "货物入库时未进行第三方条码关联，但实际物品贴有第三方条码。现在需要进行条码关联，并将货物上架至仓库。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴商品标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Attach product labels",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 5,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1825",
+        "vasEventName": "入库-补贴原商品条码（带示例图）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "客户货物入库商品条码异常（不含无条码），生成新商品标签并覆盖原商品标签，且使用原入库单上架 - 商品标签：含商品条码，商品条码贴标示例图",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "贴商品标",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Attach product labels",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 6,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1573",
+        "vasEventName": "入库-商品其他标签（非商品条码）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "卖家商品入库时，要求仓库针对商品粘贴标签（不含商品条码），这些标签通常包含有关商品的详细描述、用途等信息，例如含英代标签、欧代标签、尺寸标签、环保标签、产地标签、使用说明标签等。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-商品附加标签",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Stock-in - Attached product labels (excluding product barcodes)",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 7,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1560",
+        "vasEventName": "入库-补贴包裹条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原包裹标签，且使用原/新入库单上架 - 包裹标签：含包裹标签，第三方包裹标签（例如FBA箱唛，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-补贴包裹条码",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Attach product labels",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PEWC",
+        "TS"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "USE_ORIGIN_INBOUND_ORDER"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202407031507376": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1562",
+        "vasEventName": "入库-商品开箱拍照",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "客户指定商品SKU，仓库将商品外包装及销售包装拆开，对商品裸货及单品拍照。（拆包前拍照）提供外箱条码1张+外包装全览图，（拆包后）提供商品条码照片1张，商品实物照3~4张（商品全览图、商品细节图等）；",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品拍照辨识",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Product photograph and identification",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PEWC",
+        "TS"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "STORAGE"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202407031511413": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1569",
+        "vasEventName": "库内-商品外观拍照",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "客户指定SKU,仓库提供每组单品三张照片, 在不拆开销售包装/物流包装的情况下, 反馈以下照片(正面/侧面/背面)后，按照原SKU上架",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "拍照",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Photography of goods",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1570",
+        "vasEventName": "库内-商品开箱拍照",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户指定商品SKU及数量，仓库拆开外包装及销售包装，提供提供外箱条码1张（拆包前拍照），商品条码照片1张，商品实物照3~4张（商品全览图、商品细节图等） 注意：若商品有塑封薄膜覆盖/亚克力板等拆分后无法复原的销售包装，仓库无法继续操作\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "拍照",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Photography of goods",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VASC_RELATION_PSC": [
+        "OSF632008104"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "STOCK_SHELVES",
+        "STORAGE"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202407161056217": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1561",
+        "vasEventName": "入库-更换商品包装",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "客户要求增加、更换商品包装",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-更换商品包装",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Stock-in - replace product packaging",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1560",
+        "vasEventName": "入库-补贴包裹条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原包裹标签，且使用原/新入库单上架 - 包裹标签：含包裹标签，第三方包裹标签（例如FBA箱唛，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-补贴包裹条码",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Stock-in - subsidized parcel barcode",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 3,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1558",
+        "vasEventName": "入库-补贴原商品条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品条码异常（不含无条码），生成新商品标签并覆盖原商品标签，且使用新入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": null,
+        "mutexGroupTw": null,
+        "mutexGroupEn": null,
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 4,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1559",
+        "vasEventName": "入库-更换新商品条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原商品标签，使用原入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": null,
+        "mutexGroupTw": null,
+        "mutexGroupEn": null,
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PEWC",
+        "TS"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "INBOUND_ORDER_OF_CUSTOMER"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202409121753076": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1703",
+        "vasEventName": "上架前包裹销毁",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"针对异常包裹，到仓后上架前，Winit提供将包裹销毁的服务\r\n注：此销毁服务无法提供销毁证明\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "上架前销毁",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Diposing before shelving",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1563",
+        "vasEventName": "上架前商品销毁",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "货物到海外仓后，已卸货未上架，客户要求销毁",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "上架前销毁",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Disposinng before shelving",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PEWC",
+        "TS"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "DESTRUCTION"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202411192229072": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1643",
+        "vasEventName": "库内-清除商品标签",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "库内清除标签",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "标签类",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "In the warehouse - Remove product labels",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1596",
+        "vasEventName": "单品拆分后上架（拆分为一个SKU）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "把单一产品拆分成同一个sku并贴标上架",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品组合/拆分",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Product bundling and splitting",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 3,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1595",
+        "vasEventName": "单品指定位置开箱拍照",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "拣选指定单品或商品，开箱后指定位置拍照",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品拍照辨识",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Product photograph and identification",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 4,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1650",
+        "vasEventName": "辨识单品配件后更换",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "辨识单品配件后更换",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品拍照辨识",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Product photograph and identification",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 5,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1649",
+        "vasEventName": "辨识单品配件后销毁",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "辨识单品配件后销毁",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品拍照辨识",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Product photograph and identification",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 6,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1627",
+        "vasEventName": "单品辨识（不开箱）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "根据客户提供的辨识方法，在不拆单品外包装的情况下，仓库辨识单品数量/标签内容（含第三方商品标签）等差异并反馈",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品拍照辨识",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Product photograph and identification",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 7,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1651",
+        "vasEventName": "库内商品拍摄视频",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "根据客户提供的操作sop拍摄库内视频，常见场景如下：\r\n场景1：提供商品在库视频，例如到库位上对商品开箱拍实物及拍到库位条码、仓库大门、商品实物等。\r\n场景2：模拟商品出库视频，例如客户指定某个sku仓库操作下架拣选并模拟出库",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品拍照辨识",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Product photograph and identification",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 8,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1677",
+        "vasEventName": "退货商品补拍细节照",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "针对退货入库商品，要求在库补拍商品细节照片",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品拍照辨识",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Product photograph and identification",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 9,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1639",
+        "vasEventName": "测量商品内部配件尺重",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "检查商品内部配件尺重",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品尺重测量",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Measurement of product weight and dimensions",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 10,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1640",
+        "vasEventName": "柔性打包装箱/装袋测量尺重",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "客户提供WINIT标准包材/客制包材的型号及包材需要装箱/装袋的M码信息，仓库装箱测试，确认包材是否装的下M码且反馈包材装载后包裹尺重数据",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "商品尺重测量",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Measurement of product weight and dimensions",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 11,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1626",
+        "vasEventName": "指定商品盘点",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "将在库商品按SKU进行清点数量，盘点后根据实际盘点结果调整系统库存",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "盘点",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Inventory check",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VASC_RELATION_PSC": [
+        "OSF632008274"
+      ],
+      "VASC_REQUIRE_REVIEW": [
+        "N"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "STOCK_SHELVES",
+        "STORAGE",
+        "DESTRUCTION"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "NON_STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202411192240522": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OW01V1594",
+        "vasEventName": "上架前自提（无需WINIT打托）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "此增值服务仅支持异常货物，货物到海外仓后客户要求按照包裹提货",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "上架前自提（无需WINIT打托）",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Self-pickup before shelving (no WINIT palletizing required)",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OW01V1604",
+        "vasEventName": "上架前自提（需WINIT打托）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "此增值服务仅支持异常货物，货物到海外仓后客户要求打托后提货",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "上架前自提-托盘",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Pallet for self-pickup before shelving.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PS",
+        "PEWC",
+        "SHD",
+        "EWC",
+        "TS"
+      ],
+      "VASC_REQUIRE_REVIEW": [
+        "N"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "SELF_PICKUP"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "NON_STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER",
+        "CUSTOMER_SERVICE"
+      ]
+    }
+  },
+  "VASC202411192246131": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OW01V1654",
+        "vasEventName": "包裹串仓异常调拨",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "针对包裹直发串仓异常，客户要求在仓群内调拨（仅支持DE/DEBR2、USWC/USWC2）",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "包裹串仓异常调拨",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Inter-warehouse parcel transfer exception.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OW01V1602",
+        "vasEventName": "入库其他服务需求",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "万邑通除基本入库增值服务外，还提供特殊定制服务。客户提交需求后，我们将根据客户提供的需求内容进行定制化报价。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库其他服务需求",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Other inbound service requirements",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VASC_ALLOW_CHANGE_WHEN_AUDIT": [
+        "Y"
+      ],
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PS",
+        "PEWC",
+        "STOP",
+        "SHD",
+        "DR",
+        "SB",
+        "EWC",
+        "RE",
+        "OD",
+        "VO",
+        "IC",
+        "SHO",
+        "TS"
+      ],
+      "VASC_AUDIT_DEPARTMENT": [
+        "PD"
+      ],
+      "VASC_REQUIRE_REVIEW": [
+        "Y"
+      ],
+      "VASC_REQUIRE_CUSTOMER_CONFIRM": [
+        "Y"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "STORAGE",
+        "USE_ORIGIN_INBOUND_ORDER",
+        "DESTRUCTION",
+        "SELF_PICKUP",
+        "INBOUND_ORDER_OF_CUSTOMER"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "NON_STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER",
+        "CUSTOMER_SERVICE"
+      ]
+    }
+  },
+  "VASC202411192250069": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1648",
+        "vasEventName": "代采购包材物料",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "万邑通为客户提供海外定制包材及操作工具物料采购支持服务",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "代采购包材物料",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Proxy procurement of packaging materials.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1660",
+        "vasEventName": "审计盘点",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "审计盘点增值支持客户对客户当前名下所有账号（含关联账号与主子账号）或指定账号在WINIT仓库内的所有库存进行盘点（支持在库全盘或指定SKU抽盘）",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "审计盘点",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Inventory audit",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 3,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1644",
+        "vasEventName": "DG商品销毁",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "DG商品销毁：\r\n场景1：需要提供销毁证明\r\n场景2：无需提供销毁证明，仅销毁货物",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "DG商品销毁",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Destruction of DG goods",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 4,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1646",
+        "vasEventName": "货权转移（换标模式）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"场景1：指定SKU全球库存全部转移：单次转移单品数≤300个：所有此次转移SKU单品数合计；\r\n场景2：指定SKU部分库存转移\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "货权转移（换标模式）",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Transfer of ownership (label-change mode)",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 5,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1647",
+        "vasEventName": "货权转移（改数模式）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "场景1:指定SKU全球库存全部转移：次转移单品数＞300个",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "货权转移（改数模式）",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Transfer of ownership (quantity-modification mode)",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 6,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1603",
+        "vasEventName": "库内其他服务需求",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "万邑通除基本库内增值服务外，还提供特殊定制服务。客户提交需求后，我们将根据客户提供的需求内容进行定制化报价。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "库内其他服务需求",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Other warehouse service requirements.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VASC_RELATION_PSC": [
+        "OSF632008274"
+      ],
+      "VASC_ALLOW_CHANGE_WHEN_AUDIT": [
+        "Y"
+      ],
+      "VASC_AUDIT_DEPARTMENT": [
+        "PD"
+      ],
+      "VASC_REQUIRE_REVIEW": [
+        "Y"
+      ],
+      "VASC_REQUIRE_CUSTOMER_CONFIRM": [
+        "Y"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "STOCK_SHELVES",
+        "STORAGE",
+        "DESTRUCTION"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "NON_STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER",
+        "CUSTOMER_SERVICE"
+      ]
+    }
+  },
+  "VASC202411192253186": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF8V1601",
+        "vasEventName": "出库其他服务需求",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "万邑通除基本出库增值服务外，还提供特殊定制服务。客户提交需求后，我们将根据客户提供的需求内容进行定制化报价。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "出库其他服务需求",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Additional outbound service requirements.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VASC_ALLOW_CHANGE_WHEN_AUDIT": [
+        "Y"
+      ],
+      "VASC_AUDIT_DEPARTMENT": [
+        "PD"
+      ],
+      "VASC_REQUIRE_REVIEW": [
+        "Y"
+      ],
+      "VASC_REQUIRE_CUSTOMER_CONFIRM": [
+        "Y"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "STORAGE",
+        "DESTRUCTION",
+        "OUTBOUND"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "NON_STANDARD_VASC"
+      ],
+      "VASC_RELATION_PSC": [
+        "OSF811008298"
+      ],
+      "VAS_ORDER_STATUS_OUTBOUND": [
+        "CFI",
+        "CF",
+        "TSC",
+        "PKC",
+        "PKI",
+        "PAC"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER",
+        "CUSTOMER_SERVICE"
+      ],
+      "VASC_LINK": [
+        ""
+      ]
+    }
+  },
+  "VASC202411271721537": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OW01V1610",
+        "vasEventName": "入库-单品指定位置开箱拍照",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "指定异常或入库单某个商品，开箱后指定位置拍照",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-单品指定位置开箱拍照",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Stock-in - Unbox the item at the designated location and take photos.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OW01V1674",
+        "vasEventName": "入库-异常包裹开箱拍照",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "针对入库包裹类异常，开箱后指定位置拍照",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-异常包裹开箱拍照",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Stock-in - Unboxing and photographing abnormal packages.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 3,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OW01V1599",
+        "vasEventName": "提供海外仓监控视频-少包裹调查",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "针对上架异常商品，客户需要查询视频监控，需要海外仓提供监控视频进行佐证：\r\n WINIT海外仓提供以下监控视频服务范围：\r\n 1.少包裹调查：\r\n 1.1整柜到仓：客户提供入库单号和POD；海外仓提供开柜到关柜期间视频，但客户无法通过视频清点具体数据\r\n 1.2散货到仓：客户提供入库单号和POD；海外仓提供卸货过程/包裹分堆过程视频，但可能无法确定具体的送仓包裹数量\r\n 1.3快递到仓：\r\n 1.3.1当面交付的快递包裹：客户提供包裹对应的快递单号及快递供应商名称；海外仓提供当天供应商送货，卸货和扫描视频并结合扫描记录告知调查结果。可支持的供应商参考《海外仓收货面签供应商》；若供应商将快递包裹使用整柜投递drop到仓，海外仓无法提供包裹卸货视频",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "提供海外仓监控视频-少包裹调查",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Provide overseas warehouse surveillance footage - investigation into missing parcels.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 4,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OW01V1600",
+        "vasEventName": "提供海外仓监控视频-少单品调查",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "针对上架异常商品，客户需要查询视频监控，需要海外仓提供监控视频进行佐证：\r\n WINIT海外仓提供以下监控视频服务范围：\r\n 少单品调查: \r\n1.B/C包裹：客户提供入库单号和包裹号；海外仓提供商品预分拣视频和调查结果\r\n2.上架数量与验货数量一致的A包：海外仓不提供视频服务，客户需提交库内盘点增值，增值单提交需要A包上架的商品做盘点\r\n3.上架数量与验货数量不一致的A包：客户提供入库单号和包裹号；海外仓提供商品预分拣视频和调查结果\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "提供海外仓监控视频-少单品调查",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Provide overseas warehouse surveillance footage - investigation of a few SKUs.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PS",
+        "PEWC",
+        "STOP",
+        "SHD",
+        "DR",
+        "SB",
+        "EWC",
+        "RE",
+        "OD",
+        "VO",
+        "IC",
+        "SHO",
+        "TS"
+      ],
+      "VASC_REQUIRE_REVIEW": [
+        "N"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "STORAGE"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "NON_STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER",
+        "CUSTOMER_SERVICE"
+      ]
+    }
+  },
+  "VASC202412111831129": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OW01V1622",
+        "vasEventName": "入库-提供无箱单预报单上架",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "客户使用无箱单预报单入库，但是货物到仓后发现无箱单识别标识丢失，导致仓库无法正常上架，客户需提供原始无箱单信息，以便仓库能够正确处理货物并完成上架操作。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "入库-提供无箱单预报单上架",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Stock-in — provide a packing-list-free pre-alert and shelve the goods.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PS",
+        "PEWC",
+        "STOP",
+        "SHD",
+        "EWC"
+      ],
+      "VASC_REQUIRE_REVIEW": [
+        "N"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "INBOUND_ORDER_OF_CUSTOMER"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "NON_STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER",
+        "CUSTOMER_SERVICE"
+      ]
+    }
+  },
+  "VASC202412111836315": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1597",
+        "vasEventName": "单品拆分后上架（拆分为多个SKU）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "在库一个单品进行拆分后贴新的标签（拆分后的SKU为新SKU）后重新上架",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "单品拆分后上架（拆分为多个SKU）",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Shelve after splitting a single SKU into multiple SKUs.",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "UN_STANDARD",
+        "vasEventCode": "OSF6V1625",
+        "vasEventName": "检查商品尺重（退货商品）",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户指定SKU及复测单品数量，仓库随机抽取在库商品外包装进行尺重测量并拍照，并根据测量结果更新系统商品尺重；\r\n\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "检查商品尺重（退货商品）",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Check the weight and dimensions of the product (returned goods).",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VASC_RELATION_PSC": [
+        "OSF632008274"
+      ],
+      "VASC_ALLOW_CHANGE_WHEN_AUDIT": [
+        "Y"
+      ],
+      "VASC_AUDIT_DEPARTMENT": [
+        "PD"
+      ],
+      "VASC_REQUIRE_REVIEW": [
+        "Y"
+      ],
+      "VASC_REQUIRE_CUSTOMER_CONFIRM": [
+        "N"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "N"
+      ],
+      "VASC_LISTING": [
+        "STOCK_SHELVES",
+        "STORAGE",
+        "DESTRUCTION"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "NON_STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER",
+        "CUSTOMER_SERVICE"
+      ]
+    }
+  },
+  "VASC202504171850278": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OSF6V1704",
+        "vasEventName": "库内-异常商品销毁",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"针对库内异常商品，Winit提供将包裹销毁的服务\r\n注：此销毁服务无法提供销毁证明\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "库内-异常商品销毁",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Destruction of abnormal goods in the warehouse",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VASC_RELATION_PSC": [
+        "OSF632008464"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "Y"
+      ],
+      "VASC_LISTING": [
+        "DESTRUCTION"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202504251617529": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1708",
+        "vasEventName": "直接上架",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "对于入库状态异常、包裹质量异常或商品质量异常的包裹，不进行补贴且直接上架处理。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "直接上架",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Direct shelving",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 2,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1559",
+        "vasEventName": "入库-更换新商品条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原商品标签，使用原入库单上架 - 商品标签：含商品条码，第三方商品条码（例如FNSKU标签，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": null,
+        "mutexGroupTw": null,
+        "mutexGroupEn": null,
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 3,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1736",
+        "vasEventName": "入库-覆盖包裹标签",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "入库覆盖A+/A包的包裹标签，包括但不限于DG标签、UN标签、禁止空运标签等",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": null,
+        "mutexGroupTw": null,
+        "mutexGroupEn": null,
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      },
+      {
+        "sequence": 4,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1560",
+        "vasEventName": "入库-补贴包裹条码",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "\"客户货物入库商品无条码或条码无法扫描，补贴原包裹标签，且使用原/新入库单上架 - 包裹标签：含包裹标签，第三方包裹标签（例如FBA箱唛，客户需要关联）\"",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": null,
+        "mutexGroupTw": null,
+        "mutexGroupEn": null,
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PEWC",
+        "SHD",
+        "TS"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "Y"
+      ],
+      "VASC_LISTING": [
+        "USE_ORIGIN_INBOUND_ORDER"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  },
+  "VASC202505282347101": {
+    "detail_items": [
+      {
+        "sequence": 1,
+        "vasEventType": "",
+        "vasEventCode": "OW01V1708",
+        "vasEventName": "直接上架",
+        "vasEventNameTranslationMap": [],
+        "vasEventDesc": "对于入库状态异常、包裹质量异常或商品质量异常的包裹，不进行补贴且直接上架处理。",
+        "vasEventDescTranslationMap": [],
+        "required": "N",
+        "mutexGroupCn": "直接上架",
+        "mutexGroupTw": null,
+        "mutexGroupEn": "Direct shelving",
+        "calculateType": null,
+        "processFlow": null,
+        "isInterceptInboundList": null,
+        "operateObjects": null,
+        "attrs": null
+      }
+    ],
+    "defaultVascAttribute": {
+      "VAS_ORDER_STATUS_INBOUND": [
+        "PEWC",
+        "TS"
+      ],
+      "VASC_EXECUTOR": [
+        "WAREHOUSE"
+      ],
+      "VASC_SUPPORT_WITHOUT_BUSINESS_DOCUMENTS": [
+        "Y"
+      ],
+      "VASC_LISTING": [
+        "INBOUND_ORDER_OF_CUSTOMER"
+      ],
+      "VASC_PRODUCT_TYPE": [
+        "STANDARD_VASC"
+      ],
+      "VASC_ISSUANCE_TYPE": [
+        "CUSTOMER_INITIATE"
+      ],
+      "VASC_SUBMITTER": [
+        "CUSTOMER"
+      ]
+    }
+  }
+}

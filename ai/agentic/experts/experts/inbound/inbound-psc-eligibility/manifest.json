@@ -1,0 +1,50 @@
+{
+  "id": "inbound-psc-eligibility",
+  "domain": "inbound",
+  "name": "入库 PSC 开通查询",
+  "description": "只读查询当前客户可下单的入库产品线（winit.wh.pms.getWinitProducts）。支持按 filterCodes / productLine 过滤；返回完整 productCode 列表及自验/海外验/头程权限标记。不做权限申请（→ inbound-permission-apply）、不输出 CBM/SKU 额度（→ inbound-capacity-availability）。编排提示：链式调用时可向下游写入 enabledProducts、hasSelfInspection、hasOverseasInspection、hasStandardFirstLeg。Use when 客户询问能用哪些入库产品、某 PSC 是否开通、有没有自验或海外验权限。",
+  "capabilities": [
+    "PSC 可下单列表",
+    "自验权限标记",
+    "海外验权限标记",
+    "标准头程权限标记",
+    "产品线过滤"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "warehouseCode": {
+        "type": "string",
+        "description": "可选；上下文仓库编码（API 不按仓过滤）"
+      },
+      "country": {
+        "type": "string",
+        "description": "可选；国家代码（US/UK/DE/AU/CA/BE），用于辅助过滤或 KB 上下文"
+      },
+      "productLine": {
+        "type": "string",
+        "description": "可选；产品线关键词或 PSC 编码（如 OW01021、自验、海外验）"
+      },
+      "filterCodes": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "可选；仅返回指定 PSC 编码（如 [\"OW01021\",\"OW01022\"]）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "PSC 开通结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "已开通与未开通产品说明"
+      }
+    }
+  }
+}

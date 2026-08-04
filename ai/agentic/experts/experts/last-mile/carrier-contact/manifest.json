@@ -1,0 +1,55 @@
+{
+  "id": "carrier-contact",
+  "domain": "last-mile",
+  "name": "服务商自提点联系方式",
+  "description": "必要时给出正确服务商电话、自提点联系方式。Use when 用户需要联系服务商、自提点、承运商电话。",
+  "capabilities": [
+    "服务商电话",
+    "自提点信息"
+  ],
+  "version": "0.2.0",
+  "x_recaller_propagate_previous_enriched_context": true,
+  "x_recaller_enriched_context_preferred_source_experts": [
+    "delivery-status"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "x_constraint": "至少提供 trackingIds、carrierCode、region、enrichedContext、customerIntent 或 query 之一；正式编排建议前置 delivery-status 以填充 carrierHints / trajectories。",
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号"
+      },
+      "carrierCode": {
+        "type": "string",
+        "description": "承运商代码，与主数据或轨迹 summary 一致"
+      },
+      "region": {
+        "type": "string",
+        "description": "区域（国家/州省/城市等）"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "上游合并上下文（推荐由 delivery-status 提供 carrierHints、trajectories 等）",
+        "additionalProperties": true
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "branch、carrierCode、standardCarrier、pickupPointIds、suggestedNextExperts、missingFacts、contactSummary"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "联系方式、官网/查件路径与对客建议"
+      }
+    }
+  }
+}

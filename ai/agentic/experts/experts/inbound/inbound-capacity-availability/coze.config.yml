@@ -1,0 +1,83 @@
+yamlBasename: inbound_capacity_availability-draft.yaml
+packageMainName: inbound_capacity_availability
+packageDescription: 库容与承接能力（validate → fetch-mks-quota → merge → eval-temperature → load-kb → LLM → format）
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+textNodes:
+  - logicalId: kb-capacity-text
+    title: kb-capacity
+    insertAfter: eval-overall-temperature
+    sourceFile: prompts/kb-capacity.md
+
+inputBindings:
+  fetch-mks-quota:
+    validationOk:
+      ref: validate-capacity-query
+      path: validationOk
+    warehouseCode:
+      ref: validate-capacity-query
+      path: warehouseCode
+  merge-capacity-signal:
+    quotaSnapshot:
+      ref: fetch-mks-quota
+      path: quotaSnapshot
+    quotaFetchOk:
+      ref: fetch-mks-quota
+      path: quotaFetchOk
+    warehouseCode:
+      ref: validate-capacity-query
+      path: warehouseCode
+    checkType:
+      ref: validate-capacity-query
+      path: checkType
+    cargoProfile:
+      ref: validate-capacity-query
+      path: cargoProfile
+  load-capacity-kb:
+    kbCapacity:
+      ref: kb-capacity-text
+      path: output
+    kbFallbackNeeded:
+      ref: merge-capacity-signal
+      path: kbFallbackNeeded
+    checkType:
+      ref: validate-capacity-query
+      path: checkType
+    dataSource:
+      ref: merge-capacity-signal
+      path: dataSource
+  format-output:
+    mergedCapacity:
+      ref: merge-capacity-signal
+      path: mergedCapacity
+    warehouseCode:
+      ref: validate-capacity-query
+      path: warehouseCode
+    quotaSnapshot:
+      ref: fetch-mks-quota
+      path: quotaSnapshot
+    dataSource:
+      ref: merge-capacity-signal
+      path: dataSource
+    overallTemperature:
+      ref: eval-overall-temperature
+      path: overallTemperature
+    capacityAdvice:
+      ref: eval-overall-temperature
+      path: capacityAdvice
+    dataQuality:
+      ref: merge-capacity-signal
+      path: dataQuality

@@ -1,0 +1,256 @@
+{
+  "nodes": [
+    {
+      "id": "resolve-inbound-lookup",
+      "file": "nodes/resolve-inbound-lookup.ts",
+      "inputs": [
+        "inboundOrderNos"
+      ],
+      "outputs": [
+        "wiOrderNos",
+        "customerRefNos",
+        "inboundOrderNos",
+        "lookupMeta"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "wiOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerRefNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lookupMeta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-winit-inbound-detail",
+      "file": "nodes/build-winit-inbound-detail.ts",
+      "inputs": [
+        "wiOrderNos",
+        "customerRefNos"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount",
+        "actionName"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "winitPluginBatchActionsCount": {
+            "type": "integer"
+          },
+          "actionName": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-inbound-order",
+      "file": "nodes/fetch-inbound-order.ts",
+      "inputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginOutputList"
+      ],
+      "outputs": [
+        "rawOrderData"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "extract-inbound-detail",
+      "file": "nodes/extract-inbound-detail.ts",
+      "inputs": [
+        "rawOrderData",
+        "detailLevel",
+        "targetMerchandiseCodes"
+      ],
+      "outputs": [
+        "rawOrderData",
+        "_detailExtractMeta",
+        "detailLevel"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "_detailExtractMeta": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "detailLevel": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "prune-inbound-json",
+      "file": "nodes/prune-inbound-json.ts",
+      "inputs": [
+        "rawOrderData",
+        "maxTrajectoryNodes"
+      ],
+      "outputs": [
+        "prunedOrderData",
+        "_pruneMeta"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "prunedOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "_pruneMeta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "evaluate-sla-breach",
+      "file": "nodes/evaluate-sla-breach.ts",
+      "inputs": [
+        "prunedOrderData",
+        "inboundOrderNos"
+      ],
+      "outputs": [
+        "slaFacts"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "slaFacts": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-putaway-expedite-kb",
+      "file": "nodes/load-putaway-expedite-kb.ts",
+      "inputs": [
+        "slaFacts"
+      ],
+      "outputs": [
+        "slaGuide",
+        "escalationGuide",
+        "putawayProgressGuide",
+        "rushConditionsGuide"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "slaGuide": {
+            "type": "string"
+          },
+          "escalationGuide": {
+            "type": "string"
+          },
+          "putawayProgressGuide": {
+            "type": "string"
+          },
+          "rushConditionsGuide": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "inboundOrderNos",
+        "urgencyReason",
+        "prunedOrderData",
+        "slaFacts",
+        "slaGuide",
+        "escalationGuide",
+        "putawayProgressGuide",
+        "rushConditionsGuide",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "slaFacts",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,3000 @@
+schema_version: 1.0.0
+name: inbound_appointment_manage
+id: 7002664677388195328
+description: 预约送仓（validate → route → booking.list + getOrderDetail → summarize → LLM）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      intent:
+                          type: string
+                          value: null
+                          description: query / create_guide / modify_guide / cancel_guide / split_shipment / penalty；缺省按 query 关键词推断
+                      inboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 入库单号；query/penalty 场景必填其一
+                      inboundOrderNo:
+                          type: string
+                          value: null
+                          description: 单个入库单号
+                      bookingNo:
+                          type: string
+                          value: null
+                          description: 已知预约单号时直接查询
+                      warehouseCode:
+                          type: string
+                          value: null
+                          description: 仓库编码，辅助 KB 上下文
+                      deliveryWayHint:
+                          type: string
+                          value: null
+                          description: 送仓方式提示：LCL / FCL / Express；缺省从 query 推断
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163020"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163020"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163020"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163020"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-intent
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-intent — 校验 intent 与 query/penalty 所需单号
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const VALID_INTENTS = new Set([
+                "query",
+                "create_guide",
+                "modify_guide",
+                "cancel_guide",
+                "split_shipment",
+                "penalty",
+                "pod_guide",
+              ]);
+              const API_REQUIRED_INTENTS = new Set(["query", "penalty"]);
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function coerceOrderNos(params: Record<string, unknown>): string[] {
+                const fromArray = Array.isArray(params.inboundOrderNos)
+                  ? (params.inboundOrderNos as string[]).map((o) => String(o).trim()).filter(Boolean)
+                  : [];
+                const single = str(params.inboundOrderNo);
+                if (single && !fromArray.includes(single)) fromArray.unshift(single);
+                return fromArray;
+              }
+
+              function detectIntent(rawIntent: string, query: string, customerIntent: string): string {
+                const aliases: Record<string, string> = {
+                  how_to_book: "create_guide",
+                  how_to_cancel: "cancel_guide",
+                  how_to_modify: "modify_guide",
+                  how_to_change_time: "modify_guide",
+                  status: "query",
+                  penalty_dispute: "penalty",
+                  split_shipment: "split_shipment",
+                  download_pod: "pod_guide",
+                  pod_download: "pod_guide",
+                };
+                const t = rawIntent.trim().toLowerCase();
+                if (VALID_INTENTS.has(t)) return t;
+                if (aliases[t]) return aliases[t];
+
+                const text = `${query} ${customerIntent}`;
+                if (/分批|拆单|后缀\s*[ABC]|未到仓待办/i.test(text)) return "split_shipment";
+                if (/违规费|扣费|申诉|未预约/i.test(text)) return "penalty";
+                if (/取消预约|取消/i.test(text)) return "cancel_guide";
+                if (/改.*时间|修改预约|改约/i.test(text)) return "modify_guide";
+                if (/下载.*POD|POD.*下载|签收证明|签收.*PDF|exportPod|预约.*POD/i.test(text)) return "pod_guide";
+                if (/预约状态|预约码|查预约|WBO|WABO|SBO|RBO|EXRBO/i.test(text)) return "query";
+                if (/怎么预约|如何预约|预约流程/i.test(text)) return "create_guide";
+                return "create_guide";
+              }
+
+              function detectDeliveryWayHint(explicit: string, query: string, customerIntent: string): string {
+                if (explicit) return explicit.toUpperCase();
+                const text = `${query} ${customerIntent}`.toUpperCase();
+                if (/整柜|FCL|DROP|LIVE/.test(text)) return "FCL";
+                if (/散货|LCL|卡车/.test(text)) return "LCL";
+                if (/快递|EXPRESS|COURIER|面单/.test(text)) return "EXPRESS";
+                return "";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const query = str(params.query);
+                const customerIntent = str(params.customerIntent);
+                const intent = detectIntent(str(params.intent) || "create_guide", query, customerIntent);
+                const inboundOrderNos = coerceOrderNos(params);
+                const bookingNo = str(params.bookingNo);
+                const warehouseCode = str(params.warehouseCode).toUpperCase();
+                const deliveryWayHint = detectDeliveryWayHint(str(params.deliveryWayHint), query, customerIntent);
+                const inputContext = params.inputContext ?? {};
+
+                const needsApiKey = API_REQUIRED_INTENTS.has(intent);
+                const hasLookupKey = inboundOrderNos.length > 0 || bookingNo.length > 0;
+                const validationOk = !needsApiKey || hasLookupKey;
+
+                return validationOk
+                  ? {
+                      validationOk: true,
+                      intent,
+                      inboundOrderNos,
+                      bookingNo,
+                      warehouseCode,
+                      deliveryWayHint,
+                      query,
+                      customerIntent,
+                      inputContext,
+                    }
+                  : {
+                      validationOk: false,
+                      error: "query/penalty 场景需提供 inboundOrderNos、inboundOrderNo 或 bookingNo",
+                      intent,
+                      inboundOrderNos,
+                      bookingNo,
+                      warehouseCode,
+                      deliveryWayHint,
+                      query,
+                      customerIntent,
+                      inputContext,
+                    };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-intent")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intent
+                input:
+                    value:
+                        path: inputs.intent
+                        ref_node: "100001"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inputs.inboundOrderNos
+                        ref_node: "100001"
+              - name: inboundOrderNo
+                input:
+                    value:
+                        path: inputs.inboundOrderNo
+                        ref_node: "100001"
+              - name: bookingNo
+                input:
+                    value:
+                        path: inputs.bookingNo
+                        ref_node: "100001"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: inputs.warehouseCode
+                        ref_node: "100001"
+              - name: deliveryWayHint
+                input:
+                    value:
+                        path: inputs.deliveryWayHint
+                        ref_node: "100001"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              validationOk:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              intent:
+                  type: string
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              bookingNo:
+                  type: string
+                  value: null
+              warehouseCode:
+                  type: string
+                  value: null
+              deliveryWayHint:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: kb-booking-sop
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 707
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 预约送仓操作规范
+
+                        ## 通用说明
+
+                        - **适用链路**：卖家直发产品（OW01021/22/31/32）+ 客户自验/海外验货；货物到海外仓前须预约送仓时段
+                        - **标准头程 OW01011** 通常由 Winit 安排，客户无需预约
+                        - **操作入口**：万邑联 → 海外仓 → 入库 → 预约单管理 → 新增预约单
+                        - **在线预约**：booking.winit.com.cn（与万邑联预约单管理同功能）
+                        - **核心判断**：每个包裹是否有**独立快递面单** → 有则快递免预约；无（托盘/散件/整柜）→ 必须预约
+                        - **送仓方式一致性**：预约单送仓方式须与入库单创建时选择的一致，**不可在预约单级别修改**；变更须将入库单「回到草稿」重选 PSC
+                        - **Slot 查询**：在万邑联预约页面查看可约时段；仓级负载不对客透露（→ `inbound-capacity-availability` 仅答客户额度）
+
+                        ## Express 快递（免预约）
+
+                        | 情形 | 是否预约 |
+                        |------|----------|
+                        | 逐件快递面单派送 | **不需要** |
+                        | 打托整托送仓但每包裹独立面单 | **不需要** |
+                        | 快递托盘（一托只贴一张面单） | **必须预约**（按散货处理） |
+
+                        **风险提示**：
+                        - 下单选散货、实际快递送 → 产生散装卸货费，**不退费**
+                        - 下单选快递、实际散货到仓 → 产生未预约违规费，**不退费**
+
+                        ## LCL 散货
+
+                        1. 确认入库单送仓方式为散货（LCL），且已进入可预约状态（通常在途 TS 后可约）
+                        2. 万邑联 → 预约单管理 → 新增预约单（或在「待预约」列表勾选）
+                        3. 勾选需预约的入库单：**同一目的仓**且均为 LCL 才可合并；**不可与 FCL 混约**
+                        4. 在预约页查看可约 **Slot**（仓库当地时间），填写：目的仓、预计到仓日期、送仓数量（CBM/件数）、联系人电话（建议填**司机电话**）
+                        5. 至少提前 **1 个自然日**预约；最早可提前 **12 天**
+                        6. 提交后获取**预约码**，送仓时告知司机凭码送货
+
+                        **卸货方式**：LCL 一般为 **LIVE**（现场卸货）
+
+                        ## FCL 整柜
+
+                        1. 同 LCL 入口，送仓方式选整柜（FCL）
+                        2. 至少提前 **2 个自然日**预约（建议 2–3 天以确保 Slot；迟取消可能产生费用）
+                        3. **必填**：送仓联系人（姓名/邮箱/电话，电话建议**司机电话**）、柜型、柜号、托盘数；有封条号则填写
+                        4. 确认卸货类型：
+                           - **DROP**（仅 FCL）：司机落柜后离开，美国整柜多为 DROP；到仓时间以预约卸货时间为准
+                           - **LIVE**：司机现场等候卸货；到仓时间以实际到仓为准
+                        5. 柜型可选：20GP / 40GP / 40HQ / 45HQ / 53HQ
+                        6. 未预约整柜可能**拒收**；若收货则收未预约违规费
+
+                        ## 合并预约
+
+                        - 多个入库单可绑定**同一预约单、同一 Slot、同一目的仓**送仓
+                        - 须**相同送仓方式**（均为 LCL 或均为 FCL）；**FCL 与 LCL 不可合并**
+                        - 目的仓或送仓方式不一致须分别创建预约单
+
+                        ## 仓内上架单（PSC）
+
+                        仓内上架单只需下单选择对应 PSC，**无需预约**，不产生未预约违规费或散装卸货费。
+
+                        ## 修改 PSC / 送仓方式
+
+                        入库单在 **OD / 验货完成 / TS** 状态下可「回到草稿」修改 PSC：
+                        万邑联 → 海外仓 → 入库 → 全部订单 → 回到草稿 → 重新选择 PSC 与送仓方式
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: text
+      title: kb-booking-rules
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 947
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 预约修改、取消与变更规则
+
+                        ## 提前预约时限
+
+                        - 最早可提前 **12 天**预约
+                        - 整柜至少提前 **2 个自然日**
+                        - 散货至少提前 **1 个自然日**
+
+                        ## 免费取消截止
+
+                        - 预约日为 **DAY2**（第三天到仓）
+                        - 须在 **DAY0 中午 12 点前**（仓库当地时间**工作日**）取消才免费
+                        - OpenAPI 对接文档另建议：取消宜至少提前 **2 个自然日**，临近预约日取消可能产生迟取消费
+                        - 超时取消按「已预约未到仓」标准收违约金（费率见 penalty-rules）
+                        - 系统 **不会主动取消** 客户预约，须客户在万邑联自行操作
+
+                        ## 修改预约时间
+
+                        - 截止前在万邑联预约单管理修改时间，通常免费（以平台当前规则为准）
+                        - 预约时间与实际到仓时间不符（提前/延迟）可能触发违规或浪费 Slot
+                        - **不可**在预约单上修改送仓方式；须回草稿改入库单 PSC
+
+                        ## 取消预约
+
+                        - 万邑联 → 预约单管理 → 选择预约单 → 取消
+                        - 超过免费取消截止后，按国家/整柜/散货标准收取消违约金
+                        - 取消违规费率与「已预约未到仓」相同
+
+                        ## 预约状态（API 码）
+
+                        查询结果常见状态码：`WBO` 待确认、`WABO` 待审批、`SBO` 预约成功、`RBO` 已到仓、`EXRBO` 到仓异常、`CANCEL` 已取消。详见 `booking-api-reference` 片段。
+
+                        ## 增值预约（付费预约）
+
+                        - 预约类型 **ValueAdded**；提交后约 **1 个工作日**内审核，对应状态 **WABO**
+                        - **审批前**：可多次修改预约时间，不另收违约金
+                        - **审批后**：取消仍收增值服务费（不承诺减免）
+                        - 费率示例（整柜）：US 520 / UK 540 / AU 660 / DE/BE 370；散货 <25CBM 另有标准
+                        - 详见 `premium-booking.md` 片段
+
+                        ## 对客原则
+
+                        - 明确由客户在万邑联平台自行操作
+                        - 不代客修改或取消预约单
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163003"
+      type: text
+      title: kb-penalty-rules
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 预约违规费规则
+
+                        > 来源：`_kb/直发预约违规费常见问题.md`、`直发散货预约常见问题.md`
+
+                        ## 送仓方式选错（不退费）
+
+                        | 下单选择 | 实际送仓 | 后果 |
+                        |----------|----------|------|
+                        | 快递 | 散货送仓 | **散装卸货费** |
+                        | 散货 | 快递面单逐件 | **未预约违规费** |
+                        | 散货 | 散货但未预约 | **未预约违规费** |
+
+                        ## 未预约 / 提前到仓（按订单 CBM）
+
+                        | 国家 | 费率 (/CBM) | 上限 | 备注 |
+                        |------|-------------|------|------|
+                        | US | 10 USD | 650 USD | 最低 10 USD |
+                        | AU | 14.5 AUD | 940 AUD | |
+                        | UK | 8.5 GBP | 550 GBP | |
+                        | DE/BE | 9.5 EUR | 620 EUR | |
+                        | CA | 14 CAD | 880 CAD | |
+
+                        ## 已预约未到仓 / 超时取消（按预约单）
+
+                        | 国家 | 整柜 (/单) | 散货 (/单) |
+                        |------|------------|------------|
+                        | US | 200 | 100 |
+                        | UK | 165 | 82 |
+                        | DE/BE | 190 | 95 |
+                        | AU | 290 | 145 |
+                        | CA | 275 | 137 |
+
+                        ## 免违规费情形
+
+                        - 快递（逐件面单）免预约，不适用未预约违规费
+                        - 仓内上架单 PSC 无需预约，不收违规费
+
+                        ## 申诉路径
+
+                        1. 万邑联查看违规费记录与触发原因
+                        2. 有异议通过万邑联客服渠道申诉
+                        3. **不承诺减免结果**
+
+                        ## 升级人工
+
+                        - 违规费金额争议较大
+                        - 已预约但系统无预约记录
+                        - 分批到仓需特殊拆单
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163004"
+      type: text
+      title: kb-split-shipment
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 分批到仓处理规则
+
+                        > 来源：`_kb/一、背景说明.md`、Flow 06 §六
+
+                        ## 触发场景
+
+                        同一预约单下多个入库单货物**分批次到达**；仓库卸货确认后系统生成「未到仓货物待办」并邮件通知客户。
+
+                        ## 客户须在 3 个自然日内确认
+
+                        | 选项 | 系统处理 |
+                        |------|----------|
+                        | **确认不发货** | 终止相关未到仓包裹 |
+                        | **确认分批到仓** | 自动拆分为新入库单（原单号 + 后缀 A/B/C），可重新预约 |
+                        | **确认已发货需调查** | 提交质控调查，结果另行通知 |
+
+                        超过 **3 个自然日**未确认 → 系统**自动终止**未到仓包裹。
+
+                        ## 特殊情形
+
+                        - **整个入库单均未到仓**：不支持拆单；须在预约单中**解绑**该入库单后重新预约
+                        - 分批到仓后可能需为拆分出的新单（A/B/C）**分别创建预约单**
+
+                        ## 对客指引
+
+                        1. 查收邮件/万邑联待办通知
+                        2. 在 3 日内登录万邑联确认处置方式
+                        3. 若选分批到仓，按新单号重新走预约流程
+                        4. 复杂拆单或超时争议 → 升级人工
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163005"
+      type: text
+      title: kb-premium-booking
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 增值预约（付费预约）规则
+
+                        > 来源：`_kb/增值预约送仓常见问题.md`
+
+                        ## 流程
+
+                        1. 在万邑联提交增值预约申请
+                        2. 约 **1 个工作日**内完成审核
+                        3. 审核通过后按预约时间送仓
+
+                        ## 修改与取消费用
+
+                        | 阶段 | 改时间 | 取消 |
+                        |------|--------|------|
+                        | 审批前 | 可多次修改，**不收费** | 按普通取消规则 |
+                        | 审批后 | 以平台规则为准 | 仍收**增值服务费**（不承诺减免） |
+
+                        ## 费率参考（整柜，各国币种）
+
+                        | 国家 | 费率 |
+                        |------|------|
+                        | US | 520 |
+                        | UK | 540 |
+                        | AU | 660 |
+                        | DE/BE | 370 |
+
+                        散货 **<25CBM** 另有收费标准（以万邑联公示为准）。
+
+                        ## 对客原则
+
+                        - 不承诺审批结果与费用减免
+                        - 引导客户在万邑联查看具体申请状态与费用明细
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163006"
+      type: text
+      title: kb-booking-api-ref
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 预约送仓 OpenAPI 对接参考（只读解读用）
+
+                        > 来源：`_kb/system-team/inbound-integration-solution/business/inbound/booking-overview.md`  
+                        > **本专家不调用写接口**；以下供 `query` / `create_guide` 解读状态与说明平台操作链路。
+
+                        ## 适用业务场景
+
+                        头程类型 = **卖家直发**，验货类型 = **客户自验 / 海外验货** 的入库单，货物到海外仓前须完成 **送仓时段预约**。万邑联预约单管理与 OpenAPI 预约链路透同一套业务对象。
+
+                        ## API 链路（对接顺序）
+
+                        ```
+                        Step 1  unBookingOrder.list              查询待预约入库单
+                        Step 2  queryAvailableWarehouseinPlan    查询目的仓可约时段
+                        Step 3  create                           创建预约（一步完成）
+                        Step 4  list                             查询预约单状态/明细
+                        Step 5  cancel（可选）                    取消预约（建议至少提前 2 个自然日）
+                        Step 6  exportPodPdf（可选，ERP 落盘）     返回 base64 PDF；Agent 通道不可转发给客户
+                        ```
+
+                        | 序号 | OpenAPI Action | 用途 | 本专家 |
+                        |------|----------------|------|--------|
+                        | B.1 | `winit.wh.inbound.booking.unBookingOrder.list` | 待预约入库单列表 | 不调用；create_guide 说明「在万邑联勾选待约单」 |
+                        | B.2 | `winit.wh.inbound.booking.queryAvailableWarehouseinPlan` | 可约时间窗 | 不调用；引导客户在万邑联预约页查看 Slot |
+                        | B.3 | `winit.wh.inbound.booking.create` | 创建预约 | **不调用**；客户平台操作 |
+                        | B.4 | `winit.wh.inbound.booking.cancel` | 取消预约 | **不调用**；客户平台操作 |
+                        | B.5 | `winit.wh.inbound.booking.list` | 预约列表与详情 | **query / penalty 运行时读取**（Coze 代理 action 待注册） |
+                        | B.6 | `wh.inboundSigned.exportPodPdf` | POD 签收 PDF（**响应 base64**） | **Agent 不调用**；仅 ERP 对接落盘；`pod_guide` 引导万邑联自助下载 |
+
+                        > Coze 代理常用短名 `winit.wh.inbound.booking.list`，与 OpenAPI 全名等价，以代理工作流注册名为准。
+
+                        ## 核心业务规则
+
+                        ### 多单合并预约
+
+                        - 多个入库单可合并为 **同一预约单**，须 **同一目的仓**
+                        - **整柜（FCL）与散货（LCL）不可混约**
+
+                        ### 送仓方式
+
+                        | 代码 | 名称 | 规则 |
+                        |------|------|------|
+                        | FCL | 整柜 | 一柜一预约；可含多入库单；联系人/托盘数/柜型必填 |
+                        | LCL | 散货 | 散货送仓；联系人可选 |
+
+                        ### 卸货方式
+
+                        | 代码 | 名称 | 适用 |
+                        |------|------|------|
+                        | LIVE | 现场卸货 | LCL、FCL 均可 |
+                        | DROP | 落柜卸货 | **仅 FCL**；美国整柜多为 DROP |
+
+                        ### 时间规则
+
+                        - API 返回时间均为 **仓库当地时间**
+                        - 临近预约日取消可能产生 **迟取消费**（对接文档建议至少提前 **2 个自然日**）
+                        - 系统 **不会主动取消** 客户预约
+
+                        ### FCL 必填字段（创建预约时）
+
+                        - `contactPerson` / `email` / `contactNumber` — 送仓联系人（建议填司机电话）
+                        - `cabinetType` — 柜型（20GP/40GP/40HQ/45HQ/53HQ）
+                        - `containerNo` — 柜号
+                        - `palletQty` — 托盘数
+                        - `sealNo` — 封条号（有则填）
+
+                        ## 预约状态码
+
+                        | 代码 | 英文 | 对客含义 |
+                        |------|------|----------|
+                        | WBO | Waiting Booking | 预约已创建，等待预约确认 |
+                        | WABO | Waiting Approval | 等待审批（含增值预约） |
+                        | SBO | Booking Successful | 预约成功，可按约送仓 |
+                        | RBO | Arrived at Warehouse | 货物已到仓 |
+                        | EXRBO | Abnormal Arrival | 到仓异常 |
+                        | CANCEL | Cancelled | 预约已取消 |
+
+                        解读 `booking.list` 或表头 `inboundBookingStatus` 时优先用上表；未知码如实转述并建议客户在万邑联查看详情。
+
+                        ## 预约类型
+
+                        | 代码 | 名称 | 说明 |
+                        |------|------|------|
+                        | Normal | 普通预约 | Basic 3PL 客户主要使用 |
+                        | ValueAdded | 增值预约 | 付费预约，见 premium-booking |
+                        | VIP | VIP 预约 | 需配额 |
+                        | RegularBus | 班车预约 | 班车送仓 |
+
+                        ## 柜型代码
+
+                        20GP、40GP、40HQ、45HQ、53HQ
+
+                        ## 推荐集成时序（对客户说明创建流程）
+
+                        ```
+                        入库单进入在途(TS) → 查待预约单 → 查可约时段 → 客户选日期 → 创建预约
+                        → 定期查 list 看状态 → 到仓后可下载 POD
+                        ```
+
+                        客户通过 **万邑联 → 预约单管理** 完成上述写操作，无需也勿向客服提供柜号/Slot 等代为提交。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163007"
+      type: text
+      title: kb-pod-download-guide
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 预约单 POD（签收证明）下载指引
+
+                        > **客服 Agent 不调用** `wh.inboundSigned.exportPodPdf`（B.6）。该接口返回 **base64 编码的 PDF**，当前 Agent 对话通道**无法将文件/base64 附件安全投递给客户**，因此只能引导客户在 **万邑联自行下载**。
+
+                        ## 什么是预约 POD
+
+                        预约 POD 是仓库对**按预约送仓**货物完成卸货/签收后生成的**签收证明 PDF**，与预约单（booking）绑定，用于客户留存或对外证明「货已按约到仓」。
+
+                        ## 何时可以下载
+
+                        | 预约状态 | 代码 | 能否下载 POD |
+                        |----------|------|----------------|
+                        | 预约成功、未到仓 | SBO | **否**，需等待货物到仓 |
+                        | 已到仓 | RBO | **是**，一般可下载 |
+                        | 到仓异常 | EXRBO | 视平台是否生成；建议万邑联查看或联系客服 |
+                        | 已取消 | CANCEL | **否** |
+
+                        客户 ERP 对接时序：创建预约 → 定期查 `list` → 到仓后由**客户系统**调 `exportPodPdf` 落盘。  
+                        **客服场景**：不调该 API，只告知万邑联入口与前置状态（RBO）。
+
+                        ## 万邑联操作步骤（客户自行下载，唯一可行路径）
+
+                        1. 登录 **万邑联** → 海外仓 → 入库 → **预约单管理**
+                        2. 按 **预约单号** 或关联 **入库单号（WI）** 找到对应预约单
+                        3. 确认预约单状态为 **已到仓**（RBO）
+                        4. 在预约单详情/操作栏选择 **下载 POD** / **签收证明** / **导出 PDF**（以平台当前文案为准）
+                        5. 保存 PDF 到本地
+
+                        **勿向客服索要「发 POD 文件/截图」**：Agent 不能代调 `exportPodPdf`，也不能在对话中转发 PDF/base64 附件。
+
+                        在线预约入口 **booking.winit.com.cn** 与万邑联预约单管理功能一致，可在同一入口尝试下载。
+
+                        ## 常见问题
+
+                        | 情况 | 处理 |
+                        |------|------|
+                        | 找不到下载按钮 | 确认是否已到仓（RBO）；未到仓需等待 |
+                        | 状态仍 SBO | 货物尚未按约完成到仓签收，暂无 POD |
+                        | 需要签收时间/包裹数明细 | 可同时查入库单轨迹 → `inbound-arrival-status` |
+                        | 快递逐件面单（免预约） | 无预约单 POD；卸货记录走快递轨迹专家 |
+                        | 系统无预约记录 | `requiresManualAction=true`，引导客服核实 |
+
+                        ## 与到仓专家的分工
+
+                        | 问法 | 本专家 | `inbound-arrival-status` |
+                        |------|--------|--------------------------|
+                        | 怎么下载预约 POD PDF | ✅ 本指引 | — |
+                        | 货到了吗 / 签收了几件 | 仅看预约状态 RBO | ✅ 轨迹与签收摘要 |
+                        | PEWC 为何未变 EWC | — | ✅ |
+
+                        ## 对客原则
+
+                        - **永不**代客调用 `exportPodPdf`（base64 响应无法经 Agent 发给客户）
+                        - 不承诺客服可「邮件/聊天发送 POD 文件」
+                        - 有 WI 时仅查预约状态（`booking.list` / 表头）判断是否 **RBO 可下**，不提供文件内容
+                        - 不索取客户账号密码代登录万邑联
+                        - 不输出内部 API 名、base64 或飞书链接
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163008"
+      type: code
+      title: route-intent
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          code: |-
+              /**
+               * 节点：route-intent — SOP 类 intent=KB only；query/penalty=API + 可选 OMS 表头
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const KB_ONLY_INTENTS = new Set([
+                "create_guide",
+                "modify_guide",
+                "cancel_guide",
+                "split_shipment",
+              ]);
+              const API_INTENTS = new Set(["query", "penalty", "pod_guide"]);
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function hasOrderLookup(params: Record<string, unknown>): boolean {
+                const nos = Array.isArray(params.inboundOrderNos) ? params.inboundOrderNos : [];
+                return nos.length > 0 || str(params.bookingNo).length > 0;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.validationOk !== true) {
+                  return {
+                    routePath: "invalid",
+                    skipApi: true,
+                    skipOrderDetail: true,
+                    kbOnly: true,
+                  };
+                }
+
+                const intent = str(params.intent) || "create_guide";
+                const hasLookup = hasOrderLookup(params);
+                const kbOnlyIntent = KB_ONLY_INTENTS.has(intent);
+                const apiIntent = API_INTENTS.has(intent);
+                const kbOnly = kbOnlyIntent || (intent === "pod_guide" && !hasLookup);
+                const skipApi = kbOnly || !apiIntent;
+                const skipOrderDetail = skipApi || !hasLookup;
+
+                return {
+                  routePath: kbOnly ? "kb_only" : "api_chain",
+                  skipApi,
+                  skipOrderDetail,
+                  kbOnly,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("route-intent")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163000"
+              - name: bookingNo
+                input:
+                    value:
+                        path: bookingNo
+                        ref_node: "163000"
+          node_outputs:
+              routePath:
+                  type: string
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+              skipOrderDetail:
+                  type: boolean
+                  value: null
+              kbOnly:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163009"
+      type: code
+      title: resolve-inbound-lookup
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2627
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化入库单查询标识
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function isWiOrderToken(raw: string): boolean {
+                return /^WI/i.test(raw.trim());
+              }
+
+              function normalizeWiOrderNum(raw: string): string {
+                return raw.trim().toUpperCase();
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipOrderDetail === true) {
+                  return {
+                    wiOrderNos: [],
+                    customerRefNos: [],
+                    inboundOrderNos: [],
+                    lookupMeta: { skipped: true },
+                  };
+                }
+
+                const raw = ((params.inboundOrderNos as string[]) ?? [])
+                  .map((o) => String(o ?? "").trim())
+                  .filter(Boolean);
+
+                const wiSeen = new Set<string>();
+                const refSeen = new Set<string>();
+                const wiOrderNos: string[] = [];
+                const customerRefNos: string[] = [];
+
+                for (const token of raw) {
+                  if (isWiOrderToken(token)) {
+                    const normalized = normalizeWiOrderNum(token);
+                    if (!wiSeen.has(normalized)) {
+                      wiSeen.add(normalized);
+                      wiOrderNos.push(normalized);
+                    }
+                  } else {
+                    const normalized = token.trim();
+                    if (!refSeen.has(normalized)) {
+                      refSeen.add(normalized);
+                      customerRefNos.push(normalized);
+                    }
+                  }
+                }
+
+                return {
+                  wiOrderNos,
+                  customerRefNos,
+                  inboundOrderNos: [...wiOrderNos, ...customerRefNos],
+                  lookupMeta: { hasOrders: wiOrderNos.length > 0 || customerRefNos.length > 0 },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-inbound-lookup")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipOrderDetail
+                input:
+                    value:
+                        path: skipOrderDetail
+                        ref_node: "163008"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163000"
+          node_outputs:
+              wiOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerRefNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              lookupMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163010"
+      type: code
+      title: build-winit-inbound-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2867
+      parameters:
+          code: |-
+              /**
+               * 节点：为 winit.wh.inbound.getOrderDetail 组装插件批处理动作（表头 isIncludePackage=N）
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              type ActionPlan = { inputToken: string; queryBy: "orderNo" | "customerOrderNo" };
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipOrderDetail = params.skipOrderDetail === true;
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const customerRefNos = ((params.customerRefNos as string[]) ?? []).filter((o) => o?.trim());
+
+                if (skipOrderDetail || (wiOrderNos.length === 0 && customerRefNos.length === 0)) {
+                  return {
+                    actions: [],
+                    orderDetailActionPlans: [],
+                    orderDetailActionsCount: 0,
+                    orderDetailActionName: INBOUND_DETAIL_ACTION,
+                    skipOrderDetail: true,
+                  };
+                }
+
+                const actionPlans: ActionPlan[] = [];
+                for (const no of wiOrderNos) actionPlans.push({ inputToken: no, queryBy: "orderNo" });
+                for (const ref of customerRefNos) actionPlans.push({ inputToken: ref, queryBy: "customerOrderNo" });
+
+                const actions = actionPlans.map((p) => {
+                  const data: Record<string, string> = { isIncludePackage: "N" };
+                  if (p.queryBy === "orderNo") data.orderNo = p.inputToken;
+                  else data.customerOrderNo = p.inputToken;
+                  return { action: INBOUND_DETAIL_ACTION, data: JSON.stringify(data) };
+                });
+
+                return {
+                  actions,
+                  orderDetailActionPlans: actionPlans,
+                  orderDetailActionsCount: actions.length,
+                  orderDetailActionName: INBOUND_DETAIL_ACTION,
+                  skipOrderDetail: false,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-winit-inbound-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipOrderDetail
+                input:
+                    value:
+                        path: skipOrderDetail
+                        ref_node: "163008"
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163009"
+              - name: customerRefNos
+                input:
+                    value:
+                        path: customerRefNos
+                        ref_node: "163009"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              orderDetailActionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              orderDetailActionsCount:
+                  type: integer
+                  value: null
+              orderDetailActionName:
+                  type: string
+                  value: null
+              skipOrderDetail:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163011"
+      type: plugin
+      title: winit_order_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 3107
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163010"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163011"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163011"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163012"
+      type: code
+      title: fetch-inbound-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3347
+      parameters:
+          code: |-
+              /**
+               * 节点：拉取入库单表头（预约关联字段兜底）
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceDetailPayload(parsed: unknown): Record<string, unknown> | null {
+                if (parsed == null || typeof parsed !== "object") return null;
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null && typeof o.output === "object") return coerceDetailPayload(o.output);
+                if (o.code === "0" || o.code === 0) {
+                  const inner = o.data;
+                  if (typeof inner === "string") {
+                    try {
+                      return coerceDetailPayload(JSON.parse(inner));
+                    } catch {
+                      return null;
+                    }
+                  }
+                  if (inner != null && typeof inner === "object") return coerceDetailPayload(inner);
+                  return null;
+                }
+                if (o.orderNo != null || o.inboundOrderNum != null) return o;
+                return null;
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipOrderDetail === true) {
+                  return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "skipped" } } };
+                }
+
+                const pluginList = params.winitOrderDetailPluginOutputList;
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  const list: Record<string, unknown>[] = [];
+                  for (const item of pluginList as Array<{ data?: unknown }>) {
+                    const row = coerceDetailPayload(parseCozeWorkflowDataField(item?.data));
+                    if (row) list.push(row);
+                  }
+                  return { rawOrderData: { list, total: list.length, _fetchMeta: { strategy: "plugin-batch" } } };
+                }
+
+                const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                  action: string;
+                  data: string;
+                }>;
+                const env = getCozeWinitEnv();
+                const list: Record<string, unknown>[] = [];
+                if (!env) {
+                  return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "skipped" } } };
+                }
+
+                for (const act of actions) {
+                  try {
+                    const data = JSON.parse(act.data) as Record<string, unknown>;
+                    const parsed = await runCozeWinitWorkflow(env, act.action || INBOUND_DETAIL_ACTION, data);
+                    const row = coerceDetailPayload(parsed);
+                    if (row) list.push(row);
+                  } catch {
+                    /* continue */
+                  }
+                }
+
+                return { rawOrderData: { list, total: list.length, _fetchMeta: { strategy: "local-proxy" } } };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-inbound-order")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipOrderDetail
+                input:
+                    value:
+                        path: skipOrderDetail
+                        ref_node: "163008"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163010"
+              - name: winitOrderDetailPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163011"
+          node_outputs:
+              rawOrderData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163013"
+      type: code
+      title: build-booking-list-request
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3587
+      parameters:
+          code: |-
+              /**
+               * 节点：为预约 list 组装请求
+               * OpenAPI 规格：winit.wh.inbound.booking.list（见 booking-api-reference.md）
+               * Coze 代理注册名默认 winit.wh.inbound.booking.list，可用 COZE_WINIT_BOOKING_LIST_ACTION 覆盖
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const BOOKING_LIST_ACTION =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_BOOKING_LIST_ACTION?.trim()) ||
+                "winit.wh.inbound.booking.list";
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipApi = params.skipApi === true;
+                const inboundOrderNos = ((params.inboundOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const bookingNo = typeof params.bookingNo === "string" ? params.bookingNo.trim() : "";
+
+                if (skipApi) {
+                  return { actions: [], bookingActionName: BOOKING_LIST_ACTION, skipApi: true };
+                }
+
+                const data: Record<string, unknown> = { pageNum: 1, pageSize: 50 };
+                if (bookingNo) data.bookingNo = bookingNo;
+                if (inboundOrderNos.length > 0) data.inboundOrderNos = inboundOrderNos;
+
+                return {
+                  actions: [{ action: BOOKING_LIST_ACTION, data: JSON.stringify(data) }],
+                  bookingActionName: BOOKING_LIST_ACTION,
+                  skipApi: false,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-booking-list-request")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163008"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163000"
+              - name: bookingNo
+                input:
+                    value:
+                        path: bookingNo
+                        ref_node: "163000"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              bookingActionName:
+                  type: string
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163014"
+      type: plugin
+      title: winit_booking_list_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 3827
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 10
+              concurrentSize: 5
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163013"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163014"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163014"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163015"
+      type: code
+      title: fetch-booking-list
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 4067
+      parameters:
+          code: |-
+              /**
+               * 节点：本地 Runner 补拉预约单列表
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const BOOKING_LIST_ACTION = "winit.wh.inbound.booking.list";
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  return JSON.parse(data) as unknown;
+                } catch {
+                  return data;
+                }
+              }
+
+              function normalizeBooking(raw: unknown): Record<string, unknown> | null {
+                if (!raw || typeof raw !== "object") return null;
+                const o = raw as Record<string, unknown>;
+                const bookingNo = String(o.bookingNo ?? o.appointmentNo ?? "").trim();
+                if (!bookingNo && !o.inboundOrderNo && !o.bookingStatus) return null;
+                return {
+                  bookingNo,
+                  bookingStatus: String(o.bookingStatus ?? o.status ?? ""),
+                  appointmentDate: String(o.appointmentDate ?? o.bookingDate ?? ""),
+                  penaltyFee: Number(o.penaltyFee ?? o.violationFee ?? 0) || 0,
+                  penaltyReason: String(o.penaltyReason ?? o.violationReason ?? ""),
+                  inboundOrderNo: String(o.inboundOrderNo ?? ""),
+                  warehouseCode: String(o.warehouseCode ?? o.destWhCode ?? ""),
+                };
+              }
+
+              function coerceList(parsed: unknown): unknown[] {
+                if (parsed == null) return [];
+                if (Array.isArray(parsed)) return parsed;
+                if (typeof parsed !== "object") return [];
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coerceList(o.output);
+                if (o.code === "0" || o.code === 0) return coerceList(o.data);
+                return Array.isArray(o.list) ? o.list : Array.isArray(o.records) ? o.records : [];
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipApi === true) {
+                  return { bookingRecords: [] };
+                }
+
+                const pluginList = params.winitBookingPluginOutputList;
+                let list: unknown[] = [];
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  for (const item of pluginList as Array<{ data?: unknown }>) {
+                    list.push(...coerceList(parseCozeWorkflowDataField(item?.data)));
+                  }
+                } else {
+                  const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                    action: string;
+                    data: string;
+                  }>;
+                  const env = getCozeWinitEnv();
+                  if (env && actions.length > 0) {
+                    try {
+                      const data = JSON.parse(actions[0].data) as Record<string, unknown>;
+                      const parsed = await runCozeWinitWorkflow(env, actions[0].action || BOOKING_LIST_ACTION, data);
+                      list = coerceList(parsed);
+                    } catch {
+                      list = [];
+                    }
+                  }
+                }
+
+                const bookingRecords = list.map(normalizeBooking).filter((r): r is Record<string, unknown> => r != null);
+                return { bookingRecords };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-booking-list")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163008"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163013"
+              - name: winitBookingPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163014"
+          node_outputs:
+              bookingRecords:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163016"
+      type: code
+      title: summarize-booking-records
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 4307
+      parameters:
+          code: |-
+              /**
+               * 节点：合并 booking.list 与 getOrderDetail 表头，确定性输出预约摘要
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const BOOKING_STATUS_LABELS: Record<string, string> = {
+                WBO: "待预约确认",
+                WABO: "待审批",
+                SBO: "预约成功",
+                RBO: "已到仓",
+                EXRBO: "到仓异常",
+                CANCEL: "已取消",
+              };
+
+              type BookingRecord = {
+                bookingNo: string;
+                bookingStatus: string;
+                bookingStatusLabel: string;
+                appointmentDate: string;
+                penaltyFee: number | null;
+                penaltyReason: string;
+                inboundOrderNo: string;
+                warehouseCode: string;
+                source: string;
+                dataQuality: string;
+              };
+
+              function statusLabel(code: string): string {
+                const key = code.trim().toUpperCase();
+                return BOOKING_STATUS_LABELS[key] ?? "";
+              }
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : v == null ? "" : String(v).trim();
+              }
+
+              function numOrNull(v: unknown): number | null {
+                const n = Number(v);
+                return Number.isFinite(n) && n > 0 ? n : null;
+              }
+
+              function normalizeApiRecord(raw: unknown): BookingRecord | null {
+                if (!raw || typeof raw !== "object") return null;
+                const o = raw as Record<string, unknown>;
+                const bookingNo = str(o.bookingNo ?? o.appointmentNo);
+                if (!bookingNo && !o.inboundOrderNo && !o.bookingStatus && !o.status) return null;
+                const fee = numOrNull(o.penaltyFee ?? o.violationFee);
+                const bookingStatus = str(o.bookingStatus ?? o.status);
+                return {
+                  bookingNo,
+                  bookingStatus,
+                  bookingStatusLabel: statusLabel(bookingStatus),
+                  appointmentDate: str(o.appointmentDate ?? o.bookingDate),
+                  penaltyFee: fee,
+                  penaltyReason: str(o.penaltyReason ?? o.violationReason),
+                  inboundOrderNo: str(o.inboundOrderNo ?? o.orderNo),
+                  warehouseCode: str(o.warehouseCode ?? o.destWhCode),
+                  source: "booking_api",
+                  dataQuality: "real",
+                };
+              }
+
+              function orderHeaderHint(row: Record<string, unknown>): BookingRecord | null {
+                const bookingNo = str(row.bookingNo ?? row.inboundBookingNo);
+                const orderNo = str(row.orderNo ?? row.inboundOrderNum);
+                const status = str(row.inboundBookingStatus ?? row.bookingStatus);
+                if (!bookingNo && !status) return null;
+                return {
+                  bookingNo,
+                  bookingStatus: status,
+                  bookingStatusLabel: statusLabel(status),
+                  appointmentDate: str(row.appointmentDate ?? row.bookingDate ?? row.expectedSendwarehouseTime),
+                  penaltyFee: null,
+                  penaltyReason: "",
+                  inboundOrderNo: orderNo,
+                  warehouseCode: str(row.destWhCode ?? row.warehouseCode),
+                  source: "order_header_fallback",
+                  dataQuality: bookingNo ? "partial" : "status_only",
+                };
+              }
+
+              function coerceBookingList(raw: unknown): unknown[] {
+                if (Array.isArray(raw)) return raw;
+                return [];
+              }
+
+              function coerceOrderList(rawOrderData: unknown): Record<string, unknown>[] {
+                if (rawOrderData == null || typeof rawOrderData !== "object") return [];
+                const list = (rawOrderData as { list?: unknown[] }).list;
+                if (!Array.isArray(list)) return [];
+                return list.filter((r): r is Record<string, unknown> => r != null && typeof r === "object");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intent = str(params.intent) || "query";
+                const apiRecords = coerceBookingList(params.bookingRecords)
+                  .map(normalizeApiRecord)
+                  .filter((r): r is BookingRecord => r != null);
+
+                const seen = new Set(apiRecords.map((r) => `${r.bookingNo}|${r.inboundOrderNo}`));
+                const merged: BookingRecord[] = [...apiRecords];
+
+                if (apiRecords.length === 0) {
+                  for (const row of coerceOrderList(params.rawOrderData)) {
+                    const hint = orderHeaderHint(row);
+                    if (!hint) continue;
+                    const key = `${hint.bookingNo}|${hint.inboundOrderNo}`;
+                    if (!seen.has(key)) {
+                      seen.add(key);
+                      merged.push(hint);
+                    }
+                  }
+                }
+
+                const penaltyFees = merged.map((r) => r.penaltyFee).filter((f): f is number => f != null);
+                const totalPenaltyFee = penaltyFees.length > 0 ? penaltyFees.reduce((a, b) => a + b, 0) : null;
+
+                let dataQuality: string;
+                if (apiRecords.length > 0) dataQuality = "booking_api";
+                else if (merged.length > 0) dataQuality = "order_header_fallback";
+                else dataQuality = "missing";
+
+                const requiresManualAction =
+                  (intent === "query" || intent === "penalty") && merged.length === 0;
+
+                return {
+                  bookingSummary: {
+                    records: merged,
+                    recordCount: merged.length,
+                    totalPenaltyFee,
+                    dataQuality,
+                    requiresManualAction,
+                    hasPenaltyFeeField: penaltyFees.length > 0,
+                  },
+                  bookingRecords: merged,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("summarize-booking-records")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: bookingRecords
+                input:
+                    value:
+                        path: bookingRecords
+                        ref_node: "163015"
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163012"
+          node_outputs:
+              bookingSummary:
+                  type: object
+                  value: null
+              bookingRecords:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163017"
+      type: code
+      title: scope-guard
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 4547
+      parameters:
+          code: |-
+              /**
+               * 节点：PSC / 链路 scope 守卫 — 标准头程等转介
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const STANDARD_HEADWAY = /^OW01011/i;
+              const DIRECT_PSC = /^OW010(21|22|31|32)/i;
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function firstOrder(rawOrderData: unknown): Record<string, unknown> | null {
+                if (rawOrderData == null || typeof rawOrderData !== "object") return null;
+                const list = (rawOrderData as { list?: unknown[] }).list;
+                if (!Array.isArray(list) || list.length === 0) return null;
+                const row = list[0];
+                return row != null && typeof row === "object" ? (row as Record<string, unknown>) : null;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const routePath = str(params.routePath);
+                const row = firstOrder(params.rawOrderData);
+                const psc = str(row?.winitProductCode ?? row?.productCode);
+                const orderNo = str(row?.orderNo ?? row?.inboundOrderNum);
+
+                let guard: Record<string, unknown>;
+
+                if (routePath === "kb_only" || !psc) {
+                  guard = {
+                    scopeAction: "answer",
+                    scopeNote: "",
+                    winitProductCode: psc,
+                    isStandardHeadway: false,
+                    referExpertId: "",
+                    orderNo,
+                  };
+                } else if (STANDARD_HEADWAY.test(psc)) {
+                  guard = {
+                    scopeAction: "refer_process_guide",
+                    scopeNote: "标准头程（OW01011）通常由 Winit 安排送仓，客户无需提交预约单",
+                    winitProductCode: psc,
+                    isStandardHeadway: true,
+                    referExpertId: "inbound/inbound-process-guide",
+                    orderNo,
+                  };
+                } else if (!DIRECT_PSC.test(psc)) {
+                  guard = {
+                    scopeAction: "refer_process_guide",
+                    scopeNote: `当前 PSC（${psc}）非直发预约链路，建议确认产品选型与送仓规则`,
+                    winitProductCode: psc,
+                    isStandardHeadway: false,
+                    referExpertId: "inbound/inbound-process-guide",
+                    orderNo,
+                  };
+                } else {
+                  guard = {
+                    scopeAction: "answer",
+                    scopeNote: "",
+                    winitProductCode: psc,
+                    isStandardHeadway: false,
+                    referExpertId: "",
+                    orderNo,
+                  };
+                }
+
+                return { scopeGuard: guard, ...guard };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("scope-guard")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: routePath
+                input:
+                    value:
+                        path: routePath
+                        ref_node: "163008"
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163012"
+          node_outputs:
+              scopeGuard:
+                  type: object
+                  value: null
+              scopeAction:
+                  type: string
+                  value: null
+              scopeNote:
+                  type: string
+                  value: null
+              winitProductCode:
+                  type: string
+                  value: null
+              isStandardHeadway:
+                  type: boolean
+                  value: null
+              referExpertId:
+                  type: string
+                  value: null
+              orderNo:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163018"
+      type: code
+      title: load-booking-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 4787
+      parameters:
+          code: |-
+              /**
+               * 节点：load-booking-kb — 按 intent / 送仓方式拼接预约 KB
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function hasLookupHint(text: string): boolean {
+                return /\bWI\d+/i.test(text) || /预约单|booking/i.test(text);
+              }
+
+              function extractSections(kb: string, sectionTitles: string[]): string {
+                if (!kb.trim()) return "";
+                const blocks = kb.split(/\n(?=## )/);
+                const picked: string[] = [];
+                for (const block of blocks) {
+                  const titleLine = block.split("\n")[0] ?? "";
+                  const title = titleLine.replace(/^##\s*/, "").trim();
+                  if (sectionTitles.some((t) => title.includes(t) || t.includes(title))) {
+                    picked.push(block.trim());
+                  }
+                }
+                return picked.length > 0 ? picked.join("\n\n") : kb;
+              }
+
+              function sopForDeliveryWay(kbSop: string, hint: string): string {
+                const key = hint.toUpperCase();
+                if (key === "EXPRESS" || key === "COURIER" || key.includes("快递")) {
+                  return extractSections(kbSop, ["Express", "快递", "通用说明"]);
+                }
+                if (key === "FCL" || key.includes("整柜")) {
+                  return extractSections(kbSop, ["FCL", "整柜", "通用说明", "合并预约"]);
+                }
+                if (key === "LCL" || key.includes("散货")) {
+                  return extractSections(kbSop, ["LCL", "散货", "通用说明", "合并预约"]);
+                }
+                return kbSop;
+              }
+
+              function pickKbParts(
+                intent: string,
+                deliveryWayHint: string,
+                kbBookingSop: string,
+                kbBookingRules: string,
+                kbPenaltyRules: string,
+                kbSplitShipment: string,
+                kbPremiumBooking: string,
+                kbBookingApiRef: string,
+                kbPodDownloadGuide: string,
+                queryText: string
+              ): { parts: string[]; scope: string } {
+                const wantsPremium = /增值|付费预约|premium/i.test(queryText);
+
+                switch (intent) {
+                  case "create_guide": {
+                    const sop = sopForDeliveryWay(kbBookingSop, deliveryWayHint);
+                    const apiHint = extractSections(kbBookingApiRef, ["API 链路", "核心业务规则", "FCL 必填"]);
+                    const parts = [sop];
+                    if (apiHint) parts.push(apiHint);
+                    return {
+                      parts,
+                      scope: deliveryWayHint ? `create_guide:${deliveryWayHint}` : "create_guide",
+                    };
+                  }
+                  case "modify_guide":
+                    return {
+                      parts: [extractSections(kbBookingRules, ["修改", "变更"]), extractSections(kbBookingSop, ["通用说明"])],
+                      scope: "modify_guide",
+                    };
+                  case "cancel_guide":
+                    return {
+                      parts: [
+                        extractSections(kbBookingRules, ["取消", "免费取消"]),
+                        extractSections(kbPenaltyRules, ["已预约未到仓", "超时取消"]),
+                      ],
+                      scope: "cancel_guide",
+                    };
+                  case "split_shipment":
+                    return {
+                      parts: [kbSplitShipment, extractSections(kbBookingSop, ["合并预约", "通用说明"])],
+                      scope: "split_shipment",
+                    };
+                  case "penalty": {
+                    const parts = [kbPenaltyRules];
+                    if (wantsPremium) parts.push(kbPremiumBooking);
+                    parts.push(extractSections(kbBookingSop, ["Express", "快递", "仓内上架"]));
+                    return { parts, scope: wantsPremium ? "penalty:premium" : "penalty" };
+                  }
+                  case "query":
+                    return {
+                      parts: [
+                        extractSections(kbBookingApiRef, ["预约状态码", "API 链路"]),
+                        extractSections(kbBookingRules, ["预约状态", "提前预约", "修改"]),
+                        extractSections(kbBookingSop, ["通用说明"]),
+                      ],
+                      scope: "query",
+                    };
+                  case "pod_guide":
+                    return {
+                      parts: [
+                        kbPodDownloadGuide,
+                        extractSections(kbBookingApiRef, ["Step 6", "B.6", "预约状态码"]),
+                        extractSections(kbBookingRules, ["预约状态"]),
+                      ],
+                      scope: hasLookupHint(queryText) ? "pod_guide:with_lookup" : "pod_guide",
+                    };
+                  default:
+                    return { parts: [kbBookingSop, kbBookingRules], scope: "full" };
+                }
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intent = str(params.intent) || "create_guide";
+                const deliveryWayHint = str(params.deliveryWayHint);
+                const warehouseCode = str(params.warehouseCode);
+                const routePath = str(params.routePath);
+                const query = str(params.query);
+
+                const { parts, scope } = pickKbParts(
+                  intent,
+                  deliveryWayHint,
+                  str(params.kbBookingSop),
+                  str(params.kbBookingRules),
+                  str(params.kbPenaltyRules),
+                  str(params.kbSplitShipment),
+                  str(params.kbPremiumBooking),
+                  str(params.kbBookingApiRef),
+                  str(params.kbPodDownloadGuide),
+                  query
+                );
+
+                const kbParts = parts.filter(Boolean);
+                if (warehouseCode) {
+                  kbParts.push(`## 仓库上下文\n查询/指引涉及仓库：${warehouseCode}`);
+                }
+
+                return {
+                  kbContent: kbParts.join("\n\n---\n\n"),
+                  kbScope: `${scope}:${routePath || "default"}`,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-booking-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: routePath
+                input:
+                    value:
+                        path: routePath
+                        ref_node: "163008"
+              - name: kbOnly
+                input:
+                    value:
+                        path: kbOnly
+                        ref_node: "163008"
+              - name: deliveryWayHint
+                input:
+                    value:
+                        path: deliveryWayHint
+                        ref_node: "163000"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163000"
+              - name: kbBookingSop
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+              - name: kbBookingRules
+                input:
+                    value:
+                        path: output
+                        ref_node: "163002"
+              - name: kbPenaltyRules
+                input:
+                    value:
+                        path: output
+                        ref_node: "163003"
+              - name: kbSplitShipment
+                input:
+                    value:
+                        path: output
+                        ref_node: "163004"
+              - name: kbPremiumBooking
+                input:
+                    value:
+                        path: output
+                        ref_node: "163005"
+              - name: kbBookingApiRef
+                input:
+                    value:
+                        path: output
+                        ref_node: "163006"
+              - name: kbPodDownloadGuide
+                input:
+                    value:
+                        path: output
+                        ref_node: "163007"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163019"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 5027
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 预约送仓操作指引专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是预约送仓操作指引专家，根据 `intent` 提供预约创建/修改/取消 SOP、分批到仓规则，或查询预约状态/违规费说明。**所有写操作由客户在万邑联平台自行完成，不代客创建或取消预约**。
+
+                        ## 禁止项
+
+                        - 不代客创建、修改或取消预约单
+                        - 不调用 `exportPodPdf`，不向客户发送 POD 文件/base64（只能指引万邑联自行下载）
+                        - 不向客户索取 appointmentDate 等字段以代为提交
+                        - 不承诺违规费或增值预约费用减免
+                        - 不引用飞书或内部系统 URL
+                        - 不输出 bookingCode（预约码仅在客户创建后由系统返回，应在步骤中说明「提交后系统显示预约码」）
+                        - 不透露仓级 Slots / WMS 库容数据；Slot 查询引导至万邑联预约页面
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **intent**：`{{intent}}`（query / create_guide / modify_guide / cancel_guide / split_shipment / penalty / pod_guide）
+                        - **routePath**：`{{routePath}}`（kb_only / api_chain）
+                        - **deliveryWayHint**：`{{deliveryWayHint}}`
+                        - **warehouseCode**：`{{warehouseCode}}`
+                        - **bookingSummary**（确定性摘要，优先引用）：
+
+                        ```json
+                        {{bookingSummary}}
+                        ```
+
+                        - **bookingRecords**：
+
+                        ```json
+                        {{bookingRecords}}
+                        ```
+
+                        - **scopeGuard**：
+
+                        ```json
+                        {{scopeGuard}}
+                        ```
+
+                        - **kbContent**：`{{kbContent}}`
+                        - **kbScope**：`{{kbScope}}`
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "intent": "",
+                              "deliveryWayHint": "",
+                              "operationSteps": [],
+                              "bookingRecords": [],
+                              "penaltyFee": null,
+                              "penaltyReason": "",
+                              "dataQuality": "",
+                              "scopeAction": "",
+                              "referExpertId": "",
+                              "splitShipmentGuide": [],
+                              "requiresManualAction": false
+                            },
+                            "analysis": "以「您需要在万邑联平台操作」开头；query 客观说明预约状态；penalty 说明触发原因与申诉路径。"
+                          }
+                        }
+                        ```
+
+                        ## 特殊规则
+
+                        - **create_guide**：按 LCL/FCL/Express 分流；Express 强调免预约与送仓方式一致性风险
+                        - **modify_guide**：说明截止前改时间通常免费；不可在预约单改送仓方式
+                        - **cancel_guide**：说明 DAY0 中午 12 点前免费取消与违约金标准
+                        - **split_shipment**：强调 3 个自然日确认、A/B/C 拆单与重新预约
+                        - **pod_guide**：只引导万邑联自助下载；`bookingStatus=RBO` 说明可下、`SBO` 说明暂无；**禁止**调用 `exportPodPdf` 或在回复中输出 base64/附件（Agent 无法向客户投递 PDF）
+                        - **penalty**：仅当 `bookingSummary.hasPenaltyFeeField=true` 时陈述 penaltyFee；否则说明机制不编造金额
+                        - **query**：优先使用 `bookingSummary`；引用 `bookingStatus` 时附带 `bookingStatusLabel`（WBO/SBO/RBO 等）；`dataQuality=missing` 时 requiresManualAction=true
+                        - **scopeGuard.scopeAction=refer_process_guide**：礼貌转介 `referExpertId`，不强行给预约步骤
+                        - 问剩余库容/能否约 Slot → 转 `inbound-capacity-availability`（客户额度）+ 万邑联预约页查时段（`queryAvailableWarehouseinPlan` 不对客代理）
+                        - **pod_guide** 负责预约单 POD 下载 SOP；问签收时间/包裹数/轨迹 → 可补充转 `inbound-arrival-status`
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: routePath
+                input:
+                    value:
+                        path: routePath
+                        ref_node: "163008"
+              - name: deliveryWayHint
+                input:
+                    value:
+                        path: deliveryWayHint
+                        ref_node: "163000"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+              - name: bookingSummary
+                input:
+                    value:
+                        path: bookingSummary
+                        ref_node: "163016"
+              - name: bookingRecords
+                input:
+                    value:
+                        path: bookingRecords
+                        ref_node: "163016"
+              - name: scopeGuard
+                input:
+                    value:
+                        path: scopeGuard
+                        ref_node: "163017"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163018"
+              - name: kbScope
+                input:
+                    value:
+                        path: kbScope
+                        ref_node: "163018"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163020"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 5267
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出，合并 bookingSummary / scopeGuard
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const bookingSummary = (params.bookingSummary ?? {}) as Record<string, unknown>;
+                const scopeGuard = (params.scopeGuard ?? {}) as Record<string, unknown>;
+
+                const structured: Record<string, unknown> = { ...(coerced.structured ?? {}) };
+
+                if (bookingSummary.recordCount != null && structured.bookingRecords == null) {
+                  structured.bookingRecords = bookingSummary.records ?? [];
+                }
+                if (bookingSummary.totalPenaltyFee != null && structured.penaltyFee == null) {
+                  structured.penaltyFee = bookingSummary.totalPenaltyFee;
+                }
+                if (bookingSummary.dataQuality != null) {
+                  structured.dataQuality = bookingSummary.dataQuality;
+                }
+                if (bookingSummary.requiresManualAction === true) {
+                  structured.requiresManualAction = true;
+                }
+                if (scopeGuard.scopeAction && !structured.scopeAction) {
+                  structured.scopeAction = scopeGuard.scopeAction;
+                }
+                if (scopeGuard.referExpertId && !structured.referExpertId) {
+                  structured.referExpertId = scopeGuard.referExpertId;
+                }
+
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "预约送仓操作指引完成";
+
+                const outputContext: Record<string, unknown> = {
+                  expertId: "inbound-appointment-manage",
+                  resultSummary: summary,
+                  chainId: inputContext?.chainId ?? "",
+                };
+                if (scopeGuard.referExpertId) {
+                  outputContext.nextExpertId = scopeGuard.referExpertId;
+                }
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext,
+                  enrichedContext: {
+                    bookingSummary,
+                    scopeGuard,
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163019"
+              - name: bookingSummary
+                input:
+                    value:
+                        path: bookingSummary
+                        ref_node: "163016"
+              - name: scopeGuard
+                input:
+                    value:
+                        path: scopeGuard
+                        ref_node: "163017"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "163014"
+    - source_node: "163014"
+      target_node: "163015"
+    - source_node: "163015"
+      target_node: "163016"
+    - source_node: "163016"
+      target_node: "163017"
+    - source_node: "163017"
+      target_node: "163018"
+    - source_node: "163018"
+      target_node: "163019"
+    - source_node: "163019"
+      target_node: "163020"
+    - source_node: "163020"
+      target_node: "900001"

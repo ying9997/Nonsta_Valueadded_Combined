@@ -1,0 +1,56 @@
+{
+  "id": "inbound-transit-tracking",
+  "domain": "inbound",
+  "name": "头程在途追踪",
+  "description": "头程在途：OMS 轨迹 + TMS 运输单表头（queryPage）。离港/到港里程碑须 queryTrackingList，本期未接入。Use when 客户问头程运输单状态、柜号、截重柜。",
+  "capabilities": [
+    "TS 轨迹节点（OMS，后续）",
+    "预计到仓时间（OMS，后续）",
+    "头程细粒度（TMS，不在本期）"
+  ],
+  "version": "0.2.0",
+  "inputSchema": {
+    "type": "object",
+    "required": ["inboundOrderNos"],
+    "properties": {
+      "inboundOrderNos": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "入库单号（WI 前缀）或客户自有参考号列表"
+      },
+      "queryFocus": {
+        "type": "string",
+        "enum": ["departure", "arrival_port", "delivery_warehouse", "overall"],
+        "description": "departure/arrival_port 不在本期；delivery_warehouse/overall 为后续 OMS 方向",
+        "default": "overall"
+      },
+      "maxTrajectoryNodes": {
+        "type": "integer",
+        "description": "轨迹节点保留条数上限；默认 20",
+        "default": 20,
+        "minimum": 1
+      },
+      "transportOrderNo": {
+        "type": "string",
+        "description": "运输单号 TO（可选，优先 TMS 查询）"
+      },
+      "containerNo": {
+        "type": "string",
+        "description": "柜号（可选，TMS 查询辅助）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "头程在途结构化数据（本期 phaseScope=out_of_phase）"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "在途说明或不在本期指引"
+      }
+    }
+  }
+}

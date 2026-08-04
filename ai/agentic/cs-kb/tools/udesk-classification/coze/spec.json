@@ -1,0 +1,21 @@
+{
+  "name": "cs_udesk_classification",
+  "workflow_id": "7593001979368063017",
+  "description": "generate multiple classification for udesk history",
+  "draft_suffix": "3958",
+  "init_param": {
+    "hardcode_lark_credentials": true,
+    "include_start_time": false
+  },
+  "code_nodes": {
+    "init_param": "src/init_param.ts",
+    "update_records": "src/update_classifications.ts",
+    "get_records": "src/get_records.ts"
+  },
+  "llm_nodes": {
+    "gen_classifications": {
+      "prompt_file": "prompt/gen_customer_service_classification_prompt.md",
+      "field": "systemPrompt"
+    }
+  }
+}

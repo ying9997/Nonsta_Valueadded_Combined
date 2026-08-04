@@ -1,0 +1,43 @@
+{
+  "id": "expected-arrival-time",
+  "name": "预计到达时间查询",
+  "description": "预计到达时间处理流程。Use when 用户查询预计送达时间、ETA、到货时间。",
+  "capabilities": [
+    "预计送达",
+    "ETA"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "出库单号"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "预计到达时间与说明"
+      }
+    }
+  }
+}

@@ -1,0 +1,384 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "command-report.schema.json",
+  "title": "知识库命令报告",
+  "description": "约束 kb:* 命令的机器可读报告。Phase 0 通过只表示项目骨架合格，不表示业务知识或发布包可用。",
+  "type": "object",
+  "required": [
+    "$schema",
+    "contract_version",
+    "command",
+    "tool_version",
+    "input_digest",
+    "started_from_commit",
+    "status",
+    "exit_code",
+    "validation_profile",
+    "business_content_status",
+    "full_business_validation_available",
+    "clone_ready",
+    "release_ready",
+    "summary",
+    "checks",
+    "errors",
+    "warnings",
+    "written_paths",
+    "mutation_guard"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "pattern": "^(?:\\.\\./)+(?:data/)?schemas/command-report\\.schema\\.json$"
+    },
+    "$comment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contract_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "command": {
+      "type": "string",
+      "pattern": "^kb:[a-z][a-z0-9-]*$"
+    },
+    "tool_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "input_digest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "started_from_commit": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "invalid_invocation",
+        "not_implemented",
+        "internal_error"
+      ]
+    },
+    "exit_code": {
+      "enum": [0, 1, 2, 3, 70]
+    },
+    "validation_profile": {
+      "enum": [
+        "phase0-skeleton",
+        "business-knowledge",
+        "source-snapshot",
+        "generated-view",
+        "runtime-artifact"
+      ]
+    },
+    "business_content_status": {
+      "enum": [
+        "empty",
+        "non_empty"
+      ]
+    },
+    "full_business_validation_available": {
+      "type": "boolean"
+    },
+    "clone_ready": {
+      "type": "boolean"
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    },
+    "written_paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/projectRelativePath"
+      },
+      "uniqueItems": true
+    },
+    "mutation_guard": {
+      "$ref": "#/$defs/mutationGuard"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "passed"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 0
+          },
+          "errors": {
+            "maxItems": 0
+          },
+          "summary": {
+            "properties": {
+              "failed_checks": {
+                "const": 0
+              },
+              "error_count": {
+                "const": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "failed"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "invalid_invocation"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 2
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "not_implemented"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 3
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "internal_error"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 70
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "validation_profile": {
+            "const": "phase0-skeleton"
+          }
+        },
+        "required": ["validation_profile"]
+      },
+      "then": {
+        "properties": {
+          "full_business_validation_available": {
+            "const": false
+          },
+          "release_ready": {
+            "const": false
+          },
+          "mutation_guard": {
+            "properties": {
+              "business_outputs_written": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "validation_profile": {
+            "const": "phase0-skeleton"
+          },
+          "status": {
+            "const": "passed"
+          }
+        },
+        "required": ["validation_profile", "status"]
+      },
+      "then": {
+        "properties": {
+          "business_content_status": {
+            "const": "empty"
+          },
+          "mutation_guard": {
+            "properties": {
+              "authoritative_inputs_modified": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "projectRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/|~)(?!\\.\\.(?:/|$))(?!.*(?:/)\\.\\.(?:/|$))(?!.*\\\\)(?!.*:).+$"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_checks",
+        "passed_checks",
+        "failed_checks",
+        "skipped_checks",
+        "error_count",
+        "warning_count"
+      ],
+      "properties": {
+        "total_checks": { "type": "integer", "minimum": 0 },
+        "passed_checks": { "type": "integer", "minimum": 0 },
+        "failed_checks": { "type": "integer", "minimum": 0 },
+        "skipped_checks": { "type": "integer", "minimum": 0 },
+        "error_count": { "type": "integer", "minimum": 0 },
+        "warning_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "check": {
+      "type": "object",
+      "required": ["check_id", "status", "message"],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9._-]*$"
+        },
+        "status": {
+          "enum": ["passed", "failed", "skipped"]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "$ref": "#/$defs/projectRelativePath"
+        }
+      },
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "$ref": "#/$defs/projectRelativePath"
+        },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "fingerprint": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "mutationGuard": {
+      "type": "object",
+      "required": [
+        "authoritative_inputs_modified",
+        "business_outputs_written",
+        "allowed_report_path",
+        "input_digest_before",
+        "input_digest_after"
+      ],
+      "properties": {
+        "authoritative_inputs_modified": { "type": "boolean" },
+        "business_outputs_written": { "type": "boolean" },
+        "allowed_report_path": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/projectRelativePath" }
+          ]
+        },
+        "input_digest_before": { "$ref": "#/$defs/sha256" },
+        "input_digest_after": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

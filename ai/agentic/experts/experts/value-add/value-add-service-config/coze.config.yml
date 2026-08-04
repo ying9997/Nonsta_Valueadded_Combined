@@ -1,0 +1,104 @@
+# 增值服务配置 — Coze 工作流包导出
+yamlBasename: value_add_service_config-draft.yaml
+packageMainName: value_add_service_config
+packageDescription: 增值服务配置（validate → resolve → load evidence → compose → LLM → format）
+
+textNodes:
+  - logicalId: kb-vasc-context-text
+    title: kb-vasc-context
+    insertAfter: resolve-vasc-context
+    sourceFile: prompts/kb-vasc-context.md
+  - logicalId: kb-service-orchestration-text
+    title: kb-service-orchestration
+    insertAfter: load-vasc-context
+    sourceFile: prompts/kb-service-orchestration.md
+  - logicalId: kb-field-evidence-text
+    title: kb-field-evidence
+    insertAfter: load-service-orchestration
+    sourceFile: prompts/kb-field-evidence.md
+  - logicalId: kb-atom-selectability-text
+    title: kb-atom-selectability
+    insertAfter: load-field-evidence
+    sourceFile: prompts/kb-atom-selectability.md
+
+inputBindings:
+  load-vasc-context:
+    kbVascContext:
+      ref: kb-vasc-context-text
+      path: output
+  load-service-orchestration:
+    kbServiceOrchestration:
+      ref: kb-service-orchestration-text
+      path: output
+  load-field-evidence:
+    kbFieldEvidence:
+      ref: kb-field-evidence-text
+      path: output
+  apply-atom-selectability-rules:
+    kbAtomSelectability:
+      ref: kb-atom-selectability-text
+      path: output
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: -150
+    y: 230
+  __end__:
+    x: 3140
+    y: 310
+  validate-input:
+    x: 120
+    y: 310
+  resolve-vasc-context:
+    x: 400
+    y: 310
+  kb-vasc-context-text:
+    x: 400
+    y: 480
+  load-vasc-context:
+    x: 680
+    y: 310
+  kb-service-orchestration-text:
+    x: 680
+    y: 480
+  load-service-orchestration:
+    x: 960
+    y: 310
+  kb-field-evidence-text:
+    x: 960
+    y: 480
+  load-field-evidence:
+    x: 1240
+    y: 310
+  kb-atom-selectability-text:
+    x: 1240
+    y: 480
+  apply-atom-selectability-rules:
+    x: 1520
+    y: 310
+  compose-conditional-config:
+    x: 1800
+    y: 310
+  compose-committed-config:
+    x: 2080
+    y: 310
+  llm-analyze:
+    x: 2360
+    y: 310
+  format-output:
+    x: 2640
+    y: 310

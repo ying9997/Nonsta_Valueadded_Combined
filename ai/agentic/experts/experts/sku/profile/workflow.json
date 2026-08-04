@@ -1,0 +1,148 @@
+{
+  "nodes": [
+    {
+      "id": "validate-sku-codes",
+      "file": "nodes/validate-sku-codes.ts",
+      "inputs": ["skuCodes", "warehouseCode", "importCountryCode", "fetchProfile", "inputContext"],
+      "outputs": [
+        "normalizedSkuCodes",
+        "warehouseCode",
+        "importCountryCode",
+        "fetchProfile",
+        "skipApi",
+        "validationError",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "normalizedSkuCodes": { "type": "array", "items": { "type": "string" } },
+          "warehouseCode": { "type": "string" },
+          "importCountryCode": { "type": "string" },
+          "fetchProfile": { "type": "string" },
+          "skipApi": { "type": "boolean" },
+          "validationError": { "type": "string" },
+          "inputContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "resolve-fetch-plan",
+      "file": "nodes/resolve-fetch-plan.ts",
+      "inputs": ["skipApi", "normalizedSkuCodes", "importCountryCode", "fetchProfile"],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount",
+        "actionName",
+        "fetchProfile",
+        "importCountryCode",
+        "skipApi"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "winitPluginBatchActionsCount": { "type": "integer" },
+          "actionName": { "type": "string" },
+          "fetchProfile": { "type": "string" },
+          "importCountryCode": { "type": "string" },
+          "skipApi": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "fetch-sku-profile",
+      "file": "nodes/fetch-sku-profile.ts",
+      "inputs": [
+        "skipApi",
+        "normalizedSkuCodes",
+        "actions",
+        "actionPlans",
+        "fetchProfile",
+        "winitPluginOutputList"
+      ],
+      "outputs": ["rawItems", "fetchMeta"],
+      "cozeIo": {
+        "outputs": {
+          "rawItems": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "fetchMeta": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "prune-and-map-item",
+      "file": "nodes/prune-and-map-item.ts",
+      "inputs": ["rawItems", "fetchMeta", "fetchProfile", "importCountryCode"],
+      "outputs": ["apiProfiles", "fetchMeta"],
+      "cozeIo": {
+        "outputs": {
+          "apiProfiles": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "fetchMeta": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "derive-from-context",
+      "file": "nodes/derive-from-context.ts",
+      "inputs": [
+        "normalizedSkuCodes",
+        "apiProfiles",
+        "fetchMeta",
+        "inputContext",
+        "customerCode",
+        "importCountryCode"
+      ],
+      "outputs": ["mergedProfiles", "missingFacts"],
+      "cozeIo": {
+        "outputs": {
+          "mergedProfiles": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "missingFacts": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "id": "calc-item-type-from-kb",
+      "file": "nodes/calc-item-type-from-kb.ts",
+      "inputs": ["mergedProfiles", "missingFacts"],
+      "outputs": ["skus", "missingFacts"],
+      "cozeIo": {
+        "outputs": {
+          "skus": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "missingFacts": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": ["skus", "missingFacts", "fetchMeta", "validationError", "inputContext"],
+      "outputs": ["structured", "analysis", "outputContext", "enrichedContext"],
+      "cozeIo": {
+        "outputs": {
+          "structured": { "type": "object", "additionalProperties": true },
+          "analysis": { "type": "string" },
+          "outputContext": { "type": "object", "additionalProperties": true },
+          "enrichedContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  ]
+}

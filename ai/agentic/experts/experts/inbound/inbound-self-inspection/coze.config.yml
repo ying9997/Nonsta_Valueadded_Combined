@@ -1,0 +1,151 @@
+yamlBasename: inbound_self_inspection-draft.yaml
+packageMainName: inbound_self_inspection
+packageDescription: 自验操作与进度（validate → route → KB 或 OMS 链 → LLM）
+
+textNodes:
+  - logicalId: kb-submit-guide-text
+    title: kb-submit-guide
+    insertAfter: validate-intent
+    sourceFile: prompts/si-submit-guide.md
+  - logicalId: kb-sampling-rules-text
+    title: kb-sampling-rules
+    insertAfter: validate-intent
+    sourceFile: prompts/sampling-rules.md
+  - logicalId: kb-exemption-conditions-text
+    title: kb-exemption-conditions
+    insertAfter: validate-intent
+    sourceFile: prompts/exemption-conditions.md
+  - logicalId: kb-qsi-guide-text
+    title: kb-qsi-guide
+    insertAfter: validate-intent
+    sourceFile: prompts/qsi-guide.md
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-inbound-order
+    logicalId: winit_inbound_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-winit-inbound-detail
+        path: actions
+  - insertBefore: fetch-exception-list
+    logicalId: winit_exception_list_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 10
+      concurrentSize: 5
+      actionsFrom:
+        logicalId: build-exception-list-request
+        path: actions
+
+inputBindings:
+  route-intent:
+    validationOk:
+      ref: validate-intent
+      path: validationOk
+    intent:
+      ref: validate-intent
+      path: intent
+    subTopic:
+      ref: validate-intent
+      path: subTopic
+    phase:
+      ref: validate-intent
+      path: phase
+  resolve-inbound-lookup:
+    skipOms:
+      ref: route-intent
+      path: skipOms
+    inboundOrderNos:
+      ref: validate-intent
+      path: inboundOrderNos
+  build-winit-inbound-detail:
+    skipOms:
+      ref: route-intent
+      path: skipOms
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: resolve-inbound-lookup
+      path: customerRefNos
+  fetch-inbound-order:
+    skipOms:
+      ref: route-intent
+      path: skipOms
+    actions:
+      ref: build-winit-inbound-detail
+      path: actions
+    actionPlans:
+      ref: build-winit-inbound-detail
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_inbound_detail_batch
+      path: outputList
+  build-exception-list-request:
+    skipOms:
+      ref: route-intent
+      path: skipOms
+    fetchExceptions:
+      ref: route-intent
+      path: fetchExceptions
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+  fetch-exception-list:
+    skipExceptionApi:
+      ref: build-exception-list-request
+      path: skipExceptionApi
+    actions:
+      ref: build-exception-list-request
+      path: actions
+    winitExceptionPluginOutputList:
+      ref: winit_exception_list_batch
+      path: outputList
+  load-self-inspection-kb:
+    intent:
+      ref: validate-intent
+      path: intent
+    subTopic:
+      ref: validate-intent
+      path: subTopic
+    normalizedSubTopic:
+      ref: route-intent
+      path: normalizedSubTopic
+    normalizedPhase:
+      ref: route-intent
+      path: normalizedPhase
+    routePath:
+      ref: route-intent
+      path: routePath
+    rawOrderData:
+      ref: fetch-inbound-order
+      path: rawOrderData
+    kbSubmitGuide:
+      ref: kb-submit-guide-text
+      path: output
+    kbQsiGuide:
+      ref: kb-qsi-guide-text
+      path: output
+    kbSamplingRules:
+      ref: kb-sampling-rules-text
+      path: output
+    kbExemptionConditions:
+      ref: kb-exemption-conditions-text
+      path: output
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext

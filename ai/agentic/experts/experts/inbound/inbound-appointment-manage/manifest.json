@@ -1,0 +1,62 @@
+{
+  "id": "inbound-appointment-manage",
+  "domain": "inbound",
+  "name": "预约送仓操作指引",
+  "description": "说明如何预约送仓、查询/修改/取消预约、分批到仓、违规费与预约 POD 下载。这里的“增值预约”仅指预约送仓付费预约，不处理 VASC 推荐、服务项配置或已提交增值单状态。create_guide/modify_guide/cancel_guide/split_shipment/pod_guide(无单号) 走纯 KB；query/penalty/pod_guide(有单号) 拉取 booking.list。不代客创建或取消预约单。Use when 客户问怎么预约、改约、取消、分批到仓、违规费、下载 POD。",
+  "capabilities": [
+    "预约创建指引",
+    "预约修改指引",
+    "预约取消指引",
+    "分批到仓指引",
+    "预约状态查询",
+    "违规费说明",
+    "预约 POD 下载指引",
+    "LCL/FCL/Express 分流"
+  ],
+  "version": "0.4.1",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "intent": {
+        "type": "string",
+        "description": "query / create_guide / modify_guide / cancel_guide / split_shipment / penalty；缺省按 query 关键词推断",
+        "enum": ["query", "create_guide", "modify_guide", "cancel_guide", "split_shipment", "penalty", "pod_guide"]
+      },
+      "inboundOrderNos": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "入库单号；query/penalty 场景必填其一"
+      },
+      "inboundOrderNo": {
+        "type": "string",
+        "description": "单个入库单号"
+      },
+      "bookingNo": {
+        "type": "string",
+        "description": "已知预约单号时直接查询"
+      },
+      "warehouseCode": {
+        "type": "string",
+        "description": "仓库编码，辅助 KB 上下文"
+      },
+      "deliveryWayHint": {
+        "type": "string",
+        "description": "送仓方式提示：LCL / FCL / Express；缺省从 query 推断"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "预约结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "操作指引或预约状态说明"
+      }
+    }
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "inputContext",
+        "exceptionCode",
+        "exceptionName",
+        "exceptionDescription",
+        "customerDescription",
+        "valueAddHandoff",
+        "evidenceSummary",
+        "enrichedContext"
+      ],
+      "outputs": [
+        "validationResult",
+        "rawExceptionInput",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "rawExceptionInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "normalize-exception-facts",
+      "file": "nodes/normalize-exception-facts.ts",
+      "inputs": [
+        "rawExceptionInput",
+        "validationResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "diagnosisInput",
+        "validationResult",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "diagnosisInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-exception-entity",
+      "file": "nodes/load-exception-entity.ts",
+      "inputs": [
+        "diagnosisInput",
+        "validationResult",
+        "kbExceptionEntity"
+      ],
+      "outputs": [
+        "exceptionEntityKb",
+        "diagnosisInput",
+        "validationResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "exceptionEntityKb": {
+            "type": "string"
+          },
+          "diagnosisInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-classify",
+      "type": "llm",
+      "promptFile": "prompts/classify.md",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "diagnosisInput",
+        "exceptionEntityKb",
+        "inputContext"
+      ],
+      "outputs": [
+        "classificationResult"
+      ]
+    },
+    {
+      "id": "load-value-add-entry",
+      "file": "nodes/load-value-add-entry.ts",
+      "inputs": [
+        "diagnosisInput",
+        "classificationResult",
+        "validationResult",
+        "kbValueAddEntry"
+      ],
+      "outputs": [
+        "valueAddEntryKb",
+        "diagnosisInput",
+        "classificationResult",
+        "validationResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "valueAddEntryKb": {
+            "type": "string"
+          },
+          "diagnosisInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "classificationResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-exception-mapping-summary",
+      "file": "nodes/load-exception-mapping-summary.ts",
+      "inputs": [
+        "diagnosisInput",
+        "classificationResult",
+        "valueAddEntryKb",
+        "validationResult",
+        "kbExceptionMappingSummary"
+      ],
+      "outputs": [
+        "exceptionMappingSummaryKb",
+        "diagnosisInput",
+        "classificationResult",
+        "valueAddEntryKb",
+        "validationResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "exceptionMappingSummaryKb": {
+            "type": "string"
+          },
+          "diagnosisInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "classificationResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "valueAddEntryKb": {
+            "type": "string"
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "decide-value-add-candidacy",
+      "file": "nodes/decide-value-add-candidacy.ts",
+      "inputs": [
+        "diagnosisInput",
+        "classificationResult",
+        "validationResult",
+        "valueAddEntryKb",
+        "exceptionMappingSummaryKb"
+      ],
+      "outputs": [
+        "candidacyDecision",
+        "diagnosisInput"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "candidacyDecision": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "diagnosisInput": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-clarify",
+      "type": "llm",
+      "promptFile": "prompts/clarify.md",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "diagnosisInput",
+        "candidacyDecision",
+        "inputContext"
+      ],
+      "outputs": [
+        "clarificationResult"
+      ]
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "promptFile": "prompts/main.md",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "diagnosisInput",
+        "candidacyDecision",
+        "valueAddEntryKb",
+        "exceptionMappingSummaryKb",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "clarificationResult",
+        "diagnosisInput",
+        "candidacyDecision",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object"
+          },
+          "clarificationResult": {
+            "type": "object"
+          },
+          "diagnosisInput": {
+            "type": "object"
+          },
+          "candidacyDecision": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

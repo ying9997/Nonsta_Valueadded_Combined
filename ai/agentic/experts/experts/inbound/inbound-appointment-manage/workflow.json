@@ -1,0 +1,163 @@
+{
+  "nodes": [
+    {
+      "id": "validate-intent",
+      "file": "nodes/validate-intent.ts",
+      "inputs": ["intent", "inboundOrderNos", "inboundOrderNo", "bookingNo", "warehouseCode", "deliveryWayHint", "query", "customerIntent", "inputContext"],
+      "outputs": ["validationOk", "error", "intent", "inboundOrderNos", "bookingNo", "warehouseCode", "deliveryWayHint", "query", "customerIntent", "inputContext"],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": { "type": "boolean" },
+          "error": { "type": "string" },
+          "intent": { "type": "string" },
+          "inboundOrderNos": { "type": "array", "items": { "type": "string" } },
+          "bookingNo": { "type": "string" },
+          "warehouseCode": { "type": "string" },
+          "deliveryWayHint": { "type": "string" },
+          "query": { "type": "string" },
+          "customerIntent": { "type": "string" },
+          "inputContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "route-intent",
+      "file": "nodes/route-intent.ts",
+      "inputs": ["validationOk", "intent", "inboundOrderNos", "bookingNo"],
+      "outputs": ["routePath", "skipApi", "skipOrderDetail", "kbOnly"],
+      "cozeIo": {
+        "outputs": {
+          "routePath": { "type": "string" },
+          "skipApi": { "type": "boolean" },
+          "skipOrderDetail": { "type": "boolean" },
+          "kbOnly": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "resolve-inbound-lookup",
+      "file": "nodes/resolve-inbound-lookup.ts",
+      "inputs": ["skipOrderDetail", "inboundOrderNos"],
+      "outputs": ["wiOrderNos", "customerRefNos", "inboundOrderNos", "lookupMeta"],
+      "cozeIo": {
+        "outputs": {
+          "wiOrderNos": { "type": "array", "items": { "type": "string" } },
+          "customerRefNos": { "type": "array", "items": { "type": "string" } },
+          "inboundOrderNos": { "type": "array", "items": { "type": "string" } },
+          "lookupMeta": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-winit-inbound-detail",
+      "file": "nodes/build-winit-inbound-detail.ts",
+      "inputs": ["skipOrderDetail", "wiOrderNos", "customerRefNos"],
+      "outputs": ["actions", "orderDetailActionPlans", "orderDetailActionsCount", "orderDetailActionName", "skipOrderDetail"],
+      "cozeIo": {
+        "outputs": {
+          "actions": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "orderDetailActionPlans": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "orderDetailActionsCount": { "type": "integer" },
+          "orderDetailActionName": { "type": "string" },
+          "skipOrderDetail": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "fetch-inbound-order",
+      "file": "nodes/fetch-inbound-order.ts",
+      "inputs": ["skipOrderDetail", "actions", "winitOrderDetailPluginOutputList"],
+      "outputs": ["rawOrderData"],
+      "cozeIo": {
+        "outputs": {
+          "rawOrderData": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-booking-list-request",
+      "file": "nodes/build-booking-list-request.ts",
+      "inputs": ["skipApi", "inboundOrderNos", "bookingNo"],
+      "outputs": ["actions", "bookingActionName", "skipApi"],
+      "cozeIo": {
+        "outputs": {
+          "actions": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "bookingActionName": { "type": "string" },
+          "skipApi": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "fetch-booking-list",
+      "file": "nodes/fetch-booking-list.ts",
+      "inputs": ["skipApi", "actions", "winitBookingPluginOutputList"],
+      "outputs": ["bookingRecords"],
+      "cozeIo": {
+        "outputs": {
+          "bookingRecords": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        }
+      }
+    },
+    {
+      "id": "summarize-booking-records",
+      "file": "nodes/summarize-booking-records.ts",
+      "inputs": ["intent", "bookingRecords", "rawOrderData"],
+      "outputs": ["bookingSummary", "bookingRecords"],
+      "cozeIo": {
+        "outputs": {
+          "bookingSummary": { "type": "object", "additionalProperties": true },
+          "bookingRecords": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        }
+      }
+    },
+    {
+      "id": "scope-guard",
+      "file": "nodes/scope-guard.ts",
+      "inputs": ["routePath", "rawOrderData"],
+      "outputs": ["scopeGuard", "scopeAction", "scopeNote", "winitProductCode", "isStandardHeadway", "referExpertId", "orderNo"],
+      "cozeIo": {
+        "outputs": {
+          "scopeGuard": { "type": "object", "additionalProperties": true },
+          "scopeAction": { "type": "string" },
+          "scopeNote": { "type": "string" },
+          "winitProductCode": { "type": "string" },
+          "isStandardHeadway": { "type": "boolean" },
+          "referExpertId": { "type": "string" },
+          "orderNo": { "type": "string" }
+        }
+      }
+    },
+    {
+      "id": "load-booking-kb",
+      "file": "nodes/load-booking-kb.ts",
+      "inputs": ["intent", "routePath", "kbOnly", "deliveryWayHint", "warehouseCode", "query", "kbBookingSop", "kbBookingRules", "kbPenaltyRules", "kbSplitShipment", "kbPremiumBooking", "kbBookingApiRef", "kbPodDownloadGuide"],
+      "outputs": ["kbContent", "kbScope"],
+      "cozeIo": {
+        "outputs": {
+          "kbContent": { "type": "string" },
+          "kbScope": { "type": "string" }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": ["query", "customerIntent", "intent", "routePath", "deliveryWayHint", "warehouseCode", "bookingSummary", "bookingRecords", "scopeGuard", "kbContent", "kbScope", "inputContext"],
+      "outputs": ["analysisResult"]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": ["analysisResult", "bookingSummary", "scopeGuard", "inputContext"],
+      "outputs": ["structured", "analysis", "outputContext", "enrichedContext"],
+      "cozeIo": {
+        "outputs": {
+          "structured": { "type": "object", "additionalProperties": true },
+          "analysis": { "type": "string" },
+          "outputContext": { "type": "object", "additionalProperties": true },
+          "enrichedContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  ]
+}

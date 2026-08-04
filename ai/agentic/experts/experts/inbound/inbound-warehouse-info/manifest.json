@@ -1,0 +1,77 @@
+{
+  "id": "inbound-warehouse-info",
+  "domain": "inbound",
+  "name": "仓库基础信息查询",
+  "description": "根据仓库编码或国家/地区检索海外仓地址、联系人、营业时间、仓型定位、可接商品类型与截单规则等静态资料。纯 KB 路径，无实时 API。Use when 客户询问仓库地址、送货填写、某仓能否存 DG/纯电/食品、仓型或截单规则。",
+  "capabilities": [
+    "仓库地址",
+    "联系人",
+    "营业时间",
+    "截单规则",
+    "送货规范",
+    "仓型查询",
+    "可接商品类型"
+  ],
+  "version": "1.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "warehouseCode": {
+        "type": "string",
+        "description": "Winit 仓库编码（如 USWC、UK、DE）；与 country 二选一，优先精确匹配"
+      },
+      "country": {
+        "type": "string",
+        "description": "国家/地区（UK / US / DE / AU / CA / BE 等）；未知仓码时按国检索可用仓摘要"
+      },
+      "topic": {
+        "type": "string",
+        "description": "聚焦主题：address / contact / hours / cutoff / type / capabilities / rules / all（默认 all）",
+        "default": "all"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "仓库结构化资料",
+        "properties": {
+          "warehouseCode": { "type": "string" },
+          "warehouseName": { "type": "string" },
+          "country": { "type": "string" },
+          "address": { "type": "string" },
+          "contactPerson": { "type": "string" },
+          "contactPhone": { "type": "string" },
+          "businessHours": { "type": "string" },
+          "cutoffTime": { "type": "string" },
+          "warehouseType": { "type": "string" },
+          "warehousePosition": { "type": "string" },
+          "operationMode": { "type": "string" },
+          "supportedProducts": { "type": "string" },
+          "addressExpress": { "type": "string" },
+          "capabilities": {
+            "type": "object",
+            "properties": {
+              "pureElectric": { "type": "boolean" },
+              "dg": { "type": "boolean" },
+              "chemical": { "type": "boolean" },
+              "specialChemical": { "type": "boolean" },
+              "food": { "type": "boolean" }
+            }
+          },
+          "specialNotes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "按 topic 聚焦的仓库信息自然语言说明"
+      }
+    }
+  }
+}

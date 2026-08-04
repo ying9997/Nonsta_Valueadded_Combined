@@ -1,0 +1,58 @@
+# 赔付标准理解 — Coze 工作流包导出
+# 导出：npm run export:coze -- experts/last-mile/refund-standard
+# 详见仓库根目录 COZE-WORKFLOW.md
+
+yamlBasename: refund_standard-draft.yaml
+packageMainName: refund_standard
+packageDescription: 赔付标准理解（validate → load-refund-knowledge → Few-shot 文本 → LLM → format）
+
+# Few-shot：Coze 画布用文本节点注入；本地 run-expert 无该变量时由 scripts/llm-openai 读 prompts/examples.md
+textNodes:
+  - logicalId: examples-text
+    title: examples
+    insertAfter: load-refund-knowledge
+    sourceFile: prompts/examples.md
+
+inputBindings:
+  llm-analyze:
+    examplesMd:
+      ref: examples-text
+      path: output
+
+# result.structured / result.analysis；outputContext 在顶层
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: -149.56
+    y: 231.52
+  __end__:
+    x: 1053.31
+    y: 309.28
+  validate-input:
+    x: 480
+    y: -13
+  load-refund-knowledge:
+    x: 480
+    y: 227
+  examples-text:
+    x: 480
+    y: 467
+  llm-analyze:
+    x: 480
+    y: 707
+  format-output:
+    x: 480
+    y: 947

@@ -1,0 +1,54 @@
+{
+  "id": "inbound-customs-doc-manage",
+  "domain": "inbound",
+  "name": "清关资料与进口商管理",
+  "description": "清关文件上传操作指引、进口商注册与查询。有 WI/TO 时读取 TMS queryPage 待上传标志；进口商列表 via winit.ums.getVendorInfo。Use when 客户问清关资料、上传文件、进口商注册/查询。",
+  "capabilities": [
+    "清关资料清单",
+    "文件上传指引",
+    "进口商注册 SOP",
+    "进口商查询指引",
+    "国别差异化规则"
+  ],
+  "version": "0.2.0",
+  "inputSchema": {
+    "type": "object",
+    "required": ["intent", "country"],
+    "properties": {
+      "intent": {
+        "type": "string",
+        "enum": ["upload", "register_importer", "query_importer", "general"],
+        "description": "操作意图：upload / register_importer / query_importer / general"
+      },
+      "country": {
+        "type": "string",
+        "description": "目的国（UK / EU / DE / BE 等）"
+      },
+      "inboundOrderNo": {
+        "type": "string",
+        "description": "关联入库单号（可选；有则查 TMS 待上传状态）"
+      },
+      "transportOrderNo": {
+        "type": "string",
+        "description": "运输单号 TO（可选，优先用于 TMS queryPage）"
+      },
+      "importerCode": {
+        "type": "string",
+        "description": "进口商编码（query_importer 时可选，用于过滤 vendor）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "清关资料与进口商操作结构化结果"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "操作步骤与材料清单说明"
+      }
+    }
+  }
+}

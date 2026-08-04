@@ -1,0 +1,349 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "trackingIds",
+        "outboundOrderNos",
+        "trajectoryText"
+      ],
+      "outputs": [
+        "valid",
+        "branch",
+        "error",
+        "trackingIds",
+        "outboundOrderNos",
+        "trajectoryText"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trajectoryText": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "valid": {
+            "type": "boolean"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trajectoryText": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "build-winit-tracking-data",
+      "file": "nodes/build-winit-tracking-data.ts",
+      "inputs": [
+        "trackingIds",
+        "outboundOrderNos",
+        "language"
+      ],
+      "outputs": [
+        "winitRequestData",
+        "queryKeys"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "language": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "winitRequestData": {
+            "type": "string"
+          },
+          "queryKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-trajectories",
+      "file": "nodes/fetch-trajectories.ts",
+      "inputs": [
+        "trackingIds",
+        "outboundOrderNos",
+        "trajectoryText",
+        "language",
+        "winitOpenapiData",
+        "winitRequestData",
+        "customerCode",
+        "customerName",
+        "username"
+      ],
+      "outputs": [
+        "trajectories",
+        "fetchMeta",
+        "outTrackingIds",
+        "outOutboundOrderNos",
+        "outTrajectoryText"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trajectoryText": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "winitOpenapiData": {
+            "type": "string",
+            "description": "插件响应 data"
+          },
+          "winitRequestData": {
+            "type": "string"
+          },
+          "customerCode": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "trajectories": {
+            "type": "array",
+            "description": "Trajectory[]",
+            "items": {
+              "type": "object",
+              "properties": {
+                "trackingNo": {
+                  "type": "string"
+                },
+                "nodes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "time": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "location": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "summary": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "fetchMeta": {
+            "type": "object",
+            "properties": {
+              "openapiAction": {
+                "type": "string"
+              },
+              "queryKeyCount": {
+                "type": "integer"
+              },
+              "openapiChunks": {
+                "type": "integer"
+              },
+              "publicFallbackKeys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "notes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "outTrackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outOutboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outTrajectoryText": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "merge-enriched-context",
+      "file": "nodes/merge-enriched-context.ts",
+      "inputs": [
+        "trajectories",
+        "fetchMeta",
+        "outTrackingIds",
+        "outOutboundOrderNos",
+        "outTrajectoryText"
+      ],
+      "outputs": [
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "trajectories": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "fetchMeta": {
+            "type": "object"
+          },
+          "outTrackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outOutboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outTrajectoryText": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "enrichedContext": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "enrichedContext",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext",
+        "enrichedContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "inputContext": {
+            "type": "object"
+          },
+          "enrichedContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}
