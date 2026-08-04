@@ -88,30 +88,29 @@
       <div class="modal-form-row">
         <label><span class="req">*</span> 场景概述</label>
         <select disabled>
-          <option selected>【库内】尺重/标签辨识后换标上架</option>
+          <option selected>【库内】良品转不良品上架</option>
         </select>
       </div>
       <div class="modal-form-row">
         <label><span class="req">*</span> 操作SOP</label>
         <div class="hint">(审核人员填写，请用中英双语、分步骤填写完整的操作SOP，仓库将按照该SOP作业)</div>
-        <textarea>1. 从库位取出指定商品
-2. 使用仓库测量设备重新测量商品实际尺寸和重量
-3. 将测量结果与系统登记数据对比，确认差异
-4. 根据实际尺重数据打印新的商品标签
-5. 移除原有商品标签，粘贴新标签（位置：商品外包装正面）
-6. 更新系统中该商品的尺重信息
-7. 完成贴标后拍照留存（正面+标签特写）
-8. 重新上架到原库位
+        <textarea>背景：客户 SKU-DE-15908221（86件，DEBR2仓库）与即将退仓入库的新货使用同一三方条码，系统无法同时绑定两个SKU，客户要求将在库老货按不良品上架存放以区分。
+
+仓库操作步骤：
+1. 根据出库单 WO12120399145 下架 SKU-DE-15908221 共 86 件
+2. 按新入库单 WI51339338 补贴包裹标签（标签见附件）
+3. 使用新入库单 WI51339338 做上架，上架到不良品库位
+4. 上架后登记"单品包装破损"异常，在异常复核时确认为不良品
+5. 操作完成后拍照留存（包裹标签+库位照片）
 
 Steps in English:
-1. Retrieve specified product from shelf location
-2. Re-measure actual dimensions and weight using warehouse equipment
-3. Compare measurements with system records, confirm discrepancy
-4. Print new product label based on actual measurements
-5. Remove original label, attach new label (position: front of packaging)
-6. Update product dimension/weight data in system
-7. Take photos after relabeling (front view + label close-up)
-8. Re-shelve to original location</textarea>
+1. De-shelve SKU-DE-15908221 (86 pcs) per outbound order WO12120399145
+2. Attach parcel labels per new inbound order WI51339338 (labels in attachment)
+3. Shelve using WI51339338, place in defective goods storage location
+4. Register "single item packaging damage" exception, confirm as defective during review
+5. Take photos after completion (parcel label + shelf location)
+
+备注：商品本身无实际破损，转不良品仅用于区分老货与新退仓货。</textarea>
       </div>
     </div>
     <div class="modal-footer">
@@ -121,6 +120,36 @@ Steps in English:
 </div>
 
 <script>
+const DEMO_DIALOG = [
+  {
+    role: 'assistant',
+    text: '您好，我看到您正在新增库内增值单。\n\n请描述您希望仓库如何处理库内的这批货物，我来帮您：\n· 判断应选择哪个增值服务\n· 生成操作 SOP\n· 一键填入表单字段'
+  },
+  {
+    role: 'user',
+    text: '我有一批货跟马上要退仓入库的新货用了同一个三方条码，系统里没法区分，想把老的那批转成不良品存着'
+  },
+  {
+    role: 'assistant',
+    text: '收到，您这个需求看起来是"库内良品转不良品上架"方向，主要目的是把当前在库老货和后续退仓入库的新货区分开。\n\n为了生成可给仓库执行的 SOP，还需要您补充几项关键信息：\n1. 需要处理的 SKU 和数量分别是多少？\n2. 当前库存所在仓库是哪个？\n3. 退仓新货是否已经创建无箱单预报入库单？如果已创建，请提供入库单号。\n4. 在库老货是否需要先创建下架出库单？如果已创建，请提供出库单号。\n5. 这批老货转不良品的原因是为了区分库存，还是商品本身存在破损？'
+  },
+  {
+    role: 'user',
+    text: 'SKU 是 SKU-DE-15908221，数量 86 件，在 DEBR2 Warehouse。新货已经建了无箱单预报入库单，单号 WI51339338。老货需要先下架，出库单 WO12120399145 已经创建。转不良品不是因为破损，主要是老货和亚马逊退仓的新货三方条码一样，系统里没法同时绑定两个 SKU。需要仓库按新入库单补贴包裹标签后上架到不良品库位。'
+  },
+  {
+    role: 'assistant',
+    text: '已确认：该需求为【良品转不良品上架】，属于 B 类场景，路由到【库内非标增值（特批）】→【库内其他服务需求】。\n\n【SOP 卡片】\n操作目标：将在库老货从良品库存下架，按不良品重新上架\n仓库：DEBR2 Warehouse\nSKU/数量：SKU-DE-15908221，86 件\n新入库单：WI51339338\n下架出库单：WO12120399145\n\n操作步骤：\n1. 根据出库单 WO12120399145 下架指定商品\n2. 按新入库单 WI51339338 补贴包裹标签\n3. 使用新入库单做不良品上架（登记"单品包装破损"异常，复核时确认为不良品）\n4. 拍照留存\n\n请点击上方「模拟：一键填入表单」按钮查看填充效果。'
+  }
+];
+
+const FORM_VALUES = {
+  product: '库内非标增值（特批）',
+  service: '库内其他服务需求',
+  background: '客户有一批在库商品（SKU-DE-15908221，86 件，DEBR2 仓库），与即将亚马逊退仓入库的新货使用相同三方条码。系统无法同时将同一三方条码绑定两个 SKU，客户希望将在库老货转为不良品库存存放，以便和新入库货物区分。商品本身无破损，转不良品仅用于库存区分管理。',
+  description: '操作需求：良品转不良品上架\n\n仓库：DEBR2 Warehouse\nSKU/数量：SKU-DE-15908221，86 件\n下架出库单：WO12120399145\n新入库单（无箱单预报）：WI51339338\n转不良品原因：区分老货与亚马逊退仓新货（同三方条码），非商品实际破损\n\n具体要求：\n1. 根据出库单 WO12120399145 下架指定商品（86 件）\n2. 按新入库单 WI51339338 补贴包裹标签（标签见附件）\n3. 使用新入库单做不良品上架\n4. 上架后登记"单品包装破损"异常，复核时确认为不良品，按不良品库位存储\n5. 操作完成后拍照留存'
+};
+
 function showToast(msg, duration) {
   const toast = document.getElementById('actionToast');
   toast.textContent = msg;
@@ -138,78 +167,259 @@ function getIframeDoc() {
 }
 
 function runDemo() {
-  showToast('演示开始：请查看右侧 AI 侧栏中的对话流程', 4000);
-  // 页面自带的侧栏已经有对话内容（模拟数据），此按钮提示用户查看
-}
-
-function fillForm() {
   const doc = getIframeDoc();
   if (!doc) {
-    showToast('⚠️ 无法访问页面 DOM（跨域限制），请直接在浏览器中打开 references/线上库内增值单页面快照.html 查看填充效果', 5000);
+    showToast('⚠️ 无法访问页面 DOM（跨域限制），无法注入 AI 对话', 5000);
     return;
   }
 
-  // 尝试选中增值产品：库内非标增值（特批）
-  const productSelects = doc.querySelectorAll('select');
-  let productFilled = false;
-  let serviceFilled = false;
+  try {
+    const root = doc.querySelector('#aiChatbotRoot');
+    const list = root && root.querySelector('.acss-10cqvkt, [class*="acss-10cqvkt"]');
+    if (!root || !list) throw new Error('未找到页面自带 AI 侧栏对话容器');
 
-  productSelects.forEach(sel => {
-    for (let i = 0; i < sel.options.length; i++) {
-      if (sel.options[i].text.includes('库内非标增值') || sel.options[i].text.includes('非标增值')) {
-        sel.selectedIndex = i;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-        sel.style.outline = '3px solid #52c41a';
-        sel.style.background = '#f6ffed';
-        productFilled = true;
-        break;
-      }
-      if (sel.options[i].text.includes('其他服务需求')) {
-        sel.selectedIndex = i;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-        sel.style.outline = '3px solid #52c41a';
-        sel.style.background = '#f6ffed';
-        serviceFilled = true;
-        break;
-      }
-    }
-  });
+    root.style.display = 'block';
+    root.style.width = 'var(--ai-chatbot-width, 360px)';
+    doc.body.classList.add('aiChatbot_open');
+    list.querySelectorAll('[data-demo-bubble="nonstandard-special"]').forEach(node => node.remove());
 
-  // 尝试填入 textarea
-  const textareas = doc.querySelectorAll('textarea');
-  const bgText = '客户反馈库内商品的实际尺寸和重量与系统登记数据不符，需要仓库重新测量确认后更换标签再上架。';
-  const descText = '操作需求：尺重/标签辨识后换标上架\n\n具体要求：\n1. 从库位取出指定商品\n2. 重新测量商品实际尺寸和重量\n3. 对比系统登记数据，确认差异\n4. 根据实际尺重打印新商品标签\n5. 移除原标签，粘贴新标签\n6. 更新系统尺重信息\n7. 拍照留存\n8. 重新上架到原库位';
+    DEMO_DIALOG.forEach((item, index) => {
+      setTimeout(() => {
+        const bubble = createBubble(doc, item.role, item.text);
+        list.appendChild(bubble);
+        bubble.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, index * 1500);
+    });
 
-  let bgFilled = false, descFilled = false;
-  textareas.forEach((ta, idx) => {
-    // 通过前面的 label 文本判断是哪个 textarea
-    const prevText = ta.parentElement ? ta.parentElement.textContent : '';
-    if (prevText.includes('需求背景说明') && !bgFilled) {
-      ta.value = bgText;
-      ta.style.outline = '3px solid #52c41a';
-      ta.style.background = '#f6ffed';
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-      bgFilled = true;
-    } else if (prevText.includes('需求描述') && !descFilled) {
-      ta.value = descText;
-      ta.style.outline = '3px solid #52c41a';
-      ta.style.background = '#f6ffed';
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-      descFilled = true;
-    }
-  });
-
-  const results = [];
-  if (productFilled) results.push('增值产品 ✓');
-  if (serviceFilled) results.push('增值服务 ✓');
-  if (bgFilled) results.push('需求背景说明 ✓');
-  if (descFilled) results.push('需求描述 ✓');
-
-  if (results.length > 0) {
-    showToast('✅ 一键填入完成：' + results.join(' | '), 4000);
-  } else {
-    showToast('⚠️ 未找到目标表单字段，可能 iframe 跨域限制。请直接打开页面查看。', 4000);
+    showToast('演示开始：已在页面自带 AI 侧栏注入多轮对话', 4000);
+  } catch(e) {
+    console.warn('AI 对话注入失败:', e);
+    showToast('⚠️ AI 对话注入失败：' + e.message, 5000);
   }
+}
+
+function createBubble(doc, role, text) {
+  const isUser = role === 'user';
+  const bubble = doc.createElement('div');
+  bubble.className = 'ant-bubble css-ejgvwb ' + (isUser ? 'ant-bubble-end' : 'ant-bubble-start');
+  bubble.setAttribute('role', isUser ? 'user' : 'assistant');
+  bubble.setAttribute('data-demo-bubble', 'nonstandard-special');
+
+  const wrapper = doc.createElement('div');
+  if (!isUser) wrapper.className = 'ant-bubble-content-wrapper';
+
+  const content = doc.createElement('div');
+  content.className = 'ant-bubble-content ant-bubble-content-outlined';
+  content.style.cssText = isUser
+    ? 'background:linear-gradient(270deg,rgb(241,230,255) 0%,rgb(221,224,255) 100%);border-radius:8px 8px 0px;border-color:rgb(240,240,240);padding:8px;min-height:36px;white-space:pre-wrap;line-height:1.6;'
+    : 'border-radius:8px 8px 8px 0px;background:rgb(255,255,255);border-color:rgb(240,240,240);padding:8px;min-height:36px;white-space:pre-wrap;line-height:1.6;';
+
+  if (isUser) {
+    content.textContent = text;
+    bubble.appendChild(content);
+  } else {
+    const article = doc.createElement('article');
+    article.className = 'ant-typography css-16dkce9';
+    const body = doc.createElement('div');
+    body.className = 'acss-13nu37v';
+    body.textContent = text;
+    article.appendChild(body);
+    content.appendChild(article);
+    wrapper.appendChild(content);
+    bubble.appendChild(wrapper);
+  }
+  return bubble;
+}
+
+async function fillForm() {
+  const doc = getIframeDoc();
+  if (!doc) {
+    showToast('⚠️ 无法访问页面 DOM（跨域限制），无法填入表单', 5000);
+    return;
+  }
+
+  try {
+    const results = [];
+    if (selectProduct(doc)) results.push('增值产品 ✓');
+    await delay(400);
+    if (selectService(doc)) results.push('增值服务 ✓');
+    if (fillTextareaByLabel(doc, '需求背景说明', FORM_VALUES.background, 'requirementBackground')) results.push('需求背景说明 ✓');
+    if (fillTextareaByLabel(doc, '需求描述', FORM_VALUES.description, 'requirementDescription')) results.push('需求描述 ✓');
+
+    if (results.length === 4) {
+      showToast('✅ 一键填入完成：' + results.join(' | '), 4000);
+    } else if (results.length > 0) {
+      showToast('⚠️ 部分字段已填入：' + results.join(' | '), 5000);
+    } else {
+      showToast('⚠️ 未找到目标表单字段，请检查底座页面 DOM', 5000);
+    }
+  } catch(e) {
+    console.warn('表单填入失败:', e);
+    showToast('⚠️ 表单填入失败：' + e.message, 5000);
+  }
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function selectProduct(doc) {
+  let filled = selectNativeOption(doc, '增值产品名称', ['库内非标增值', '非标增值']);
+  filled = setSelectLikeDisplay(doc, ['库内非标增值', '非标增值'], FORM_VALUES.product) || filled;
+  filled = selectTableRowByText(doc, ['库内非标增值', '非标增值']) || filled;
+  return filled;
+}
+
+function selectService(doc) {
+  let filled = selectNativeOption(doc, '增值服务', ['库内其他服务需求', '其他服务需求']);
+  filled = setSelectLikeDisplay(doc, ['库内其他服务需求', '其他服务需求'], FORM_VALUES.service) || filled;
+  filled = checkServiceByText(doc, FORM_VALUES.service) || filled;
+  return filled;
+}
+
+function selectNativeOption(doc, labelText, optionNeedles) {
+  const selects = Array.from(doc.querySelectorAll('select'));
+  const labeled = findControlByLabel(doc, labelText, 'select');
+  const candidates = labeled ? [labeled].concat(selects.filter(sel => sel !== labeled)) : selects;
+
+  for (const select of candidates) {
+    const option = Array.from(select.options).find(opt => optionNeedles.some(needle => normalizeText(opt.textContent).includes(needle)));
+    if (option) {
+      select.value = option.value;
+      option.selected = true;
+      select.dispatchEvent(new Event('input', { bubbles: true }));
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      highlight(select);
+      return true;
+    }
+  }
+  return false;
+}
+
+function setSelectLikeDisplay(doc, needles, displayValue) {
+  const items = Array.from(doc.querySelectorAll(
+    '.winitd-select-selection-item, .ant-select-selection-item, .chosen-single span, [class*="select-selection-item"]'
+  ));
+  const matched = items.find(item => needles.some(needle => normalizeText(item.textContent || item.getAttribute('title')).includes(needle)));
+  if (!matched) return false;
+
+  matched.textContent = displayValue;
+  matched.setAttribute('title', displayValue);
+  const container = matched.closest('.winitd-select, .ant-select, .chosen-container, [class*="select"]') || matched;
+  highlight(container);
+  container.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
+function selectTableRowByText(doc, needles) {
+  const rows = Array.from(doc.querySelectorAll('tr'));
+  const row = rows.find(tr => needles.some(needle => normalizeText(tr.textContent).includes(needle)));
+  if (!row) return false;
+
+  const table = row.closest('table');
+  if (table) {
+    table.querySelectorAll('tr').forEach(tr => tr.classList.remove('winitd-table-row-selected'));
+    table.querySelectorAll('.winitd-radio-wrapper-checked, .winitd-radio-checked').forEach(el => {
+      el.classList.remove('winitd-radio-wrapper-checked', 'winitd-radio-checked');
+    });
+    table.querySelectorAll('input[type="radio"]').forEach(input => { input.checked = false; });
+  }
+
+  row.classList.add('winitd-table-row-selected');
+  const radio = row.querySelector('input[type="radio"]');
+  if (radio) {
+    radio.checked = true;
+    radio.dispatchEvent(new Event('input', { bubbles: true }));
+    radio.dispatchEvent(new Event('change', { bubbles: true }));
+    const wrapper = radio.closest('.winitd-radio-wrapper');
+    const radioBox = radio.closest('.winitd-radio');
+    if (wrapper) wrapper.classList.add('winitd-radio-wrapper-checked');
+    if (radioBox) radioBox.classList.add('winitd-radio-checked');
+  }
+  highlight(row);
+  return true;
+}
+
+function checkServiceByText(doc, targetText) {
+  const labels = Array.from(doc.querySelectorAll('label'));
+  const exact = labels.find(label => normalizeText(label.textContent) === targetText);
+  const loose = labels.find(label => normalizeText(label.textContent).includes(targetText));
+  const label = exact || loose;
+  if (!label) return false;
+
+  const checkbox = label.querySelector('input[type="checkbox"]');
+  if (checkbox) {
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('input', { bubbles: true }));
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  label.classList.add('winitd-checkbox-wrapper-checked');
+  const box = label.querySelector('.winitd-checkbox');
+  if (box) box.classList.add('winitd-checkbox-checked');
+  highlight(label);
+  return true;
+}
+
+function fillTextareaByLabel(doc, labelText, value, targetName) {
+  const direct = findControlByLabel(doc, labelText, 'textarea');
+  const byName = doc.querySelector(`textarea[name="${targetName}"], textarea[name*="${targetName}"]`);
+  const byId = Array.from(doc.querySelectorAll('textarea')).find(ta => {
+    const id = normalizeText(ta.id);
+    return id.includes(labelText) || (labelText === '需求背景说明' && id.includes('BEOR')) || (labelText === '需求描述' && id.includes('VAS_ATTR_REL_RD'));
+  });
+  const byNearbyText = Array.from(doc.querySelectorAll('textarea')).find(ta => {
+    const item = ta.closest('.winitd-form-item, .ant-form-item, td, div');
+    return item && normalizeText(item.textContent).includes(labelText);
+  });
+  const textarea = direct || byName || byId || byNearbyText;
+  if (!textarea) return false;
+
+  setNativeValue(textarea, value);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  textarea.dispatchEvent(new Event('change', { bubbles: true }));
+  highlight(textarea);
+  return true;
+}
+
+function findControlByLabel(doc, labelText, selector) {
+  const labels = Array.from(doc.querySelectorAll('label'));
+  const label = labels.find(item => normalizeText(item.textContent).includes(labelText));
+  if (label) {
+    const id = label.getAttribute('for');
+    if (id) {
+      const byFor = doc.getElementById(id);
+      if (byFor && byFor.matches(selector)) return byFor;
+    }
+    const item = label.closest('.winitd-form-item, .ant-form-item, .form-item, td, div');
+    const nearby = item && item.querySelector(selector);
+    if (nearby) return nearby;
+  }
+
+  return Array.from(doc.querySelectorAll(selector)).find(el => {
+    const item = el.closest('.winitd-form-item, .ant-form-item, .form-item, td, div');
+    return item && normalizeText(item.textContent).includes(labelText);
+  }) || null;
+}
+
+function setNativeValue(el, value) {
+  const prototype = Object.getPrototypeOf(el);
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
+  if (descriptor && descriptor.set) {
+    descriptor.set.call(el, value);
+  } else {
+    el.value = value;
+  }
+}
+
+function highlight(el) {
+  el.style.outline = '3px solid #52c41a';
+  el.style.background = '#f6ffed';
+  el.style.transition = 'outline 0.2s ease, background 0.2s ease';
+}
+
+function normalizeText(value) {
+  return (value || '').replace(/\s+/g, '').trim();
 }
 
 function openAuditModal() {
@@ -223,12 +433,11 @@ function closeAuditModal() {
 function resetDemo() {
   const doc = getIframeDoc();
   if (doc) {
-    // 重置高亮
-    doc.querySelectorAll('select, textarea').forEach(el => {
+    doc.querySelectorAll('[data-demo-bubble="nonstandard-special"]').forEach(node => node.remove());
+    doc.querySelectorAll('select, textarea, tr, label, .winitd-select, .ant-select, .chosen-container').forEach(el => {
       el.style.outline = '';
       el.style.background = '';
     });
-    // 清空填入的文本
     doc.querySelectorAll('textarea').forEach(ta => {
       const prevText = ta.parentElement ? ta.parentElement.textContent : '';
       if (prevText.includes('需求背景说明') || prevText.includes('需求描述')) {
