@@ -422,6 +422,8 @@ Tool Call: vas_form_action → 填入表单（增值产品/增值服务/需求�
 |------|------|------|------|
 | record_id | 自增 | 系统 | 唯一标识 |
 | vas_order_no | string | Coze 上下文 | 增值单号（关联到业务单据） |
+| customer_code | string | Coze 上下文 | 客户编码（如 19832717） |
+| exception_no | string | Coze 上下文 | 异常单号（如 EB0626071131206756），库内增值单可能无异常单号则为空 |
 | conversation_id | string | Coze SDK | 对话 ID |
 | ai_sop_v1 | text | AI 首次生成 | 首版 SOP（反映 AI 初始理解力） |
 | ai_background_v1 | text | AI 首次生成 | 首版需求背景说明 |
@@ -454,6 +456,8 @@ Tool Call: vas_form_action → 填入表单（增值产品/增值服务/需求�
   "description": "存储 AI 生成的 SOP 原文到飞书多维表格，用于后续质量评测",
   "parameters": {
     "vas_order_no": { "type": "string", "description": "增值单号" },
+    "customer_code": { "type": "string", "description": "客户编码" },
+    "exception_no": { "type": "string", "description": "异常单号（如无则为空）" },
     "version": { "type": "string", "enum": ["first", "final"], "description": "首版还是终版" },
     "sop_content": { "type": "string", "description": "SOP 内容" },
     "background": { "type": "string", "description": "需求背景说明" },
