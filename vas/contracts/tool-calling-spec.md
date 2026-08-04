@@ -371,3 +371,126 @@ A: 正常。AI 填入只是预填，客户随时可以覆盖。不锁定表单�
 
 **Q: 侧栏关闭后再打开，之前 AI 填的内容还在吗？**
 A: 在。填入的是宿主页面的 DOM，跟侧栏无关。侧栏关闭不影响宿主页面状态。
+
+---
+
+## 11. 数据流与存储方案（隐式反馈 + 质量评测）
+
+### 11.1 完整数据流
+
+```
+客户在侧栏描述需求
+    ↓
+AI 识别意图 → 追问 → 客户补充
+    ↓
+AI 生成 SOP v1（首版）
+    ↓
+    └── 调 Tool: vas_trace_store → 写入飞书多维表格（记录首版 AI 原文）
+    ↓
+客户看 SOP → [确认 SOP] or [我要修改]
+    ↓ 如果"我要修改"
+    ├── 客户补充/纠正 → AI 重新生成 v2
+    ├── 客户再看 → 可能再修改 → AI 生成 v3 ...（循环）
+    ↓ 直到客户点 [确认 SOP]
+AI 终版（客户确认版）
+    ↓
+    └── 调 Tool: vas_trace_store → 写入飞书多维表格（记录终版 + 迭代轮次）
+    ↓
+显示 [一键填入表单] 按钮
+    ↓ 客户点击
+Tool Call: vas_form_action → 填入表单（增值产品/增值服务/需求背景/需求描述）
+    ↓
+客户在表单里可能再微调 → 点提交
+    ↓
+增值单创建（系统存客户最终提交版本）
+    ↓
+状态变待审核 → AI 终版 SOP 回填 TOM "操作SOP"
+    ↓
+审核人员在 TOM 看到预填内容 → 修改/不修改 → 审核通过
+    ↓
+定时任务（周级别）：
+    ├── 从飞书多维表格取：AI 首版 + AI 终版
+    ├── 从 TOM 取：审核最终版本（OpenAPI 接口，待确认）
+    └── 计算 diff → 输出评测指标
+```
+
+### 11.2 存储方案
+
+#### 存储位置：飞书多维表格（零系统开发）
+
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| record_id | 自增 | 系统 | 唯一标识 |
+| vas_order_no | string | Coze 上下文 | 增值单号（关联到业务单据） |
+| conversation_id | string | Coze SDK | 对话 ID |
+| ai_sop_v1 | text | AI 首次生成 | 首版 SOP（反映 AI 初始理解力） |
+| ai_background_v1 | text | AI 首次生成 | 首版需求背景说明 |
+| ai_description_v1 | text | AI 首次生成 | 首版需求描述 |
+| ai_sop_final | text | AI 客户确认版 | 终版 SOP（客户确认后的） |
+| ai_background_final | text | AI 客户确认版 | 终版需求背景说明 |
+| ai_description_final | text | AI 客户确认版 | 终版需求描述 |
+| iteration_count | int | Coze | 迭代轮次（客户说了几次"修改"） |
+| created_at | datetime | Tool 写入时 | 记录时间 |
+| customer_submitted_background | text | 定时拉取 | 客户最终提交的需求背景（可能被客户改过） |
+| customer_submitted_description | text | 定时拉取 | 客户最终提交的需求描述（可能被客户改过） |
+| auditor_final_sop | text | 定时拉取(TOM) | 审核通过的最终 SOP（可能被审核改过） |
+| customer_modify_rate | float | 计算 | diff(ai_final, customer_submitted) |
+| auditor_modify_rate | float | 计算 | diff(ai_final, auditor_final) |
+| audit_result | enum | TOM | 通过/驳回 |
+
+#### 写入时机
+
+| 时机 | 写入什么 | 由谁触发 |
+|------|---------|---------|
+| AI 首次生成 SOP | ai_sop_v1 + ai_background_v1 + ai_description_v1 | Coze Tool: `vas_trace_store` |
+| 客户确认 SOP（点"确认"） | ai_sop_final + ai_background_final + ai_description_final + iteration_count | Coze Tool: `vas_trace_store` |
+| 定时任务（周级别） | customer_submitted_* + auditor_final_sop + modify_rates + audit_result | 脚本/飞书自动化 |
+
+### 11.3 Coze 新增 Tool 定义
+
+```json
+{
+  "name": "vas_trace_store",
+  "description": "存储 AI 生成的 SOP 原文到飞书多维表格，用于后续质量评测",
+  "parameters": {
+    "vas_order_no": { "type": "string", "description": "增值单号" },
+    "version": { "type": "string", "enum": ["first", "final"], "description": "首版还是终版" },
+    "sop_content": { "type": "string", "description": "SOP 内容" },
+    "background": { "type": "string", "description": "需求背景说明" },
+    "description": { "type": "string", "description": "需求描述" },
+    "iteration_count": { "type": "integer", "description": "到当前版本经历了几轮修改" }
+  }
+}
+```
+
+该 Tool 通过 Coze 插件调用飞书多维表格 API 写入数据，不需要后端研发开发。
+
+### 11.4 隐式反馈指标
+
+| 指标 | 计算方式 | 含义 | 用途 |
+|------|---------|------|------|
+| AI 初始准确度 | iteration_count = 1 的比例 | AI 第一次生成就被客户确认的比例 | 衡量 AI 理解力 |
+| 客户修改率 | diff(ai_final, customer_submitted) / len(ai_final) | 客户在 AI 填入后改了多少 | 衡量填入质量 |
+| 审核修改率 | diff(ai_final, auditor_final) / len(ai_final) | 审核人员改了多少 | 衡量 SOP 可执行度 |
+| 审核通过率 | audit_result=通过 / 总数 | AI 生成的单被通过的比例 | 核心成功指标 |
+| 迭代收敛轮次 | avg(iteration_count) | 平均几轮客户才确认 | 衡量追问效率 |
+
+### 11.5 定时任务数据源
+
+| 数据 | 获取方式 | 状态 |
+|------|---------|------|
+| AI 原文（首版+终版） | 飞书多维表格（Coze Tool 已写入） | ✅ 自有 |
+| 客户最终提交版本 | TOM OpenAPI（查增值单详情的需求描述字段） | ⚠️ 待确认接口 |
+| 审核最终 SOP | TOM OpenAPI（查审核信息的操作SOP字段） | ⚠️ 待确认接口 |
+| 审核结果 | TOM OpenAPI（增值单状态） | ⚠️ 待确认接口 |
+
+> 注：TOM 的审核信息 OpenAPI 接口是否可用待确认。如暂时不可用，先只做"客户修改率"（AI 原文 vs 客户提交版本都在前端侧可得），审核侧数据后续补充。
+
+### 11.6 实施优先级
+
+| 阶段 | 做什么 | 需要谁 |
+|------|--------|--------|
+| 一期 Week 1 | 建飞书多维表格 + 配 Coze Tool `vas_trace_store` | AI 产品团队 |
+| 一期 Week 2 | Coze workflow 加写入节点（首版+终版） | AI 产品团队 |
+| 一期 Week 3 | 确认 TOM OpenAPI 可用性 + 写定时拉取脚本 | AI 产品 + 后端协调 |
+| 一期 Week 4 | 跑通全链路 diff + 产出第一份周报 | AI 产品团队 |
