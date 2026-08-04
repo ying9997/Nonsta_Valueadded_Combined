@@ -5,8 +5,8 @@
 - 仓库：https://github.com/ying9997/Vas-Nonstandard-Guide
 - 分支：main
 - 产出文件：
-  - `prototypes/demo-content/库内良品转不良品_演示对话.md`（特批 SOP 生成分支 demo）
-  - `prototypes/demo-content/免审直选_货权转移_演示对话.md`（免审推荐直选分支 demo）
+  - `prototypes/demo-content/库内良品转不良品-演示对话.md`（特批 SOP 生成分支 demo）
+  - `prototypes/demo-content/免审直选-货权转移-演示对话.md`（免审推荐直选分支 demo）
 
 ## §1 任务
 
