@@ -13,6 +13,7 @@
 | [computer-science-foundation/](computer-science-foundation/) | 用项目学 CS 基础（数据结构、网络等） |
 | [experiment/](experiment/) | 个人服务器验证实验 |
 | [working-habits/](working-habits/) | 工作习惯与交付节奏 |
+| [rag-learning-plan.md](rag-learning-plan.md) | RAG 学习计划 — 对比当前 Context Stuffing 方案，分阶段学习检索增强生成 |
 
 ## 学习进度
 
