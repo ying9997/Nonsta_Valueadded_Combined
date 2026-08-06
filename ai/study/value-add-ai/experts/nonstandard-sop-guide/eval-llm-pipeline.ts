@@ -15,36 +15,40 @@ import { main as formatOutput } from "./nodes/format-output.js";
 
 // ─── LLM 调用 ─────────────────────────────────────────────────
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
-const MODEL = "claude-sonnet-4-20250514";
+const LLM_API_KEY = process.env.LLM_API_KEY || process.env.ANTHROPIC_API_KEY || "sk-q0LVutj4XYS36GJV_6rLrg";
+const LLM_BASE_URL = process.env.LLM_BASE_URL || "https://uslitellm.winit.com";
+const MODEL = process.env.LLM_MODEL || "claude-sonnet-4-5";
 
-async function callClaude(systemPrompt: string, userMessage: string): Promise<string> {
-  if (!ANTHROPIC_API_KEY) {
+async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
+  if (!LLM_API_KEY) {
     return `[MOCK] 无 API Key，模拟生成 SOP。\n\n【需求背景】\n${userMessage.slice(0, 100)}...\n\n【操作要求】\n1. 按客户描述操作\n2. 完成后系统确认\n\n【注意事项】\n- 请确认信息无误后操作`;
   }
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  // LiteLLM 使用 OpenAI 兼容格式
+  const url = `${LLM_BASE_URL}/v1/chat/completions`;
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
+      "Authorization": `Bearer ${LLM_API_KEY}`,
     },
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
     }),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`Claude API error ${response.status}: ${err.slice(0, 200)}`);
+    throw new Error(`LLM API error ${response.status}: ${err.slice(0, 300)}`);
   }
 
   const data = await response.json() as any;
-  return data.content?.[0]?.text || "";
+  return data.choices?.[0]?.message?.content || "";
 }
 
 // ─── SOP 生成 Prompt 构建 ──────────────────────────────────────
@@ -110,7 +114,8 @@ async function main() {
   console.log("  第一批场景完整 LLM 链路评测");
   console.log("  目标场景: #2 拆分SKU, #3 商品组合, #4 拍照/视频");
   console.log("=".repeat(60));
-  console.log(`  API Key: ${ANTHROPIC_API_KEY ? "已配置" : "未配置（使用 MOCK）"}\n`);
+  console.log(`  LLM: ${LLM_BASE_URL} | Model: ${MODEL}`);
+  console.log(`  API Key: ${LLM_API_KEY ? "已配置" : "未配置（使用 MOCK）"}\n`);
 
   // Step 1: 筛选目标场景的中高置信命中
   const candidates: { input: Input; scenarioId: number; scenarioName: string; confidence: string }[] = [];
@@ -179,7 +184,7 @@ async function main() {
       const templateFields = SCENARIO_TEMPLATES[scenarioId] || "";
       const systemPrompt = buildSopPrompt(scenarioName, templateFields);
       const userMsg = buildUserMessage(input.customerFirstIntent, {}, "");
-      const llmResponse = await callClaude(systemPrompt, userMsg);
+      const llmResponse = await callLLM(systemPrompt, userMsg);
 
       try {
         sopGenerationResult = JSON.parse(llmResponse);
@@ -196,7 +201,7 @@ async function main() {
         {},
         ""
       ) + "\n\n注意：以下字段尚未获取，请基于已有信息尽可能生成 SOP 初稿，缺失部分标注为 [待补充]。";
-      const llmResponse = await callClaude(systemPrompt, userMsg);
+      const llmResponse = await callLLM(systemPrompt, userMsg);
 
       try {
         sopGenerationResult = JSON.parse(llmResponse);
@@ -240,7 +245,7 @@ async function main() {
   lines.push("# 第一批场景 LLM 完整链路评测报告");
   lines.push("");
   lines.push(`> 日期：${new Date().toISOString().slice(0, 10)}`);
-  lines.push(`> 模型：${ANTHROPIC_API_KEY ? MODEL : "MOCK（无API Key）"}`);
+  lines.push(`> 模型：${LLM_API_KEY ? MODEL : "MOCK（无API Key）"}`);
   lines.push(`> 评测条数：${results.length}`);
   lines.push("");
 
