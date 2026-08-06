@@ -1,0 +1,60 @@
+{
+  "id": "nonstandard-sop-guide",
+  "domain": "value-add",
+  "name": "非标增值 SOP 引导",
+  "description": "当上游推荐了非标增值产品且服务项为兜底原子（入库其他服务需求），为客户匹配历史 SOP 模板、追问缺失字段、生成规范 SOP 摘要并引导确认。Use when 上游 product-recommendation 推荐了非标 VASC 且落到其他服务需求兜底原子，客户需要填写需求描述但不知道怎么写。",
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "customerIntent": {
+        "type": "string",
+        "description": "客户意图描述（自然语言）"
+      },
+      "exceptionCode": {
+        "type": "string",
+        "description": "异常编码"
+      },
+      "exceptionName": {
+        "type": "string",
+        "description": "异常名称"
+      },
+      "recommendedVasc": {
+        "type": "object",
+        "description": "上游推荐的 VASC 信息（含 vascCode/vascName）"
+      },
+      "serviceAtom": {
+        "type": "string",
+        "description": "服务项原子名称（用于判断是否兜底原子）"
+      },
+      "providedFields": {
+        "type": "object",
+        "description": "客户已提供的字段信息"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "编排器聚合上下文"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化 SOP 引导结果"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客可读 SOP 摘要或追问文本"
+      }
+    }
+  },
+  "x_recaller_propagate_previous_enriched_context": true,
+  "x_recaller_enriched_context_preferred_source_experts": [
+    "value-add-product-recommendation",
+    "value-add-product-recommendation-v2",
+    "value-add-exception-diagnosis"
+  ]
+}

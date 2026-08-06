@@ -1,0 +1,149 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "inputs",
+        "exceptionCode",
+        "exceptionName",
+        "recommendedVasc",
+        "serviceAtom",
+        "providedFields",
+        "enrichedContext"
+      ],
+      "outputs": [
+        "sopInput",
+        "validationResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "sopInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "match-template",
+      "file": "nodes/match-template.ts",
+      "inputs": [
+        "sopInput",
+        "validationResult",
+        "kbTemplateIndex"
+      ],
+      "outputs": [
+        "matchResult",
+        "sopInput"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "matchResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "sopInput": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "check-completeness",
+      "file": "nodes/check-completeness.ts",
+      "inputs": [
+        "sopInput",
+        "matchResult",
+        "kbFieldRequirements"
+      ],
+      "outputs": [
+        "completenessResult",
+        "sopInput",
+        "matchResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "completenessResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "sopInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "matchResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-generate-sop",
+      "type": "llm",
+      "promptFile": "prompts/main.md",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "sopInput",
+        "matchResult",
+        "completenessResult",
+        "kbSopTemplates"
+      ],
+      "outputs": [
+        "sopGenerationResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "sopInput",
+        "matchResult",
+        "completenessResult",
+        "sopGenerationResult",
+        "validationResult"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "sopInput": { "type": "object" },
+          "matchResult": { "type": "object" },
+          "completenessResult": { "type": "object" },
+          "sopGenerationResult": { "type": "object" },
+          "validationResult": { "type": "object" }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}
