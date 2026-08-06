@@ -54,20 +54,31 @@ async function callLLM(systemPrompt: string, userMessage: string): Promise<strin
 // ─── SOP 生成 Prompt 构建 ──────────────────────────────────────
 
 function buildSopPrompt(scenarioName: string, templateFields: string): string {
-  return `你是万邑通仓储增值服务 SOP 撰写专家。根据客户需求和匹配到的场景，生成规范的 SOP 摘要文本。
+  return `你是万邑通仓储非标增值 SOP 撰写专家。根据客户需求生成仓库操作指引。
+
+## 核心视角
+SOP 会先展示给客户确认（"这是仓库将要为您执行的操作，请确认"），确认后仓库按此执行。
+- 用仓库执行者视角写步骤（"找到包裹""补贴标签""扫描上架"）
+- 客户也能看懂（不用仓库内部缩写）
+- 不写客户侧操作（注册SKU、创建入库单、开通权限等前置条件）
+
+## 意图判断
+先判断客户意图是否为"需要仓库执行物理操作"：
+- ✅ 可生成：拆分、组合、贴标换标、拍照、称重、上架、调拨
+- ❌ 不可生成：咨询费用、查询进度、查视频、询问流程、申请权限
+如果不可生成，输出：{"sopText":"","scenarioName":"","fieldsUsed":[],"notActionable":true,"reason":"客户在咨询/查询，非增值操作需求"}
 
 ## 场景：${scenarioName}
 ## 模板字段参考：${templateFields}
 
 ## 生成要求
-1. 格式包含：【需求背景】、【操作要求】（按步骤列出）、【注意事项】
-2. 使用仓储业务专业术语，简洁明确
-3. 明确引用客户提供的具体信息（SKU、单号、数量等）
-4. 控制在 200-400 字
+1. 格式：【需求背景】一句话 + 【操作要求】3-6步仓库物理操作 + 【注意事项】1-3条（没有则省略）
+2. 内容边界：只写仓库物理操作，不写客户前置操作/系统配置/费用说明
+3. 风格：祈使句动词开头，引用客户具体值，缺失标 [待补充]
+4. 长度：严格 150-300 字
 
-## 输出格式
-直接输出 JSON：
-{"sopText": "生成的SOP全文", "scenarioName": "${scenarioName}", "fieldsUsed": ["字段1", "字段2"]}`;
+## 输出 JSON：
+{"sopText": "SOP全文", "scenarioName": "${scenarioName}", "fieldsUsed": ["字段1","字段2"]}`;
 }
 
 function buildUserMessage(customerIntent: string, providedFields: Record<string, string>, exceptionCode: string): string {
