@@ -1,0 +1,114 @@
+[
+  {
+    "name": "拍照-字段齐全",
+    "description": "B类场景#4，字段全部提供，预期生成SOP",
+    "expectedOutputPath": "sop_generated",
+    "params": {
+      "query": "帮我拍一下入库商品的照片",
+      "customerIntent": "帮我拍一下入库商品的照片，用来做亚马逊索赔",
+      "inputs": {
+        "customerIntent": "帮我拍一下入库商品的照片，用来做亚马逊索赔",
+        "recommendedVasc": {"vascCode": "OSF6V1603", "vascName": "库内其他服务需求"},
+        "serviceAtom": "库内其他服务需求",
+        "providedFields": {
+          "拍照范围": "SKU M010000000005946284 共10件",
+          "照片用途": "亚马逊FBA索赔",
+          "拍摄位置/角度": "正面、侧面、标签特写",
+          "数量要求": "每件3张"
+        },
+        "enrichedContext": {}
+      },
+      "customerCode": "TEST001",
+      "customerName": "灰度测试客户",
+      "username": "gray-test",
+      "language": "zh_CN"
+    }
+  },
+  {
+    "name": "拆分SKU-字段不全",
+    "description": "B类场景#2，缺少关键字段，预期追问",
+    "expectedOutputPath": "needs_clarification",
+    "params": {
+      "query": "我要把一个SKU拆分成两个",
+      "customerIntent": "我要把SKU海USB336X10拆分成两个不同的SKU",
+      "inputs": {
+        "customerIntent": "我要把SKU海USB336X10拆分成两个不同的SKU",
+        "recommendedVasc": {"vascCode": "OSF6V1603", "vascName": "库内其他服务需求"},
+        "serviceAtom": "库内其他服务需求",
+        "providedFields": {
+          "原SKU": "海USB336X10"
+        },
+        "enrichedContext": {}
+      },
+      "customerCode": "TEST001",
+      "customerName": "灰度测试客户",
+      "username": "gray-test",
+      "language": "zh_CN"
+    }
+  },
+  {
+    "name": "商品组合-字段齐全",
+    "description": "B类场景#3，字段全部提供，预期生成SOP",
+    "expectedOutputPath": "sop_generated",
+    "params": {
+      "query": "需要把两个产品组合成一个",
+      "customerIntent": "GT300A主机和GT300A配件箱需要组合成一个库存",
+      "inputs": {
+        "customerIntent": "GT300A主机和GT300A配件箱需要组合成一个库存",
+        "recommendedVasc": {"vascCode": "OSF6V1603", "vascName": "库内其他服务需求"},
+        "serviceAtom": "库内其他服务需求",
+        "providedFields": {
+          "主产品": "GT300A主机 (SKU: GT300A-MAIN)",
+          "配件": "GT300A配件箱 (SKU: GT300A-ACC)",
+          "组合方式": "配件箱放入主机箱内，用大纸箱统一包装",
+          "新入库单": "WI51234567"
+        },
+        "enrichedContext": {}
+      },
+      "customerCode": "TEST001",
+      "customerName": "灰度测试客户",
+      "username": "gray-test",
+      "language": "zh_CN"
+    }
+  },
+  {
+    "name": "加固包装-C类转人工",
+    "description": "C类场景#33，无模板，预期转人工",
+    "expectedOutputPath": "transfer_human",
+    "params": {
+      "query": "帮我加固一下包装",
+      "customerIntent": "商品外包装破损比较严重，需要加固包装后再上架",
+      "inputs": {
+        "customerIntent": "商品外包装破损比较严重，需要加固包装后再上架",
+        "recommendedVasc": {"vascCode": "OSF6V1603", "vascName": "库内其他服务需求"},
+        "serviceAtom": "库内其他服务需求",
+        "providedFields": {},
+        "enrichedContext": {}
+      },
+      "customerCode": "TEST001",
+      "customerName": "灰度测试客户",
+      "username": "gray-test",
+      "language": "zh_CN"
+    }
+  },
+  {
+    "name": "A类命名服务-拦截",
+    "description": "货权转移是A类，应被拦截返回invalid_input",
+    "expectedOutputPath": "invalid_input",
+    "params": {
+      "query": "我要做货权转移",
+      "customerIntent": "需要做货权转移换标",
+      "inputs": {
+        "customerIntent": "需要做货权转移换标",
+        "recommendedVasc": {"vascCode": "OSF6V1646", "vascName": "货权转移（换标模式）"},
+        "serviceAtom": "货权转移（换标模式）",
+        "providedFields": {},
+        "enrichedContext": {}
+      },
+      "customerCode": "TEST001",
+      "customerName": "灰度测试客户",
+      "username": "gray-test",
+      "language": "zh_CN"
+    }
+  }
+]
