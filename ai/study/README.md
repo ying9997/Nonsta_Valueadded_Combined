@@ -14,6 +14,7 @@
 | [experiment/](experiment/) | 个人服务器验证实验 |
 | [working-habits/](working-habits/) | 工作习惯与交付节奏 |
 | [rag-learning-plan.md](rag-learning-plan.md) | RAG 学习计划 — 对比当前 Context Stuffing 方案，分阶段学习检索增强生成 |
+| [expert-testing-workflow.md](expert-testing-workflow.md) | Expert 测试全流程 — 8 层测试体系，从静态校验到线上 trace 追溯 |
 
 ## 学习进度
 
