@@ -19,9 +19,19 @@
 ## 同步入口
 
 - 收件箱：`_inbox/current-session-sync.md`
+- 多端当前进度：`runtime/progress_state.json`
+- 多端事件流：`runtime/events.jsonl`
 - 当前状态：`02-current-status.md`
 - 延迟问题：`retros/deferred-questions.md`
 - 思维纠偏：`retros/thinking-correction-log.md`
+
+## 多台 Codex 同步
+
+多端继续训练时，以 `runtime/progress_state.json` 为唯一当前进度源。
+
+- 另一台机器启动 Codex 时，使用 `prompts/codex-session-bootstrap.md`。
+- 操作规则见 `docs/multi-codex-sync-guide.md`。
+- 同一时间只允许一个 Codex 推进训练；需要占用时写入 `runtime/lock.json`。
 
 ## 参考源
 
