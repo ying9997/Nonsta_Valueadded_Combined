@@ -33,6 +33,12 @@
 - 操作规则见 `docs/multi-codex-sync-guide.md`。
 - 同一时间只允许一个 Codex 推进训练；需要占用时写入 `runtime/lock.json`。
 
+## 当前进度
+
+- 已归档：AI 项目 10 问 Q1-Q6。
+- 下一步：等待教练会话继续 Q7-Q8。
+- 迁移阶段：未开始。
+
 ## 参考源
 
 - baseline expert：`../agentic/experts/experts/inbound/inbound-appointment-manage/`

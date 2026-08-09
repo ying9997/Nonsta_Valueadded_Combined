@@ -1,5 +1,34 @@
 # 当前状态
 
+## 2026-08-10 同步整理
+
+### 已读取归档包
+
+- `ARCHIVE_PACKET 2026-08-09 initial`
+- `ARCHIVE_PACKET 2026-08-09 step2-q1-q2`
+- `ARCHIVE_PACKET 2026-08-09 step2-q3-q4`
+- `ARCHIVE_PACKET 2026-08-09 coaching-format-rule`
+- `ARCHIVE_PACKET 2026-08-09 step2-q5-q6`
+
+### 已整理到正式文件
+
+- 协作机制：`README.md`、`00-training-plan.md`
+- AI 项目 10 问 Q1-Q6：`baseline/inbound-appointment-manage/ai-10-questions.md`
+- 分层模型初稿：`baseline/inbound-appointment-manage/layered-model.md`
+- 主链路 / 支线 / 后置能力初稿：`baseline/inbound-appointment-manage/mainline-vs-branches.md`
+- 问题地图：`03-question-map.md`
+- 思维纠偏：`retros/thinking-correction-log.md`
+- 后置问题：`retros/deferred-questions.md`
+- 教练提问格式：`templates/question-prompt-block-template.md`
+
+### 当前进度
+
+- 步骤 2：AI 项目 10 问已完成并归档 Q1-Q6。
+- 下一步：等待教练会话继续 Q7-Q8。
+- 迁移阶段：仍未开始。
+
+来源：`current-session-sync.md` / `ARCHIVE_PACKET 2026-08-09 initial`、`step2-q1-q2`、`step2-q3-q4`、`coaching-format-rule`、`step2-q5-q6`
+
 ## 2026-08-09 初始化并复制到仓库
 
 ### 同步检查

@@ -52,3 +52,9 @@
 - 不删除 `_inbox` 原文。
 - 每条正式归档保留来源和归档包时间。
 - 对缺口做标注，不凭空补全。
+
+## 教练问题提示规则
+
+后续训练问题不能只给抽象题目，需要同时给出阅读定位、回答边界和防发散提醒。标准格式见：`templates/question-prompt-block-template.md`。
+
+来源：`current-session-sync.md` / `ARCHIVE_PACKET 2026-08-09 coaching-format-rule`
