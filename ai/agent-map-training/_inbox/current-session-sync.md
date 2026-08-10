@@ -877,6 +877,130 @@
 - 步骤4仍为完成状态。
 - 等待进入步骤5：概念四步法与后置问题清理。
 
+## ARCHIVE_PACKET 2026-08-10 17:24-step5-5.1-5.3
+
+### 阶段
+
+步骤5：概念四步法与后置问题清理 / 5.1-5.3。
+
+### 本轮有效产出
+
+#### 5.1 这次 baseline 拆解沉淀出的“概念四步法”是什么？
+
+四步法是：**业务边界 -> 事实链路 -> 决策链路 -> 输出契约**。
+
+1. 业务边界：先回答这个 expert 到底处理什么、不处理什么、什么时候转介。
+   - 对 `inbound-appointment-manage` 来说，它处理预约送仓 SOP、预约状态查询、违规费说明、POD 下载指引。
+   - 它不代客创建 / 修改 / 取消预约，不查实时 slot，不下载 PDF，不处理入库总状态 / 签收轨迹 / VASC 服务项。
+   - 业务边界不是一句描述，而是“可处理范围 + 禁止动作 + 转介范围”。
+2. 事实链路：再回答系统靠哪些输入和 API / KB 得到事实。
+   - 用户输入：intent、query、单号、bookingNo、仓库、送仓方式 hint。
+   - API 事实：`booking.list`、`getOrderDetail` 表头兜底。
+   - KB 事实：booking SOP、预约规则、违规费规则、分批到仓规则、POD 下载指引、API reference。
+   - 事实链路要区分“运行时真的调用”和“文档里有规格但不调用”。
+3. 决策链路：然后回答系统如何选择路径。
+   - `validate-intent` 判断 intent 和必填查询键。
+   - `route-intent` 判断 `kb_only` / `api_chain` / `invalid`，并设置 `skipApi` / `skipOrderDetail`。
+   - `scope-guard` 用 PSC / `winitProductCode` 做业务范围二次判断，必要时转 `inbound/inbound-process-guide`。
+   - `summarize-booking-records` 用 `dataQuality` 和 `requiresManualAction` 表达缺失 / 兜底。
+4. 输出契约：最后回答结果给谁消费、以什么结构继续流转。
+   - `analysis` 给人读。
+   - `structured` 给系统读。
+   - `outputContext` 给外层链式编排 / handoff 用。
+   - `enrichedContext` 给追溯、复用和下一跳上下文传播用。
+
+这个四步法的价值：它逼我们先从业务闭环看，再看事实来源，再看路由判断，最后看输出消费；避免一上来陷进节点细节。
+
+#### 5.2 四步法如何落到文件 / 节点上？
+
+四步法不是抽象口号，必须能映射到具体文件和节点。
+
+- 业务边界主要看：
+  - `manifest.json`：expert 描述、输入 schema、候选 intent。
+  - `design.md`：定位、覆盖范围、不覆盖范围、禁止项、转人工条件。
+  - `prompts/main.md`：对客口径和禁止承诺。
+- 事实链路主要看：
+  - `workflow.json`：哪些节点真的在链路里。
+  - `nodes/build-booking-list-request.ts` / `fetch-booking-list.ts`：预约列表 API 链。
+  - `nodes/build-winit-inbound-detail.ts` / `fetch-inbound-order.ts`：入库单表头兜底链。
+  - `nodes/load-booking-kb.ts` 和 `prompts/kb/*.md`：KB 选择和知识依据。
+  - `design.md` 的“不调用”表：识别有规格但不参与运行时的接口。
+- 决策链路主要看：
+  - `nodes/validate-intent.ts`：intent 识别、别名归一、查询键校验。
+  - `nodes/route-intent.ts`：`kb_only` / `api_chain` / `invalid`，以及 `skipApi` / `skipOrderDetail`。
+  - `nodes/scope-guard.ts`：PSC 业务边界二次路由。
+  - `nodes/summarize-booking-records.ts`：API 记录、表头兜底、`dataQuality`、`requiresManualAction`。
+- 输出契约主要看：
+  - `nodes/format-output.ts`：`structured` / `analysis` / `outputContext` / `enrichedContext` 的最终合成。
+  - `workflow.json` 的 node outputs：确认输出字段是否是正式契约。
+  - `experts_recaller/nodes/call-expert.ts` / `post-expert-output.ts` / `build-expert-invoke-baseline.ts`：确认外层如何消费 `outputContext` / `enrichedContext`。
+
+落地顺序建议：
+
+1. 先读 `manifest.json` 和 `design.md`，不要先读 node。
+2. 再读 `workflow.json`，画出运行时链路。
+3. 再读关键 nodes，确认分支条件和字段。
+4. 最后读外层 orchestrator / recaller，确认输出是否被下一跳消费。
+
+#### 5.3 如何处理“分析范围边界”：单 expert、外层编排、学习闭环分别怎么看？
+
+分析范围必须显式声明，否则容易把三类东西混在一起。
+
+第一层：单 expert 内部。
+
+- 只看 `agentic/experts/experts/inbound/inbound-appointment-manage/` 时，可以确认：
+  - 它如何识别 intent。
+  - 它如何选择 KB / API。
+  - 它调用哪些 API，跳过哪些 API。
+  - 它如何输出 `structured` / `analysis` / `outputContext` / `enrichedContext`。
+- 但单 expert 内部不能回答：
+  - 外层 planner 如何消费 `outputContext`。
+  - 下一跳 expert 是否接收 `enrichedContext`。
+  - session handoff 如何组织。
+
+第二层：外层编排 / recaller。
+
+- 扩大到 `agentic/experts/experts_recaller/` 后，可以确认：
+  - `call-expert.ts` 解析子 expert 输出。
+  - `post-expert-output.ts` 把结果写入 `sessionHandoff.steps[]` 并更新 `chainContext`。
+  - `resolve-next-queue-job.ts` 透传 `sessionHandoff`，暴露上一跳结果。
+  - `build-expert-invoke-baseline.ts` 把上一跳结果变成下一跳 `inputContext.previousOutput`，并在 manifest 开关允许时传播 `inputs.enrichedContext`。
+- 所以 `outputContext` / `enrichedContext` 的消费不是完全未知，而是要看外层目录才能确认。
+
+第三层：学习型数据回流。
+
+- 运行时上下文回传不等于学习型数据回流。
+- 当前能确认的是：链路内上下文可以回传、复用、handoff。
+- 当前没有明确证据的是：客户反馈、人工处理结果、失败样本自动写回 KB / prompt / eval。
+- 因此正确说法是：
+  - 有运行时上下文回流。
+  - 没看到持续优化知识库 / prompt / 评测集的数据闭环。
+
+判断规则：
+
+- 如果问题问“这个 expert 自己做了什么”，范围限定在 expert 目录。
+- 如果问题问“输出给谁消费 / 下一跳怎么用”，必须扩到外层 orchestrator / recaller。
+- 如果问题问“系统会不会越用越好”，必须找反馈采集、标注、badcase 管理、KB/prompt/eval 更新机制；不能用 session handoff 代替。
+
+### 思维纠偏
+
+- 四步法不是“先画流程图”，而是先定业务边界，再找事实来源，再拆决策，再看输出契约。
+- 文件阅读顺序要从 `manifest/design/workflow` 到 nodes，再到外层 recaller；不要反过来从某个 node 推全局。
+- 以后说“不存在”或“无法确定”必须带范围：单 expert 范围、外层编排范围、学习闭环范围。
+
+### 后置问题
+
+- 5.4 需要清理本阶段剩余后置问题：哪些需要带入迁移，哪些已经解决。
+- 5.5 需要把 baseline 拆解方法迁移成非标增值 SOP expert 的检查清单。
+- 5.6 需要定义进入阶段2前的验收标准。
+
+### 下一步
+
+- 继续步骤5 5.4-5.6：
+  - 5.4 后置问题清单如何收口？
+  - 5.5 迁移到非标增值 SOP expert 时优先检查什么？
+  - 5.6 进入阶段2前的验收标准是什么？
+
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
 
 ### 阶段
