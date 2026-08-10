@@ -614,6 +614,57 @@
 
 - 进入步骤4：主链路、支线与节点点亮。
 
+## ARCHIVE_PACKET 2026-08-10 15:44
+
+### 阶段
+
+步骤4：主链路、支线与节点点亮 / 4.1-4.3。
+
+### 本轮有效产出
+
+#### 4.1 这个 expert 的主链路是什么？
+
+- 主链路是用户提出预约送仓相关问题后，expert 先识别 intent，再判断走纯 KB 还是 API + KB，随后加载对应知识 / 事实，最后由 LLM 生成分析并由 `format-output` 输出契约。
+- 抽象主链路：`inputs -> validate-intent -> route-intent -> load-booking-kb / api_chain facts -> summarize / scope-guard -> llm-analyze -> format-output`。
+- 更准确地说，这个 expert 没有唯一业务 happy path，而是有两个主干：纯 KB 指引主干和 API + KB 解读主干；二者在 `llm-analyze -> format-output` 汇合。
+
+#### 4.2 主要支线有哪些？
+
+- 纯 KB 指引支线：`create_guide`、`modify_guide`、`cancel_guide`、`split_shipment`、无单号 `pod_guide`，点亮 `kb_only`，跳过 API，加载对应 KB 后输出 SOP / 规则 / 操作步骤。
+- API + KB 解读支线：`query`、`penalty`、有单号 `pod_guide`，点亮 `api_chain`，查询 `booking.list`，必要时查 `getOrderDetail`，再结合 KB 解读状态、违规费或 POD 条件。
+- invalid / 缺参支线：`query` / `penalty` 缺少 `inboundOrderNos` / `inboundOrderNo` / `bookingNo` 时，`validate-intent` 返回 `validationOk=false`，`route-intent` 输出 `routePath=invalid`，后续不查 API。
+- 业务出域 / 转介支线：API 链查到订单后，由 `scope-guard` 判断 PSC 是否属于直发预约链路；标准头程或非直发预约链路转 `inbound/inbound-process-guide`。
+- 兜底 / 人工支线：`booking.list` 失败或为空时，`summarize-booking-records` 尝试用 `getOrderDetail` 表头兜底；仍无预约数据时 `requiresManualAction=true`。
+
+#### 4.3 节点点亮总表是什么？
+
+| 场景 | 会点亮的关键节点 | 不点亮 / 跳过 | 结果 |
+| --- | --- | --- | --- |
+| 纯 KB 指引 | `validate-intent`、`route-intent`、`load-booking-kb`、`llm-analyze`、`format-output` | `fetch-booking-list` 实质跳过，`fetch-inbound-order` 实质跳过 | 输出 SOP / 规则 / 操作步骤 |
+| API + KB 解读 | `validate-intent`、`route-intent`、`resolve-inbound-lookup`、`build-winit-inbound-detail`、`fetch-inbound-order`、`build-booking-list-request`、`fetch-booking-list`、`summarize-booking-records`、`scope-guard`、`load-booking-kb`、`llm-analyze`、`format-output` | 无；但具体 action 可因无单号或 skip 标志为空 | 输出预约状态 / 违规费 / POD 条件解读 |
+| invalid / 缺参 | `validate-intent`、`route-intent`、`load-booking-kb`、`llm-analyze`、`format-output` | API 和订单详情链跳过 | 输出补充信息或通用指引，不能编造事实 |
+| 业务出域 | API 事实链 + `scope-guard` + `format-output` | 不强行给预约步骤 | 输出转介信号 `scopeAction` / `referExpertId` |
+| API 无结果兜底 | API 事实链 + `summarize-booking-records` + `format-output` | 若兜底也无结果，则没有可靠预约事实 | `dataQuality=missing`，`requiresManualAction=true` |
+
+### 思维纠偏
+
+- 主链路不是单一线性 happy path；该 expert 至少有“纯 KB 指引”和“API + KB 解读”两个主干。
+- 支线不是只按 intent 分，还要按 `routePath`、缺参、业务出域、API 无结果兜底来分。
+- 节点点亮要区分“workflow 上存在节点”和“本场景中该节点是否实际执行有效动作”；例如 `skipApi=true` 时 fetch 节点可能仍在图上，但业务上是跳过。
+
+### 后置问题
+
+- 4.4 需要继续展开 API 链路如何点亮。
+- 4.5 需要继续展开 KB 链路如何点亮。
+- 4.6 需要继续展开业务出域 / 转介链路如何点亮。
+
+### 下一步
+
+- 继续步骤4 4.4-4.6：
+  - 4.4 API 链路如何点亮？
+  - 4.5 KB 链路如何点亮？
+  - 4.6 业务出域 / 转介链路如何点亮？
+
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
 
 ### 阶段
