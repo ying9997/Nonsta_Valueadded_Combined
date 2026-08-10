@@ -321,3 +321,65 @@
 - 继续步骤2 Q7-Q8：
   - Q7：Agent 依据哪些规则、知识或历史案例？
   - Q8：Agent 输出给谁消费？
+
+## ARCHIVE_PACKET 2026-08-10 11:11
+
+### 阶段
+
+步骤2：AI 项目 10 问 / Q7-Q8。
+
+### 本轮有效产出
+
+#### Q7 Agent 依据哪些规则、知识或历史案例？
+
+用户通过评审后的答案要点：
+
+- Agent 的依据主要分为业务规则 / SOP、KB / Prompt 知识片段、API 参考和边界约束三类。
+- 业务规则 / SOP 包括多单合并、LCL/FCL/Express 预约规则、卸货方式、仓库当地时间、FCL 必填字段、取消时限、分批到仓确认、POD 下载条件等。
+- KB / Prompt 知识片段按不同 intent 加载：
+  - `create_guide` 加载 `booking-sop`。
+  - `query` 加载 `booking-api-reference` 状态码 + `booking-rules` + SOP 摘要。
+  - `penalty` 加载 `penalty-rules`。
+  - `pod_guide` 加载 `pod-download-guide`。
+- API 参考包括 `booking.list` 的预约记录、状态码、违规费字段；必要时用 `getOrderDetail` 兜底。
+- 边界约束包括不调用 `create` / `cancel` / `exportPodPdf`、不查实时 slot、不承诺减免。
+
+设计依据：
+
+- `design.md` 的数据拉取与兜底。
+- 核心业务规则。
+- 路由与 KB 拼接。
+- Prompt 知识片段。
+- KB 溯源表。
+
+#### Q8 Agent 输出给谁消费？
+
+用户通过评审后的答案要点：
+
+- 第一消费方是客户 / 卖家运营：消费操作指引、状态解读、费用说明、POD 下载指引，并据此自行到万邑联平台操作。
+- 第二消费方是 planner / 上层编排：消费 `scopeAction`、`referExpertId`、`requiresManualAction`、`outputContext.nextExpertId` 等结构化信号，决定是否转其他 expert 或人工。
+- 第三消费方是客服 / 人工运营：在转人工、费用争议、异常拆单等场景消费上下文。
+
+设计依据：
+
+- `design.md` 的输出设计。
+- `analysis` 原则。
+- 对客约束。
+- 专家转介。
+
+### 思维纠偏
+
+- Q7 中 `routePath` 是选择依据的机制，不是依据本身；应把业务规则、KB、API 参考、边界约束作为主体。
+- Q8 的第一消费方应先看最终用户，而不是先看 planner；planner 消费的是结构化转介和编排信号。
+- `booking-api-reference` 中的状态码先理解为预约单状态码 / 状态解释，不必在当前阶段展开完整状态机。
+
+### 后置问题
+
+- `WBO` / `SBO` / `RBO` 等预约状态码的完整枚举和业务含义后置到文件角色映射或概念四步法阶段。
+- `outputContext.nextExpertId` 与 planner / agent loop 的具体衔接机制后置到编排层讨论。
+
+### 下一步
+
+- 继续步骤2 Q9-Q10：
+  - Q9：怎么判断 Agent 做得好不好？
+  - Q10：这个 Agent 在全局链路中的位置是什么？
