@@ -575,6 +575,45 @@
   - 3.8 人工确认 / 兜底层在哪里？
   - 3.9 评测验收层有什么依据？
 
+## ARCHIVE_PACKET 2026-08-10 15:40
+
+### 阶段
+
+步骤3：系统分层建模 / 3.7、3.9、3.10 修订。
+
+### 本轮有效产出
+
+用户确认 3.8 没问题，并修订：
+
+- 3.7 输出契约层补充为四类输出：
+  1. `analysis`：人读的自然语言答案。
+  2. `structured`：系统读的结构化结果。
+  3. `outputContext`：链式编排继续接力用的摘要。
+  4. `enrichedContext`：保留 `bookingSummary` / `scopeGuard` 的中间上下文。
+- 3.7 进一步明确：
+  - `analysis` 给客户 / 卖家运营读，包含操作步骤、状态解释、费用说明、POD 下载指引、边界提醒等。
+  - `structured` 给系统读，由 LLM structured 加上 `format-output.ts` 合并的 `bookingSummary` / `scopeGuard` 组成。
+  - `outputContext` 给链式编排 / 下游 expert 接力使用，包含 `expertId`、`resultSummary`、`chainId`，转介时带 `nextExpertId`。
+  - `enrichedContext` 保存更详细的中间判断依据，如预约汇总、数据质量、PSC 守卫、转介判断。
+  - `outputContext` / `enrichedContext` 被哪个上层 planner 如何消费，当前材料无法确定。
+- 3.9 和 3.10 的依据范围修订：
+  - `study/` 目录不作为 baseline expert 的依据。
+  - 只使用 `agentic/experts/...` 下的 `design.md`、workflow、nodes、prompts、`package.json`、scripts、fixtures 等原始工程材料。
+
+### 思维纠偏
+
+- 输出契约层不能只列字段，要说清四类输出分别给谁看、承载什么、由哪个文件保证。
+- `outputContext` / `enrichedContext` 虽然在 `format-output.ts` 中明确生成，但上层 planner 如何稳定消费它们，当前材料不能确定。
+- 训练依据要收窄到 baseline expert 的原始工程材料；`study/` 是学习材料，不作为 baseline expert 的事实依据。
+
+### 后置问题
+
+- 后续在步骤4看主链路和支线时，继续只引用 `agentic/experts/...` 的工程材料作为 baseline 依据。
+
+### 下一步
+
+- 进入步骤4：主链路、支线与节点点亮。
+
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
 
 ### 阶段
@@ -585,11 +624,32 @@
 
 #### 3.7 输出契约层输出什么？
 
-- 输出契约层包含 `structured`、`analysis`、`outputContext`，运行时还返回 `enrichedContext`。
-- `structured` 承载机器可消费字段：`intent`、`deliveryWayHint`、`operationSteps`、`bookingRecords`、`penaltyFee`、`penaltyReason`、`dataQuality`、`scopeAction`、`referExpertId`、`splitShipmentGuide`、`requiresManualAction`。
-- `analysis` 是客户可读说明，要求以“您需要在万邑联平台操作”开头，并按 intent 输出状态说明、费用说明、POD 指引或操作步骤。
-- `outputContext` 承载编排上下文：`expertId`、`resultSummary`、`chainId`；若存在转介，则写入 `nextExpertId`。
-- `enrichedContext` 保存本轮 `bookingSummary` 和 `scopeGuard`，用于调试或后续上下文承接。
+- 输出契约层有四类输出：
+  1. `analysis`：人读的自然语言答案。
+  2. `structured`：系统读的结构化结果。
+  3. `outputContext`：链式编排继续接力用的摘要。
+  4. `enrichedContext`：保留 `bookingSummary` / `scopeGuard` 的中间上下文。
+- `analysis` 是给人看的自然语言答案：
+  - 它是 LLM 生成的文字解释，客户 / 卖家运营主要读这个。
+  - 里面应包含操作步骤、状态解释、费用说明、POD 下载指引、边界提醒等。
+  - `design.md` 的 `analysis` 原则约束它怎么说：例如以“您需要在万邑联平台操作”开头，不承诺减免，不编造金额。
+  - 当前层不用掌握 LLM envelope 怎么解析、字符串 JSON 怎么 coerce。
+- `structured` 是给系统看的结构化结果：
+  - 它是机器可读字段集合，来自 LLM 的 `structured`，再被 `format-output.ts` 合并 `bookingSummary` 和 `scopeGuard`。
+  - 它表达 `intent`、`deliveryWayHint`、`operationSteps`、`bookingRecords`、`penaltyFee`、`dataQuality`、`scopeAction`、`referExpertId`、`requiresManualAction` 等。
+  - planner / 后续节点可以根据这些字段判断是否转 expert、是否人工、数据质量如何。
+  - 不需要背所有字段类型，但要知道关键字段的作用。
+- `outputContext` 是给链式编排 / 下游 expert 接力用的摘要：
+  - 它不是给客户看的。
+  - 它包含 `expertId`、`resultSummary`、`chainId`。
+  - 如果发生转介，会带 `nextExpertId`。
+  - 它的作用是让上层链路知道：本 expert 处理了什么、摘要是什么、下一步可能交给谁。
+  - `chainId` 和 planner 具体如何使用，当前材料无法完全确定。
+- `enrichedContext` 是给追溯 / 复用 / 调试用的中间上下文包：
+  - 它把 `bookingSummary` 和 `scopeGuard` 原样带出去。
+  - 它比 `outputContext` 更详细，用于保留中间判断依据，例如预约汇总、数据质量、PSC 守卫、转介判断。
+  - 它是否会被下游稳定消费，当前材料无法确定。
+- `design.md` 明确了 `structured` 字段和 `analysis` 原则；`format-output.ts` 明确会把 `bookingSummary`、`scopeGuard` 合并进 `structured`，并生成 `outputContext` / `enrichedContext`；但 `outputContext` / `enrichedContext` 被哪个上层 planner 如何消费，当前材料无法确定。
 
 #### 3.8 人工确认 / 兜底层在哪里？
 
@@ -604,20 +664,22 @@
 - 本地验收依据包括 `design.md` 的本地验收说明、`package.json` 的 `smoke:inbound-appointment-manage` 脚本、`scripts/smoke-inbound-appointment-manage.ts` 的断言。
 - KB-only 验收断言包括：`create_guide` 应走 `kb_only` 且 `skipApi=true`；LCL 场景 KB 命中散货 / LCL；`split_shipment` KB 包含 3 个自然日；无单号 `pod_guide` 走 `kb_only` 且命中 POD / 万邑联。
 - API 链验收断言包括：API 场景不能 `skipApi=true`；`getOrderDetail` 不能被跳过且至少返回 1 条；`bookingSummary.dataQuality` 不能为 `missing`；`scopeGuard` 需要有 `winitProductCode`；最终应有 `structured` 或 `analysis`。
-- 更广义的测试体系还包括静态检查、dev:expert、本地 smoke、线上 `test:expert:online`、Coze trace inspect、回归检查和注册 dry-run。
+- 依据范围限定：`study/` 目录不作为 baseline expert 的依据；本题只使用 `agentic/experts/...` 下的 design、workflow、nodes、prompts、package/scripts 等原始工程材料。
+- 可引用的工程材料包括：`agentic/experts/package.json` 的 `smoke:inbound-appointment-manage`、`scripts/smoke-inbound-appointment-manage.ts`、`scripts/fixtures/inbound-appointment-manage.fixture.example.json`、`scripts/README.md` 中的 `test:expert:online` / `inspect:coze-run-history` 说明、以及 expert 自身的 `design.md` 本地验收段。
 
 #### 3.10 数据回流层是否存在？
 
 - 结论：baseline expert 内没有明确的数据回流层。
-- 当前材料能确认的只有调试 / 追溯 / 回归能力：`debug_url`、Coze run history inspect、专家日志收集、smoke 和线上测试。
+- 当前 baseline 工程材料能确认的只有调试 / 追溯 / 回归能力：`debug_url`、Coze run history inspect、专家日志收集、smoke 和线上测试。
 - 这些可以支持人工复盘和回归测试，但没有看到客户反馈、人工处理结果、真实会话标注或线上失败样本自动写回 KB / prompt / eval 集的机制。
 - 因此不能把 trace、日志或测试脚本硬说成“数据回流闭环”；最多标记为“可作为后续构建回流层的数据来源”。
+- 依据范围限定：`study/` 目录不作为 baseline expert 的依据；如果只看 `agentic/experts/experts/inbound/inbound-appointment-manage/` 与 `agentic/experts/scripts/`，没有发现明确的数据回流闭环。
 
 ### 思维纠偏
 
 - 输出契约层要区分客户可读输出、机器可消费结构化字段和编排上下文。
 - 人工确认 / 兜底层不能只找 `need_human` 字段；没有这个字段时，要看等价信号：`requiresManualAction`、`scopeAction`、`referExpertId`、转人工条件和禁止动作。
-- 评测验收层要区分设计中的验收口径、本地 smoke 断言和更广义的测试体系。
+- 评测验收层要区分设计中的验收口径、本地 smoke 断言和工程脚本依据；`study/` 目录不作为 baseline expert 的依据。
 - 数据回流层如果没有明确闭环，就必须说不存在；不能把日志 / trace / 测试工具直接等同为回流层。
 
 ### 后置问题
