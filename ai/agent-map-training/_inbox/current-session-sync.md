@@ -575,6 +575,61 @@
   - 3.8 人工确认 / 兜底层在哪里？
   - 3.9 评测验收层有什么依据？
 
+## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
+
+### 阶段
+
+步骤3：系统分层建模 / 3.7-3.10。
+
+### 本轮有效产出
+
+#### 3.7 输出契约层输出什么？
+
+- 输出契约层包含 `structured`、`analysis`、`outputContext`，运行时还返回 `enrichedContext`。
+- `structured` 承载机器可消费字段：`intent`、`deliveryWayHint`、`operationSteps`、`bookingRecords`、`penaltyFee`、`penaltyReason`、`dataQuality`、`scopeAction`、`referExpertId`、`splitShipmentGuide`、`requiresManualAction`。
+- `analysis` 是客户可读说明，要求以“您需要在万邑联平台操作”开头，并按 intent 输出状态说明、费用说明、POD 指引或操作步骤。
+- `outputContext` 承载编排上下文：`expertId`、`resultSummary`、`chainId`；若存在转介，则写入 `nextExpertId`。
+- `enrichedContext` 保存本轮 `bookingSummary` 和 `scopeGuard`，用于调试或后续上下文承接。
+
+#### 3.8 人工确认 / 兜底层在哪里？
+
+- 没有名为 `need_human` 的统一字段；本 expert 使用 `requiresManualAction`、`scopeAction`、`referExpertId` 和禁止写操作共同表达兜底 / 转介。
+- `booking.list` 失败或为空时，先用 `getOrderDetail` 的表头字段兜底；仍无结果时 `requiresManualAction=true`。
+- `scope-guard` 对标准头程或非直发预约链路输出 `scopeAction=refer_process_guide` 和 `referExpertId=inbound/inbound-process-guide`。
+- 对客约束明确禁止代客创建 / 修改 / 取消预约、下载 PDF、查询实时 slot、承诺减免、暴露内部 URL。
+- 转人工条件包括已预约但 `booking.list` 无记录、违规费金额争议较大、分批到仓需特殊拆单、整柜 Drop 跑空 / 异常退费。
+
+#### 3.9 评测验收层有什么依据？
+
+- 本地验收依据包括 `design.md` 的本地验收说明、`package.json` 的 `smoke:inbound-appointment-manage` 脚本、`scripts/smoke-inbound-appointment-manage.ts` 的断言。
+- KB-only 验收断言包括：`create_guide` 应走 `kb_only` 且 `skipApi=true`；LCL 场景 KB 命中散货 / LCL；`split_shipment` KB 包含 3 个自然日；无单号 `pod_guide` 走 `kb_only` 且命中 POD / 万邑联。
+- API 链验收断言包括：API 场景不能 `skipApi=true`；`getOrderDetail` 不能被跳过且至少返回 1 条；`bookingSummary.dataQuality` 不能为 `missing`；`scopeGuard` 需要有 `winitProductCode`；最终应有 `structured` 或 `analysis`。
+- 更广义的测试体系还包括静态检查、dev:expert、本地 smoke、线上 `test:expert:online`、Coze trace inspect、回归检查和注册 dry-run。
+
+#### 3.10 数据回流层是否存在？
+
+- 结论：baseline expert 内没有明确的数据回流层。
+- 当前材料能确认的只有调试 / 追溯 / 回归能力：`debug_url`、Coze run history inspect、专家日志收集、smoke 和线上测试。
+- 这些可以支持人工复盘和回归测试，但没有看到客户反馈、人工处理结果、真实会话标注或线上失败样本自动写回 KB / prompt / eval 集的机制。
+- 因此不能把 trace、日志或测试脚本硬说成“数据回流闭环”；最多标记为“可作为后续构建回流层的数据来源”。
+
+### 思维纠偏
+
+- 输出契约层要区分客户可读输出、机器可消费结构化字段和编排上下文。
+- 人工确认 / 兜底层不能只找 `need_human` 字段；没有这个字段时，要看等价信号：`requiresManualAction`、`scopeAction`、`referExpertId`、转人工条件和禁止动作。
+- 评测验收层要区分设计中的验收口径、本地 smoke 断言和更广义的测试体系。
+- 数据回流层如果没有明确闭环，就必须说不存在；不能把日志 / trace / 测试工具直接等同为回流层。
+
+### 后置问题
+
+- 如果后续要建设数据回流层，需要明确：采集哪些失败样本、谁标注、写入哪里、如何进入 eval / prompt / KB 更新流程。
+- 步骤4需要把本步骤的分层模型转成主链路、支线、异常分支和节点点亮图。
+
+### 下一步
+
+- 步骤3已完成。
+- 进入步骤4：主链路、支线与节点点亮。
+
 ## ARCHIVE_PACKET 2026-08-10 14:59
 
 ### 阶段
