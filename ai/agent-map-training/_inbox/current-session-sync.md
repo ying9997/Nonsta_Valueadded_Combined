@@ -515,6 +515,60 @@
   - 3.5 规则与知识层有哪些 KB/API/SOP？
   - 3.6 能力编排层如何运转？
 
+## ARCHIVE_PACKET 2026-08-10 14:26
+
+### 阶段
+
+步骤3：系统分层建模 / 3.4-3.6。
+
+### 本轮有效产出
+
+#### 3.4 决策路由层有哪些分支？
+
+- 决策路由层先做 `intent` 识别 / 归一，再判断 `routePath`，再进入具体 branch。
+- `intent` 分支包括：`create_guide`、`modify_guide`、`cancel_guide`、`split_shipment`、`query`、`penalty`、`pod_guide`。
+- `routePath` 主要有三种结果：
+  - `kb_only`：创建、修改、取消、分批到仓，以及无单号 `pod_guide`。
+  - `api_chain`：`query`、`penalty`、有单号 `pod_guide`。
+  - `invalid`：`validationOk !== true`，例如 `query` / `penalty` 缺少必要查询键。
+- branch 还包括：是否 `skipApi`、是否 `skipOrderDetail`、是否触发 `scope-guard` 转 `inbound/inbound-process-guide`。
+
+#### 3.5 规则与知识层有哪些 KB/API/SOP？
+
+- SOP / KB：`booking-sop`、`booking-rules`、`penalty-rules`、`split-shipment`、`premium-booking`、`pod-download-guide`。
+- API / 状态参考：`booking-api-reference`，覆盖 OpenAPI 链路、预约状态码、POD / 状态码、FCL 必填、合并规则。
+- OpenAPI 事实源：`winit.wh.inbound.booking.list` 用于预约记录、状态码、违规费字段；`winit.wh.inbound.getOrderDetail` 用于兜底表头事实。
+- KB 溯源来自 `_kb` 文档、直发预约 FAQ、直发散货预约 FAQ、直发预约违规费 FAQ、分批到仓背景、增值预约送仓 FAQ、直发快递入仓 FAQ 等。
+
+#### 3.6 能力编排层如何运转？
+
+- 编排主线是：输入 → `validate-intent` → `route-intent` → 按路由决定 API / KB 分支 → 汇总 API 事实与 KB → `llm-analyze` → `format-output`。
+- `api_chain` 下有两条并行事实链：
+  - 入库单详情链：`resolve-inbound-lookup` → `build-winit-inbound-detail` → 插件 / 本地代理 → `fetch-inbound-order`。
+  - 预约列表链：`build-booking-list-request` → 插件 / 本地代理 → `fetch-booking-list`。
+- `summarize-booking-records` 合并 `booking.list` 与 `getOrderDetail` 表头兜底，输出 `bookingSummary` 和 `bookingRecords`。
+- `scope-guard` 根据 PSC / 链路判断是否回答或转 `inbound/inbound-process-guide`。
+- `load-booking-kb` 按 intent、送仓方式、routePath 拼接 KB，输出 `kbContent` / `kbScope`。
+- `format-output` 把 LLM 输出和 `bookingSummary` / `scopeGuard` 合并成 `structured`、`analysis`、`outputContext`。
+
+### 思维纠偏
+
+- 决策路由层不只是 intent 表；还包含 routePath、skipApi、skipOrderDetail、scope-guard 等运行时 branch。
+- 规则与知识层要区分 KB/SOP、API 参考、真实 API 事实源和 KB 溯源。
+- 能力编排层要看节点顺序和节点职责，不只看 Mermaid 图。
+
+### 后置问题
+
+- `llm-analyze` 的具体 prompt 行为需要后续结合 `prompts/main.md` 在输出契约层继续看。
+- 插件 / 本地代理在 Coze 运行时和本地 Runner 的差异后置，不在当前层展开。
+
+### 下一步
+
+- 继续步骤3 3.7-3.9：
+  - 3.7 输出契约层输出什么？
+  - 3.8 人工确认 / 兜底层在哪里？
+  - 3.9 评测验收层有什么依据？
+
 ## ARCHIVE_PACKET 2026-08-10 14:24
 
 ### 阶段
