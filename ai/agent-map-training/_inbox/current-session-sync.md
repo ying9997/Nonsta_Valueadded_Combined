@@ -1147,6 +1147,145 @@
   - 4.2 `manifest.json` 承担什么角色？
   - 4.3 `workflow.json` 承担什么角色？
 
+## ARCHIVE_PACKET 2026-08-10 18:47-phase4-4.1-4.3
+
+### 阶段
+
+阶段4：文件与能力层级映射 / 4.1-4.3。
+
+### 本轮有效产出
+
+#### 4.1 `design.md` 在系统里承担什么角色？
+
+【回答结论】
+
+`design.md` 是这个 expert 的**路书 / 能力地图 / 设计说明书**。
+
+它不负责真正执行节点，也不是给模型直接生成答案的 prompt。它的作用是把这个 expert 的“该做什么、不该做什么、怎么分流、查哪些 API、用哪些 KB、输出什么、怎么验收”先讲清楚。
+
+一句话：`design.md` 是人和工程系统理解这个 expert 的总设计依据。
+
+【思考过程】
+
+- 判断一个文件角色，先看它是否参与运行时。`design.md` 不在 `workflow.json` 的节点列表里，所以它不是运行时节点。
+- 但它覆盖的信息非常全：
+  - 定义业务定位：预约送仓 SOP 分发器 + 预约单 / 违规费只读解读器。
+  - 定义边界：不代客创建 / 取消预约，不下载 PDF，不查实时 slot。
+  - 定义 intent 和 routePath：哪些走 `kb_only`，哪些走 `api_chain`。
+  - 定义 API 取舍：`booking.list` 读取，`booking.create` / `cancel` / `exportPodPdf` / `queryAvailableWarehouseinPlan` 不调用。
+  - 定义 workflow 顺序和节点职责。
+  - 定义输出字段：`structured`、`analysis`、`outputContext`、`enrichedContext`。
+  - 定义验收方式：smoke 命令、API 链断言、`dataQuality` 要求等。
+- 所以它不是“代码”，而是把业务、工程、节点、KB、测试串起来的设计地图。
+
+【依据】
+
+- `agentic/experts/experts/inbound/inbound-appointment-manage/design.md` 开头明确定位为“预约送仓操作指引”。
+- `design.md` 的“设计定位”说明 `kb_only` 和 `api_chain` 两类路径。
+- `design.md` 的“边界分工”“不调用”“对客约束”定义能力边界。
+- `design.md` 的“工作流编排”“节点说明”描述 workflow 和 nodes 的关系。
+- `design.md` 的“输出设计”“本地验收”定义输出契约和验收标准。
+
+#### 4.2 `manifest.json` 承担什么角色？
+
+【回答结论】
+
+`manifest.json` 是这个 expert 的**身份卡 / 调用说明 / 输入输出契约摘要**。
+
+它告诉外部系统：
+
+- 这个 expert 叫什么、属于哪个 domain。
+- 什么时候应该调用它。
+- 它声称具备哪些 capabilities。
+- 调用它可以传哪些输入字段。
+- 它会输出什么基本结构。
+
+一句话：`manifest.json` 是 expert 暴露给外部编排层的“注册信息和入口契约”。
+
+【思考过程】
+
+- 和 `design.md` 相比，`manifest.json` 更短、更结构化，也更像机器可读的注册文件。
+- 它不解释完整业务逻辑，也不展开 workflow。
+- 它只提供外部调度需要知道的关键信息：
+  - `id`: `inbound-appointment-manage`
+  - `domain`: `inbound`
+  - `name`: `预约送仓操作指引`
+  - `description`: 什么时候用它、能处理哪些问题、不处理哪些问题
+  - `capabilities`: 能力清单
+  - `inputSchema`: 可接受的输入字段，比如 `intent`、`inboundOrderNos`、`bookingNo`、`warehouseCode`、`deliveryWayHint`
+  - `outputSchema`: 输出包含 `structured` 和 `analysis`
+- 所以它的重点不是“内部怎么做”，而是“外部怎么识别和调用它”。
+
+【依据】
+
+- `agentic/experts/experts/inbound/inbound-appointment-manage/manifest.json` 中定义了 `id`、`domain`、`name`、`description`。
+- `manifest.json` 的 `capabilities` 列出预约创建指引、修改指引、取消指引、状态查询、违规费说明、POD 下载等能力。
+- `inputSchema` 定义 `intent` 枚举和入参字段。
+- `outputSchema` 定义输出为 `structured` 和 `analysis`。
+
+#### 4.3 `workflow.json` 承担什么角色？
+
+【回答结论】
+
+`workflow.json` 是这个 expert 的**节点编排图 / 运行时接线表 / 学习地图索引**。
+
+它不定义业务边界，也不写具体节点逻辑；它负责说明：
+
+- 运行时有哪些节点。
+- 每个节点调用哪个文件。
+- 每个节点吃什么输入。
+- 每个节点吐什么输出。
+- 哪些输出会影响后续分支。
+- 每个节点大致属于哪类能力。
+- Coze 侧需要识别哪些 IO 类型。
+
+一句话：`workflow.json` 是把 `nodes/`、LLM 节点和最终输出节点串起来的运行时骨架。
+
+【思考过程】
+
+- 判断 `workflow.json` 的角色，要看它的结构：它是一个 `nodes` 数组，每个元素都有 `id`、`file`、`inputs`、`outputs`，部分还有 `cozeIo`。
+- 它说明的是“怎么连线”，不是“为什么这么设计”。
+- 现阶段关注到**节点职责 + 输入输出 + 是否主链路必需**就够了，不需要读到每个节点内部代码细节。
+- 现在看 `nodes/` 的合适粒度是 4 个问题：
+  1. 这个 node 是干什么的？例如 `validate-intent` 是识别 / 校验意图，`route-intent` 是决定走 KB 还是 API。
+  2. 它吃什么输入？看 `workflow.json` 里的 `inputs`，不用先深挖代码。
+  3. 它吐什么输出？看 `outputs`，重点记住会影响后续分支的字段，比如 `intent`、`routePath`、`skipApi`、`bookingSummary`、`scopeGuard`。
+  4. 它属于哪类能力？例如校验节点、路由节点、查数节点、KB 注入节点、LLM 分析节点、输出格式化节点、安全 / 边界节点。
+- 暂时不用关注：
+  - 每个函数怎么写。
+  - 正则怎么匹配。
+  - API response 怎么逐字段解析。
+  - TypeScript 细节。
+  - 异常处理的每行实现。
+- 现在学的是“地图”，不是“源码审计”。`nodes/` 先看到“每个节点在链路中负责哪一段能力、输入输出是什么、谁消费它”就够了。
+
+【依据】
+
+- `agentic/experts/experts/inbound/inbound-appointment-manage/workflow.json` 顶层是 `nodes` 数组。
+- 每个节点定义了 `id`、`file`、`inputs`、`outputs`。
+- `llm-analyze` 节点标记为 `type: "llm"`。
+- `format-output` 输出 `structured`、`analysis`、`outputContext`、`enrichedContext`。
+- 多个节点包含 `cozeIo.outputs`，说明它也承担 Coze 工作流 IO 类型声明的作用。
+
+### 思维纠偏
+
+- 阶段4看文件角色，不是直接做源码审计。
+- `design.md` 是路书和能力地图；`manifest.json` 是外部入口契约；`workflow.json` 是运行时节点接线表。
+- 读 `workflow.json` 时，当前只需要看节点职责、输入、输出、能力类型和消费关系；不要提前钻进每个 node 的 TypeScript 实现细节。
+
+### 后置问题
+
+- 4.4 进入 `nodes/` 时，仍然沿用“地图粒度”：先问节点干什么、吃什么、吐什么、属于哪类能力。
+- 4.5 再看 `prompts/`，区分 LLM 任务提示和 KB 知识注入。
+- 4.6 再看 `coze.config.yml`，确认 Coze 导入 / 配置关系。
+
+### 下一步
+
+- 继续阶段4 4.4-4.6：
+  - 4.4 `nodes/` 承担什么角色？
+  - 4.5 `prompts/` 承担什么角色？
+  - 4.6 `coze.config.yml` 承担什么角色？
+
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
 
 ### 阶段
