@@ -1001,6 +1001,100 @@
   - 5.5 迁移到非标增值 SOP expert 时优先检查什么？
   - 5.6 进入阶段2前的验收标准是什么？
 
+## ARCHIVE_PACKET 2026-08-10 17:40-step4-correction-and-4.1-4.3
+
+### 阶段
+
+步骤4纠偏并重启：文件与能力层级映射 / 4.1-4.3。
+
+### 本轮有效产出
+
+#### 纠偏说明
+
+- 用户指出此前步骤4方向错误：不应是“主链路、支线与节点点亮”，而应是“文件与能力层级映射”。
+- 处理方式：
+  - 早前“步骤4：主链路、支线与节点点亮 / 4.1-4.9”标注为误归档，不计入有效步骤4。
+  - 早前“步骤5：概念四步法与后置问题清理 / 5.1-5.3”建立在错误步骤4之上，也不计入当前有效进度。
+  - 步骤4重启为“文件与能力层级映射”，共 6 题；本轮完成 4.1-4.3。
+
+#### 4.1 文件与能力层级映射的目标是什么？
+
+- 目标不是再画业务流程，而是回答：**一个 expert 的能力分别由哪些文件承载，每类文件在系统里负责什么层级的能力。**
+- 这一步要把“文件”从路径清单升级成“能力地图”：
+  - 哪些文件定义业务范围。
+  - 哪些文件定义输入 / 输出契约。
+  - 哪些文件定义运行时编排。
+  - 哪些文件实现确定性节点能力。
+  - 哪些文件承载 KB / SOP / 规则知识。
+  - 哪些文件负责测试、验收、调试或外层 handoff。
+- 对 `inbound-appointment-manage` 来说，文件与能力层级映射要服务两个目的：
+  - 读懂 baseline：知道每个能力去哪里找依据。
+  - 后续迁移：迁移非标增值 SOP expert 时，知道哪些能力必须复刻、哪些可以删减、哪些需要外层编排配合。
+- 本步骤不再回答“主链路如何走”，而是回答“主链路背后的能力分别落在哪些文件上”。
+
+#### 4.2 baseline expert 的文件 / 目录可以分成哪些能力层级？
+
+可以分成 8 个能力层级：
+
+1. Expert 身份与入口契约层。
+   - 说明这个 expert 是谁、什么时候被调用、接受哪些输入。
+   - 典型文件：`manifest.json`。
+2. 设计与业务边界层。
+   - 说明覆盖范围、不覆盖范围、API 取舍、转人工条件、本地验收口径。
+   - 典型文件：`design.md`。
+3. 运行时编排层。
+   - 说明节点顺序、输入输出字段、哪些节点真正参与运行。
+   - 典型文件：`workflow.json`。
+4. 确定性节点能力层。
+   - 用 TypeScript 节点实现 intent 识别、路由、API request 构造、API 输出解析、兜底汇总、scope guard、输出格式化。
+   - 典型目录：`nodes/*.ts`。
+5. LLM 推理与对客表达层。
+   - 约束模型如何基于事实和 KB 生成回答，哪些话不能说。
+   - 典型文件：`prompts/main.md`。
+6. KB / SOP / 规则知识层。
+   - 承载预约 SOP、预约规则、违规费规则、分批到仓、POD 下载、API reference。
+   - 典型目录：`prompts/kb/*.md`。
+7. 测试 / 验收 / 调试层。
+   - 用 smoke、fixture、线上测试、run history inspect 确认 expert 是否可运行、输出是否符合契约。
+   - 典型文件：`agentic/experts/package.json`、`scripts/smoke-inbound-appointment-manage.ts`、`scripts/fixtures/inbound-appointment-manage.fixture.example.json`、`scripts/README.md`。
+8. 外层编排 / handoff 层。
+   - 不在 baseline expert 自身目录内，但负责消费 `outputContext` / `enrichedContext`，把上一跳结果传给下一跳。
+   - 典型目录：`agentic/experts/experts_recaller/nodes/*.ts`。
+
+#### 4.3 每个能力层级对应哪些核心文件？
+
+核心映射如下：
+
+| 能力层级 | 核心文件 / 目录 | 主要作用 |
+| --- | --- | --- |
+| Expert 身份与入口契约层 | `manifest.json` | 定义 expert id、描述、输入 schema、intent 枚举、何时使用 |
+| 设计与业务边界层 | `design.md` | 定义业务定位、覆盖范围、不处理范围、API 取舍、转人工、验收标准 |
+| 运行时编排层 | `workflow.json` | 定义节点列表、执行顺序、节点输入输出、Coze IO 类型 |
+| 确定性节点能力层 | `nodes/validate-intent.ts`、`route-intent.ts`、`resolve-inbound-lookup.ts`、`build-*`、`fetch-*`、`summarize-booking-records.ts`、`scope-guard.ts`、`load-booking-kb.ts`、`format-output.ts` | 把业务规则落成可执行节点能力 |
+| LLM 推理与对客表达层 | `prompts/main.md` | 约束 LLM 的回答结构、表达口径、禁止项 |
+| KB / SOP / 规则知识层 | `prompts/kb/*.md` | 提供 SOP、预约规则、违规费规则、分批到仓、POD 下载、API 字段解释 |
+| 测试 / 验收 / 调试层 | `package.json` scripts、`scripts/smoke-inbound-appointment-manage.ts`、fixture、`scripts/README.md` | 提供 smoke、本地真实 API 验收、线上测试和 run history inspect 方法 |
+| 外层编排 / handoff 层 | `experts_recaller/nodes/call-expert.ts`、`post-expert-output.ts`、`check-planner-output.ts`、`resolve-next-queue-job.ts`、`build-expert-invoke-baseline.ts`、`merge-queue-input-params.ts` | 负责跨 expert 的输出解析、session handoff、previousOutput / enrichedContext 传播 |
+
+### 思维纠偏
+
+- “文件与能力层级映射”不是流程拆解；流程拆解回答节点怎么走，文件映射回答能力由哪些文件承载。
+- 不能把 `workflow.json` 当成所有能力来源；它只说明运行时节点组织，业务边界要看 `design.md` / `manifest.json`，知识依据要看 `prompts/kb`。
+- 外层 `experts_recaller` 不属于 baseline expert 自身能力，但属于输出契约被消费的编排环境；分析时要明确范围。
+
+### 后置问题
+
+- 4.4 需要继续把 `nodes/*.ts` 逐个映射到具体能力。
+- 4.5 需要把 `experts_recaller` 的外层 handoff 文件映射到跨 expert 能力。
+- 4.6 需要把正式 `file-role-map.md` 收口成迁移可用的检查清单。
+
+### 下一步
+
+- 继续步骤4 4.4-4.6：
+  - 4.4 节点文件如何映射到具体能力？
+  - 4.5 外层编排 / handoff 文件如何映射到跨 expert 能力？
+  - 4.6 最终 file-role-map 如何收口并服务迁移？
+
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
 
 ### 阶段
