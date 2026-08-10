@@ -525,13 +525,19 @@
 
 #### 3.4 决策路由层有哪些分支？
 
-- 决策路由层先做 `intent` 识别 / 归一，再判断 `routePath`，再进入具体 branch。
-- `intent` 分支包括：`create_guide`、`modify_guide`、`cancel_guide`、`split_shipment`、`query`、`penalty`、`pod_guide`。
-- `routePath` 主要有三种结果：
-  - `kb_only`：创建、修改、取消、分批到仓，以及无单号 `pod_guide`。
-  - `api_chain`：`query`、`penalty`、有单号 `pod_guide`。
-  - `invalid`：`validationOk !== true`，例如 `query` / `penalty` 缺少必要查询键。
-- branch 还包括：是否 `skipApi`、是否 `skipOrderDetail`、是否触发 `scope-guard` 转 `inbound/inbound-process-guide`。
+- 决策路由层不是一条线，而是四层判断：
+  1. 用户想做什么：由 `validate-intent` 把用户问题归一成 `create_guide`、`modify_guide`、`cancel_guide`、`split_shipment`、`query`、`penalty`、`pod_guide`。
+  2. 这个 intent 走 KB 还是 API：由 `route-intent` 根据 intent 和是否有单号，输出 `kb_only`、`api_chain`、`skipApi`、`skipOrderDetail`；如果 `validationOk !== true`，则进入 `invalid`。
+  3. 如果进入 API 链，查哪些事实：`skipApi=false` 时查预约记录；`skipOrderDetail=false` 时查入库单详情。
+  4. 查到入库单后，它是否仍属于本 expert 的业务边界：由 `scope-guard` 根据 `winitProductCode` / PSC 做业务范围二次路由 / 出域判断。
+- `scope-guard` 同时属于能力编排层和决策路由层：
+  - 在能力编排层，它是 workflow 中的一个节点。
+  - 在决策路由层，它承担业务边界判断和转介决策。
+- `scope-guard` 不能缺少，因为 `routePath` 只回答“怎么处理这个 intent”，不能保证“这个订单真的属于本 expert 能处理的业务范围”。
+- `scope-guard` 的分支包括：
+  - 直发预约链路：继续回答。
+  - 标准头程 `OW01011`：转 `inbound/inbound-process-guide`。
+  - 非直发预约链路：转 `inbound/inbound-process-guide` 或提示确认产品选型与送仓规则。
 
 #### 3.5 规则与知识层有哪些 KB/API/SOP？
 
@@ -561,6 +567,43 @@
 
 - `llm-analyze` 的具体 prompt 行为需要后续结合 `prompts/main.md` 在输出契约层继续看。
 - 插件 / 本地代理在 Coze 运行时和本地 Runner 的差异后置，不在当前层展开。
+
+### 下一步
+
+- 继续步骤3 3.7-3.9：
+  - 3.7 输出契约层输出什么？
+  - 3.8 人工确认 / 兜底层在哪里？
+  - 3.9 评测验收层有什么依据？
+
+## ARCHIVE_PACKET 2026-08-10 14:59
+
+### 阶段
+
+步骤3：系统分层建模 / 3.4 决策路由层修订。
+
+### 本轮有效产出
+
+用户确认 3.5-3.6 没问题，并要求补全 3.4 中 `scope-guard` 进入决策路由层的显性推理。修订后 3.4 的关键结论：
+
+- 决策路由层有四层判断：
+  1. 用户想做什么：`validate-intent` 归一 intent。
+  2. intent 走 KB 还是 API：`route-intent` 输出 `kb_only` / `api_chain` / `skipApi` / `skipOrderDetail`。
+  3. 进入 API 链后查哪些事实：`skipApi=false` 查预约记录，`skipOrderDetail=false` 查入库单详情。
+  4. 查到入库单后是否仍属于本 expert 的业务边界：`scope-guard` 根据 `winitProductCode` / PSC 做业务范围二次路由 / 出域判断。
+- `scope-guard` 同时属于两个层：
+  - 能力编排层：workflow 中的一个节点。
+  - 决策路由层：承担业务边界判断和转介决策。
+- `scope-guard` 不能缺少，因为 `routePath` 只回答“怎么处理这个 intent”，不能保证“这个订单真的属于本 expert 能处理的业务范围”。
+
+### 思维纠偏
+
+- 之前 3.4 隐含了“scope-guard 是二次路由”的判断，但没有把推理展开。
+- 决策路由层不应只停在 `validate-intent -> route-intent -> skipApi`，还要包含业务出域判断。
+- 一个节点可以同时属于两个分析层：运行时是编排节点，语义上是业务边界决策点。
+
+### 后置问题
+
+- 后续 3.8 人工确认 / 兜底层要继续区分 `requiresManualAction`、`scopeAction`、`referExpertId` 和禁止写操作。
 
 ### 下一步
 
