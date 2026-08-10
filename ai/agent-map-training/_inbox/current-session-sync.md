@@ -809,13 +809,20 @@
   - 没有待预约单列表链路：`unBookingOrder.list` 不调用，只在 KB 中说明待预约单来源。
   - 没有 PDF 文件下载 / 转发链路：`exportPodPdf` 不调用，`pod_guide` 只给万邑联自助下载 SOP。
   - 没有统一 `need_human` branch；本 expert 用 `requiresManualAction`、`scopeAction`、`referExpertId`、禁止写操作等信号表达兜底 / 转介。
-  - 没有数据回流闭环：没有看到失败样本、人工处理结果或客户反馈自动写回 KB / prompt / eval 的链路。
+  - baseline expert 自身没有数据回流层；扩大到 `experts_recaller` 后，可以确认存在“会话级上下文回传层”：`outputContext`、`structured` / `analysis`、`enrichedContext` 会被写入 `sessionHandoff`，并在后续 expert 调用时作为 `previousOutput` 或 `inputs.enrichedContext` 复用。
+  - 但这仍是运行时编排上下文复用，不是用于持续优化 KB / prompt / eval 的数据回流闭环。当前工程中没有看到客户反馈、人工处理结果、失败样本自动写回知识库、prompt 或评测集的机制。
 - 当前无法确定的链路：
-  - `outputContext` / `enrichedContext` 被哪个外层 planner 如何消费，当前 baseline 材料不能完全确定。
+  - 在 baseline expert 自身材料中，无法确定 `outputContext` / `enrichedContext` 被外层 planner 如何消费；但把范围放宽到 `agentic/experts/experts_recaller` 后，可以看到外层编排会消费这些字段。
+  - `call-expert.ts` 调用子 expert 后，会解析 `structured`、`analysis`、`outputContext`，并可选解析 `enrichedContext`。
+  - `post-expert-output.ts` 消费 `outputContext` 来更新 `chainContext`、勾选 plan、追加执行日志；同时把 `structured` / `analysis` / `outputContext` / `enrichedContext` 写入 `sessionHandoff.steps[]`。
+  - `check-planner-output.ts` 初始化 `chainContext.chainId` 和 `sessionHandoff`。
+  - `resolve-next-queue-job.ts` 读取并透传 `sessionHandoff`，暴露上一跳的 `last_step_result_json` / `last_step_expert_id` 给后续 prompt / 参数构造。
+  - `build-expert-invoke-baseline.ts` 用 `sessionHandoff` 构造下一跳 expert 的 `inputContext.previousOutput`；如果 manifest 开启 `x_recaller_propagate_previous_enriched_context=true`，还会把历史 `enrichedContext` 归并成域索引后塞进 `inputs.enrichedContext`。
+  - `merge-queue-input-params.ts` 合并 LLM 生成参数和 baseline 参数，且 baseline 的 `inputContext` / `inputs.enrichedContext` 优先。
   - `chainId` 在上层链式编排中的具体使用方式，当前材料不能完全确定。
   - 线上 Coze 插件失败时是否有平台级重试 / 告警 / 人工兜底，当前 expert 代码只能确认本地节点会降级为空事实。
   - `scopeAction=refer_process_guide` 后，上层是否自动调用 `inbound/inbound-process-guide`，当前只能确认 `outputContext.nextExpertId` 被写出，不能确认外层一定自动接力。
-  - `enrichedContext` 是否被下游 expert 稳定读取，当前只能确认它被输出，不能确认消费方。
+  - `enrichedContext` 是否被下游 expert 读取，取决于目标 expert manifest 是否显式开启 `x_recaller_propagate_previous_enriched_context=true`；没有开启时不能假设一定透传。
 
 ### 思维纠偏
 
@@ -832,6 +839,42 @@
 ### 下一步
 
 - 步骤4已完成。
+- 等待进入步骤5：概念四步法与后置问题清理。
+
+## ARCHIVE_PACKET 2026-08-10 17:20-step4-4.9-revision
+
+### 阶段
+
+步骤4：4.9 不存在 / 无法确定链路修订；同步修订步骤3：3.10 数据回流层。
+
+### 本轮有效产出
+
+- 修订 4.9：不再简单说“没有数据回流闭环”，而是区分两层：
+  - **有**：链路内上下文回流 / `sessionHandoff` / `enrichedContext` 传播。
+  - **没有明确证据**：学习型数据回流 / badcase 到 KB-prompt-eval 的闭环。
+- 修订 4.9：不再说 `outputContext` / `enrichedContext` 的外层消费完全无法确定；在 baseline expert 自身材料中无法确定，但扩大到 `experts_recaller` 后可以确认：
+  - `call-expert.ts` 解析子 expert 的 `structured`、`analysis`、`outputContext`，并可选解析 `enrichedContext`。
+  - `post-expert-output.ts` 用 `outputContext` 更新 `chainContext`、plan 和执行日志，并把 `structured` / `analysis` / `outputContext` / `enrichedContext` 写入 `sessionHandoff.steps[]`。
+  - `check-planner-output.ts` 初始化 `chainContext.chainId` 和 `sessionHandoff`。
+  - `resolve-next-queue-job.ts` 透传 `sessionHandoff`，并暴露上一跳 `last_step_result_json` / `last_step_expert_id`。
+  - `build-expert-invoke-baseline.ts` 用 `sessionHandoff` 构造下一跳的 `inputContext.previousOutput`；当目标 manifest 开启 `x_recaller_propagate_previous_enriched_context=true` 时，把历史 `enrichedContext` 归并后传入 `inputs.enrichedContext`。
+  - `merge-queue-input-params.ts` 合并 LLM 参数和 baseline 参数，且 baseline 的 `inputContext` / `inputs.enrichedContext` 优先。
+- 同步修订 3.10：baseline expert 自身没有独立数据回流层；`experts_recaller` 有运行时上下文回传层；但当前工程没有看到客户反馈、人工处理结果、真实会话标注、线上失败样本自动写回知识库、prompt 或评测集的机制。
+
+### 思维纠偏
+
+- “数据回流”不能只按有没有自动优化闭环来二分；要先区分运行时上下文回传和学习型数据回流。
+- `outputContext` / `enrichedContext` 在单个 expert 内只是输出契约；放到 `experts_recaller` 外层编排里，才看到它们如何进入 `sessionHandoff` 并影响下一跳。
+- “当前无法确定”必须带范围：baseline expert 自身无法确定，不代表扩展到外层编排后仍无法确定。
+
+### 后置问题
+
+- 步骤5 总结方法论时，需要加入“分析范围边界”这一条：先看单 expert，再看外层 orchestrator / recaller。
+- 后续迁移非标增值 SOP expert 时，要检查目标 expert 是否开启 `x_recaller_propagate_previous_enriched_context`，以及是否需要消费上一跳 `previousOutput`。
+
+### 下一步
+
+- 步骤4仍为完成状态。
 - 等待进入步骤5：概念四步法与后置问题清理。
 
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
@@ -889,18 +932,25 @@
 
 #### 3.10 数据回流层是否存在？
 
-- 结论：baseline expert 内没有明确的数据回流层。
-- 当前 baseline 工程材料能确认的只有调试 / 追溯 / 回归能力：`debug_url`、Coze run history inspect、专家日志收集、smoke 和线上测试。
-- 这些可以支持人工复盘和回归测试，但没有看到客户反馈、人工处理结果、真实会话标注或线上失败样本自动写回 KB / prompt / eval 集的机制。
-- 因此不能把 trace、日志或测试脚本硬说成“数据回流闭环”；最多标记为“可作为后续构建回流层的数据来源”。
-- 依据范围限定：`study/` 目录不作为 baseline expert 的依据；如果只看 `agentic/experts/experts/inbound/inbound-appointment-manage/` 与 `agentic/experts/scripts/`，没有发现明确的数据回流闭环。
+- 结论要分两层：
+  - **有**：链路内上下文回流 / session handoff / `enrichedContext` 传播。
+  - **没有明确证据**：学习型数据回流 / badcase 到 KB-prompt-eval 的闭环。
+- 如果只看 baseline expert 自身，也就是 `agentic/experts/experts/inbound/inbound-appointment-manage/`，没有独立的数据回流层；它只负责输出 `structured`、`analysis`、`outputContext`、`enrichedContext`。
+- 扩大到 `agentic/experts/experts_recaller` 后，可以确认存在“会话级上下文回传层”：
+  - `call-expert.ts` 解析子 expert 的 `structured`、`analysis`、`outputContext`，并可选解析 `enrichedContext`。
+  - `post-expert-output.ts` 把 `structured` / `analysis` / `outputContext` / `enrichedContext` 写入 `sessionHandoff.steps[]`，并用 `outputContext` 更新 `chainContext`、plan 状态和执行日志。
+  - `resolve-next-queue-job.ts` 透传 `sessionHandoff`，并暴露上一跳的 `last_step_result_json` / `last_step_expert_id`。
+  - `build-expert-invoke-baseline.ts` 用 `sessionHandoff` 构造下一跳的 `inputContext.previousOutput`；当目标 expert manifest 开启 `x_recaller_propagate_previous_enriched_context=true` 时，会把历史 `enrichedContext` 归并后塞进 `inputs.enrichedContext`。
+  - `merge-queue-input-params.ts` 合并 LLM 参数和 baseline 参数，且 baseline 的 `inputContext` / `inputs.enrichedContext` 优先。
+- 但这个“回传层”是运行时编排上下文复用，不是学习型数据回流闭环。
+- 当前工程中没有看到客户反馈、人工处理结果、真实会话标注、线上失败样本自动写回知识库、prompt 或评测集的机制。
 
 ### 思维纠偏
 
 - 输出契约层要区分客户可读输出、机器可消费结构化字段和编排上下文。
 - 人工确认 / 兜底层不能只找 `need_human` 字段；没有这个字段时，要看等价信号：`requiresManualAction`、`scopeAction`、`referExpertId`、转人工条件和禁止动作。
 - 评测验收层要区分设计中的验收口径、本地 smoke 断言和工程脚本依据；`study/` 目录不作为 baseline expert 的依据。
-- 数据回流层如果没有明确闭环，就必须说不存在；不能把日志 / trace / 测试工具直接等同为回流层。
+- 数据回流层要区分“运行时上下文回传”和“学习型数据回流”。`experts_recaller` 能确认前者存在，但不能把它等同于 badcase 自动进入 KB / prompt / eval 的持续优化闭环。
 
 ### 后置问题
 
