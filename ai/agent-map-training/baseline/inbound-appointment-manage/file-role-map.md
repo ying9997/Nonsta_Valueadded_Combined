@@ -1,6 +1,6 @@
 # File Role Map
 
-状态：阶段4“文件与能力层级映射”已完成 4.1-4.6；当前等待 4.7-4.9。
+状态：阶段4“文件与能力层级映射”已完成 4.1-4.10；阶段4已收口。
 
 | 文件 / 目录 | 角色 | 所在层级 | 与主链路关系 | 备注 | 来源 |
 | --- | --- | --- | --- | --- | --- |
@@ -12,3 +12,7 @@
 | `prompts/main.md` | LLM 生成任务提示 | LLM 推理约束层 | 定义角色、禁止项、输入变量、输出格式和特殊规则 | 告诉 LLM 如何基于事实和 KB 回答 | `ARCHIVE_PACKET 2026-08-10 20:36-phase4-4.4-4.6` |
 | `prompts/*.md` KB 文件 | 离线知识材料 | KB / SOP / 规则知识层 | 经 textNode 注册、`load-booking-kb.ts` 选择后，作为 `kbContent` 注入 LLM 上下文 | 不是所有 KB 永远塞入 prompt，而是按 intent 选择相关片段 | `ARCHIVE_PACKET 2026-08-10 20:36-phase4-4.4-4.6` |
 | `coze.config.yml` | Coze 导入 / 装配 / 接线配置 | Coze 配置层 | 注册 textNodes、插入 OpenAPI 插件、声明 inputBindings 和 endOutputs | 把本地 expert 文件装配成 Coze 可运行工作流 | `ARCHIVE_PACKET 2026-08-10 20:36-phase4-4.4-4.6` |
+| `load-booking-kb.ts` + KB 文件 | KB 选择与知识注入 | 规则知识注入层 | 按 intent 选择相关 KB，输出 `kbContent` / `kbScope` 给 LLM | KB 是内容依据，`main.md` 是生成任务说明 | `ARCHIVE_PACKET 2026-08-10 20:48-phase4-4.7-4.10-close` |
+| API build/fetch/summarize 节点 | 系统事实获取与汇总 | 系统事实层 | 通过请求构造、插件结果接收、事实汇总产出 `bookingRecords` / `bookingSummary` | API 提供事实，KB 提供规则，LLM 负责解释 | `ARCHIVE_PACKET 2026-08-10 20:48-phase4-4.7-4.10-close` |
+| `llm-analyze` | 非确定性分析和自然语言生成 | LLM 分析层 | 接收用户问题、系统事实、边界判断、KB 内容，输出初步 `analysisResult` | LLM 负责基于事实和规则说人话，不替代确定性节点 | `ARCHIVE_PACKET 2026-08-10 20:48-phase4-4.7-4.10-close` |
+| `format-output.ts` | 输出契约节点 | 输出契约层 | 归一化 LLM 输出，合并 `bookingSummary` / `scopeGuard`，生成 `structured`、`analysis`、`outputContext`、`enrichedContext` | 验收和下游消费的基础 | `ARCHIVE_PACKET 2026-08-10 20:48-phase4-4.7-4.10-close` |

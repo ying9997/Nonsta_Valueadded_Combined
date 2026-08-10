@@ -1467,6 +1467,198 @@
   - 4.8 API 节点和 KB 节点的关系是什么？
   - 4.9 LLM 节点在整个链路中做什么？
 
+## ARCHIVE_PACKET 2026-08-10 20:48-phase4-4.7-4.10-close
+
+### 阶段
+
+阶段4：文件与能力层级映射 / 4.7-4.10。
+
+### 本轮有效产出
+
+#### 4.7 KB 文件和 prompt 的关系是什么？
+
+【回答结论】
+
+KB 文件是**知识材料**，prompt 是**生成任务说明**。
+
+- KB 文件回答：模型这次可以依据哪些 SOP、规则、FAQ、状态码说明？
+- `main.md` prompt 回答：模型应该怎么使用这些材料、怎么组织答案、哪些话不能说、输出什么格式？
+
+一句话：**KB 提供“内容依据”，prompt 规定“生成方式”。**
+
+【思考过程】
+
+- 不能把 KB 和 prompt 混成一类。它们在链路里的位置不同：
+
+```text
+KB 文件（离线知识）
+-> coze.config.yml 注册为 textNodes
+-> load-booking-kb.ts 按 intent 选择相关片段
+-> kbContent / kbScope
+-> llm-analyze 输入
+-> main.md 约束 LLM 如何回答
+```
+
+- KB 文件不是直接“让模型自由读全部资料”。运行时会先按问题类型选择相关 KB，再把这次需要的知识片段注入 LLM 上下文。
+- 例如：
+  - `create_guide` 更需要 `booking-sop.md`。
+  - `penalty` 更需要 `penalty-rules.md`。
+  - `split_shipment` 更需要 `split-shipment.md`。
+  - `pod_guide` 更需要 `pod-download-guide.md`。
+  - `query` 更需要 `booking-api-reference.md` 的状态码解释。
+- `main.md` 负责统一回答规则：不代客操作、不输出 PDF/base64、不承诺减免、按 JSON envelope 输出。
+
+【依据】
+
+- `prompts/` 下有 `booking-sop.md`、`booking-rules.md`、`penalty-rules.md`、`split-shipment.md`、`premium-booking.md`、`booking-api-reference.md`、`pod-download-guide.md` 等 KB 文件。
+- `coze.config.yml` 的 `textNodes` 把这些 `.md` 注册为 Coze text node。
+- `load-booking-kb.ts` 按 `intent` 选择 KB 片段并输出 `kbContent` / `kbScope`。
+- `prompts/main.md` 定义角色、禁止项、输入、输出格式和特殊规则。
+
+#### 4.8 API 节点和 KB 节点的关系是什么？
+
+【回答结论】
+
+API 节点提供**系统事实**，KB 节点提供**规则知识**。
+
+- API 节点回答：这票单当前事实是什么？
+- KB 节点回答：这些事实应该按什么业务规则解释？
+
+一句话：**API 是事实来源，KB 是解释规则；LLM 把事实和规则合在一起生成答案。**
+
+【思考过程】
+
+- 这两类节点不能互相替代。
+- API 链路负责查事实：
+  - 入库单详情：`build-winit-inbound-detail` -> 插件 -> `fetch-inbound-order`
+  - 预约列表：`build-booking-list-request` -> 插件 -> `fetch-booking-list`
+  - 汇总事实：`summarize-booking-records`
+- 这些节点产出的是结构化事实，比如：
+  - `rawOrderData`
+  - `bookingRecords`
+  - `bookingSummary`
+  - `dataQuality`
+  - `requiresManualAction`
+- KB 链路负责提供规则：
+  - 预约怎么创建 / 修改 / 取消
+  - 散货、整柜、快递怎么分流
+  - 违规费规则是什么
+  - 分批到仓怎么处理
+  - POD 下载条件是什么
+  - 状态码如何解释
+- 所以 API + KB 的关系是：
+
+```text
+API 节点：查到事实
+KB 节点：提供规则
+LLM 节点：基于事实 + 规则做解释
+format-output：把解释整理成输出契约
+```
+
+- 如果只有 API，没有 KB，模型知道“状态是什么”，但不知道“该怎么解释和指导客户”。
+- 如果只有 KB，没有 API，模型能讲规则，但不能回答具体单据事实。
+
+【依据】
+
+- `workflow.json` 中 API 相关节点包括 `build-winit-inbound-detail`、`fetch-inbound-order`、`build-booking-list-request`、`fetch-booking-list`、`summarize-booking-records`。
+- `workflow.json` 中 KB 注入节点是 `load-booking-kb`，输出 `kbContent` / `kbScope`。
+- `llm-analyze` 同时接收 `bookingSummary`、`bookingRecords`、`scopeGuard`、`kbContent`、`kbScope`。
+- `prompts/main.md` 明确要求优先使用 `bookingSummary`，并结合特殊规则回答。
+
+#### 4.9 LLM 节点在整个链路中做什么？
+
+【回答结论】
+
+LLM 节点负责**非确定性分析和自然语言生成**。
+
+它不应该负责查数、不应该负责硬路由、不应该负责输出契约合并。它的核心任务是：
+
+- 读用户问题。
+- 读确定性节点查到的事实。
+- 读 KB 注入的规则知识。
+- 结合业务限制生成对客解释。
+- 输出初步 `analysisResult`。
+
+一句话：**LLM 负责“基于事实和规则说人话”，不负责替代确定性节点。**
+
+【思考过程】
+
+- 在这个 expert 里，LLM 节点是 `llm-analyze`。
+- 它吃的输入已经被前面节点整理过：
+  - 用户问题：`query`、`customerIntent`
+  - 路由结果：`intent`、`routePath`
+  - 系统事实：`bookingSummary`、`bookingRecords`
+  - 边界判断：`scopeGuard`
+  - 知识材料：`kbContent`、`kbScope`
+  - 上下文：`inputContext`
+- 这说明 LLM 并不是从零判断所有东西。它是在确定性节点已经完成“校验、路由、查数、汇总、边界判断、KB 选择”之后，做最后的解释和表达。
+- 它输出的是 `analysisResult`，里面包含：
+  - `structured`
+  - `analysis`
+- 但这还不是最终输出。后面还要经过 `format-output` 合并 `bookingSummary` 和 `scopeGuard`，保证输出契约稳定。
+
+【依据】
+
+- `workflow.json` 中 `llm-analyze` 是 `type: "llm"`。
+- `llm-analyze` 输入包括 `query`、`intent`、`routePath`、`bookingSummary`、`bookingRecords`、`scopeGuard`、`kbContent`、`kbScope`。
+- `prompts/main.md` 定义 LLM 的角色、禁止项、输入、输出格式和特殊规则。
+- `workflow.json` 中 `llm-analyze` 后面还有 `format-output`，说明 LLM 输出还要被格式化节点整理。
+
+#### 4.10 `format-output` 为什么重要？
+
+【回答结论】
+
+`format-output` 重要，因为它是**输出契约节点**。
+
+它把 LLM 的初步结果整理成系统稳定可消费的最终输出：
+
+- `structured`
+- `analysis`
+- `outputContext`
+- `enrichedContext`
+
+一句话：**没有 `format-output`，LLM 的回答只是模型输出；有了 `format-output`，结果才变成可验收、可传递、可下游消费的系统契约。**
+
+【思考过程】
+
+- LLM 输出天然不够稳定，所以不能直接当最终系统输出。
+- `format-output.ts` 做了几件关键事情：
+  1. **归一化 LLM 输出**：LLM 可能返回对象，也可能返回字符串 JSON，也可能缺字段；`format-output` 会把它整理成 `structured` + `analysis`。
+  2. **补入确定性事实**：如果 `bookingSummary` 里有预约记录，而 LLM 没写 `bookingRecords`，它会补进去；如果有 `totalPenaltyFee`，会补 `penaltyFee`；会补 `dataQuality`；如果需要人工，会补 `requiresManualAction=true`。
+  3. **补入边界 / 转介信息**：从 `scopeGuard` 补 `scopeAction` 和 `referExpertId`。
+  4. **生成跨 expert 上下文**：`outputContext` 里有 `expertId`、`resultSummary`、`chainId`；如果有转介，会写 `nextExpertId`；`enrichedContext` 保留 `bookingSummary` 和 `scopeGuard`。
+- 这就是为什么它既是验收基础，也是下游消费基础。
+
+【依据】
+
+- `workflow.json` 中 `format-output` 是最终节点，输出 `structured`、`analysis`、`outputContext`、`enrichedContext`。
+- `format-output.ts` 会解析 / 归一化 `analysisResult`。
+- `format-output.ts` 会把 `bookingSummary.recordCount`、`totalPenaltyFee`、`dataQuality`、`requiresManualAction` 合并进 `structured`。
+- `format-output.ts` 会把 `scopeGuard.scopeAction`、`referExpertId` 合并进 `structured`。
+- `format-output.ts` 会生成 `outputContext`，并在有 `referExpertId` 时写入 `nextExpertId`。
+- `format-output.ts` 会输出 `enrichedContext: { bookingSummary, scopeGuard }`。
+
+### 思维纠偏
+
+- KB 和 prompt 不同：KB 是内容依据，prompt 是生成任务说明。
+- API 和 KB 不同：API 提供系统事实，KB 提供解释规则。
+- LLM 不负责替代确定性节点；它负责基于已整理的事实和规则生成自然语言分析。
+- `format-output` 不能省；它把模型输出变成稳定契约，是验收和下游消费的基础。
+
+### 后置问题
+
+- 阶段5可以开始识别最小主链路、支线能力、安全约束和不做事项。
+- 进入阶段5前，需要把 `progress_state.json` 与 `progress-board.md` 同步为阶段4完成。
+
+### 下一步
+
+- 阶段4已完成。
+- 进入阶段5：主链路与支线识别。
+- 下一组题目：
+  - 5.1 这个 expert 的最小主链路是什么？
+  - 5.2 哪些节点属于主链路？
+  - 5.3 哪些节点属于支线查询？
+
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
 
 ### 阶段
