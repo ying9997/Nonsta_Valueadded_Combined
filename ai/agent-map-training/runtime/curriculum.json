@@ -1,209 +1,115 @@
 {
-  "version": 1,
+  "version": 2,
   "program_name": "AI Agent 地图式学习训练",
+  "canonical_curriculum_file": "agent-map-training/110-question-curriculum.md",
+  "total_question_items": 110,
+  "answer_format": "【回答结论】 -> 【思考过程】 -> 【依据】",
+  "rules": [
+    "训练题目必须以 110-question-curriculum.md 为唯一主课程来源。",
+    "如果 runtime/curriculum.json 与主课程表不一致，先修正 runtime/curriculum.json。",
+    "不得在主课程表之外自行编造阶段题目。",
+    "如果主课程表缺少某阶段明细题目，必须先向用户确认，不得自行补题。"
+  ],
   "phases": [
     {
       "id": "phase-1",
-      "name": "baseline 拆解",
-      "status": "in_progress",
-      "steps": [
-        {
-          "id": "step-1",
-          "name": "baseline 选择与训练框架初始化",
-          "status": "completed",
-          "question_count": 0,
-          "completed_count": 0,
-          "notes": "已确认 baseline expert，并建立训练目录、同步收件箱和归档机制。"
-        },
-        {
-          "id": "step-2",
-          "name": "AI 项目 10 问",
-          "status": "completed",
-          "question_count": 10,
-          "completed_count": 10,
-          "current_questions": [],
-          "questions": [
-            {
-              "id": "Q1",
-              "text": "Agent 工作在哪个业务流程中？",
-              "status": "completed"
-            },
-            {
-              "id": "Q2",
-              "text": "用户在什么触发点使用 Agent？",
-              "status": "completed"
-            },
-            {
-              "id": "Q3",
-              "text": "用户输入是什么？",
-              "status": "completed"
-            },
-            {
-              "id": "Q4",
-              "text": "系统已知事实有哪些？",
-              "status": "completed"
-            },
-            {
-              "id": "Q5",
-              "text": "Agent 可选择或推荐的候选范围是什么？",
-              "status": "completed"
-            },
-            {
-              "id": "Q6",
-              "text": "Agent 需要做哪些路由或决策？",
-              "status": "completed"
-            },
-            {
-              "id": "Q7",
-              "text": "Agent 依据哪些规则、知识或历史案例？",
-              "status": "completed"
-            },
-            {
-              "id": "Q8",
-              "text": "Agent 输出给谁消费？",
-              "status": "completed",
-              "supplement": {
-                "text": "失败、缺失、歧义如何处理？",
-                "status": "completed"
-              }
-            },
-            {
-              "id": "Q9",
-              "text": "怎么判断 Agent 做得好不好？",
-              "status": "completed"
-            },
-            {
-              "id": "Q10",
-              "text": "这个 Agent 在全局链路中的位置是什么？",
-              "status": "completed"
-            }
-          ]
-        },
-        {
-          "id": "step-3",
-          "name": "分层模型与文件角色映射",
-          "status": "completed",
-          "question_count": 10,
-          "completed_count": 10,
-          "current_questions": [],
-          "notes": "用户定义阶段3为系统分层建模 10 问，每次只回答三个问题。",
-          "questions": [
-            {
-              "id": "3.1",
-              "text": "业务场景层是什么？（明确业务流程和边界）",
-              "status": "completed"
-            },
-            {
-              "id": "3.2",
-              "text": "输入事实层包含哪些输入？（区分用户输入、系统事实、上下文）",
-              "status": "completed"
-            },
-            {
-              "id": "3.3",
-              "text": "候选范围层是什么？（明确可处理/不可处理范围）",
-              "status": "completed"
-            },
-            {
-              "id": "3.4",
-              "text": "决策路由层有哪些分支？（拆intent、routePath、branch）",
-              "status": "completed"
-            },
-            {
-              "id": "3.5",
-              "text": "规则与知识层有哪些KB/API/SOP？（明确知识来源和用途）",
-              "status": "completed"
-            },
-            {
-              "id": "3.6",
-              "text": "能力编排层如何运转？（看workflow/nodes的顺序和职责）",
-              "status": "completed"
-            },
-            {
-              "id": "3.7",
-              "text": "输出契约层输出什么？（拆structured、analysis、outputContext）",
-              "status": "completed"
-            },
-            {
-              "id": "3.8",
-              "text": "人工确认/兜底层在哪里？（找need_human、禁止写操作、人工接管）",
-              "status": "completed"
-            },
-            {
-              "id": "3.9",
-              "text": "评测验收层有什么依据？（找测试、规则、失败条件）",
-              "status": "completed"
-            },
-            {
-              "id": "3.10",
-              "text": "数据回流层是否存在？（判断是否有后续优化闭环）",
-              "status": "completed"
-            }
-          ]
-        },
-        {
-          "id": "step-4",
-          "name": "文件与能力层级映射",
-          "status": "in_progress",
-          "question_count": 6,
-          "completed_count": 3,
-          "current_questions": ["4.4", "4.5", "4.6"],
-          "notes": "2026-08-10 修正：此前误写为“主链路、支线与节点点亮”的 4.1-4.9 不计入有效步骤4；步骤4重启为文件与能力层级映射。",
-          "questions": [
-            {
-              "id": "4.1",
-              "text": "文件与能力层级映射的目标是什么？",
-              "status": "completed"
-            },
-            {
-              "id": "4.2",
-              "text": "baseline expert 的文件 / 目录可以分成哪些能力层级？",
-              "status": "completed"
-            },
-            {
-              "id": "4.3",
-              "text": "每个能力层级对应哪些核心文件？",
-              "status": "completed"
-            },
-            {
-              "id": "4.4",
-              "text": "节点文件如何映射到具体能力？",
-              "status": "current"
-            },
-            {
-              "id": "4.5",
-              "text": "外层编排 / handoff 文件如何映射到跨 expert 能力？",
-              "status": "current"
-            },
-            {
-              "id": "4.6",
-              "text": "最终 file-role-map 如何收口并服务迁移？",
-              "status": "current"
-            }
-          ]
-        },
-        {
-          "id": "step-5",
-          "name": "概念四步法与后置问题清理",
-          "status": "planned",
-          "question_count": null,
-          "completed_count": 0,
-          "current_questions": [],
-          "notes": "此前 5.1-5.3 建立在错误步骤4轨道上，已标注为误归档；等待正确步骤4完成后重新定义。"
-        }
-      ]
+      "name": "现状对齐",
+      "status": "completed",
+      "question_count": 6,
+      "completed_count": 6,
+      "notes": "阶段1明细题目当前未在仓库中完整保存；状态来自既有训练进度。后续如需复盘，先向用户确认题目原文。"
     },
     {
       "id": "phase-2",
-      "name": "迁移准备",
-      "status": "planned",
-      "steps": []
+      "name": "项目基础画像",
+      "status": "completed",
+      "question_count": 10,
+      "completed_count": 10,
+      "questions": [
+        { "id": "2.1", "text": "Agent 工作在哪个业务流程中？", "status": "completed" },
+        { "id": "2.2", "text": "用户在什么触发点使用 Agent？", "status": "completed" },
+        { "id": "2.3", "text": "用户输入是什么？", "status": "completed" },
+        { "id": "2.4", "text": "系统已知事实有哪些？", "status": "completed" },
+        { "id": "2.5", "text": "Agent 可选择或推荐的候选范围是什么？", "status": "completed" },
+        { "id": "2.6", "text": "Agent 需要做哪些路由或决策？", "status": "completed" },
+        { "id": "2.7", "text": "Agent 依据哪些规则、知识或历史案例？", "status": "completed" },
+        { "id": "2.8", "text": "Agent 输出给谁消费？", "status": "completed" },
+        { "id": "2.9", "text": "怎么判断 Agent 做得好不好？", "status": "completed" },
+        { "id": "2.10", "text": "这个 Agent 在全局链路中的位置是什么？", "status": "completed" }
+      ]
     },
     {
       "id": "phase-3",
-      "name": "非标增值 SOP expert 迁移",
+      "name": "系统分层建模",
+      "status": "completed",
+      "question_count": 10,
+      "completed_count": 10,
+      "questions": [
+        { "id": "3.1", "text": "业务场景层是什么？（明确业务流程和边界）", "status": "completed" },
+        { "id": "3.2", "text": "输入事实层包含哪些输入？（区分用户输入、系统事实、上下文）", "status": "completed" },
+        { "id": "3.3", "text": "候选范围层是什么？（明确可处理/不可处理范围）", "status": "completed" },
+        { "id": "3.4", "text": "决策路由层有哪些分支？（拆 intent、routePath、branch）", "status": "completed" },
+        { "id": "3.5", "text": "规则与知识层有哪些 KB/API/SOP？（明确知识来源和用途）", "status": "completed" },
+        { "id": "3.6", "text": "能力编排层如何运转？（看 workflow/nodes 的顺序和职责）", "status": "completed" },
+        { "id": "3.7", "text": "输出契约层输出什么？（拆 structured、analysis、outputContext）", "status": "completed" },
+        { "id": "3.8", "text": "人工确认/兜底层在哪里？（找 need_human、禁止写操作、人工接管）", "status": "completed" },
+        { "id": "3.9", "text": "评测验收层有什么依据？（找测试、规则、失败条件）", "status": "completed" },
+        { "id": "3.10", "text": "数据回流层是否存在？（判断是否有后续优化闭环）", "status": "completed" }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "文件与能力层级映射",
+      "status": "in_progress",
+      "question_count": 10,
+      "completed_count": 0,
+      "current_questions": ["4.1", "4.2", "4.3"],
+      "notes": "此前围绕主链路/概念四步法编写的步骤4/5为误归档，不计入本阶段。当前按用户提供的 110 题主课程表重新开始。",
+      "questions": [
+        { "id": "4.1", "text": "design.md 在系统里承担什么角色？", "purpose": "明确它是路书/能力地图", "status": "current" },
+        { "id": "4.2", "text": "manifest.json 承担什么角色？", "purpose": "明确身份、描述、输入输出契约", "status": "current" },
+        { "id": "4.3", "text": "workflow.json 承担什么角色？", "purpose": "明确节点编排", "status": "current" },
+        { "id": "4.4", "text": "nodes/ 承担什么角色？", "purpose": "明确确定性处理、查数、格式化", "status": "pending" },
+        { "id": "4.5", "text": "prompts/ 承担什么角色？", "purpose": "明确 LLM 推理和知识注入", "status": "pending" },
+        { "id": "4.6", "text": "coze.config.yml 承担什么角色？", "purpose": "明确 Coze 导入/配置关系", "status": "pending" },
+        { "id": "4.7", "text": "KB 文件和 prompt 的关系是什么？", "purpose": "区分知识材料和生成任务", "status": "pending" },
+        { "id": "4.8", "text": "API 节点和 KB 节点的关系是什么？", "purpose": "区分系统事实和规则知识", "status": "pending" },
+        { "id": "4.9", "text": "LLM 节点在整个链路中做什么？", "purpose": "明确模型负责非确定性分析", "status": "pending" },
+        { "id": "4.10", "text": "format-output 为什么重要？", "purpose": "明确输出契约是验收和下游消费基础", "status": "pending" }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "主链路与支线识别",
       "status": "planned",
-      "steps": []
+      "question_count": 10,
+      "completed_count": 0,
+      "notes": "题目见 110-question-curriculum.md。"
+    },
+    {
+      "id": "phase-6",
+      "name": "概念四步法训练",
+      "status": "planned",
+      "question_count": 40,
+      "completed_count": 0,
+      "notes": "10 个核心概念，每个 4 问；题目见 110-question-curriculum.md。"
+    },
+    {
+      "id": "phase-7",
+      "name": "节点点亮验收",
+      "status": "planned",
+      "question_count": 10,
+      "completed_count": 0,
+      "notes": "题目见 110-question-curriculum.md。"
+    },
+    {
+      "id": "phase-8",
+      "name": "迁移到非标增值 SOP expert",
+      "status": "planned",
+      "question_count": 14,
+      "completed_count": 0,
+      "notes": "题目见 110-question-curriculum.md。"
     }
   ],
-  "progress_display_rule": "每次继续训练、评审用户回答或进入下一题时，都必须先显示：当前阶段、当前步骤、当前题号进度、剩余题目。"
+  "progress_display_rule": "每次继续训练、评审用户回答或进入下一题时，都必须先显示：当前阶段、当前题号进度、剩余题目。"
 }
