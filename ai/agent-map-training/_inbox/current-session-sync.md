@@ -1286,6 +1286,187 @@
   - 4.5 `prompts/` 承担什么角色？
   - 4.6 `coze.config.yml` 承担什么角色？
 
+## ARCHIVE_PACKET 2026-08-10 20:36-phase4-4.4-4.6
+
+### 阶段
+
+阶段4：文件与能力层级映射 / 4.4-4.6。
+
+### 本轮有效产出
+
+#### 4.4 `nodes/` 承担什么角色？
+
+【回答结论】
+
+`nodes/` 是 Agent 里**不交给 LLM 自由发挥的那部分确定性能力**。
+
+也就是：凡是**必须稳定、可控、可测试、可复现**的动作，通常都应该放在 node 里，而不是让 LLM 临场发挥。
+
+可以用这句话和研发沟通：
+
+> 我希望把确定性逻辑前置到 nodes，把 LLM 只用于基于事实和规则做自然语言分析。
+
+【思考过程】
+
+- `nodes/` 不只是“代码目录”，而是系统把确定性能力前置的地方。
+- 适合放在 node 里的能力包括：
+  - **意图归一**：把用户说法归一成标准 `intent`。
+  - **参数校验**：判断单号、`bookingNo` 等必要输入是否存在。
+  - **路由决策**：决定走 `kb_only` 还是 `api_chain`。
+  - **构造查数请求**：把业务输入转成 API action / request payload。
+  - **解析查数结果**：把 API 返回转成标准结构。
+  - **事实汇总**：合并 API 记录、兜底字段、数据质量。
+  - **边界守卫**：判断是否出域、是否要转介。
+  - **知识注入**：按 intent 加载对应 KB。
+  - **输出格式化**：把 LLM 结果整理成统一输出契约。
+- 当前 `nodes/` 可以按能力分组：
+
+| 能力类型 | 节点 |
+| --- | --- |
+| 意图归一 / 参数校验 | `validate-intent.ts` |
+| 路由决策 | `route-intent.ts` |
+| 构造查数请求 | `resolve-inbound-lookup.ts`、`build-winit-inbound-detail.ts`、`build-booking-list-request.ts` |
+| 拉取 / 接收 / 解析数据 | `fetch-inbound-order.ts`、`fetch-booking-list.ts` |
+| 事实汇总 | `summarize-booking-records.ts` |
+| 边界守卫 | `scope-guard.ts` |
+| 知识注入 | `load-booking-kb.ts` |
+| LLM 节点声明 | `llm-analyze.ts` |
+| 输出格式化 | `format-output.ts` |
+
+- 这里要特别区分 `build-*`、`fetch-*`、`summarize-*`：
+
+| 文件名模式 | 意思 |
+| --- | --- |
+| `build-*` | 构造请求，还没拿到数据；回答“我要查什么、用什么 action、传什么参数” |
+| `fetch-*` | 拉取 / 接收 / 解析数据，开始有外部系统结果 |
+| `summarize-*` | 汇总结果，变成业务摘要 |
+
+- `fetch` 在工程里通常就是“去拿数据 / 拉取数据”。
+  - `fetch-inbound-order.ts` = 去拉取 / 解析入库单详情数据。
+  - `fetch-booking-list.ts` = 去拉取 / 解析预约列表数据。
+- 这里的 `fetch` 不一定只表示“直接调用 API”。在这个 expert 里，它更准确是：接收前面构造好的查数请求或插件返回结果，把外部系统的数据拿回来，并整理成后续节点能用的结构。
+- 例如：
+  - `build-booking-list-request.ts`：构造查数请求，说明要查什么、用什么 action、传什么参数。
+  - `fetch-booking-list.ts`：执行 / 接收查数结果，把预约记录拿回来，整理成 `bookingRecords`。
+
+【依据】
+
+- `agentic/experts/experts/inbound/inbound-appointment-manage/nodes/` 下包含 12 个节点文件。
+- `workflow.json` 通过 `file` 字段把多数运行时节点指向 `nodes/*.ts`。
+- `workflow.json` 中 `build-booking-list-request` 输出 `actions`，`fetch-booking-list` 输出 `bookingRecords`，`summarize-booking-records` 输出 `bookingSummary`。
+- `llm-analyze.ts` 只是 LLM 节点声明，说明普通 deterministic node 和 LLM 分析节点要分开看。
+
+#### 4.5 `prompts/` 承担什么角色？
+
+【回答结论】
+
+`prompts/` 是这个 expert 的**LLM 推理约束 + KB / SOP / 规则知识层**。
+
+它分两类：
+
+1. `prompts/main.md`：告诉 LLM 应该怎么回答、不能怎么回答、输入有哪些、输出格式是什么。
+2. 其他 `.md` 文件：提供预约 SOP、预约规则、违规费规则、分批到仓、POD 下载、API 状态码等离线知识材料。
+
+一句话：`prompts/` 不是执行节点；它给 LLM 提供“任务说明”和“知识依据”。
+
+【思考过程】
+
+- `prompts/` 里不能把所有文件混成一类，要分清“生成任务 prompt”和“知识材料 KB”。
+- `main.md` 是生成任务 prompt：
+  - 定义角色：预约送仓操作指引专家。
+  - 定义禁止项：不代客创建 / 修改 / 取消，不输出 PDF/base64，不承诺减免，不泄露内部 URL。
+  - 定义输入变量：`query`、`intent`、`routePath`、`bookingSummary`、`scopeGuard`、`kbContent` 等。
+  - 定义输出格式：`analysisResult.structured` + `analysis`。
+- 其他 `.md` 是离线知识材料，比如 SOP、规则、FAQ、API reference。
+- **KB textNodes 注入**就是：把一堆离线的 `.md` 知识文件，在 expert 执行时按需要塞进 LLM 的上下文 / prompt 里，让模型基于这些材料回答。
+- 更精确地说：
+  - `.md` 文件：离线知识材料，比如 SOP、规则、FAQ。
+  - `coze.config.yml`：把这些 `.md` 注册成 Coze 工作流里的 text node。
+  - `load-booking-kb.ts`：运行时按 intent 选择哪些 text node 内容要用。
+  - `kbContent`：被拼出来的一段知识上下文。
+  - `llm-analyze`：最终把 `kbContent` 当作输入之一，交给 LLM 分析生成回答。
+- 所以不是把所有 `.md` 永远塞进去，而是：运行时按问题类型选择相关 KB，再注入到本次 LLM prompt / context。
+- 可以这样理解本次 LLM 上下文：
+
+```text
+用户问题
++ 系统查到的事实
++ 本次相关 KB 文档片段
++ main prompt 的回答要求
+= LLM 本次要看的完整上下文
+```
+
+一句话：KB textNodes 注入 = 把离线知识文档变成运行时 prompt 的一部分。
+
+【依据】
+
+- `prompts/main.md` 包含角色、禁止项、输入、输出格式、特殊规则。
+- `prompts/` 下包含 `booking-sop.md`、`booking-rules.md`、`penalty-rules.md`、`split-shipment.md`、`premium-booking.md`、`booking-api-reference.md`、`pod-download-guide.md`、`booking-kb-index.md`。
+- `coze.config.yml` 的 `textNodes` 把多个 `prompts/*.md` 文件注册为 Coze text node。
+- `load-booking-kb.ts` 会按 `intent` / `deliveryWayHint` / `query` 选择 KB 片段并输出 `kbContent` / `kbScope`。
+- `workflow.json` 中 `llm-analyze` 的输入包含 `kbContent` 和 `kbScope`。
+
+#### 4.6 `coze.config.yml` 承担什么角色？
+
+【回答结论】
+
+`coze.config.yml` 是这个 expert 的**Coze 导入 / 装配 / 接线配置文件**。
+
+它不是业务设计文档，也不是节点源码。它负责告诉 Coze 包装 / 导入工具：
+
+- 生成的 yaml 包叫什么。
+- 哪些 prompt / KB 文件要作为 textNode 注入。
+- 哪些 Winit OpenAPI 插件节点要插入到 workflow 的哪个位置。
+- 节点之间的输入字段如何绑定。
+- 最终哪些字段作为工作流 endOutputs 输出。
+
+一句话：`coze.config.yml` 是把本地 expert 文件装配成 Coze 可运行工作流的配置层。
+
+【思考过程】
+
+- 如果说：
+  - `design.md` 是路书；
+  - `manifest.json` 是身份卡；
+  - `workflow.json` 是节点接线表；
+  - `nodes/` 是确定性处理能力；
+  - `prompts/` 是 LLM 和知识材料；
+  那 `coze.config.yml` 的角色就是：把这些东西装到 Coze 工作流里。
+- 它做了几类配置：
+  1. 包信息：`yamlBasename`、`packageMainName`、`packageDescription`。
+  2. KB textNodes 注入：把 `prompts/booking-sop.md`、`booking-rules.md`、`penalty-rules.md` 等注册为 text nodes。
+  3. OpenAPI 插件批处理：在 `fetch-inbound-order` 前插入 `winit_order_detail_batch`，在 `fetch-booking-list` 前插入 `winit_booking_list_batch`。
+  4. 节点 inputBindings：明确每个节点输入来自哪个上游节点输出。
+  5. 最终 endOutputs：输出 `structured`、`analysis`、`outputContext`、`enrichedContext`。
+
+【依据】
+
+- `coze.config.yml` 定义 `yamlBasename: inbound_appointment_manage-draft.yaml` 和 `packageMainName: inbound_appointment_manage`。
+- `textNodes` 把多个 `prompts/*.md` 文件注册成 Coze textNode。
+- `winitOpenapiPlugins` 定义两个插件批处理：`winit_order_detail_batch` 和 `winit_booking_list_batch`。
+- `inputBindings` 明确 `route-intent`、`load-booking-kb`、`llm-analyze`、`format-output` 等节点的输入来源。
+- `endOutputs` 明确最终输出 `structured`、`analysis`、`outputContext`、`enrichedContext`。
+
+### 思维纠偏
+
+- `nodes/` 是确定性能力层，不是让 LLM 自由发挥的地方。
+- 学 `nodes/` 的目标是先掌握“每个节点负责哪段能力、输入输出是什么、谁消费它”，不是做源码审计。
+- `build-*`、`fetch-*`、`summarize-*` 要区分：构造请求、拿回/解析数据、汇总业务摘要。
+- `prompts/` 要区分 `main.md` 的生成任务提示和 KB `.md` 的离线知识材料。
+- KB textNodes 注入不是“所有知识永远塞进 prompt”，而是运行时按 intent 选择相关 KB，拼成本次 LLM 上下文。
+
+### 后置问题
+
+- 4.7 继续拆 KB 文件和 prompt 的关系。
+- 4.8 继续拆 API 节点和 KB 节点的关系。
+- 4.9 继续拆 LLM 节点在链路中的作用。
+
+### 下一步
+
+- 继续阶段4 4.7-4.9：
+  - 4.7 KB 文件和 prompt 的关系是什么？
+  - 4.8 API 节点和 KB 节点的关系是什么？
+  - 4.9 LLM 节点在整个链路中做什么？
+
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
 
 ### 阶段
