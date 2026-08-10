@@ -665,6 +665,72 @@
   - 4.5 KB 链路如何点亮？
   - 4.6 业务出域 / 转介链路如何点亮？
 
+## ARCHIVE_PACKET 2026-08-10 16:35
+
+### 阶段
+
+步骤4：主链路、支线与节点点亮 / 4.4-4.6。
+
+### 本轮有效产出
+
+#### 4.4 API 链路如何点亮？
+
+- API 链路的触发条件是 `routePath=api_chain`，主要来自 `query`、`penalty`、有单号的 `pod_guide`。
+- 点亮顺序：
+  1. `validate-intent` 校验并归一输入，`query` / `penalty` 必须有 `inboundOrderNos` / `inboundOrderNo` / `bookingNo`。
+  2. `route-intent` 输出 `routePath=api_chain`、`skipApi=false`，有查询键时 `skipOrderDetail=false`。
+  3. `resolve-inbound-lookup` 把入库单号拆成 `wiOrderNos` / `customerRefNos`。
+  4. `build-winit-inbound-detail` 构造 `winit.wh.inbound.getOrderDetail` actions。
+  5. `build-booking-list-request` 构造 `winit.wh.inbound.booking.list` action。
+  6. `fetch-inbound-order` 拉取入库单表头，输出 `rawOrderData`。
+  7. `fetch-booking-list` 拉取预约记录，输出 `bookingRecords`。
+  8. `summarize-booking-records` 合并预约 API 记录和订单表头兜底，输出 `bookingSummary`。
+- API 链路点亮成功的可观察结果：`skipApi=false`、有 booking action、`bookingRecords` 或 order header fallback 被汇总、`bookingSummary.dataQuality` 不是无意义空值。
+
+#### 4.5 KB 链路如何点亮？
+
+- KB 链路几乎所有场景都会点亮，因为最终回答都需要规则 / SOP 支撑；区别在于加载哪组 KB。
+- 点亮条件来自 `intent`、`deliveryWayHint`、`warehouseCode`、`routePath` 和 query 文本。
+- `load-booking-kb` 按 intent 选择片段：
+  - `create_guide`：`booking-sop`，并按 LCL / FCL / Express 过滤；同时可加入 `booking-api-reference` 的 API 链路 / 核心规则 / FCL 必填。
+  - `modify_guide`：`booking-rules` 修改 / 变更 + SOP 通用说明。
+  - `cancel_guide`：`booking-rules` 取消 / 免费取消 + `penalty-rules` 未到仓 / 超时取消。
+  - `split_shipment`：`split-shipment` + SOP 合并预约 / 通用说明。
+  - `penalty`：`penalty-rules`，如 query 命中增值 / 付费预约则加 `premium-booking`，并补充快递 / 仓内上架相关 SOP。
+  - `query`：`booking-api-reference` 预约状态码 / API 链路 + `booking-rules` + SOP 通用说明。
+  - `pod_guide`：`pod-download-guide` + `booking-api-reference` POD / 状态码 + `booking-rules` 预约状态。
+- KB 链路点亮成功的可观察结果是 `kbContent` 非空、`kbScope` 带有 intent 和 routePath，例如 `query:api_chain` 或 `create_guide:LCL:kb_only`。
+
+#### 4.6 业务出域 / 转介链路如何点亮？
+
+- 业务出域 / 转介链路由 `scope-guard` 点亮，它不是 intent 主路由，而是 API 链之后基于订单事实的业务范围二次判断。
+- 点亮前提：通常需要 API 链拿到 `rawOrderData`，并能从入库单表头读到 `winitProductCode` / `productCode`。
+- 判断逻辑：
+  - `routePath=kb_only` 或没有 PSC：`scopeAction=answer`，不做出域转介。
+  - PSC 匹配标准头程 `OW01011`：`scopeAction=refer_process_guide`，`referExpertId=inbound/inbound-process-guide`。
+  - PSC 不匹配直发预约链路 `OW01021/22/31/32`：`scopeAction=refer_process_guide`，转 `inbound/inbound-process-guide` 或提示确认产品选型与送仓规则。
+  - PSC 属于直发预约链路：`scopeAction=answer`，继续由本 expert 回答。
+- `format-output` 会把 `scopeAction`、`referExpertId` 合并进 `structured`，并在有 `referExpertId` 时写入 `outputContext.nextExpertId`。
+
+### 思维纠偏
+
+- API 链路不是单独一个 API 调用，而是入库单详情链和预约列表链两条事实链，再由 `summarize-booking-records` 汇总。
+- KB 链路不是只在 `kb_only` 场景点亮；API + KB 解读也要点亮 KB，用来解释 API 事实。
+- 业务出域 / 转介不是普通异常兜底，而是基于 PSC 的业务边界判断。
+
+### 后置问题
+
+- 4.7 需要继续展开失败 / 兜底链路，包括 invalid、API 空结果、manual action。
+- 4.8 需要继续展开输出链路如何把中间结果合成 `structured`、`analysis`、`outputContext`、`enrichedContext`。
+- 4.9 需要明确哪些链路不存在或当前无法确定。
+
+### 下一步
+
+- 继续步骤4 4.7-4.9：
+  - 4.7 失败 / 兜底链路如何点亮？
+  - 4.8 输出链路如何点亮？
+  - 4.9 哪些链路不存在或无法确定？
+
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
 
 ### 阶段
