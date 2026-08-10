@@ -731,6 +731,109 @@
   - 4.8 输出链路如何点亮？
   - 4.9 哪些链路不存在或无法确定？
 
+## ARCHIVE_PACKET 2026-08-10 16:54-step4-close
+
+### 阶段
+
+步骤4：主链路、支线与节点点亮 / 4.7-4.9。
+
+### 本轮有效产出
+
+#### 4.7 失败 / 兜底链路如何点亮？
+
+- 失败 / 兜底链路不是一条单独的 `need_human` 分支，而是分布在校验、路由、API fetch、预约汇总和输出合并几个节点里。
+- 第一类失败：输入校验失败。
+  - `validate-intent` 对 `query` / `penalty` 要求至少有 `inboundOrderNos` / `inboundOrderNo` / `bookingNo`。
+  - 如果缺少查询键，输出 `validationOk=false` 和错误信息。
+  - `route-intent` 看到 `validationOk !== true` 后输出 `routePath=invalid`、`skipApi=true`、`skipOrderDetail=true`、`kbOnly=true`。
+  - 这表示后续不再查 API，而是让 LLM 基于错误、intent 和 KB 给出补充信息要求。
+- 第二类失败：API 被主动跳过。
+  - KB-only intent 或 invalid 路径会让 `build-booking-list-request` 返回空 `actions`。
+  - `fetch-booking-list` 在 `skipApi=true` 时返回空 `bookingRecords`。
+  - `fetch-inbound-order` 在 `skipOrderDetail=true` 时返回 `rawOrderData.list=[]`，并带 `_fetchMeta.strategy=skipped`。
+  - 这不是异常，而是正常的“不要查 API”路径。
+- 第三类失败：API 查不到或本地补拉失败。
+  - `fetch-booking-list` 如果插件输出为空、本地 Coze 代理缺 env、或调用异常，会降级为 `bookingRecords=[]`。
+  - `fetch-inbound-order` 如果缺 env 或单次调用异常，会降级为空 `rawOrderData.list=[]`。
+  - 节点内部不会把这些失败直接抛给最终用户，而是把空事实交给 `summarize-booking-records`。
+- 第四类兜底：预约列表为空时用入库单表头兜底。
+  - `summarize-booking-records` 先标准化 `booking.list` 结果。
+  - 如果预约 API 没有记录，再从 `getOrderDetail` 表头提取 `bookingNo` / `inboundBookingStatus` / `appointmentDate` / 仓库等预约提示字段。
+  - 兜底成功时 `dataQuality=order_header_fallback`。
+  - 如果连表头兜底也没有记录，`dataQuality=missing`。
+- 第五类兜底：人工动作标记。
+  - 对 `query` / `penalty`，如果合并后仍无记录，`summarize-booking-records` 输出 `requiresManualAction=true`。
+  - `format-output` 会把这个字段合并到 `structured.requiresManualAction`。
+  - 这表示需要人工确认 / 后续处理，而不是系统已经完成事实查询。
+- 另外，业务出域不是失败兜底，而是 `scope-guard` 的边界判断；它通过 `scopeAction` / `referExpertId` 表达转介。
+
+#### 4.8 输出链路如何点亮？
+
+- 输出链路从 `llm-analyze` 的 `analysisResult` 开始，最后由 `format-output` 统一点亮。
+- 输入来源有四类：
+  - LLM 输出：`analysisResult.structured` 和 `analysisResult.analysis`。
+  - 事实汇总：`bookingSummary`。
+  - 业务边界判断：`scopeGuard`。
+  - 上下文：`inputContext.chainId`。
+- `format-output` 先把 `analysisResult` 归一化：
+  - 如果是空值，给默认 `analysis="未收到模型输出。"`。
+  - 如果是字符串，尝试按 JSON 解析；解析失败就把字符串当作自然语言 `analysis`。
+  - 如果是对象，读取其中的 `structured` 和 `analysis`。
+- `structured` 的点亮逻辑：
+  - 先保留 LLM 给出的 `structured`。
+  - 如果 `bookingSummary.recordCount` 存在且 LLM 未写 `bookingRecords`，补入 `bookingSummary.records`。
+  - 如果有 `totalPenaltyFee` 且 LLM 未写 `penaltyFee`，补入费用字段。
+  - 始终补入 `bookingSummary.dataQuality`。
+  - 如果 `bookingSummary.requiresManualAction=true`，补入 `requiresManualAction=true`。
+  - 如果 `scopeGuard` 有 `scopeAction` / `referExpertId` 且 LLM 未写，补入对应字段。
+- `analysis` 的点亮逻辑：
+  - 优先使用 LLM 的自然语言答案。
+  - 如果没有，则输出占位文本 `（无 analysis 字段）`。
+  - 这说明最终对客文本主要依赖 LLM，而 `format-output` 只做兜底和契约整理。
+- `outputContext` 的点亮逻辑：
+  - 固定写入 `expertId=inbound-appointment-manage`。
+  - `resultSummary` 取 `analysis` 前 200 字。
+  - `chainId` 来自 `inputContext.chainId`，没有则为空。
+  - 如果 `scopeGuard.referExpertId` 存在，写入 `nextExpertId`。
+- `enrichedContext` 的点亮逻辑：
+  - 原样带出 `bookingSummary` 和 `scopeGuard`。
+  - 它用于追溯、调试或后续编排复用；是否被外层 planner 稳定消费，当前材料无法完全确定。
+
+#### 4.9 哪些链路不存在或无法确定？
+
+- 不存在的链路：
+  - 没有代客创建预约链路：`booking.create` 不调用。
+  - 没有代客取消预约链路：`booking.cancel` 不调用。
+  - 没有代客修改预约写操作链路；只提供修改预约 SOP。
+  - 没有实时 slot 查询链路：`queryAvailableWarehouseinPlan` 有规格但本 expert 不调用。
+  - 没有待预约单列表链路：`unBookingOrder.list` 不调用，只在 KB 中说明待预约单来源。
+  - 没有 PDF 文件下载 / 转发链路：`exportPodPdf` 不调用，`pod_guide` 只给万邑联自助下载 SOP。
+  - 没有统一 `need_human` branch；本 expert 用 `requiresManualAction`、`scopeAction`、`referExpertId`、禁止写操作等信号表达兜底 / 转介。
+  - 没有数据回流闭环：没有看到失败样本、人工处理结果或客户反馈自动写回 KB / prompt / eval 的链路。
+- 当前无法确定的链路：
+  - `outputContext` / `enrichedContext` 被哪个外层 planner 如何消费，当前 baseline 材料不能完全确定。
+  - `chainId` 在上层链式编排中的具体使用方式，当前材料不能完全确定。
+  - 线上 Coze 插件失败时是否有平台级重试 / 告警 / 人工兜底，当前 expert 代码只能确认本地节点会降级为空事实。
+  - `scopeAction=refer_process_guide` 后，上层是否自动调用 `inbound/inbound-process-guide`，当前只能确认 `outputContext.nextExpertId` 被写出，不能确认外层一定自动接力。
+  - `enrichedContext` 是否被下游 expert 稳定读取，当前只能确认它被输出，不能确认消费方。
+
+### 思维纠偏
+
+- 失败链路不能只找一个 `need_human` 节点；这里的失败表达分散在 `validationOk`、`routePath=invalid`、`dataQuality=missing`、`requiresManualAction`、`scopeAction`、`referExpertId`。
+- 空 API 结果不等于系统崩溃；在这个 expert 里，很多 fetch 失败会被降级为空列表，再由汇总节点判断数据质量和人工动作。
+- “不存在的链路”要和“有 OpenAPI 规格但本 expert 不调用”区分开；不能因为文档里出现接口名就认为运行时链路已点亮。
+- 输出链路要区分对客文本、机器结构化字段、编排摘要和追溯上下文。
+
+### 后置问题
+
+- 步骤5 可以把步骤2-4 中反复出现的概念沉淀成四步法：业务边界、事实链路、决策链路、输出契约。
+- 后续迁移非标增值 SOP expert 时，要优先检查是否存在类似的“有接口规格但不调用”的误判风险。
+
+### 下一步
+
+- 步骤4已完成。
+- 等待进入步骤5：概念四步法与后置问题清理。
+
 ## ARCHIVE_PACKET 2026-08-10 15:02-step3-close
 
 ### 阶段
