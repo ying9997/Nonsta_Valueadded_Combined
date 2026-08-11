@@ -515,6 +515,184 @@
   - 3.5 规则与知识层有哪些 KB/API/SOP？
   - 3.6 能力编排层如何运转？
 
+## ARCHIVE_PACKET 2026-08-11 5.1-5.3
+
+### 阶段
+
+阶段5：主链路与支线识别 / 5.1-5.3。
+
+### 本轮有效产出
+
+#### 5.1 这个 expert 的最小主链路是什么？
+
+【结论】
+
+这个 expert 的最小主链路是“纯 KB 指引路径”，即用户问预约送仓操作类问题时，不查 API，只完成“识别意图 -> 判断路径 -> 加载规则知识 -> 生成回答 -> 格式化输出”。
+
+具体节点序列：
+
+```text
+inputs
+-> validate-intent
+-> route-intent
+-> load-booking-kb
+-> llm-analyze
+-> format-output
+```
+
+对应最小可跑通场景：
+
+```text
+create_guide / modify_guide / cancel_guide / split_shipment / pod_guide（无单号）
+```
+
+【思考过程】
+
+“最小主链路”的判断标准是：
+
+1. 是否覆盖 expert 的核心定位：预约送仓 SOP 分发。
+2. 是否能从用户输入走到可交付输出。
+3. 是否去掉后，expert 就不能回答最基础问题。
+
+因此 `validate-intent`、`route-intent`、`load-booking-kb`、`llm-analyze`、`format-output` 是最小主链路。`build-booking-list-request`、`fetch-booking-list`、`summarize-booking-records` 等 API 节点不是“最小”链路必须项，因为纯 KB 场景不需要查数。
+
+【依据】
+
+- `design.md` 设计定位：本专家是“操作 SOP 分发器 + 预约单/违规费只读解读器”。
+- `design.md` routePath：`create_guide / modify_guide / cancel_guide / split_shipment` 走 `kb_only`，`skipApi=true`。
+- `workflow.json` 节点顺序中存在 `validate-intent`、`route-intent`、`load-booking-kb`、`llm-analyze`、`format-output`。
+- 阶段3结论：主体路由是 `intent -> routePath -> kb_only / api_chain -> 输出指引或解读`。
+- 阶段4结论：`load-booking-kb` 是规则知识注入，`llm-analyze` 负责自然语言分析，`format-output` 是输出契约节点。
+
+#### 5.2 哪些节点属于主链路？
+
+【结论】
+
+按“所有请求都要经过的主干”看，主链路节点是：
+
+```text
+validate-intent
+-> route-intent
+-> load-booking-kb
+-> llm-analyze
+-> format-output
+```
+
+按“完整主能力闭环”看，主链路还包括 API 事实链，因为这个 expert 不只是 SOP 指引，也包括预约单/违规费只读解读：
+
+```text
+validate-intent
+-> route-intent
+-> resolve-inbound-lookup
+-> build-winit-inbound-detail
+-> fetch-inbound-order
+-> build-booking-list-request
+-> fetch-booking-list
+-> summarize-booking-records
+-> scope-guard
+-> load-booking-kb
+-> llm-analyze
+-> format-output
+```
+
+更准确地拆分：
+
+```text
+主干必经节点：
+validate-intent / route-intent / load-booking-kb / llm-analyze / format-output
+
+API-chain 主能力节点：
+resolve-inbound-lookup / build-winit-inbound-detail / fetch-inbound-order /
+build-booking-list-request / fetch-booking-list / summarize-booking-records
+
+边界主链节点：
+scope-guard
+```
+
+【思考过程】
+
+这里没有把“主链路”简单理解为 workflow 里所有节点，而是分三类判断：
+
+1. 主干必经：每类请求都需要它，否则无法完成统一入口、路由、知识注入、生成和输出。
+2. 主能力必需：只读查询类能力需要它，否则 `query / penalty / pod_guide 有单号` 无法完成。
+3. 边界必需：虽然不是所有 KB-only 场景都强依赖，但它负责判断是否属于本 expert 范围，属于主链路的安全边界。
+
+【依据】
+
+- `workflow.json` 明确节点顺序包含 12 个节点：`validate-intent`、`route-intent`、`resolve-inbound-lookup`、`build-winit-inbound-detail`、`fetch-inbound-order`、`build-booking-list-request`、`fetch-booking-list`、`summarize-booking-records`、`scope-guard`、`load-booking-kb`、`llm-analyze`、`format-output`。
+- `design.md` 工作流编排：`route-intent` 后分出 API-chain，并最终汇入 `summarize-booking-records`、`scope-guard`、`load-booking-kb`、`llm-analyze`、`format-output`。
+- 阶段4文件映射：API build/fetch/summarize 节点提供系统事实，`load-booking-kb` 提供规则知识，`llm-analyze` 做非确定性分析，`format-output` 生成 `structured`、`analysis`、`outputContext`、`enrichedContext`。
+- ⚠️ 推断：`scope-guard` 被归入“边界主链”，因为阶段3已确认它基于 `winitProductCode / PSC` 做业务范围二次路由，但它不是最小 KB-only 主链的必需节点。
+
+#### 5.3 哪些节点属于支线查询？
+
+【结论】
+
+支线查询主要是 `api_chain` 里的查数与解读分支，服务于：
+
+```text
+query / penalty / pod_guide（有单号）
+```
+
+具体支线查询节点是：
+
+```text
+resolve-inbound-lookup
+-> build-winit-inbound-detail
+-> fetch-inbound-order
+```
+
+以及：
+
+```text
+build-booking-list-request
+-> fetch-booking-list
+-> summarize-booking-records
+```
+
+其中 `resolve-inbound-lookup / build-winit-inbound-detail / fetch-inbound-order` 用于查入库单详情，拿 `rawOrderData`，补充 `bookingNo / inboundBookingStatus / winitProductCode` 等上下文。
+
+`build-booking-list-request / fetch-booking-list / summarize-booking-records` 用于查预约记录，生成 `bookingRecords` 和 `bookingSummary`，支撑预约状态、违规费、POD 是否可下载等解读。
+
+【思考过程】
+
+“支线查询”的判断标准是：
+
+1. 是否只在特定 intent 下触发。
+2. 是否依赖单号。
+3. 是否调用或承接 API 事实。
+4. 是否最终回到主干输出链路。
+
+因此 `query / penalty / pod_guide 有单号` 是支线查询场景；相关 API 节点是支线查询节点。它们不是独立结束，而是查完后回到：
+
+```text
+summarize-booking-records
+-> llm-analyze
+-> format-output
+```
+
+【依据】
+
+- `design.md` routePath：`query / penalty / pod_guide（有单号）` 走 `api_chain`，`skipApi=false`。
+- `design.md` 最小入参：`query / penalty / pod_guide（有单号）` 需要 `inboundOrderNos / inboundOrderNo / bookingNo` 至少其一。
+- `design.md` 数据拉取：`booking.list` 用于 `query / penalty / pod_guide` 读取预约列表、状态码、违规费字段；`getOrderDetail` 是辅助/兜底，用于 `bookingNo`、`inboundBookingStatus`、`winitProductCode`。
+- `workflow.json` 中 API 查询相关节点：`resolve-inbound-lookup`、`build-winit-inbound-detail`、`fetch-inbound-order`、`build-booking-list-request`、`fetch-booking-list`、`summarize-booking-records`。
+- 阶段3结论：`query / penalty / pod_guide 有单号` 走 API + KB；无单号或操作指引类走 KB-only。
+- 阶段4结论：API 节点提供系统事实，KB 节点提供规则知识，LLM 负责解释。
+
+### 思维纠偏
+
+- 主链路不是“workflow 里所有节点”，而是要区分最小主链路、完整主能力链路、边界主链节点和支线查询节点。
+- `api_chain` 不是最小 SOP 主链路的一部分，但它是预约状态、违规费、有单号 POD 解读能力的主能力分支。
+- `scope-guard` 不应只看作普通节点；它在阶段3中已被识别为业务边界二次路由点。
+
+### 下一步
+
+- 继续阶段5 5.4-5.6：
+  - 5.4 哪些节点是安全约束？
+  - 5.5 哪些能力是增强能力？
+  - 5.6 哪些是不做事项？
+
 ## ARCHIVE_PACKET 2026-08-10 14:26
 
 ### 阶段
