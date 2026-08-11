@@ -1047,6 +1047,224 @@ query / penalty / pod_guide（有单号）
   - 6.3 没有它会怎样？
   - 6.4 它从哪里来？
 
+## ARCHIVE_PACKET 2026-08-11 phase7-draft-7.2-7.5
+
+### 阶段
+
+阶段7：节点点亮验收 / 7.2-7.5 提前草稿。
+
+### 状态说明
+
+- 本归档为用户提前要求的阶段7草稿。
+- 当前正式进度仍停留在阶段6：概念四步法训练 / `intent` 6.1-6.4。
+- 阶段7正式开始前，需要先完成阶段6，并补齐 7.1“当前要点亮哪个节点？”。
+- 本草稿默认点亮对象为：V0 最小主链路，即 KB-only 预约送仓操作指引链路。
+
+### 本轮有效产出
+
+默认点亮对象：
+
+```text
+V0 最小主链路：KB-only 预约送仓操作指引链路
+```
+
+对应节点序列：
+
+```text
+validate-intent
+-> route-intent
+-> load-booking-kb
+-> llm-analyze
+-> format-output
+```
+
+#### 7.2 这个节点的输入是什么？
+
+【结论】
+
+V0 最小主链路的输入是：
+
+```text
+query
+customerIntent
+inputs.intent
+inputs.deliveryWayHint
+inputs.warehouseCode
+inputContext
+```
+
+其中最关键的是：
+
+```text
+query + intent + deliveryWayHint
+```
+
+典型输入场景：
+
+```json
+{
+  "query": "说明 LCL 散货预约送仓的完整流程",
+  "customerIntent": "客户第一次预约散货送仓",
+  "inputs": {
+    "intent": "create_guide",
+    "deliveryWayHint": "LCL"
+  }
+}
+```
+
+【思考过程】
+
+判断输入时，不看系统能查到什么，而看用户或上游传进来的东西。V0 是 KB-only，不依赖单号，不查 API，所以 `inboundOrderNos / bookingNo` 不是 V0 必填输入。
+
+【依据】
+
+- `design.md` 最小入参：`create_guide / modify_guide / cancel_guide / split_shipment / pod_guide（无单号）` 无必填单号。
+- `workflow.json`：`validate-intent` 输入包含 `intent`、`query`、`customerIntent`、`deliveryWayHint`、`warehouseCode`、`inputContext`。
+- 阶段5结论：V0 不覆盖 `query / penalty / pod_guide（有单号）` 的 API 查数路径。
+
+#### 7.3 这个节点的输出是什么？
+
+【结论】
+
+V0 最小主链路最终输出是：
+
+```text
+structured
+analysis
+outputContext
+enrichedContext
+```
+
+其中用户主要消费：
+
+```text
+analysis
+```
+
+系统主要消费：
+
+```text
+structured / outputContext
+```
+
+V0 中 `structured` 应至少表达：
+
+```text
+intent
+deliveryWayHint
+operationSteps
+scopeAction
+requiresManualAction
+```
+
+【思考过程】
+
+输出不能只看 LLM 的回答。`llm-analyze` 的 `analysisResult` 还不是最终输出，必须经过 `format-output` 归一化，才变成稳定契约。
+
+【依据】
+
+- `workflow.json`：`format-output` 输出 `structured`、`analysis`、`outputContext`、`enrichedContext`。
+- 阶段4结论：`format-output` 是输出契约节点。
+- `design.md` 输出设计：KB 类场景输出 `operationSteps`，并用 `analysis` 给用户解释。
+
+#### 7.4 这个节点的产物是什么？
+
+【结论】
+
+这个节点点亮后的产物不是一段口头理解，而应该是可验收材料：
+
+```text
+1. V0 主链路节点序列
+2. V0 输入样例
+3. V0 输出样例
+4. KB-only smoke 测试结果
+5. 节点点亮记录
+```
+
+建议沉淀到：
+
+```text
+agent-map-training/baseline/inbound-appointment-manage/node-lighting-board.md
+```
+
+产物格式可以是：
+
+```markdown
+## V0 KB-only 主链路点亮
+
+节点序列：
+validate-intent -> route-intent -> load-booking-kb -> llm-analyze -> format-output
+
+输入样例：
+...
+
+预期输出：
+...
+
+验收结果：
+...
+```
+
+【思考过程】
+
+“点亮”不是看懂，而是留下一个别人能复查的交付物。这个产物要能证明：输入是什么、经过哪些节点、输出是什么、是否符合验收。
+
+【依据】
+
+- 阶段7课程表：7.4 问的是“这个节点的产物是什么？文档/schema/表格/代码/测试”。
+- 阶段5结论：V0 最小可跑通 KB-only 链路。
+- 阶段4结论：`workflow.json` 是节点编排图，`format-output` 是验收和下游消费基础。
+
+#### 7.5 什么情况下算点亮？
+
+【结论】
+
+V0 KB-only 主链路点亮标准：
+
+```text
+1. validate-intent 能正确归一 intent。
+2. route-intent 能输出 kb_only / skipApi=true。
+3. load-booking-kb 能加载正确 KB。
+4. llm-analyze 能基于 KB 生成不越界回答。
+5. format-output 能输出 structured / analysis / outputContext。
+6. 回答不代客操作、不调用 API、不编造状态或费用。
+```
+
+可验收用例至少包括：
+
+```text
+create_guide：LCL 预约流程
+modify_guide：修改预约时间
+cancel_guide：取消预约规则
+split_shipment：分批到仓处理
+pod_guide（无单号）：POD 下载指引
+```
+
+【思考过程】
+
+点亮标准分三层：
+
+```text
+路径点亮：节点能跑通
+语义点亮：输出符合 intent 和 KB
+边界点亮：不越界、不查 API、不代客执行
+```
+
+只要其中一层不满足，就不能算点亮。
+
+【依据】
+
+- `design.md`：KB-only intent 包括 `create_guide / modify_guide / cancel_guide / split_shipment / pod_guide（无单号）`。
+- `design.md`：本专家不代客创建 / 修改 / 取消预约，不调用实时 slot，不下载 PDF。
+- `design.md` 本地验收：KB-only 可跑 `npm run smoke:inbound-appointment-manage -- --kb-only`。
+- 阶段5结论：V0 最小主链路是 KB-only 预约送仓操作指引链路。
+
+### 后置问题
+
+- 阶段7正式开始时，需要先确认 7.1：当前要点亮哪个节点。
+- 如果 7.1 选择的不是 V0 KB-only 主链路，本草稿需要按新节点对象重写。
+- 本草稿不改变当前正式训练进度。
+
 ## ARCHIVE_PACKET 2026-08-10 14:26
 
 ### 阶段
