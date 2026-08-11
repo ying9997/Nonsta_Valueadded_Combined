@@ -693,6 +693,360 @@ summarize-booking-records
   - 5.5 哪些能力是增强能力？
   - 5.6 哪些是不做事项？
 
+## ARCHIVE_PACKET 2026-08-11 5.4-5.10-close
+
+### 阶段
+
+阶段5：主链路与支线识别 / 5.4-5.10 收口。
+
+### 本轮有效产出
+
+#### 5.4 哪些节点是安全约束？
+
+【结论】
+
+安全约束节点主要是：
+
+```text
+validate-intent
+route-intent
+scope-guard
+format-output
+```
+
+其中最核心的是：
+
+```text
+scope-guard
+```
+
+它负责判断当前订单是否仍属于本 expert 的业务边界，例如标准头程 `OW01011` 要转 `inbound/inbound-process-guide`。
+
+【思考过程】
+
+安全约束的判断标准是：这个节点是否防止 Agent 做错事、越界回答、调用错误能力、输出不稳定结果。
+
+- `validate-intent`：防止 intent 不合法或输入不完整。
+- `route-intent`：防止该走 KB 的问题错误进入 API 链。
+- `scope-guard`：防止非本 expert 范围的订单继续被预约 expert 回答。
+- `format-output`：防止 LLM 输出不稳定，补入 `scopeAction / referExpertId / requiresManualAction` 等边界字段。
+
+【依据】
+
+- `design.md` 明确本 expert 不代客创建 / 修改 / 取消预约，不查询实时 slot，不下载 PDF。
+- `workflow.json` 中 `scope-guard` 输出 `scopeAction`、`scopeNote`、`referExpertId`、`isStandardHeadway`。
+- 阶段3结论：`scope-guard` 属于业务范围二次路由 / 出域判断。
+- 阶段4结论：`format-output` 会合并 `scopeGuard`，生成稳定输出契约。
+
+#### 5.5 哪些能力是增强能力？
+
+【结论】
+
+增强能力主要是：
+
+```text
+API-chain 查询能力
+getOrderDetail 兜底能力
+违规费解读
+有单号 POD 状态判断
+premium-booking 增值预约规则加载
+FCL / Drop 异常提示
+outputContext / enrichedContext 上下文传递
+```
+
+对应节点包括：
+
+```text
+resolve-inbound-lookup
+build-winit-inbound-detail
+fetch-inbound-order
+build-booking-list-request
+fetch-booking-list
+summarize-booking-records
+scope-guard
+format-output
+```
+
+【思考过程】
+
+“增强能力”的判断标准是：它不是 V0 最小 KB-only 闭环必需，但能让 expert 从“通用指引”升级为“结合单据事实的具体解读”。
+
+- 没有 API-chain，仍能回答“怎么预约”。
+- 有 API-chain，才能回答“这个预约单现在什么状态”。
+- 没有 `getOrderDetail`，仍可查 `booking.list`。
+- 有 `getOrderDetail`，可以补 `bookingNo / inboundBookingStatus / winitProductCode`，支持兜底和边界判断。
+
+【依据】
+
+- `design.md`：`query / penalty / pod_guide（有单号）` 走 `api_chain`。
+- `design.md`：`getOrderDetail` 是辅助 / 兜底。
+- `design.md`：`premium-booking.md` 用于增值预约费用边界，不等同 value-add 域。
+- 阶段4结论：API 节点提供系统事实，KB 节点提供规则知识，LLM 负责解释。
+
+#### 5.6 哪些是不做事项？
+
+【结论】
+
+明确不做事项包括：
+
+```text
+不代客创建预约单
+不代客修改预约单
+不代客取消预约单
+不调用 booking.create / booking.cancel
+不查询实时 slot
+不调用 exportPodPdf
+不代客下载 PDF
+不处理库容 / 客户额度
+不处理入库单总状态
+不处理签收时间 / 包裹数 / 轨迹
+不处理 VASC 推荐、服务项配置、已提交增值单状态
+不承诺违规费或增值预约费用减免
+不暴露内部 URL
+```
+
+【思考过程】
+
+“不做事项”的判断标准是：design 明确排除、属于其他 expert、涉及写操作、涉及文件投递或涉及高风险承诺。
+
+最关键的边界是：
+
+```text
+本 expert 是指引 + 只读解读，不是执行代理。
+```
+
+所以只要用户请求“帮我创建 / 修改 / 取消 / 下载 / 查实时 slot / 承诺减免”，都应该被拦住或转介。
+
+【依据】
+
+- `design.md` 开头：仅提供指引，不代客创建或取消预约单，不代客下载 PDF。
+- `design.md` OpenAPI 预约链：`booking.create`、`booking.cancel`、`queryAvailableWarehouseinPlan`、`exportPodPdf` 均不调用。
+- `design.md` 边界分工：库容额度、入库单总状态、签收轨迹、增值服务配置等转其他 expert。
+- `design.md` 对客约束：不承诺违规费 / 增值预约费用减免，不引用内部 URL。
+
+#### 5.7 如果只做 V0，最小可跑通什么？
+
+【结论】
+
+V0 最小可跑通的是 KB-only 预约送仓操作指引链路。
+
+具体节点组合：
+
+```text
+inputs
+-> validate-intent
+-> route-intent
+-> load-booking-kb
+-> llm-analyze
+-> format-output
+```
+
+V0 覆盖场景：
+
+```text
+create_guide
+modify_guide
+cancel_guide
+split_shipment
+pod_guide（无单号）
+```
+
+V0 不覆盖：
+
+```text
+query
+penalty
+pod_guide（有单号）
+booking.list 查询
+getOrderDetail 兜底
+真实预约状态 / 违规费金额 / POD 可下载状态判断
+```
+
+【思考过程】
+
+V0 的判断标准是：不依赖外部 API，也能闭环交付一个用户可用结果。
+
+因此 V0 限定为：
+
+1. 用户输入自然语言问题。
+2. `validate-intent` 识别 / 归一 intent。
+3. `route-intent` 判断为 `kb_only`。
+4. `load-booking-kb` 加载对应 SOP / 规则知识。
+5. `llm-analyze` 基于 KB 生成操作指引。
+6. `format-output` 输出稳定的 `structured`、`analysis`、`outputContext`。
+
+API 查数链路虽然重要，但不是 V0 最小可跑通必须项。否则 V0 会被真实接口、字段、空结果、兜底、数据质量拖重。
+
+【依据】
+
+- `design.md`：`create_guide / modify_guide / cancel_guide / split_shipment` 走 `kb_only`，`skipApi=true`。
+- `design.md`：`pod_guide` 无单号时走 `kb_only`。
+- `workflow.json`：存在 `validate-intent`、`route-intent`、`load-booking-kb`、`llm-analyze`、`format-output`。
+- 阶段4结论：`load-booking-kb` 是知识注入节点，`llm-analyze` 是自然语言分析节点，`format-output` 是输出契约节点。
+- ⚠️ 推断：V0 可以暂不接 `build-booking-list-request / fetch-booking-list / summarize-booking-records`，因为这些节点只服务 `api_chain`，不是纯 KB 指引闭环的必要条件。
+
+#### 5.8 如果做 V1，要补哪些节点？
+
+【结论】
+
+V1 应在 V0 KB-only 基础上补齐 API-chain 和边界兜底能力。
+
+V1 节点组合：
+
+```text
+validate-intent
+-> route-intent
+-> resolve-inbound-lookup
+-> build-winit-inbound-detail
+-> fetch-inbound-order
+-> build-booking-list-request
+-> fetch-booking-list
+-> summarize-booking-records
+-> scope-guard
+-> load-booking-kb
+-> llm-analyze
+-> format-output
+```
+
+V1 覆盖新增场景：
+
+```text
+query
+penalty
+pod_guide（有单号）
+标准头程 / 非适用链路转介
+API 空结果兜底
+requiresManualAction
+```
+
+【思考过程】
+
+V1 的判断标准是：在 V0 已能回答 SOP 指引后，补上“具体单据事实 + 边界转介 + 兜底”。
+
+V1 要补三类能力：
+
+1. 查事实：`booking.list` 和 `getOrderDetail`。
+2. 汇总事实：`summarize-booking-records`。
+3. 守边界：`scope-guard` 和 `format-output` 合并转介字段。
+
+【依据】
+
+- `design.md`：`query / penalty / pod_guide（有单号）` 走 API-chain。
+- `workflow.json`：API-chain 节点完整存在。
+- `design.md` 降级策略：`booking.list` 失败或空时，用 `getOrderDetail` 兜底；仍无则 `requiresManualAction=true`。
+- 阶段3结论：决策路由层包括 intent、routePath、查哪些事实、业务边界二次路由。
+
+#### 5.9 哪些问题当前不该追？
+
+【结论】
+
+当前不该追的问题包括：
+
+```text
+planner 具体如何调度其他 expert
+outputContext / enrichedContext 被哪个上层稳定消费
+Coze 代理 action 注册细节
+booking.list 字段实测细节
+queryAvailableWarehouseinPlan 如何实现实时 slot 查询
+exportPodPdf 如何转发 PDF
+VASC 推荐 / 服务项配置 / 增值单状态逻辑
+非标增值 SOP expert 的完整迁移实现
+真实 badcase 如何自动回流到 KB / prompt / eval
+```
+
+【思考过程】
+
+判断“不该追”的标准是：它不影响当前阶段识别主链路、支线、约束、增强能力；或者它属于其他阶段 / 其他 expert / 外层编排。
+
+阶段5要解决的是：
+
+```text
+这个 expert 内部哪些是主链路，哪些是支线，哪些是边界，哪些可后置。
+```
+
+不是现在就深挖：
+
+```text
+上层 planner 怎么消费
+真实 API 字段怎么注册
+非标增值项目怎么迁移
+数据回流怎么建设
+```
+
+这些可以记录为后置问题，但不能拖慢当前主链路识别。
+
+【依据】
+
+- `design.md` 待确认事项：`booking.list` action 注册与字段实测仍待确认。
+- 阶段3结论：planner / agent loop 如何执行转交后置。
+- 阶段4结论：`outputContext / enrichedContext` 是下游消费基础，但外层如何稳定消费需要看更外层编排。
+- `110-question-curriculum.md`：阶段8 才迁移到非标增值 SOP expert，当前阶段5只做 baseline 的主链路与支线识别。
+
+#### 5.10 如何判断主链路已点亮？
+
+【结论】
+
+主链路点亮不是“看懂节点名”，而是能用真实或可验证输入跑通闭环，并产出稳定输出。
+
+最小主链路点亮标准：
+
+```text
+validate-intent 能归一 intent
+route-intent 能正确给出 kb_only / skipApi=true
+load-booking-kb 能选中正确 KB
+llm-analyze 能基于 KB 生成不越界回答
+format-output 能输出 structured / analysis / outputContext
+```
+
+完整主能力点亮标准还要加上 API-chain：
+
+```text
+query / penalty / pod_guide（有单号）
+-> build-booking-list-request
+-> fetch-booking-list
+-> summarize-booking-records
+-> llm-analyze
+-> format-output
+```
+
+并且数据质量不能是 `missing`，不能编造状态、费用或 POD 结果。
+
+【思考过程】
+
+用三层标准判断“点亮”：
+
+1. 路径点亮：输入能沿 workflow 走到最终输出，不断链。
+2. 语义点亮：每个节点输出的字段能被下游消费，例如 `intent`、`routePath`、`kbContent`、`bookingSummary`、`analysisResult`。
+3. 边界点亮：回答不越界，不代客操作，不调用禁止接口，不编造 API 没返回的事实。
+
+所以只看流程图不算点亮；必须能验证 KB-only 场景能输出正确 SOP，API-chain 场景能输出状态 / 费用 / POD 解读，越界场景能转介或提示人工，最终输出契约稳定。
+
+【依据】
+
+- `workflow.json` 最终节点是 `format-output`，输出 `structured`、`analysis`、`outputContext`、`enrichedContext`。
+- `design.md` 本地验收：KB-only 可跑 `npm run smoke:inbound-appointment-manage -- --kb-only`。
+- `design.md` API 链验收：`getOrderDetail` 须返回至少 1 条；`bookingSummary.dataQuality` 不得为 `missing`；须能解析 `winitProductCode`。
+- `design.md` 对客约束：不代客创建 / 修改 / 取消预约，不调用 `exportPodPdf`，不查询实时 slot。
+- 阶段3结论：验收层要看规则、失败条件和本地 smoke 断言。
+- 阶段4结论：`format-output` 是验收和下游消费基础。
+
+### 思维纠偏
+
+- 阶段5收口后，主链路、支线、约束、增强、V0/V1 切片和验收标准已经形成一张完整地图。
+- V0 不等于完整 expert；V0 是最小可跑通的 KB-only 闭环。
+- V1 才补 API-chain、单据事实、边界兜底和人工提示。
+- “不该追的问题”不是永远不追，而是当前阶段先后置，避免把主链路识别拖散。
+
+### 下一步
+
+- 阶段5已完成。
+- 进入阶段6：概念四步法训练。
+- 第一组概念建议从 `intent` 开始，按四步法回答：
+  - 6.1 它是什么？
+  - 6.2 它在当前模块里控制什么？
+  - 6.3 没有它会怎样？
+  - 6.4 它从哪里来？
+
 ## ARCHIVE_PACKET 2026-08-10 14:26
 
 ### 阶段
