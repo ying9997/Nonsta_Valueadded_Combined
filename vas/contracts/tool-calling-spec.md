@@ -51,15 +51,37 @@ AI 增值指引 Bot 运行在 Coze 平台，通过侧边栏与客户对话。当
 
 ## 3. 通信协议
 
-### 3.1 一期实现（前端直解）
+### 3.1 技术背景（已确认）
 
-**触发时机**：AI Bot 每条消息返回后
+seller.winit.com.cn 的 AI 侧栏实现方式：
+- **前端**：自建 React 组件（`#aiChatbotRoot`），非 Coze SDK
+- **后端**：通过代理服务（cobra）与 Coze 平台通信
+- AI 消息流：Coze Bot → cobra 后端代理 → 前端 React 组件渲染
 
-**检测方式**：在 `message.content` 中检测是否包含 `"function_name": "vas_form_action"` 的 JSON 块
+因此不存在 Coze SDK 的 `afterMessageReceivedFinish` 回调。需要在前端 React 组件的消息接收逻辑中注入解析 hook。
 
-**消息格式**：AI 的 `message.content` 分两部分：
-1. 自然语言回复（客户可见）
-2. 结构化 JSON 指令（前端解析执行，不展示给客户）
+### 3.2 一期实现（前端组件内 hook）
+
+**注入位置**：前端 React 组件接收到 AI 消息并渲染后的回调。
+
+具体方式（由前端研发确认实现位置，以下为逻辑描述）：
+
+```
+AI 消息到达前端 React 组件
+    ↓
+组件正常渲染消息气泡（客户可见自然语言部分）
+    ↓
+渲染完成后触发 hook：检测消息 content 中是否有 vas_form_action JSON
+    ↓
+如有 → 解析 JSON → 执行表单操作（不展示 JSON 给客户）
+如无 → 不做额外处理
+```
+
+**前端需要做的**：在现有 React 侧栏组件的消息接收/渲染生命周期中，加一个 `onMessageRendered` 或类似 hook，调用 `parseVasAction(content)`。
+
+**消息格式**：AI 的消息 content 分两部分：
+1. 自然语言回复（渲染为气泡，客户可见）
+2. 结构化 JSON 指令（前端解析执行，**不渲染为气泡**）
 
 ```
 好的，为您推荐【原单上架 - 补贴原商品条码】。已帮您选中。
@@ -69,7 +91,11 @@ AI 增值指引 Bot 运行在 Coze 平台，通过侧边栏与客户对话。当
 ```　
 ```
 
-### 3.2 二期升级路径（后端中继）
+前端渲染时：
+- 自然语言部分 → 正常显示为 AI 气泡
+- JSON 代码块 → 提取解析后**不显示**（或显示为"已帮您操作表单"的简要提示）
+
+### 3.3 二期升级路径（后端中继）
 
 后端在 Coze 工作流中调用 `cobra_agent_http.tool_call_send`：
 
@@ -81,35 +107,36 @@ user_id: {{user_id}}
 username: {{username}}
 ```
 
-前端从 SDK 的 tool_call 事件中接收，解析 `arguments`，执行逻辑不变。
+cobra 后端收到 tool_call 后，通过现有消息通道（WebSocket/SSE）推送给前端。前端在已有消息处理逻辑中识别 `function_name: "vas_form_action"` 并执行。
 
 ---
 
 ## 4. 前端实现规格
 
-### 4.1 SDK 初始化
+### 4.1 消息接收 Hook（在现有 React 组件中注入）
+
+前端侧栏是自建 React 组件（非 Coze SDK）。需要在组件的消息渲染逻辑中加入 hook：
 
 ```javascript
-import { WebChatClient } from '@coze/chat-sdk';
+// 伪代码 — 在 React 侧栏组件的消息处理流程中注入
+// 具体注入位置由前端研发确认（可能在 useEffect、onMessage callback、或 message 状态更新后）
 
-const client = new WebChatClient({
-  config: { bot_id: 'YOUR_BOT_ID' },
-  componentProps: { title: '在线咨询', width: '360px' },
-  eventCallbacks: {
-    message: {
-      afterMessageReceivedFinish: (props) => {
-        const content = props.message?.content;
-        if (content) {
-          const vasAction = parseVasAction(content);
-          if (vasAction) {
-            executeVasAction(vasAction);
-          }
-        }
-      }
-    }
+function onAiMessageReceived(message) {
+  // 1. 正常渲染消息气泡（已有逻辑，不改）
+  renderBubble(message.content);
+
+  // 2. 新增：检测并执行表单操作
+  const vasAction = parseVasAction(message.content);
+  if (vasAction) {
+    executeVasAction(vasAction);
   }
-});
+}
 ```
+
+**前端研发需要确认的**：
+1. 现有组件中，AI 消息到达后在哪个生命周期/回调中可以注入上述逻辑？
+2. 消息的 `content` 字段是纯文本还是 markdown？（影响 JSON 提取方式）
+3. 是否支持在渲染前拦截 content（用于隐藏 JSON 代码块不展示给客户）？
 
 ### 4.2 JSON 解析函数
 
