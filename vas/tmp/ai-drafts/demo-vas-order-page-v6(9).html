@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>入库增值下单页面 - V6（两步版）</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f5f5; color: #333; font-size: 13px; line-height: 1.5; }
+
+/* 顶部 */
+.top-bar { background: linear-gradient(135deg, #6B4F0A, #8B6914, #A0792A); color: white; height: 50px; display: flex; align-items: center; padding: 0 16px; position: relative; z-index: 10; }
+.top-logo { width: 34px; height: 34px; background: rgba(255,255,255,0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; margin-right: 16px; }
+.top-tabs { display: flex; gap: 1px; flex: 1; }
+.top-tab { padding: 8px 16px; font-size: 12px; border-radius: 6px 6px 0 0; cursor: pointer; }
+.top-tab.active { background: white; color: #333; font-weight: 500; }
+.top-tab:not(.active) { opacity: 0.8; }
+.top-right { display: flex; align-items: center; gap: 20px; font-size: 12px; margin-left: auto; }
+.avatar { width: 28px; height: 28px; background: rgba(255,255,255,0.2); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; margin-right: 4px; vertical-align: middle; }
+
+/* 布局 */
+.layout { display: flex; min-height: calc(100vh - 50px); }
+.sidebar { width: 88px; background: #2c2216; color: rgba(255,255,255,0.7); padding-top: 12px; flex-shrink: 0; }
+.sidebar-item { padding: 14px 0; text-align: center; font-size: 12px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.2s; }
+.sidebar-item.active { background: rgba(160,121,42,0.25); border-left-color: #C9952E; color: white; font-weight: 500; }
+.sidebar-item:hover { background: rgba(255,255,255,0.05); color: white; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* 页面头 */
+.page-header { background: white; padding: 18px 28px 0; border-bottom: 1px solid #eee; }
+.page-title { font-size: 16px; font-weight: 600; color: #1a1a1a; margin-bottom: 18px; }
+.steps { display: flex; align-items: center; padding-bottom: 18px; }
+.step { display: flex; align-items: center; gap: 10px; }
+.step-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+.step-circle.done { background: #A0792A; color: white; }
+.step-circle.active { background: #A0792A; color: white; box-shadow: 0 2px 6px rgba(160,121,42,0.3); }
+.step-text { font-size: 13px; color: #999; }
+.step-text.active { color: #333; font-weight: 500; }
+.step-line { width: 100px; height: 2px; background: #A0792A; margin: 0 12px; border-radius: 1px; }
+
+/* 内容体 */
+.body-wrap { flex: 1; display: flex; overflow: hidden; }
+.progress-col { width: 220px; background: white; border-right: 1px solid #eee; padding: 24px 0; flex-shrink: 0; }
+.progress-title { font-size: 12px; color: #999; padding: 0 24px 12px; letter-spacing: 1px; }
+.progress-list { position: relative; padding: 0 24px; }
+.progress-list::before { content: ''; position: absolute; left: 35px; top: 12px; bottom: 12px; width: 2px; background: #eee; }
+.progress-item { position: relative; padding: 10px 0 10px 32px; cursor: pointer; transition: all 0.2s; }
+.progress-item .dot { position: absolute; left: 3px; top: 12px; width: 22px; height: 22px; border-radius: 50%; background: #f0f0f0; color: #999; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; border: 2px solid white; z-index: 1; transition: all 0.3s; }
+.progress-item .label { font-size: 13px; color: #999; font-weight: 500; }
+.progress-item .value { font-size: 11px; color: #ccc; margin-top: 3px; word-break: break-all; line-height: 1.5; }
+.progress-item.done .dot { background: #52c41a; color: white; }
+.progress-item.done .label { color: #333; }
+.progress-item.done .value { color: #A0792A; }
+.progress-item.active .dot { background: #A0792A; color: white; box-shadow: 0 0 0 4px rgba(160,121,42,0.15); }
+.progress-item.active .label { color: #A0792A; font-weight: 600; }
+
+/* 内容区 */
+.page-body { flex: 1; padding: 24px 28px; overflow-y: auto; background: #f7f7f7; }
+.content-card { background: white; border-radius: 8px; padding: 24px 28px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #eee; }
+
+/* 余额条 */
+.balance-bar { background: linear-gradient(to right, #fffdf5, #fff9e6); border: 1px solid #f0e4c0; border-radius: 6px; padding: 12px 20px; margin-bottom: 20px; font-size: 13px; color: #8B6914; display: flex; align-items: center; }
+.balance-bar b { color: #6B4F0A; }
+.balance-bar .sep { color: #d4c49a; margin: 0 12px; }
+
+/* 分段标题 */
+.section-title { font-size: 15px; font-weight: 600; margin: 24px 0 14px; color: #333; display: flex; align-items: center; gap: 10px; }
+.section-title:first-of-type { margin-top: 0; }
+.step-num { width: 24px; height: 24px; background: linear-gradient(135deg, #A0792A, #C9952E); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+.section-hint { font-size: 12px; color: #999; font-weight: 400; margin-left: 4px; }
+
+/* 卡片容器：一行最多 5 个 */
+.cards-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; padding: 4px 2px 12px; }
+.atoms-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; padding: 4px 2px 12px; }
+
+/* 卡片通用（放大后视觉更清晰） */
+.card-item { border: 1.5px solid #ececec; border-radius: 12px; padding: 20px 14px; cursor: pointer; transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); position: relative; background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 138px; overflow: hidden; }
+.card-item:hover:not(.disabled):not(.disabled-combo):not(.selected) { border-color: #C9952E; background: linear-gradient(135deg, #fffef8 0%, #fff5d6 100%); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(160, 121, 42, 0.18); }
+.card-item.selected { border-color: #A0792A; background: linear-gradient(135deg, #fffdf2 0%, #fff0c4 100%); box-shadow: 0 0 0 3px rgba(160, 121, 42, 0.2), 0 8px 20px rgba(160, 121, 42, 0.18); }
+.card-item.selected .card-check { opacity: 1; transform: scale(1); }
+.card-item.disabled-combo { background: #f7f7f7; border-color: #ececec; cursor: not-allowed; opacity: 0.5; }
+.card-item.disabled-combo .card-icon { filter: grayscale(1); opacity: 0.5; }
+.card-item.disabled-combo .card-name, .card-item.disabled-combo .card-desc { color: #bbb; }
+.card-item.disabled-combo:hover .tooltip { opacity: 1; }
+.card-item.recommended::before { content: '推荐'; position: absolute; top: -1px; left: 12px; background: linear-gradient(135deg, #ff6b6b, #ee5a52); color: white; font-size: 10px; padding: 3px 9px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 6px rgba(238, 90, 82, 0.3); z-index: 2; font-weight: 600; letter-spacing: 0.5px; }
+.card-item.last-submitted::after { content: '上次提交'; position: absolute; top: -1px; right: 12px; background: linear-gradient(135deg, #1890ff, #096dd9); color: white; font-size: 10px; padding: 3px 9px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 6px rgba(24, 144, 255, 0.3); z-index: 2; font-weight: 600; letter-spacing: 0.5px; }
+.card-check { position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; background: linear-gradient(135deg, #A0792A, #C9952E); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; opacity: 0; transform: scale(0.5); transition: all 0.2s; box-shadow: 0 2px 5px rgba(160, 121, 42, 0.35); }
+.card-item.last-submitted .card-check { top: 26px; }
+.card-icon { font-size: 22px; margin-bottom: 4px; line-height: 1; }
+.card-icon.multi { letter-spacing: 3px; font-size: 17px; }
+.card-name { font-size: 14px; font-weight: 600; color: #333; line-height: 1.5; word-break: break-word; padding: 0 4px; width: 100%; }
+.card-item.disabled .card-name { color: #bbb; }
+.card-desc { font-size: 11px; color: #999; margin-top: 4px; line-height: 1.4; padding: 0 4px; }
+.atom-line { font-size: 13px; color: #333; line-height: 1.6; text-align: left; padding: 2px 6px; word-break: break-word; }
+.card-item .card-name .atom-line + .atom-line { margin-top: 3px; }
+
+/* 上次提交预填提示 */
+.last-hint { font-size: 12px; color: #096dd9; background: linear-gradient(to right, #e6f4ff, #f0f8ff); border: 1px solid #91caff; padding: 4px 10px; border-radius: 4px; margin-left: 10px; font-weight: 500; letter-spacing: 0.2px; }
+.detail-table td .last-cell-tag { display: inline-block; margin-left: 6px; color: #0958d9; font-size: 10px; padding: 1px 5px; background: #e6f4ff; border: 1px solid #91caff; border-radius: 3px; }
+
+/* tooltip */
+.tooltip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 6px 10px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; margin-bottom: 6px; z-index: 100; }
+.tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 4px solid transparent; border-top-color: #333; }
+
+/* 第 2 步表格 */
+.detail-section { margin-top: 12px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+.detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.detail-table th { background: linear-gradient(to bottom, #fafafa, #f5f5f5); padding: 12px 16px; text-align: left; color: #8B6914; font-weight: 600; border-bottom: 1px solid #eee; }
+.detail-table td { padding: 14px 16px; border-bottom: 1px solid #f5f5f5; vertical-align: top; }
+.detail-table tr:last-child td { border-bottom: none; }
+.detail-table .svc-name { font-weight: 600; color: #333; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.detail-table .req-row { margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.detail-table .req-row:last-child { margin-bottom: 0; }
+.detail-table .req { color: #ff4d4f; font-weight: bold; }
+.detail-table .req-select { height: 30px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 10px; font-size: 12px; min-width: 140px; background: white; }
+.detail-table .file-link { color: #A0792A; font-size: 12px; cursor: pointer; text-decoration: underline; }
+.detail-table .upload-btn { display: inline-flex; align-items: center; gap: 5px; border: 1px dashed #d9d9d9; border-radius: 4px; padding: 6px 12px; font-size: 12px; cursor: pointer; margin-top: 6px; color: #666; }
+.detail-table .upload-btn:hover { border-color: #A0792A; color: #A0792A; }
+
+/* 费用 */
+.fee-section { margin-top: 24px; }
+.sla-line { font-size: 13px; margin-bottom: 12px; padding: 10px 14px; background: #f9f9f9; border-radius: 6px; border: 1px solid #f0f0f0; }
+.fee-block { border: 1px solid #f0f0f0; border-radius: 8px; overflow: hidden; }
+.fee-header { background: linear-gradient(to right, #fff7e6, #fffbe6); padding: 10px 16px; font-size: 12px; color: #d46b08; font-weight: 600; border-bottom: 1px solid #ffecc8; }
+.fee-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fee-table th { background: #fafafa; padding: 10px 16px; text-align: left; color: #666; font-weight: 400; border-bottom: 1px solid #f0f0f0; }
+.fee-table td { padding: 10px 16px; border-bottom: 1px solid #f8f8f8; }
+.fee-total { display: flex; justify-content: flex-end; gap: 32px; padding: 14px 16px; font-size: 13px; border-top: 1px solid #f0f0f0; background: #fafafa; }
+.fee-total b { font-size: 16px; margin-left: 4px; }
+.fee-total .red { color: #ff4d4f; }
+.fee-tip { margin-top: 12px; font-size: 11px; color: #8c6e14; background: linear-gradient(to right, #fffbe6, #fff7e6); border: 1px solid #ffe58f; border-radius: 6px; padding: 10px 14px; }
+
+/* 底部 */
+.page-footer { background: white; border-top: 1px solid #eee; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; }
+.footer-right { display: flex; gap: 12px; align-items: center; }
+.btn { padding: 9px 22px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 1px solid; font-weight: 500; }
+.btn-default, .btn-draft { background: white; color: #333; border-color: #d9d9d9; }
+.btn-default:hover, .btn-draft:hover { border-color: #A0792A; color: #A0792A; }
+.btn-submit { background: linear-gradient(135deg, #A0792A, #C9952E); color: white; border-color: transparent; box-shadow: 0 2px 6px rgba(160,121,42,0.3); }
+.btn-submit:disabled { background: #d9d9d9; border-color: #d9d9d9; cursor: not-allowed; box-shadow: none; }
+
+.empty-hint { color: #bbb; font-size: 12px; padding: 30px; text-align: center; background: #fafafa; border-radius: 6px; border: 1px dashed #e8e8e8; }
+
+/* 入库单号输入 */
+.order-input-box { border: 1px solid #eee; border-radius: 8px; padding: 16px 20px; background: #fafcff; margin-top: 4px; }
+.order-input-box .tip { font-size: 12px; color: #666; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+.btn-next { padding: 7px 18px; border-radius: 6px; font-size: 12px; cursor: pointer; border: none; font-weight: 600; background: linear-gradient(135deg, #A0792A, #C9952E); color: white; box-shadow: 0 2px 6px rgba(160,121,42,0.3); transition: all 0.2s; }
+.btn-next:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(160,121,42,0.4); }
+.btn-next:disabled { background: #e8e8e8; color: #bbb; cursor: not-allowed; box-shadow: none; }
+.order-input-box textarea { width: 100%; min-height: 88px; padding: 10px 12px; font-size: 13px; border: 1px solid #d9d9d9; border-radius: 6px; outline: none; resize: vertical; font-family: inherit; line-height: 1.6; }
+.order-input-box textarea:focus { border-color: #A0792A; box-shadow: 0 0 0 2px rgba(160,121,42,0.12); }
+.order-input-box .actions { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
+.order-input-box .link-btn { font-size: 12px; color: #A0792A; cursor: pointer; padding: 6px 10px; border: 1px solid #f0e4c0; border-radius: 4px; background: white; }
+.order-input-box .link-btn:hover { background: #fffbe6; }
+.order-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: white; border: 1px solid #f0e4c0; color: #6B4F0A; border-radius: 14px; font-size: 12px; }
+.chip .x { cursor: pointer; color: #ccc; font-weight: bold; font-size: 13px; line-height: 1; }
+.chip .x:hover { color: #ff4d4f; }
+.chip.invalid { border-color: #ffccc7; background: #fff2f0; color: #cf1322; }
+</style>
+</head>
+<body>
+<div style="position:fixed;top:58px;right:16px;background:linear-gradient(135deg,#ff4d4f,#e6252a);color:white;padding:5px 12px;border-radius:4px;font-size:11px;z-index:99;box-shadow:0 2px 8px rgba(255,77,79,0.3);">原型 V6 - 两步塌缩版</div>
+
+<div class="top-bar">
+  <div class="top-logo">W</div>
+  <div class="top-tabs">
+    <div class="top-tab">首页</div>
+    <div class="top-tab">异常单</div>
+    <div class="top-tab active">创建增值订单</div>
+  </div>
+  <div class="top-right">
+    <span><span class="avatar">K</span> kenghong.huang</span>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-item">商品管理</div>
+    <div class="sidebar-item">库存管理</div>
+    <div class="sidebar-item active">海外仓</div>
+    <div class="sidebar-item">国际送仓</div>
+    <div class="sidebar-item">退货管理</div>
+    <div class="sidebar-item">我的钱包</div>
+  </div>
+
+  <div class="main">
+    <div class="page-header">
+      <div class="page-title">新建入库增值订单</div>
+      <div class="steps">
+        <div class="step"><span class="step-circle done">✓</span><span class="step-text">基本信息</span></div>
+        <div class="step-line"></div>
+        <div class="step"><span class="step-circle active">2</span><span class="step-text active">增值产品信息</span></div>
+      </div>
+    </div>
+
+    <div class="body-wrap">
+      <!-- 左侧 2 步进度 -->
+      <div class="progress-col">
+        <div class="progress-title">填写进度</div>
+        <div class="progress-list">
+          <div class="progress-item active" id="progress-1">
+            <div class="dot">1</div>
+            <div class="label">处理方式</div>
+            <div class="value" id="progress-1-val">待选择</div>
+          </div>
+          <div class="progress-item" id="progress-2">
+            <div class="dot">2</div>
+            <div class="label" id="progress-2-label">增值服务</div>
+            <div class="value" id="progress-2-val">待选择</div>
+          </div>
+          <div class="progress-item" id="progress-3" style="display:none;">
+            <div class="dot">3</div>
+            <div class="label" id="progress-3-label">增值服务</div>
+            <div class="value" id="progress-3-val">待选择</div>
+          </div>
+          <div class="progress-item" id="progress-4">
+            <div class="dot" id="progress-4-dot">3</div>
+            <div class="label">填写要求</div>
+            <div class="value" id="progress-4-val">待填写</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-body">
+        <div class="content-card">
+          <div class="balance-bar">
+            最大可下单金额(USD) ⓘ：<b>107,773.05</b>
+            <span class="sep">|</span>
+            账户组总金额(USD)：<b>107,773.05</b>
+          </div>
+
+          <!-- 第 1 步：处理方式 -->
+          <div class="section-title"><span class="step-num">1</span> 选择处理方式</div>
+          <div class="cards-row" id="methodCards"></div>
+
+          <!-- 第 2 步（客户新单场景先输入单号）：入库单号 -->
+          <div class="section-title" id="orderNoSection" style="display:none;"><span class="step-num" id="orderStepNum">2</span> 输入入库单号 <span class="section-hint">支持批量粘贴，每行一个 或 用逗号 / 空格分隔</span></div>
+          <div class="order-input-box" id="orderNoWrap" style="display:none;">
+            <div class="tip">
+              <span>请粘贴或输入客户新单的入库单号（例：WI50000001）</span>
+            </div>
+            <textarea id="orderNoInput" oninput="parseOrderNos()" placeholder="WI50000001&#10;WI50000002&#10;WI50000003&#10;&#10;或使用逗号 / 空格分隔"></textarea>
+            <div class="actions">
+              <span class="link-btn" onclick="clearOrderNos()">🗑️ 清空</span>
+              <button class="btn-next" id="nextBtn" onclick="goNext()" disabled>提交</button>
+            </div>
+            <div class="order-chips" id="orderChips"></div>
+          </div>
+
+          <!-- 第 2 步 / 第 3 步：增值服务 -->
+          <div class="section-title" id="atomSection" style="display:none;"><span class="step-num" id="atomStepNum">2</span> 选择增值服务 <span class="section-hint">从下方组合中选择一个（单选）</span></div>
+          <div id="atomWrap" style="display:none;">
+            <div class="atoms-row" id="atomCards"></div>
+          </div>
+
+          <!-- 填写要求表格 -->
+          <div class="section-title" id="detailTitleSection" style="display:none;"><span class="step-num" id="detailStepNum">3</span> 填写服务要求</div>
+          <div class="detail-section" id="detailWrap" style="display:none;">
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  <th style="width:180px">增值服务</th>
+                  <th>服务要求</th>
+                  <th style="width:200px">增值文件</th>
+                  <th style="width:90px">价格(原币)</th>
+                  <th style="width:100px">价格(USD) ⓘ</th>
+                </tr>
+              </thead>
+              <tbody id="detailBody"></tbody>
+            </table>
+          </div>
+
+          <div class="fee-section" id="feeSection" style="display:none;">
+            <div class="sla-line">📋 服务时效(工作日)：<b id="slaValue">1</b></div>
+            <div class="fee-block">
+              <div class="fee-header">▼ 预估费用</div>
+              <table class="fee-table">
+                <thead><tr><th>费用名称</th><th>费用说明</th><th style="width:100px">价格(原币)</th><th style="width:100px">价格(USD)</th></tr></thead>
+                <tbody id="feeBody"></tbody>
+              </table>
+              <div class="fee-total">
+                <span>合计(原币) <b id="totalLocal">$0.00</b></span>
+                <span>合计(USD) ⓘ <b id="totalUsd" class="red">$0.00</b></span>
+              </div>
+            </div>
+            <div class="fee-tip">⚠️ 温馨提示：以上费用为系统预估价格，最终收费按实际报价为准</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <button class="btn btn-default">上一步</button>
+      <div class="footer-right">
+        <button class="btn btn-draft">保存草稿</button>
+        <button class="btn btn-submit" id="submitBtn" disabled>提交</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============= 数据配置 =============
+
+// 第一步：处理方式清单（去掉图标）
+const METHODS = [
+  { key: '原单上架' },
+  { key: 'Winit创建新单上架（有箱单）' },
+  { key: '客户创建新单上架' },
+  { key: '销毁' },
+  { key: '自提' },
+  { key: '暂存' }
+];
+
+// 需要额外填写入库单号的处理方式（仅"客户创建新单上架"，有/无箱单由客户输入的入库单号判断）
+const METHODS_NEED_ORDER = ['客户创建新单上架'];
+
+// 上次提交（mock 数据，实际由后端返回）
+const LAST_SUBMISSION = {
+  method: '原单上架',
+  atoms: ['入库-更换商品包装', '入库-更换新商品条码'],
+  // 上次提交时每个原子对应的服务要求字段值 + 上传文件名
+  fieldValues: {
+    '入库-更换商品包装': { '包装类型': '气泡膜' },
+    '入库-更换新商品条码': { '标签类型': 'FNSKU', '尺寸规格': '5cm*2.5cm' }
+  },
+  fileNames: {
+    '入库-更换新商品条码': '标签对应关系-20260810.xlsx'
+  }
+};
+
+// 合法组合表：每个处理方式下的合法原子集合数组
+const LEGAL_COMBINATIONS = {
+  '销毁': [
+    { atoms: ['上架前包裹销毁'], recommend: true }
+  ],
+  '自提': [
+    { atoms: ['上架前自提(需WINIT打托)'], recommend: true },
+    { atoms: ['上架前自提(无需WINIT打托)'] }
+  ],
+  '暂存': [
+    { atoms: ['入库-异常包裹开箱拍照'], recommend: true },
+    { atoms: ['入库其他服务需求'] }
+  ],
+  '原单上架': [
+    { atoms: ['直接上架'], recommend: true },
+    { atoms: ['入库-补贴包裹条码'] },
+    { atoms: ['入库-更换新商品条码'] },
+    { atoms: ['入库-补贴原商品条码'] },
+    { atoms: ['入库-更换新商品条码', '入库-更换商品包装'] },
+    { atoms: ['入库-补贴原商品条码', '入库-更换商品包装'] },
+    { atoms: ['入库其他服务需求'] }
+  ],
+  'Winit创建新单上架（有箱单）': [
+    { atoms: ['入库-补贴包裹条码', '入库-更换新商品条码'], recommend: true },
+    { atoms: ['入库-补贴包裹条码', '入库-更换商品包装', '入库-更换新商品条码'] }
+  ],
+  // 客户创建新单上架：有/无箱单合并，按客户输入的入库单号是否含 WINIT 包裹条码由后端判断
+  '客户创建新单上架': [
+    { atoms: ['入库-补贴包裹条码', '入库-更换新商品条码'], recommend: true },
+    { atoms: ['入库-补贴包裹条码', '入库-更换商品包装', '入库-更换新商品条码'] },
+    { atoms: ['入库-更换新商品条码'] },
+    { atoms: ['入库-更换商品包装', '入库-更换新商品条码'] },
+    { atoms: ['入库其他服务需求'] }
+  ]
+};
+
+// 原子元数据（图标 / 简介 / 单价）
+const ATOM_META = {
+  '上架前包裹销毁':        { icon: '🗑️', desc: '按整个包裹执行销毁',       price: '$5.00' },
+  '上架前自提(需WINIT打托)':   { icon: '🚚', desc: '仓库先打托后交付客户自提', price: '$0.00' },
+  '上架前自提(无需WINIT打托)': { icon: '🚚', desc: '客户自行打托运输',         price: '$0.00' },
+  '入库-异常包裹开箱拍照':  { icon: '📷', desc: '开箱拍照辨识异常包裹',     price: '$1.50' },
+  '入库其他服务需求':       { icon: '⚙️', desc: '非标特批服务，按报价',     price: '按报价' },
+  '直接上架':               { icon: '✅', desc: '不做条码/包装处理直接上架', price: '$0.00' },
+  '入库-补贴包裹条码':      { icon: '📦', desc: '补贴 WINIT 包裹条码',       price: '$0.75' },
+  '入库-更换新商品条码':    { icon: '🔄', desc: '更换新商品条码',             price: '$0.75' },
+  '入库-补贴原商品条码':    { icon: '🏷️', desc: '补贴原商品条码',             price: '$0.75' },
+  '入库-更换商品包装':      { icon: '📦', desc: '更换商品包装',               price: '$2.00' }
+};
+
+// 原子 → 表单输入配置
+const ATOM_INPUT_CONFIG = {
+  '上架前包裹销毁':          { reqs: [['销毁方式','仓库处理']], file: null, price: '$5.00' },
+  '上架前自提(需WINIT打托)':   { reqs: [['自提时间','请选择'],['联系人','请填写'],['联系电话','请填写']], file: null, price: '$0.00' },
+  '上架前自提(无需WINIT打托)': { reqs: [['自提时间','请选择'],['联系人','请填写'],['联系电话','请填写']], file: null, price: '$0.00' },
+  '入库-异常包裹开箱拍照':    { reqs: [['拍照数量','请选择']], file: null, price: '$1.50' },
+  '入库其他服务需求':         { reqs: [['服务描述','请填写']], file: { tpl: false, upload: '上传附件' }, price: '按报价' },
+  '直接上架':                { reqs: [['确认信息','已知悉']], file: null, price: '$0.00' },
+  '入库-补贴包裹条码':        { reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' },
+  '入库-更换新商品条码':      { reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' },
+  '入库-补贴原商品条码':      { reqs: [['标签类型','请选择'],['尺寸规格','5cm*2.5cm'],['上架的商品等级','良品']], file: null, price: '$0.75' },
+  '入库-更换商品包装':        { reqs: [['包装类型','请选择']], file: null, price: '$2.00' }
+};
+
+// ============= 状态 =============
+let state = { method: null, combo: null, orderNos: [] };
+
+// ============= 交互 =============
+
+function initMethods() {
+  const container = document.getElementById('methodCards');
+  container.innerHTML = '';
+  METHODS.forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'card-item';
+    card.dataset.key = m.key;
+    if (m.key === LAST_SUBMISSION.method) card.classList.add('last-submitted');
+    card.innerHTML = `<span class="card-check">✓</span><div class="card-name">${m.key}</div>`;
+    card.onclick = () => selectMethod(card);
+    container.appendChild(card);
+  });
+}
+
+// 格式化原子组合：多原子用序号 "1. xxx  2. yyy"
+function formatAtoms(atoms) {
+  if (!atoms || !atoms.length) return '';
+  if (atoms.length === 1) return atoms[0];
+  return atoms.map((a, i) => `${i + 1}. ${a}`).join('  ');
+}
+
+// 判断组合是否等于上次提交的组合
+function isLastSubmittedCombo(method, atoms) {
+  if (method !== LAST_SUBMISSION.method) return false;
+  if (!atoms || atoms.length !== LAST_SUBMISSION.atoms.length) return false;
+  const a = [...atoms].sort().join('|');
+  const b = [...LAST_SUBMISSION.atoms].sort().join('|');
+  return a === b;
+}
+
+function selectMethod(el) {
+  document.querySelectorAll('#methodCards .card-item').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.method = el.dataset.key;
+  state.combo = null;
+  state.orderNos = [];
+  document.getElementById('orderNoInput').value = '';
+  document.getElementById('orderChips').innerHTML = '';
+  document.getElementById('nextBtn').disabled = true;
+
+  const need = METHODS_NEED_ORDER.includes(state.method);
+  // 进度条：客户新单场景显示 4 项（含入库单号），非客户新单显示 3 项
+  document.getElementById('progress-3').style.display = need ? 'block' : 'none';
+  document.getElementById('progress-2-label').textContent = need ? '入库单号' : '增值服务';
+  document.getElementById('orderStepNum').textContent = '2';
+  document.getElementById('atomStepNum').textContent = need ? '3' : '2';
+  document.getElementById('detailStepNum').textContent = need ? '4' : '3';
+  document.getElementById('progress-4-dot').textContent = need ? '4' : '3';
+
+  hideFromDetail();
+  if (need) {
+    // 客户新单：先展开入库单号输入区，选完并点"下一步"后再展开增值服务
+    document.getElementById('orderNoSection').style.display = 'flex';
+    document.getElementById('orderNoWrap').style.display = 'block';
+  } else {
+    // 其他处理方式：直接展开增值服务组合卡片
+    renderCombos();
+  }
+  refreshProgress();
+}
+
+// 客户新单场景：点击"下一步"进入增值服务选择
+function goNext() {
+  if (state.orderNos.length === 0) return;
+  renderCombos();
+  refreshProgress();
+}
+
+function renderCombos() {
+  const container = document.getElementById('atomCards');
+  container.innerHTML = '';
+  const combos = LEGAL_COMBINATIONS[state.method] || [];
+  if (!combos.length) {
+    container.innerHTML = '<div class="empty-hint">当前处理方式暂无可用增值服务</div>';
+    document.getElementById('atomSection').style.display = 'flex';
+    document.getElementById('atomWrap').style.display = 'block';
+    return;
+  }
+  combos.forEach((c, idx) => {
+    const card = document.createElement('div');
+    card.className = 'card-item atom-card';
+    if (c.recommend) card.classList.add('recommended');
+    if (isLastSubmittedCombo(state.method, c.atoms)) card.classList.add('last-submitted');
+    card.dataset.idx = idx;
+    const nameHtml = c.atoms.length > 1
+      ? c.atoms.map((a, i) => `<div class="atom-line">${i + 1}. ${a}</div>`).join('')
+      : `<div class="atom-line">${c.atoms[0]}</div>`;
+    card.innerHTML = `<span class="card-check">✓</span><div class="card-name">${nameHtml}</div>`;
+    card.onclick = () => selectCombo(card, c);
+    container.appendChild(card);
+  });
+  document.getElementById('atomSection').style.display = 'flex';
+  document.getElementById('atomWrap').style.display = 'block';
+
+  // 单一合法组合自动带出
+  if (combos.length === 1) {
+    selectCombo(container.firstChild, combos[0]);
+  }
+}
+
+function selectCombo(el, combo) {
+  document.querySelectorAll('#atomCards .card-item').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.combo = combo;
+  refreshProgress();
+  renderDetails();
+}
+
+// 解析入库单号（换行 / 逗号 / 分号 / 空格）
+function parseOrderNos() {
+  const raw = document.getElementById('orderNoInput').value || '';
+  const tokens = raw.split(/[\s,，;；\n\r\t]+/).map(s => s.trim()).filter(Boolean);
+  const seen = new Set();
+  const unique = [];
+  tokens.forEach(t => { if (!seen.has(t)) { seen.add(t); unique.push(t); } });
+  state.orderNos = unique;
+  renderOrderChips();
+  document.getElementById('nextBtn').disabled = state.orderNos.length === 0;
+  refreshProgress();
+}
+
+function clearOrderNos() {
+  document.getElementById('orderNoInput').value = '';
+  state.orderNos = [];
+  state.combo = null;
+  renderOrderChips();
+  document.getElementById('nextBtn').disabled = true;
+  document.getElementById('atomSection').style.display = 'none';
+  document.getElementById('atomWrap').style.display = 'none';
+  hideDetailOnly();
+  refreshProgress();
+}
+
+function renderOrderChips() {
+  const box = document.getElementById('orderChips');
+  const reg = /^WI\w{6,}$/i;
+  box.innerHTML = state.orderNos.map((n, i) => {
+    const invalid = !reg.test(n);
+    return `<span class="chip${invalid?' invalid':''}" title="${invalid?'格式疑似不正确':''}">${n}<span class="x" onclick="removeOrderNo(${i})">×</span></span>`;
+  }).join('');
+}
+
+function removeOrderNo(idx) {
+  state.orderNos.splice(idx, 1);
+  document.getElementById('orderNoInput').value = state.orderNos.join('\n');
+  renderOrderChips();
+  document.getElementById('nextBtn').disabled = state.orderNos.length === 0;
+  if (state.orderNos.length === 0) {
+    state.combo = null;
+    document.getElementById('atomSection').style.display = 'none';
+    document.getElementById('atomWrap').style.display = 'none';
+    hideDetailOnly();
+  }
+  refreshProgress();
+}
+
+function hideDetailOnly() {
+  document.getElementById('detailTitleSection').style.display = 'none';
+  document.getElementById('detailWrap').style.display = 'none';
+  document.getElementById('feeSection').style.display = 'none';
+  document.getElementById('submitBtn').disabled = true;
+}
+
+function renderDetails() {
+  const atoms = state.combo.atoms.map(k => ({ key: k, ...(ATOM_META[k] || {icon:'⚙️',desc:'',price:'$0.00'}) }));
+  let html = '';
+  let total = 0;
+  atoms.forEach(a => {
+    const cfg = ATOM_INPUT_CONFIG[a.key];
+    if (!cfg) {
+      html += `<tr><td>${a.key}</td><td style="color:#999;font-size:11px;">无需填写</td><td>-</td><td style="text-align:center">--</td><td style="text-align:right;color:#A0792A;">${a.price}</td></tr>`;
+    } else {
+      const reqHtml = cfg.reqs.map(r => `<div class="req-row"><span class="req">*</span> ${r[0]}：<select class="req-select"><option>${r[1]}</option></select></div>`).join('');
+      let fileHtml = '-';
+      if (cfg.file) {
+        fileHtml = '';
+        if (cfg.file.tpl) fileHtml += '<div class="file-link">📥 点击下载模板文件</div>';
+        fileHtml += `<div class="upload-btn">⬆️ ${cfg.file.upload}</div>`;
+      }
+      html += `<tr><td><span class="svc-name">${a.key}</span></td><td>${reqHtml}</td><td>${fileHtml}</td><td style="text-align:center">--</td><td style="text-align:right;color:#A0792A;">${a.price}</td></tr>`;
+    }
+    const p = parseFloat(a.price.replace('$','')) || 0;
+    total += p;
+  });
+  document.getElementById('detailBody').innerHTML = html;
+  document.getElementById('detailTitleSection').style.display = 'flex';
+  document.getElementById('detailWrap').style.display = 'block';
+
+  let feeHtml = '';
+  atoms.forEach(a => {
+    feeHtml += `<tr><td>增值-${a.key}</td><td></td><td style="text-align:right">${a.price}</td><td style="text-align:right">${a.price}</td></tr>`;
+  });
+  if (total > 0 && total < 20) {
+    const diff = (20 - total).toFixed(2);
+    feeHtml += `<tr><td>增值-最低收费（差额补足）</td><td style="color:#999;font-size:11px;">订单不满足增值最低收费20.00USD</td><td style="text-align:right">$${diff}</td><td style="text-align:right">$${diff}</td></tr>`;
+    total = 20;
+  }
+  document.getElementById('feeBody').innerHTML = feeHtml;
+  document.getElementById('totalLocal').textContent = '$' + total.toFixed(2);
+  document.getElementById('totalUsd').textContent = '$' + total.toFixed(2);
+  document.getElementById('feeSection').style.display = 'block';
+  document.getElementById('submitBtn').disabled = false;
+  // 触发填写要求步骤 done
+  refreshProgress();
+}
+
+function hideFromDetail() {
+  document.getElementById('orderNoSection').style.display = 'none';
+  document.getElementById('orderNoWrap').style.display = 'none';
+  document.getElementById('atomSection').style.display = 'none';
+  document.getElementById('atomWrap').style.display = 'none';
+  document.getElementById('detailTitleSection').style.display = 'none';
+  document.getElementById('detailWrap').style.display = 'none';
+  document.getElementById('feeSection').style.display = 'none';
+  document.getElementById('submitBtn').disabled = true;
+}
+
+// 状态驱动进度条刷新
+function refreshProgress() {
+  const need = METHODS_NEED_ORDER.includes(state.method);
+  const p1 = document.getElementById('progress-1');
+  const p2 = document.getElementById('progress-2');
+  const p3 = document.getElementById('progress-3');
+  const p4 = document.getElementById('progress-4');
+  [p1, p2, p3, p4].forEach(el => el.classList.remove('active','done'));
+
+  if (!state.method) {
+    p1.classList.add('active');
+    document.getElementById('progress-1-val').textContent = '待选择';
+    document.getElementById('progress-2-val').textContent = '待选择';
+    document.getElementById('progress-3-val').textContent = '待选择';
+    document.getElementById('progress-4-val').textContent = '待填写';
+    return;
+  }
+  p1.classList.add('done');
+  document.getElementById('progress-1-val').textContent = state.method;
+
+  if (need) {
+    // Step 2 = 入库单号
+    if (state.orderNos.length === 0) {
+      p2.classList.add('active');
+      document.getElementById('progress-2-val').textContent = '待填写';
+      document.getElementById('progress-3-val').textContent = '待选择';
+      document.getElementById('progress-4-val').textContent = '待填写';
+      return;
+    }
+    p2.classList.add('done');
+    document.getElementById('progress-2-val').textContent = `${state.orderNos.length} 个：${state.orderNos.slice(0,3).join('、')}${state.orderNos.length>3?'…':''}`;
+    // Step 3 = 增值服务
+    if (!state.combo) {
+      p3.classList.add('active');
+      document.getElementById('progress-3-val').textContent = '待选择';
+      document.getElementById('progress-4-val').textContent = '待填写';
+      return;
+    }
+    p3.classList.add('done');
+    document.getElementById('progress-3-val').textContent = formatAtoms(state.combo.atoms);
+    // Step 4 = 填写要求
+    p4.classList.add('active');
+    document.getElementById('progress-4-val').textContent = '填写中';
+  } else {
+    // Step 2 = 增值服务
+    if (!state.combo) {
+      p2.classList.add('active');
+      document.getElementById('progress-2-val').textContent = '待选择';
+      document.getElementById('progress-4-val').textContent = '待填写';
+      return;
+    }
+    p2.classList.add('done');
+    document.getElementById('progress-2-val').textContent = formatAtoms(state.combo.atoms);
+    // Step 3 = 填写要求
+    p4.classList.add('active');
+    document.getElementById('progress-4-val').textContent = '填写中';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', initMethods);
+</script>
+</body>
+</html>

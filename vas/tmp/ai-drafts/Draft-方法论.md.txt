@@ -1,0 +1,63 @@
+那我们直接把这个“云端到 Git”的桥梁**钉死**在你的工程规范里。
+
+建议你把下面这段内容，直接复制进你新仓库根目录的 `AGENTS.md`（或者 `CODEX.md`）里。以后不管是你忘了连仓库，还是 Codex 新开会话，只要读到这个文件，就知道该怎么处理那些“飞书草稿”。
+
+---
+
+### 📥 AI 产出收割规范 (Harvesting Protocol)
+
+**核心原则**：云端 AI 负责“思考”，本地 AI 负责“执行”。`tmp/` 目录是所有外部灵感的唯一入口。
+
+#### 1. 目录结构
+```text
+vas-ai-system/
+├── tmp/
+│   ├── ai-drafts/     # 飞书/Web端 AI 的产出草稿（不提交）
+│   │   └── YYYYMMDD-来源-主题.md
+│   └── patches/       # 手动修正的补丁文件
+├── tasks/             # 待执行的任务清单
+└── AGENTS.md          # 本文件
+```
+
+#### 2. 标准作业流程 (SOP)
+
+**场景 A：在飞书/Web 端完成思路探索后**
+1.  **总结**：在对话末尾发送固定指令：
+    > “请总结本次对话，输出：1.核心逻辑 2.输入输出定义 3.涉及文件路径 4.待办清单。”
+2.  **暂存**：复制 AI 总结，保存为 `tmp/ai-drafts/YYYYMMDD-feishu-<主题>.md`。
+3.  **执行**：在 Codex/Claude 中发送指令：
+    > “请阅读 `tmp/ai-drafts/YYYYMMDD-feishu-<主题>.md`，并完成其中的待办事项。”
+
+**场景 B：发现未暂存的云端产出（补救措施）**
+1.  若已在飞书产出代码但未存草稿，**立即**在飞书将“优质问答对”存入笔记。
+2.  在本地创建 `tasks/TASK-RECOVER-YYYYMMDD.md`，格式如下：
+    ```markdown
+    # Recovery Task
+    **Source**: Feishu Link
+    **Context**: （粘贴核心逻辑）
+    **Action**: 将逻辑重构至 `packages/diagnostic-rules/` 并补充单元测试。
+    ```
+3.  调用 Codex/Claude 执行该任务文件。
+
+#### 3. 本地 AI 行为约束
+- **禁止凭空发明**：涉及 `diagnostic-rules` 的业务逻辑时，必须优先读取 `tmp/ai-drafts/` 或 `packages/diagnostic-rules/` 下的现有文件，禁止依赖自身记忆生成。
+- **草稿即上下文**：当 `tmp/ai-drafts/` 中存在相关文件时，必须将该文件作为首要上下文来源，不得要求用户重新复述需求。
+
+---
+
+### 🛠️ 一键初始化脚本（可选）
+
+如果你不想手动建目录，可以在新仓库根目录跑一下这个（Mac/Linux）：
+
+```bash
+mkdir -p tmp/ai-drafts tmp/patches tasks eval packages/diagnostic-rules packages/data-models
+echo "tmp/ai-drafts/\ntmp/patches/\n" >> .gitignore
+touch AGENTS.md
+```
+
+### 下一步建议
+
+现在你的仓库有了“宪法”（`AGENTS.md`）和“收件箱”（`tmp/ai-drafts`）。
+
+**要不要我帮你把下一个核心模块——`packages/data-models/` 里的 `DiagnosisResult.schema.json` 先定义出来？**
+这是连接“前端交互”、“诊断逻辑”和“HTML 报告”的关键契约，定义好了，后面所有 AI 会话都不会乱。

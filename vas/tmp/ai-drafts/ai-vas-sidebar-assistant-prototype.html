@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 增值指引侧栏助手 — 前端原型</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#f4f5f7;color:#262626;font-size:13px}
+button{cursor:pointer;font-family:inherit}
+input,textarea,select{font-family:inherit;font-size:13px}
+
+/* 顶部演示 console */
+.demo-console{position:fixed;top:0;left:0;right:0;height:44px;background:#2d2d2d;color:#fff;display:flex;align-items:center;padding:0 16px;z-index:1000;gap:8px;overflow-x:auto}
+.demo-console .title{font-size:12px;color:#c9952e;font-weight:600;margin-right:12px;white-space:nowrap}
+.demo-console button{padding:4px 10px;font-size:11.5px;background:#4a4a4a;color:#fff;border:1px solid #666;border-radius:3px;white-space:nowrap}
+.demo-console button:hover{background:#5a5a5a}
+.demo-console button.active{background:#a0792a;border-color:#c9952e}
+.demo-console button.reset{background:#4a4a4a;border-color:#888;margin-left:auto}
+
+/* Tab 栏 */
+.tab-bar{position:fixed;top:44px;left:0;right:0;height:40px;background:#fff;border-bottom:1px solid #e8e8e8;display:flex;padding:0 24px;z-index:900}
+.tab-bar .tab{padding:0 20px;line-height:40px;font-size:13.5px;color:#595959;cursor:pointer;border-bottom:2px solid transparent;margin-right:8px}
+.tab-bar .tab.active{color:#1677ff;border-bottom-color:#1677ff;font-weight:500}
+.tab-bar .tab:hover{color:#1677ff}
+.tab-bar .demo-badge{margin-left:auto;line-height:40px;font-size:11px;color:#8c8c8c}
+
+/* 主体：右侧留 380px 给侧栏 */
+.stage{margin-top:84px;padding:20px 24px;padding-right:404px;min-height:calc(100vh - 84px);transition:padding-right .3s}
+.stage.no-sidebar{padding-right:24px}
+
+.page-title{font-size:18px;font-weight:600;color:#262626;margin-bottom:8px}
+.page-sub{font-size:12px;color:#8c8c8c;margin-bottom:20px}
+
+/* 表单卡片 */
+.card{background:#fff;border-radius:8px;padding:20px 24px;box-shadow:0 1px 2px rgba(0,0,0,.03);margin-bottom:16px}
+.card-title{font-size:15px;font-weight:600;color:#262626;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f0f0}
+
+.form-row{display:flex;margin-bottom:16px;align-items:flex-start}
+.form-label{width:130px;text-align:right;padding-right:12px;color:#595959;font-size:13px;line-height:32px}
+.form-label .req{color:#ff4d4f;margin-right:2px}
+.form-ctrl{flex:1;position:relative}
+.form-ctrl input[type=text],.form-ctrl select{width:100%;height:32px;padding:0 11px;border:1px solid #d9d9d9;border-radius:6px;background:#fff}
+.form-ctrl select{appearance:none;-webkit-appearance:none;padding-right:26px;background:#fff url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%238c8c8c' fill='none' stroke-width='1.2'/%3E%3C/svg%3E") no-repeat right 8px center}
+.form-ctrl textarea{width:100%;min-height:80px;padding:8px 11px;border:1px solid #d9d9d9;border-radius:6px;background:#fff;resize:vertical}
+.form-ctrl input:focus,.form-ctrl select:focus,.form-ctrl textarea:focus{border-color:#1677ff;outline:0}
+.form-hint{font-size:11.5px;color:#8c8c8c;margin-top:4px}
+
+/* AI 生成徽章 */
+.ai-badge{display:inline-block;font-size:10.5px;background:linear-gradient(90deg,#7f73ff,#b77cff);color:#fff;padding:1px 6px;border-radius:3px;margin-left:8px;vertical-align:middle}
+
+/* 高亮回填 */
+.filled-highlight{animation:highlight 1.5s ease-out}
+@keyframes highlight{0%{background:#fff2cc}100%{background:#fff}}
+
+/* 提交/回填按钮区 */
+.action-bar{background:#fff;padding:14px 24px;border-radius:8px;display:flex;gap:12px;align-items:center;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.btn-primary{height:36px;padding:0 22px;background:#1677ff;color:#fff;border:none;border-radius:6px;font-weight:500}
+.btn-primary:hover{background:#4096ff}
+.btn-primary:disabled{background:#d9d9d9;color:#00000040;cursor:not-allowed}
+.btn-default{height:36px;padding:0 22px;background:#fff;color:#595959;border:1px solid #d9d9d9;border-radius:6px}
+.btn-default:hover{border-color:#1677ff;color:#1677ff}
+.btn-fill{height:36px;padding:0 22px;background:linear-gradient(270deg,#7f73ff,#b77cff);color:#fff;border:none;border-radius:6px;font-weight:500}
+.btn-fill:disabled{background:#e8e8e8;color:#bfbfbf;cursor:not-allowed;filter:none}
+.action-tip{margin-left:auto;font-size:11.5px;color:#faad14}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 16px;border-radius:6px;font-size:12.5px;z-index:2000;opacity:0;pointer-events:none;transition:opacity .3s;max-width:400px;text-align:center}
+.toast.show{opacity:1}
+
+/* AI 侧栏 */
+.ai-sidebar{position:fixed;top:84px;right:0;bottom:0;width:380px;background:linear-gradient(180deg,#fff 0%,#f8f9ff 100%);border-left:1px solid #e8e8e8;display:flex;flex-direction:column;z-index:800;transition:transform .3s;box-shadow:-2px 0 8px rgba(0,0,0,.04)}
+.ai-sidebar.closed{transform:translateX(100%)}
+.sidebar-header{padding:12px 16px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;background:#fff}
+.sidebar-header .title{display:flex;align-items:center;gap:8px;font-weight:600;color:#262626}
+.sidebar-header .avatar{width:24px;height:24px;background:linear-gradient(135deg,#7f73ff,#b77cff);border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px}
+.sidebar-header .close{width:24px;height:24px;border:none;background:transparent;color:#8c8c8c;font-size:18px;line-height:1;border-radius:4px}
+.sidebar-header .close:hover{background:#f0f0f0;color:#262626}
+.bubble-list{flex:1;overflow-y:auto;padding:16px 12px}
+.bubble{margin-bottom:12px;display:flex}
+.bubble.user{justify-content:flex-end}
+.bubble .body{max-width:82%;padding:9px 12px;border-radius:8px;line-height:1.55;font-size:12.5px;white-space:pre-wrap;word-break:break-word}
+.bubble.ai .body{background:#fff;border:1px solid #f0f0f0;border-top-left-radius:2px}
+.bubble.user .body{background:linear-gradient(270deg,#f1e6ff,#dde0ff);border-top-right-radius:2px;color:#262626}
+.bubble.ai.system .body{background:#fff9e6;border:1px solid #ffe58f;color:#7d6608}
+
+/* SOP 卡片 */
+.sop-card{background:#fff;border:1px solid #b7cffb;border-radius:8px;padding:12px;margin:8px 0}
+.sop-card .sop-title{font-size:12.5px;font-weight:600;color:#1677ff;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.sop-card .sop-title::before{content:'📋'}
+.sop-card .sop-field{font-size:12px;color:#595959;margin-bottom:6px;line-height:1.55}
+.sop-card .sop-field .k{color:#8c8c8c;margin-right:4px}
+.sop-card .sop-steps{margin-left:12px;color:#262626}
+.sop-card .sop-steps li{margin:2px 0}
+.sop-card .sop-actions{display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed #e8e8e8}
+.sop-card .btn-confirm{flex:1;height:32px;background:linear-gradient(270deg,#7f73ff,#b77cff);color:#fff;border:none;border-radius:6px;font-weight:500}
+.sop-card .btn-confirm.confirmed{background:#52c41a;pointer-events:none}
+.sop-card .btn-modify{padding:0 14px;height:32px;background:#fff;border:1px solid #d9d9d9;border-radius:6px;color:#595959}
+.sop-card .analysis{font-size:12px;color:#595959;background:#fafafa;padding:8px 10px;border-radius:6px;margin-bottom:8px;line-height:1.55}
+
+/* 归类未命中卡片 */
+.miss-card{background:#fff2f0;border:1px solid #ffccc7;border-radius:8px;padding:10px 12px;margin:6px 0;font-size:12px}
+.miss-card .k{color:#cf1322;font-weight:500;margin-bottom:4px}
+.miss-card button{margin-top:6px;padding:4px 12px;background:#fff;border:1px solid #ff4d4f;color:#ff4d4f;border-radius:4px;font-size:12px}
+
+/* 侧栏输入 */
+.input-area{border-top:1px solid #f0f0f0;padding:10px 12px;background:#fafafa}
+.input-area .row{display:flex;align-items:center;background:#fff;border:1px solid #e8e8e8;border-radius:6px;padding:6px 8px}
+.input-area .row:focus-within{border-color:#7f73ff}
+.input-area input{flex:1;border:none;outline:none;padding:2px 6px}
+.input-area .icon-btn{background:transparent;border:none;color:#8c8c8c;padding:0 6px;font-size:14px}
+.input-area .icon-btn.disabled{color:#d9d9d9;cursor:not-allowed}
+.input-area .send{background:linear-gradient(270deg,#7f73ff,#b77cff);color:#fff;border:none;height:26px;padding:0 12px;border-radius:4px;margin-left:4px;font-size:12px}
+.input-area .attach-hint{font-size:10.5px;color:#8c8c8c;margin-top:6px}
+
+/* 关闭确认弹窗 */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:3000}
+.modal-mask.show{display:flex}
+.modal{background:#fff;border-radius:8px;width:380px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.15)}
+.modal h3{font-size:15px;margin-bottom:12px}
+.modal p{color:#595959;line-height:1.6;margin-bottom:14px;font-size:13px}
+.modal label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#262626;margin-bottom:14px}
+.modal .actions{display:flex;gap:8px;justify-content:flex-end}
+
+/* 审核视角（TOM）*/
+.tom-page{background:#fff;border-radius:8px;padding:20px 24px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.tom-page .tom-header{font-size:13.5px;color:#8c8c8c;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #f0f0f0}
+.tom-page .tom-header b{color:#262626}
+.tom-page .tom-detail{display:grid;grid-template-columns:130px 1fr;row-gap:14px;column-gap:16px;align-items:start}
+.tom-page .tom-label{color:#595959;text-align:right;padding-right:6px}
+.tom-page .tom-label .req{color:#ff4d4f}
+.tom-page .tom-val{color:#262626;line-height:1.6}
+.tom-page .tom-val textarea,.tom-page .tom-val input{width:100%;border:1px solid #d9d9d9;border-radius:6px;padding:8px 10px}
+.tom-page .tom-val textarea{min-height:120px;resize:vertical}
+.tom-page .tom-src{display:flex;gap:10px;margin-top:6px}
+.tom-page .tom-src .src-col{flex:1;background:#fafafa;border:1px solid #f0f0f0;border-radius:6px;padding:8px 10px}
+.tom-page .tom-src .src-col .src-title{font-size:11px;color:#8c8c8c;margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.tom-page .tom-src .src-col .src-body{font-size:12px;color:#262626;line-height:1.55;max-height:120px;overflow-y:auto;white-space:pre-wrap}
+.tom-page .tip{background:#e6f7ff;border:1px solid #91d5ff;border-radius:4px;padding:8px 12px;font-size:12px;color:#0050b3;margin-bottom:14px}
+.tom-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid #f0f0f0}
+</style>
+</head>
+<body>
+
+<!-- 顶部演示 console -->
+<div class="demo-console">
+  <span class="title">🎬 原型演示控制台</span>
+  <button data-step="1">① 进入页面（自动开侧栏）</button>
+  <button data-step="2">② 客户回答第1轮</button>
+  <button data-step="3">③ AI 生成 SOP</button>
+  <button data-step="4">④ 客户确认 + 一键回填</button>
+  <button data-step="5">⑤ 客户改字段</button>
+  <button data-step="6">⑥ 归类未命中演示</button>
+  <button class="reset" onclick="resetDemo()">重置</button>
+</div>
+
+<!-- Tab 栏 -->
+<div class="tab-bar">
+  <div class="tab active" data-tab="inhouse">新增库内增值单</div>
+  <div class="tab" data-tab="inbound">新增入库增值单</div>
+  <div class="tab" data-tab="unusual">异常单处理-第二步</div>
+  <div class="tab" data-tab="audit">审核视角（TOM）</div>
+  <span class="demo-badge">仅原型演示，非线上界面</span>
+</div>
+
+<!-- ================= Tab 1：新增库内增值单 ================= -->
+<div class="stage" id="tab-inhouse">
+  <div class="page-title">新增库内增值单（vaSource = INHOUSE）</div>
+  <div class="page-sub">路径：库内非标增值（特批）→ 库内其他服务需求</div>
+
+  <div class="card">
+    <div class="card-title">增值产品信息</div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>仓库</div>
+      <div class="form-ctrl"><input type="text" value="DEBR2 Warehouse" readonly></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>增值产品名称<span id="badge-product" style="display:none" class="ai-badge">AI 生成</span></div>
+      <div class="form-ctrl"><select id="product"><option value="">请选择</option><option>库内非标增值（特批）</option><option>库内标准增值</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>增值服务<span id="badge-service" style="display:none" class="ai-badge">AI 生成</span></div>
+      <div class="form-ctrl"><select id="service"><option value="">请选择</option><option>库内其他服务需求</option><option>库内其他服务需求（库内异常处理）</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>需求背景说明<span id="badge-bg" style="display:none" class="ai-badge">AI 生成</span></div>
+      <div class="form-ctrl">
+        <textarea id="requirementBackground" placeholder="请描述背景与目的"></textarea>
+        <div class="form-hint">回填后可修改，客户修改后 AI 不再感知；三版（原始/AI/客户改后）会同时落库供审核对照</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>需求描述<span id="badge-desc" style="display:none" class="ai-badge">AI 生成</span></div>
+      <div class="form-ctrl"><textarea id="requirementDescription" placeholder="请详细描述操作要求"></textarea></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label">附件</div>
+      <div class="form-ctrl">
+        <button class="btn-default" style="height:30px">＋ 上传附件</button>
+        <span class="form-hint" style="margin-left:8px">支持图片；Word/Excel 待 Coze 侧确认</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn-fill" id="btnFillAll" disabled title="请先在侧栏确认 SOP 卡片">一键回填 AI 结果</button>
+    <button class="btn-primary">提交</button>
+    <button class="btn-default">保存草稿</button>
+    <span class="action-tip" id="fillTip">💡 请先在侧栏完成对话并「确认 SOP」后再点一键回填</span>
+  </div>
+</div>
+<!-- ================= Tab 2：新增入库增值单 ================= -->
+<div class="stage" id="tab-inbound" style="display:none">
+  <div class="page-title">新增入库增值单（vaSource = INBOUND）</div>
+  <div class="page-sub">路径：入库非标增值（特批）→ 入库其他服务需求</div>
+
+  <div class="card">
+    <div class="card-title">增值产品信息</div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>仓库</div>
+      <div class="form-ctrl"><input type="text" value="USJC1 Warehouse" readonly></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>入库单号</div>
+      <div class="form-ctrl"><input type="text" value="WI51339338" readonly></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>增值产品名称<span class="ai-badge" style="display:none">AI 生成</span></div>
+      <div class="form-ctrl"><select><option value="">请选择</option><option>入库非标增值（特批）</option><option>入库标准增值</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>增值服务<span class="ai-badge" style="display:none">AI 生成</span></div>
+      <div class="form-ctrl"><select><option value="">请选择</option><option>入库其他服务需求</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>需求背景说明</div>
+      <div class="form-ctrl"><textarea placeholder="请描述背景与目的"></textarea></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>需求描述</div>
+      <div class="form-ctrl"><textarea placeholder="请详细描述操作要求"></textarea></div>
+    </div>
+  </div>
+  <div class="action-bar">
+    <button class="btn-fill" disabled>一键回填 AI 结果</button>
+    <button class="btn-primary">提交</button>
+    <span class="action-tip">💡 交互与库内一致</span>
+  </div>
+</div>
+
+<!-- ================= Tab 3：异常单处理第二步 ================= -->
+<div class="stage" id="tab-unusual" style="display:none">
+  <div class="page-title">异常单处理 - 第二步：增值产品信息（vaSource = UNUSUAL）</div>
+  <div class="page-sub">路径：库内/入库非标增值（特批）→ 其他服务需求（库内异常处理）</div>
+
+  <div class="card">
+    <div class="card-title">异常单信息（已带入）</div>
+    <div class="form-row"><div class="form-label">异常单号</div><div class="form-ctrl"><input type="text" value="EB0125080621704137" readonly></div></div>
+    <div class="form-row"><div class="form-label">异常类型</div><div class="form-ctrl"><input type="text" value="库内-三方条码冲突" readonly></div></div>
+    <div class="form-row"><div class="form-label">仓库</div><div class="form-ctrl"><input type="text" value="DEBR2 Warehouse" readonly></div></div>
+    <div class="form-row"><div class="form-label">异常图片</div><div class="form-ctrl"><a href="#" onclick="event.preventDefault();showToast('查看示例图弹窗（原型仅示意）')">📷 查看异常图片</a></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">增值产品信息</div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>增值产品名称<span class="ai-badge" style="display:none">AI 生成</span></div>
+      <div class="form-ctrl"><select><option value="">请选择</option><option>库内非标增值（特批）</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>增值服务<span class="ai-badge" style="display:none">AI 生成</span></div>
+      <div class="form-ctrl"><select><option value="">请选择</option><option>库内其他服务需求（库内异常处理）</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>需求背景说明</div>
+      <div class="form-ctrl"><textarea placeholder="请描述背景与目的"></textarea></div>
+    </div>
+    <div class="form-row">
+      <div class="form-label"><span class="req">*</span>需求描述</div>
+      <div class="form-ctrl"><textarea placeholder="请详细描述操作要求"></textarea></div>
+    </div>
+  </div>
+  <div class="action-bar">
+    <button class="btn-fill" disabled>一键回填 AI 结果</button>
+    <button class="btn-primary">提交</button>
+    <span class="action-tip">💡 异常单入口 AI 会自动携带异常单号 + 异常图片作为上下文</span>
+  </div>
+</div>
+
+<!-- ================= Tab 4：审核视角（TOM） ================= -->
+<div class="stage no-sidebar" id="tab-audit" style="display:none">
+  <div class="page-title">TOM 审核后台 · 订单 / 增值服务管理 / 增值订单</div>
+  <div class="page-sub">审核人员视角 · 场景概述和操作 SOP 已由 AI 生成自动回填，可修改</div>
+
+  <div class="tom-page">
+    <div class="tom-header">增值单号：<b>VA202608120001</b> ｜ 客户：<b>SELLER-ABC</b> ｜ 仓库：<b>DEBR2</b> ｜ 状态：<b style="color:#faad14">待审核</b> ｜ 提交时间：2026-08-12 14:20:35</div>
+    <div class="tip">💡 以下「场景概述」+「操作 SOP」由 AI 生成并经客户确认，审核人员可在此基础上修改。审核确认后单据流转到执行链路。</div>
+
+    <div class="tom-detail">
+      <div class="tom-label">增值产品</div>
+      <div class="tom-val">库内非标增值（特批）</div>
+
+      <div class="tom-label">增值服务</div>
+      <div class="tom-val">库内其他服务需求</div>
+
+      <div class="tom-label"><span class="req">*</span>场景概述<span class="ai-badge">AI 生成</span></div>
+      <div class="tom-val"><input type="text" value="【库内】良品转不良品上架"></div>
+
+      <div class="tom-label"><span class="req">*</span>操作 SOP<span class="ai-badge">AI 生成 中英双语</span></div>
+      <div class="tom-val">
+        <textarea>背景：客户 SKU-DE-15908221（86件，DEBR2 仓库）与即将退仓入库的新货使用同一三方条码，系统无法同时绑定两个SKU，客户要求将在库老货按不良品上架存放以区分。
+
+仓库操作步骤：
+1. 根据出库单 WO12120399145 下架 SKU-DE-15908221 共 86 件
+2. 按新入库单 WI51339338 补贴包裹标签
+3. 使用新入库单 WI51339338 做上架，上架到不良品库位
+4. 上架后登记"单品包装破损"异常，在异常复核时确认为不良品
+5. 操作完成后拍照留存
+
+Steps in English:
+1. De-shelve SKU-DE-15908221 (86 pcs) per outbound order WO12120399145
+2. Attach parcel labels per new inbound order WI51339338
+3. Shelve using WI51339338, place in defective goods storage location
+4. Register "single item packaging damage" exception, confirm as defective during review
+5. Take photos after completion</textarea>
+        <div class="form-hint">审核人员可直接修改。修改保存后覆盖 AI 版本，客户端不会同步变化。</div>
+      </div>
+
+      <div class="tom-label">需求描述对照</div>
+      <div class="tom-val">
+        <div class="tom-src">
+          <div class="src-col">
+            <div class="src-title">📝 客户原始版</div>
+            <div class="src-body">我有一批货跟马上要退仓入库的新货用了同一个三方条码，系统里没法区分，想把老的那批转成不良品存着</div>
+          </div>
+          <div class="src-col" style="border-color:#b7cffb;background:#eff5ff">
+            <div class="src-title" style="color:#1677ff">🤖 AI 润色版</div>
+            <div class="src-body">操作需求：良品转不良品上架
+
+仓库：DEBR2 Warehouse
+SKU/数量：SKU-DE-15908221，86 件
+下架出库单：WO12120399145
+新入库单：WI51339338
+转不良品原因：区分老货与亚马逊退仓新货（同三方条码），非商品实际破损
+
+具体要求：
+1. 根据出库单 WO12120399145 下架指定商品
+2. 按新入库单 WI51339338 补贴包裹标签
+3. 使用新入库单做不良品上架
+4. 上架后登记"单品包装破损"异常，复核时确认为不良品
+5. 操作完成后拍照留存</div>
+          </div>
+          <div class="src-col" style="border-color:#b7eb8f;background:#f6ffed">
+            <div class="src-title" style="color:#52c41a">✅ 客户最终版（提交）</div>
+            <div class="src-body">操作需求：良品转不良品上架
+
+仓库：DEBR2 Warehouse
+SKU/数量：SKU-DE-15908221，86 件
+下架出库单：WO12120399145
+新入库单：WI51339338
+转不良品原因：区分老货与亚马逊退仓新货（同三方条码），非商品实际破损
+
+具体要求：
+1. 根据出库单 WO12120399145 下架指定商品
+2. 按新入库单 WI51339338 补贴包裹标签（客户补充：标签在附件里）
+3. 使用新入库单做不良品上架
+4. 上架后登记"单品包装破损"异常，复核时确认为不良品
+5. 操作完成后拍照留存</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tom-label">附件</div>
+      <div class="tom-val"><a href="#" onclick="event.preventDefault();showToast('查看附件弹窗（原型仅示意）')">📎 包裹标签模板.jpg</a></div>
+
+      <div class="tom-label">AI 会话追溯</div>
+      <div class="tom-val" style="font-size:12px;color:#8c8c8c">Coze conversationId: <code>conv_20260812_a3f2</code> ｜ 专家：<code>vas-nonstandard/nonstandard-special-approval-guidance</code>（占位）</div>
+    </div>
+
+    <div class="tom-actions">
+      <button class="btn-default">退回补充</button>
+      <button class="btn-primary" onclick="showToast('审核通过（原型仅示意）')">审核通过</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 右侧 AI 侧栏（三个业务 tab 共享）================= -->
+<div class="ai-sidebar closed" id="aiSidebar">
+  <div class="sidebar-header">
+    <div class="title"><div class="avatar">AI</div><span>增值指引助手</span></div>
+    <button class="close" onclick="askCloseSidebar()">×</button>
+  </div>
+  <div class="bubble-list" id="bubbleList"></div>
+  <div class="input-area">
+    <div class="row">
+      <button class="icon-btn" title="上传图片">📎</button>
+      <button class="icon-btn disabled" title="Word/Excel 待 Coze 确认">📄</button>
+      <input type="text" placeholder="补充你的需求或回答 AI 的追问...">
+      <button class="send">发送</button>
+    </div>
+    <div class="attach-hint">📎 图片可上传；Word/Excel 待 Coze 侧确认</div>
+  </div>
+</div>
+
+<!-- 关闭确认弹窗 -->
+<div class="modal-mask" id="closeModal">
+  <div class="modal">
+    <h3>关闭 AI 助手</h3>
+    <p>关闭后，本页面下次进入是否继续自动弹出？</p>
+    <label><input type="checkbox" id="rememberClose"> 本页面下次不再自动弹出（可通过侧栏入口手动打开）</label>
+    <div class="actions">
+      <button class="btn-default" onclick="hideModal()">取消</button>
+      <button class="btn-primary" onclick="confirmClose()">确定关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ================= JavaScript 交互 ================= -->
+<script>
+/* ---------- Tab 切换 ---------- */
+const tabs = document.querySelectorAll('.tab-bar .tab');
+const stages = ['tab-inhouse','tab-inbound','tab-unusual','tab-audit'];
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  const key = t.dataset.tab;
+  stages.forEach(id => document.getElementById(id).style.display = (id === 'tab-' + key) ? '' : 'none');
+  // 审核 tab 隐藏侧栏
+  document.getElementById('aiSidebar').classList.toggle('closed', key === 'audit');
+  document.querySelectorAll('.stage').forEach(s => s.classList.toggle('no-sidebar', key === 'audit'));
+}));
+
+/* ---------- Toast ---------- */
+function showToast(msg, ms) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), ms || 2200);
+}
+
+/* ---------- 关闭侧栏 ---------- */
+function askCloseSidebar() { document.getElementById('closeModal').classList.add('show'); }
+function hideModal() { document.getElementById('closeModal').classList.remove('show'); }
+function confirmClose() {
+  const remember = document.getElementById('rememberClose').checked;
+  document.getElementById('aiSidebar').classList.add('closed');
+  hideModal();
+  showToast(remember ? '已关闭并记忆：本页下次不再自动弹出' : '已关闭 AI 助手');
+}
+
+/* ---------- 演示对话 ---------- */
+const DIALOG = {
+  s1_ai: '您好，我看到您正在新增库内增值单。\n\n请描述您希望仓库如何处理库内的这批货物，我来帮您：\n· 判断应选哪个增值服务\n· 生成中英双语操作 SOP\n· 一键填入表单字段',
+  s2_user: '我有一批货跟马上要退仓入库的新货用了同一个三方条码，系统里没法区分，想把老的那批转成不良品存着',
+  s2_ai: '收到，看起来是"库内良品转不良品上架"方向。为生成可执行 SOP，请补充：\n1. SKU 和数量？\n2. 当前所在仓库？\n3. 退仓新货是否已建入库单？单号？\n4. 老货是否已建下架出库单？单号？\n5. 转不良品原因是区分库存还是商品破损？',
+  s3_user: 'SKU 是 SKU-DE-15908221，数量 86 件，在 DEBR2。新货入库单 WI51339338 已建，老货下架出库单 WO12120399145 已建。转不良品是因为老货和亚马逊退仓新货三方条码一样，非商品破损。',
+  miss_user: '我需要仓库帮我用微波炉加热这批巧克力糖果',
+  miss_ai: '抱歉，您描述的操作暂不在标准增值服务范围内，也无法归类为「非标特批」中的已配置场景。建议直接联系人工客服协助您评估：'
+};
+
+let state = { step: 0, confirmed: false };
+
+function addBubble(role, html, extraCls) {
+  const list = document.getElementById('bubbleList');
+  const div = document.createElement('div');
+  div.className = 'bubble ' + role + (extraCls ? ' ' + extraCls : '');
+  div.innerHTML = '<div class="body">' + html + '</div>';
+  list.appendChild(div);
+  list.scrollTop = list.scrollHeight;
+  return div;
+}
+function openSidebar() { document.getElementById('aiSidebar').classList.remove('closed'); }
+
+document.querySelectorAll('.demo-console button[data-step]').forEach(b => {
+  b.addEventListener('click', () => runStep(+b.dataset.step));
+});
+
+function runStep(n) {
+  if (n === 1) {
+    resetDemo();
+    // 切到 tab 1
+    tabs[0].click();
+    openSidebar();
+    addBubble('ai', DIALOG.s1_ai.replace(/\n/g, '<br>'));
+    addBubble('ai', '<i style="color:#8c8c8c;font-size:11.5px">（已带入上下文：客户=SELLER-ABC · 仓库=DEBR2 · vaSource=INHOUSE · 可选产品=listAllVasc 返回 5 项）</i>', 'system');
+    showToast('步骤①：客户进入页面 → 侧栏自动打开 + 代发固定话术');
+    state.step = 1;
+  } else if (n === 2 && state.step >= 1) {
+    addBubble('user', DIALOG.s2_user);
+    setTimeout(() => addBubble('ai', DIALOG.s2_ai.replace(/\n/g, '<br>')), 600);
+    showToast('步骤②：客户回答第1轮 → AI 追问关键信息');
+    state.step = 2;
+  } else if (n === 3 && state.step >= 2) {
+    addBubble('user', DIALOG.s3_user);
+    setTimeout(() => {
+      // 展示 analysis + SOP 卡片
+      const html = '<div class="analysis">✅ 已确认您的需求为【良品转不良品上架】，属于「库内非标增值（特批）→ 库内其他服务需求」。以下是我为您整理的操作 SOP，请确认后再回填。</div>' +
+        '<div class="sop-card">' +
+        '<div class="sop-title">操作 SOP · 中英双语</div>' +
+        '<div class="sop-field"><span class="k">场景：</span>良品转不良品上架</div>' +
+        '<div class="sop-field"><span class="k">仓库：</span>DEBR2 Warehouse</div>' +
+        '<div class="sop-field"><span class="k">SKU/数量：</span>SKU-DE-15908221 · 86 件</div>' +
+        '<div class="sop-field"><span class="k">中文步骤：</span></div><ol class="sop-steps"><li>根据 WO12120399145 下架</li><li>按 WI51339338 补贴包裹标签</li><li>用 WI51339338 做不良品上架</li><li>登记异常，复核确认为不良品</li><li>拍照留存</li></ol>' +
+        '<div class="sop-field"><span class="k">Steps in English:</span></div><ol class="sop-steps"><li>De-shelve per WO12120399145</li><li>Attach parcel labels per WI51339338</li><li>Shelve as defective per WI51339338</li><li>Register exception, confirm as defective</li><li>Take photos</li></ol>' +
+        '<div class="sop-actions"><button class="btn-confirm" onclick="confirmSop(this)">✓ 确认并使用（未确认无法回填）</button><button class="btn-modify" onclick="showToast(\'原型：点击后 AI 会追问客户想调整哪一段\')">让 AI 再改一版</button></div>' +
+        '</div>';
+      addBubble('ai', html);
+    }, 700);
+    showToast('步骤③：AI 生成 SOP 卡片 · 一键回填按钮仍 disabled');
+    state.step = 3;
+  } else if (n === 4 && state.step >= 3) {
+    // 找到最后一个 confirm 按钮直接触发
+    const btn = document.querySelectorAll('.btn-confirm');
+    if (btn.length) btn[btn.length - 1].click();
+    else showToast('请先执行步骤③');
+  } else if (n === 5 && state.confirmed) {
+    // 模拟客户改字段
+    const desc = document.getElementById('requirementDescription');
+    if (desc) {
+      desc.value += '\n（客户补充：标签见附件）';
+      desc.classList.add('filled-highlight');
+      setTimeout(() => desc.classList.remove('filled-highlight'), 1500);
+      showToast('已记录你的修改 · 前端本地保留三版：原始/AI/客户改后');
+    }
+  } else if (n === 6) {
+    resetDemo();
+    tabs[0].click();
+    openSidebar();
+    addBubble('ai', DIALOG.s1_ai.replace(/\n/g, '<br>'));
+    addBubble('user', DIALOG.miss_user);
+    setTimeout(() => {
+      addBubble('ai', DIALOG.miss_ai +
+        '<div class="miss-card"><div class="k">⚠️ 无法归类到当前可选的非标特批服务</div>' +
+        '<div>可选范围仅限系统圈定的 vascList，未匹配到您描述的场景。</div>' +
+        '<button onclick="showToast(\'原型：跳转到人工客服窗口\')">💬 联系人工客服</button></div>');
+    }, 600);
+    showToast('步骤⑥：AI 归类未命中 → 提示联系人工客服');
+  } else {
+    showToast('请按顺序执行前置步骤');
+  }
+}
+
+function confirmSop(btn) {
+  btn.textContent = '✓ 已确认';
+  btn.classList.add('confirmed');
+  document.getElementById('btnFillAll').disabled = false;
+  document.getElementById('fillTip').textContent = '✅ SOP 已确认，点击「一键回填 AI 结果」将 4 字段填入表单';
+  document.getElementById('fillTip').style.color = '#52c41a';
+  state.confirmed = true;
+  showToast('客户确认 SOP · 一键回填按钮已激活');
+}
+
+document.getElementById('btnFillAll').addEventListener('click', function () {
+  if (this.disabled) return;
+  const set = (id, val, badgeId) => {
+    const el = document.getElementById(id);
+    if (el.tagName === 'SELECT') {
+      const opt = Array.from(el.options).find(o => o.textContent === val);
+      if (opt) el.value = opt.value || opt.textContent;
+    } else {
+      el.value = val;
+    }
+    el.classList.add('filled-highlight');
+    setTimeout(() => el.classList.remove('filled-highlight'), 1500);
+    if (badgeId) document.getElementById(badgeId).style.display = 'inline-block';
+  };
+  set('product', '库内非标增值（特批）', 'badge-product');
+  set('service', '库内其他服务需求', 'badge-service');
+  set('requirementBackground', '客户有一批在库商品（SKU-DE-15908221，86 件，DEBR2），与即将亚马逊退仓入库的新货使用相同三方条码。系统无法同时将同一三方条码绑定两个 SKU，客户希望将在库老货转为不良品库存存放。商品本身无破损，转不良品仅用于库存区分管理。', 'badge-bg');
+  set('requirementDescription', '操作需求：良品转不良品上架\n\n仓库：DEBR2 Warehouse\nSKU/数量：SKU-DE-15908221，86 件\n下架出库单：WO12120399145\n新入库单：WI51339338\n转不良品原因：区分老货与亚马逊退仓新货（同三方条码），非商品实际破损\n\n具体要求：\n1. 根据出库单 WO12120399145 下架指定商品\n2. 按新入库单 WI51339338 补贴包裹标签\n3. 使用新入库单做不良品上架\n4. 上架后登记"单品包装破损"异常，复核时确认为不良品\n5. 操作完成后拍照留存', 'badge-desc');
+  showToast('✅ 一键回填完成 · 4 字段已填入表单，客户可再修改');
+  state.step = 4;
+});
+
+function resetDemo() {
+  document.getElementById('bubbleList').innerHTML = '';
+  document.getElementById('btnFillAll').disabled = true;
+  document.getElementById('fillTip').textContent = '💡 请先在侧栏完成对话并「确认 SOP」后再点一键回填';
+  document.getElementById('fillTip').style.color = '';
+  ['product','service','requirementBackground','requirementDescription'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = el.tagName === 'SELECT' ? '' : '';
+  });
+  ['badge-product','badge-service','badge-bg','badge-desc'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.style.display = 'none';
+  });
+  state = { step: 0, confirmed: false };
+}
+</script>
+</body>
+</html>
