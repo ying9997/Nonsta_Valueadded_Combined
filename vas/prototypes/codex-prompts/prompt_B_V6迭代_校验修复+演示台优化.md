@@ -10,6 +10,7 @@
 
 1. **校验触发逻辑有 bug**：`handleSubmit()` 依赖 `state.combo` 判断是否触发校验，但走"演示→一键填入"路径时 `state.combo` 为 null，导致校验被跳过
 2. **演示控制台不清晰**：业务方看不懂哪些按钮对应什么步骤、当前走到哪一步了
+3. **两种校验混在一起**：标准可替代性校验 和 提交前完整性校验 是不同时机不同目的，应分开演示
 
 ## §2 修改内容
 
@@ -53,7 +54,11 @@ function handleSubmit() {
     </button>
     <span class="demo-arrow">→</span>
     <button id="demoStep4" class="demo-step-btn" onclick="demoStep4()" disabled>
-      <span class="step-badge">4</span> 提交 + AI 校验
+      <span class="step-badge">4</span> 校验A：标准可替代？
+    </button>
+    <span class="demo-arrow">→</span>
+    <button id="demoStep5" class="demo-step-btn" onclick="demoStep5()" disabled>
+      <span class="step-badge">5</span> 校验B：完整性+提交
     </button>
     <span class="demo-sep">|</span>
     <button class="demo-step-btn demo-extra" onclick="openAuditModal()">审核视角</button>
@@ -85,7 +90,7 @@ function handleSubmit() {
 .demo-step-btn.done .step-badge { background: rgba(255,255,255,0.3); }
 ```
 
-### 2.3 步骤化演示逻辑
+### 2.3 步骤化演示逻辑（5 步）
 
 每个步骤按钮触发对应动作，并自动激活下一步按钮：
 
@@ -96,36 +101,148 @@ function demoStep1() {
   // 对话注入完成后（最后一条消息延迟后），激活 step2
   const totalDelay = DEMO_DIALOG.length * 1500 + 500;
   setTimeout(() => {
-    document.getElementById('demoStep1').classList.replace('active', 'done');
-    document.getElementById('demoStep2').disabled = false;
-    document.getElementById('demoStep2').classList.add('active');
+    markStepDone('demoStep1');
+    enableStep('demoStep2');
   }, totalDelay);
 }
 
 function demoStep2() {
   // 模拟点击 SOP 卡片的"确认并使用"
   confirmSop();
-  document.getElementById('demoStep2').classList.replace('active', 'done');
-  document.getElementById('demoStep3').disabled = false;
-  document.getElementById('demoStep3').classList.add('active');
+  markStepDone('demoStep2');
+  enableStep('demoStep3');
 }
 
 function demoStep3() {
   // 触发一键填入
   fillForm();
-  document.getElementById('demoStep3').classList.replace('active', 'done');
-  document.getElementById('demoStep4').disabled = false;
-  document.getElementById('demoStep4').classList.add('active');
+  markStepDone('demoStep3');
+  enableStep('demoStep4');
 }
 
 function demoStep4() {
-  // 触发提交校验
-  handleSubmit();
-  document.getElementById('demoStep4').classList.replace('active', 'done');
+  // 校验 A：标准增值可替代性检查
+  showValidationA();
+  // 点击"继续非标"后激活 step5（见 closeValidationA）
+}
+
+function demoStep5() {
+  // 校验 B：提交前填写完整性+附件检查
+  showValidationB();
+  // 点击"确认提交"后标记完成（见 closeValidationB）
+}
+
+function markStepDone(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('active');
+  el.classList.add('done');
+  el.disabled = true;
+}
+
+function enableStep(id) {
+  const el = document.getElementById(id);
+  el.disabled = false;
+  el.classList.add('active');
 }
 ```
 
-重置时：所有步骤按钮恢复初始状态（step1 active，其余 disabled）。
+重置时：所有步骤按钮恢复初始状态（step1 active，其余 disabled + 移除 done）。
+
+### 2.4 两种校验的模态框
+
+#### 校验 A：标准增值可替代性检查
+
+**触发时机**：一键回填完成后、提交前
+**目的**：检测客户选的非标是否其实标准增值能解决
+**展示内容**：
+
+```html
+<div class="validation-modal" id="validationModalA">
+  <div class="validation-box">
+    <div class="validation-header" style="background:linear-gradient(135deg,#fa8c16,#faad14);">
+      🔍 校验 A：标准增值可替代性检查
+    </div>
+    <div class="validation-body">
+      <p style="margin-bottom:12px;color:#333;font-size:13px;">AI 正在检测您的需求是否可以用标准增值服务覆盖...</p>
+      <div class="validation-item pass">
+        ✅ 检测结果：<strong>不可替代</strong><br>
+        <span style="color:#666;font-size:12px;">当前需求"良品转不良品上架"不在标准增值服务范围内，需要走非标特批流程。</span>
+      </div>
+    </div>
+    <div class="validation-footer">
+      <button class="validation-btn-ok" onclick="closeValidationA()">确认，继续非标流程</button>
+    </div>
+  </div>
+</div>
+```
+
+**关闭后**：标记 step4 done → 激活 step5
+
+```javascript
+function showValidationA() {
+  document.getElementById('validationModalA').classList.add('show');
+}
+
+function closeValidationA() {
+  document.getElementById('validationModalA').classList.remove('show');
+  markStepDone('demoStep4');
+  enableStep('demoStep5');
+}
+```
+
+#### 校验 B：提交前填写完整性+附件检查
+
+**触发时机**：校验 A 通过后，点提交时
+**目的**：检查字段填写完整性 + 附件是否上传
+**展示内容**：
+
+```html
+<div class="validation-modal" id="validationModalB">
+  <div class="validation-box">
+    <div class="validation-header" style="background:linear-gradient(135deg,#1677ff,#4096ff);">
+      📋 校验 B：提交前完整性检查
+    </div>
+    <div class="validation-body">
+      <div class="validation-item pass">✅ 增值产品名称：已选择</div>
+      <div class="validation-item pass">✅ 增值服务：已选择</div>
+      <div class="validation-item pass">✅ 需求背景说明：已填写（128字）</div>
+      <div class="validation-item pass">✅ 需求描述：已填写（包含SKU/数量/单据号）</div>
+      <div class="validation-item warn" style="border-color:#ffe58f;background:#fffbe6;color:#ad6800;">
+        ⚠️ 附件：未上传<br>
+        <span style="font-size:12px;">根据【良品转不良品上架】场景，建议上传：包裹标签文件、下架出库单截图</span>
+      </div>
+    </div>
+    <div class="validation-footer">
+      <button class="validation-btn-ok" onclick="closeValidationB(true)">仍然提交（附件可后补）</button>
+      <button class="validation-btn-cancel" onclick="closeValidationB(false)">返回补充附件</button>
+    </div>
+  </div>
+</div>
+```
+
+**关闭后**：
+- 点"仍然提交"→ toast "增值单提交成功（模拟）" + 标记 step5 done
+- 点"返回补充"→ 关闭模态框，step5 保持 active
+
+```javascript
+function showValidationB() {
+  document.getElementById('validationModalB').classList.add('show');
+}
+
+function closeValidationB(confirmed) {
+  document.getElementById('validationModalB').classList.remove('show');
+  if (confirmed) {
+    showToast('增值单提交成功（模拟）', 3000);
+    markStepDone('demoStep5');
+  }
+}
+```
+
+### 2.5 移除旧的单一校验模态框
+
+删除原来的 `#validationModal`（单一校验模态框），替换为上面的 `#validationModalA` 和 `#validationModalB`。
+
+同时删除旧的 `handleSubmit()` 函数，改为由步骤按钮直接调用 `showValidationA()` / `showValidationB()`。
 
 ### 2.4 保留旧按钮的功能函数
 
