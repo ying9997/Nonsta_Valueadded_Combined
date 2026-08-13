@@ -172,7 +172,6 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 .ai-sidebar.open { width: 380px; border-left-width: 1px; }
 .ai-sidebar-header { height: 48px; background: #fff; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 16px; flex-shrink: 0; }
 .ai-sidebar-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #1f1f2f; white-space: nowrap; }
-.ai-sidebar-title svg { width: 18px; height: 18px; color: #5d4fff; flex-shrink: 0; }
 .ai-sidebar-actions { display: flex; align-items: center; gap: 8px; }
 .pref-label { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #666; white-space: nowrap; }
 .pref-label input { width: 13px; height: 13px; }
@@ -196,6 +195,23 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 .form-group label { display: block; font-size: 12px; color: #333; font-weight: 600; margin-bottom: 6px; }
 .form-group textarea { width: 100%; min-height: 88px; padding: 10px 12px; font-size: 13px; border: 1px solid #d9d9d9; border-radius: 6px; outline: none; resize: vertical; font-family: inherit; line-height: 1.6; }
 .form-group textarea:focus { border-color: #A0792A; box-shadow: 0 0 0 2px rgba(160,121,42,0.12); }
+.fill-btn-row { margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.fill-btn { padding: 10px 20px; border: none; border-radius: 6px; background: linear-gradient(135deg, #A0792A, #C9952E); color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; }
+.fill-btn:disabled { background: #d9d9d9; color: #999; cursor: not-allowed; }
+.fill-btn:not(:disabled):hover { background: linear-gradient(135deg, #8B6914, #A0792A); }
+.fill-hint { font-size: 12px; color: #ff4d4f; }
+.fill-hint.hidden { display: none; }
+.ai-badge { display: none; font-size: 10px; padding: 2px 6px; border-radius: 3px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; margin-left: 6px; vertical-align: middle; }
+.ai-badge.show { display: inline; }
+.sop-card-v6 { border: 1px solid #f0e4c0; border-radius: 8px; overflow: hidden; margin-top: 10px; background: #fff; }
+.sop-card-header { background: #fffaf3; padding: 10px 14px; font-weight: 600; color: #8B6914; border-bottom: 1px solid #f0e4c0; font-size: 13px; }
+.sop-card-body { padding: 12px 14px; font-size: 12px; line-height: 1.8; white-space: pre-line; }
+.sop-card-footer { padding: 10px 14px; border-top: 1px solid #f0e4c0; display: flex; gap: 10px; }
+.sop-btn-confirm { flex: 1; padding: 8px; border: none; border-radius: 6px; background: linear-gradient(135deg, #A0792A, #C9952E); color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; }
+.sop-btn-confirm:hover { background: linear-gradient(135deg, #8B6914, #A0792A); }
+.sop-btn-confirm.confirmed { background: #52c41a; cursor: default; }
+.sop-btn-revise { flex: 1; padding: 8px; border: 1px solid #d9d9d9; border-radius: 6px; background: #fff; color: #333; font-size: 13px; cursor: pointer; }
+.sop-btn-revise:hover { border-color: #A0792A; color: #A0792A; }
 
 /* 审核弹窗与提示 */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
@@ -215,6 +231,17 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 .modal-footer button { height: 32px; border: 1px solid #d9d9d9; background: #fff; border-radius: 6px; padding: 0 16px; cursor: pointer; }
 .action-toast { position: fixed; left: 50%; top: 60px; transform: translateX(-50%); background: rgba(0,0,0,0.78); color: #fff; padding: 9px 14px; border-radius: 6px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 1001; }
 .action-toast.show { opacity: 1; }
+.validation-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.42); z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
+.validation-modal.show { display: flex; }
+.validation-box { width: min(500px, 94vw); background: #fff; border-radius: 8px; box-shadow: 0 16px 38px rgba(0,0,0,0.22); overflow: hidden; }
+.validation-header { background: linear-gradient(135deg, #1677ff, #4096ff); color: #fff; padding: 13px 16px; font-size: 15px; font-weight: 600; }
+.validation-body { padding: 16px; }
+.validation-item { border: 1px solid #d9f7be; background: #f6ffed; color: #237804; border-radius: 6px; padding: 9px 10px; font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+.validation-item:last-child { margin-bottom: 0; }
+.validation-footer { padding: 12px 16px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; }
+.validation-btn-ok, .validation-btn-cancel { height: 32px; border-radius: 6px; padding: 0 14px; font-size: 13px; cursor: pointer; }
+.validation-btn-ok { border: none; background: #1677ff; color: #fff; }
+.validation-btn-cancel { border: 1px solid #d9d9d9; background: #fff; color: #333; }
 
 @media (max-width: 1100px) {
   .ai-sidebar.open { width: 340px; }
@@ -228,7 +255,6 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
   <span class="demo-console-title">🎬 原型演示控制台（仅开发/评审可见）</span>
   <div class="demo-console-actions">
     <button onclick="runDemo()">演示：非标特批场景（良品转不良品）</button>
-    <button onclick="fillForm()">模拟：一键填入表单</button>
     <button onclick="openAuditModal()">模拟：审核视角</button>
     <button onclick="resetDemo()">重置</button>
   </div>
@@ -375,7 +401,6 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
   <aside class="ai-sidebar" id="aiSidebar">
     <div class="ai-sidebar-header">
       <div class="ai-sidebar-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a4 4 0 0 0-4 4v1H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4Z"/><path d="M9 13h.01"/><path d="M15 13h.01"/><path d="M10 18v2"/><path d="M14 18v2"/></svg>
         <span>AI 增值指引</span>
       </div>
       <div class="ai-sidebar-actions">
@@ -437,6 +462,21 @@ Steps in English:
 </div>
 
 <div class="action-toast" id="actionToast"></div>
+
+<div class="validation-modal" id="validationModal">
+  <div class="validation-box">
+    <div class="validation-header">🤖 AI 提交前校验</div>
+    <div class="validation-body">
+      <div class="validation-item pass">✅ 需求描述完整性：通过（已填写背景说明和操作描述）</div>
+      <div class="validation-item pass">✅ 标准增值可替代性检查：不可替代（当前需求无法用标准增值服务覆盖）</div>
+      <div class="validation-item pass">✅ 关键字段：SKU/数量/单据号均已填写</div>
+    </div>
+    <div class="validation-footer">
+      <button class="validation-btn-ok" onclick="closeValidation(true)">校验通过，确认提交</button>
+      <button class="validation-btn-cancel" onclick="closeValidation(false)">返回修改</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ============= 数据配置 =============
@@ -711,12 +751,16 @@ function renderDetails() {
     } else {
       let reqHtml = '';
       if (cfg.custom === 'requirementFields') {
-        reqHtml = `<div class="form-group">
-  <label>需求背景说明 <span class="req">*</span></label>
+        reqHtml = `<div class="fill-btn-row">
+  <button class="fill-btn" id="fillBtn" disabled onclick="fillForm()">📝 一键回填 AI 结果</button>
+  <span class="fill-hint" id="fillHint">请先在侧栏确认 SOP 卡片</span>
+</div>
+<div class="form-group">
+  <label>需求背景说明 <span class="req">*</span><span class="ai-badge" data-ai-badge-for="requirementBackground">AI 生成</span></label>
   <textarea id="requirementBackground" placeholder="请描述您的需求背景（客户端提交后审核人员将看到此内容）" rows="3"></textarea>
 </div>
 <div class="form-group">
-  <label>需求描述 <span class="req">*</span></label>
+  <label>需求描述 <span class="req">*</span><span class="ai-badge" data-ai-badge-for="requirementDescription">AI 生成</span></label>
   <textarea id="requirementDescription" placeholder="请描述具体操作要求（越详细越好，减少审核退回）" rows="5"></textarea>
 </div>`;
       } else {
@@ -845,9 +889,29 @@ const DEMO_DIALOG = [
   },
   {
     role: 'assistant',
-    text: '已确认：该需求为【良品转不良品上架】，属于交叉验证表中的 B 类场景：未上线为命名服务，但知识库有 SOP 模板。\n\n建议填入：\n· 增值产品：入库非标增值（特批）\n· 增值服务：入库其他服务需求\n\n已匹配知识库模板：3.41【库内】良品转不良品上架。\n\n我已根据客户补充信息生成操作要求：\n\n【SOP 卡片】\n操作目标：将在库老货 SKU-DE-15908221 从良品库存下架，并按不良品重新上架，用于和后续同三方条码的亚马逊退仓新货区分。\n仓库：DEBR2 Warehouse\nSKU/数量：SKU-DE-15908221，86 件\n新入库单：WI51339338\n下架出库单：WO12120399145\n转不良品原因：用于区分老货与新退仓货，不是商品实际破损或质量不良\n\n操作步骤：\n1. 仓库先按出库单 WO12120399145 将当前在库老货下架\n2. 核对下架货物的 SKU、数量和三方条码，确认与客户提供信息一致\n3. 按无箱单预报入库单 WI51339338 进行新入库处理\n4. 如仓库系统或实物操作要求补贴包裹标签，请按入库单信息补贴对应包裹标签\n5. 将该批老货按不良品属性上架至不良品库位\n6. 上架完成后反馈实际处理数量、异常差异和最终库位信息\n\n费用预估：\n· 费用以仓库实际操作项目和系统报价为准\n· 可能涉及上下架处理费、标签处理费及非标操作工时费\n\n请点击「一键填入表单字段」回填到当前入库增值单。'
+    text: '已确认：该需求为【良品转不良品上架】，属于交叉验证表中的 B 类场景：未上线为命名服务，但知识库有 SOP 模板。\n\n建议填入：\n· 增值产品：入库非标增值（特批）\n· 增值服务：入库其他服务需求\n\n已匹配知识库模板：3.41【库内】良品转不良品上架。\n\n以上仅为 AI 对您需求的理解和 SOP 拆解，是否审核通过由审核人员决定。请确认下方 SOP 后再一键回填。'
   }
 ];
+
+const SOP_CARD_BODY = `背景：客户有一批老货当前存放在 DEBR2 Warehouse，SKU 绑定了第三方条码。后续亚马逊退仓新货使用同一个三方条码，系统无法同时区分两批 SKU。客户希望先将当前在库老货从良品库存转为不良品库存，不是因为商品实际破损。
+
+操作目标：将在库老货 SKU-DE-15908221 从良品库存下架，并按不良品重新上架，用于和后续同三方条码的亚马逊退仓新货区分。
+
+中文步骤：
+1. 仓库先按出库单 WO12120399145 将当前在库老货下架
+2. 核对下架货物的 SKU、数量和三方条码，确认与客户提供信息一致
+3. 按无箱单预报入库单 WI51339338 进行新入库处理
+4. 如仓库系统或实物操作要求补贴包裹标签，请按入库单信息补贴对应包裹标签
+5. 将该批老货按不良品属性上架至不良品库位
+6. 上架完成后反馈实际处理数量、异常差异和最终库位信息
+
+Steps in English:
+1. De-shelve SKU-DE-15908221 (86 pcs) per outbound order WO12120399145
+2. Verify SKU, quantity, third-party barcode and physical condition
+3. Process inbound again under inbound order WI51339338
+4. Attach parcel labels from the inbound order if required
+5. Shelve the goods as defective inventory
+6. Report actual quantity, discrepancies and final location after completion`;
 
 const FORM_VALUES = {
   product: '入库非标增值（特批）',
@@ -858,6 +922,8 @@ const FORM_VALUES = {
 };
 
 let demoTimers = [];
+let sopConfirmed = false;
+let attachmentPromptTimer = null;
 
 function toggleAiSidebar(forceOpen) {
   const sidebar = document.getElementById('aiSidebar');
@@ -876,6 +942,27 @@ function createAiBubble(role, text) {
   return bubble;
 }
 
+function createSopCard() {
+  const bubble = document.createElement('div');
+  bubble.className = 'ai-bubble assistant';
+  bubble.dataset.demoBubble = 'nonstandard-special';
+
+  const content = document.createElement('div');
+  content.className = 'ai-bubble-content';
+  content.innerHTML = `
+    <div class="sop-card-v6">
+      <div class="sop-card-header">操作 SOP — 良品转不良品上架</div>
+      <div class="sop-card-body"></div>
+      <div class="sop-card-footer">
+        <button class="sop-btn-confirm" id="sopConfirmBtn" onclick="confirmSop()">✓ 确认并使用</button>
+        <button class="sop-btn-revise" onclick="reviseSop()">让 AI 再改一版</button>
+      </div>
+    </div>`;
+  content.querySelector('.sop-card-body').textContent = SOP_CARD_BODY;
+  bubble.appendChild(content);
+  return bubble;
+}
+
 function appendAiBubble(role, text) {
   const list = document.getElementById('aiChatArea');
   const bubble = createAiBubble(role, text);
@@ -884,18 +971,39 @@ function appendAiBubble(role, text) {
   return bubble;
 }
 
+function appendSopCard() {
+  const list = document.getElementById('aiChatArea');
+  const card = createSopCard();
+  list.appendChild(card);
+  list.scrollTop = list.scrollHeight;
+  return card;
+}
+
 function clearDemoTimers() {
   demoTimers.forEach(timer => clearTimeout(timer));
   demoTimers = [];
+  if (attachmentPromptTimer) {
+    clearTimeout(attachmentPromptTimer);
+    attachmentPromptTimer = null;
+  }
 }
 
 function runDemo() {
   clearDemoTimers();
+  sopConfirmed = false;
+  resetFillControls();
   toggleAiSidebar(true);
   const list = document.getElementById('aiChatArea');
   list.querySelectorAll('[data-demo-bubble="nonstandard-special"]').forEach(node => node.remove());
   DEMO_DIALOG.forEach((item, index) => {
-    const timer = setTimeout(() => appendAiBubble(item.role, item.text), index * 1500);
+    const timer = setTimeout(() => {
+      appendAiBubble(item.role, item.text);
+      if (index === DEMO_DIALOG.length - 1) {
+        appendSopCard();
+        ensureNonstandardFormVisible();
+        updateFillControls();
+      }
+    }, index * 1500);
     demoTimers.push(timer);
   });
   showToast('演示开始：AI 侧栏将逐条注入 5 轮对话', 3000);
@@ -911,6 +1019,10 @@ function sendMessage() {
 }
 
 function fillForm() {
+  if (!sopConfirmed) {
+    showToast('请先在侧栏确认 SOP 卡片后再点一键回填', 3000);
+    return;
+  }
   const results = [];
   const methodCard = Array.from(document.querySelectorAll('#methodCards .card-item')).find(card => normalizeText(card.dataset.key) === normalizeText(FORM_VALUES.method));
   if (methodCard) {
@@ -925,6 +1037,7 @@ function fillForm() {
     highlight(serviceCard);
     results.push('增值服务 ✓');
   }
+  updateFillControls();
 
   const bg = document.getElementById('requirementBackground');
   const desc = document.getElementById('requirementDescription');
@@ -933,6 +1046,7 @@ function fillForm() {
     bg.dispatchEvent(new Event('input', { bubbles: true }));
     bg.dispatchEvent(new Event('change', { bubbles: true }));
     highlight(bg);
+    showAiBadge('requirementBackground');
     results.push('需求背景说明 ✓');
   }
   if (desc) {
@@ -940,10 +1054,74 @@ function fillForm() {
     desc.dispatchEvent(new Event('input', { bubbles: true }));
     desc.dispatchEvent(new Event('change', { bubbles: true }));
     highlight(desc);
+    showAiBadge('requirementDescription');
     results.push('需求描述 ✓');
   }
   refreshProgress();
   showToast(results.length ? '✅ 一键填入完成：' + results.join(' | ') : '⚠️ 未找到目标字段', 4000);
+}
+
+function confirmSop() {
+  const btn = document.getElementById('sopConfirmBtn');
+  if (btn) {
+    btn.textContent = '✓ 已确认';
+    btn.classList.add('confirmed');
+    btn.disabled = true;
+  }
+  sopConfirmed = true;
+  ensureNonstandardFormVisible();
+  updateFillControls();
+  showToast('SOP 已确认，可以一键回填 AI 结果', 3000);
+  if (attachmentPromptTimer) clearTimeout(attachmentPromptTimer);
+  attachmentPromptTimer = setTimeout(() => {
+    if (!sopConfirmed) return;
+    appendAiBubble('assistant', '根据【良品转不良品上架】场景，您还需要上传以下文件：\n\n📎 必须上传：\n1. 包裹标签文件（新入库单对应的标签）\n2. 下架出库单截图或单号确认\n\n📎 建议上传（加快审核）：\n3. 三方条码对应关系说明\n\n请在表单“增值文件”处上传后再提交。');
+    attachmentPromptTimer = null;
+  }, 1000);
+}
+
+function reviseSop() {
+  sopConfirmed = false;
+  if (attachmentPromptTimer) {
+    clearTimeout(attachmentPromptTimer);
+    attachmentPromptTimer = null;
+  }
+  const btn = document.getElementById('sopConfirmBtn');
+  if (btn) {
+    btn.textContent = '✓ 确认并使用';
+    btn.classList.remove('confirmed');
+    btn.disabled = false;
+  }
+  resetFillControls();
+  appendAiBubble('assistant', '好的，请告诉我您想调整哪部分？');
+}
+
+function ensureNonstandardFormVisible() {
+  const methodCard = Array.from(document.querySelectorAll('#methodCards .card-item')).find(card => normalizeText(card.dataset.key) === normalizeText(FORM_VALUES.method));
+  if (methodCard && state.method !== FORM_VALUES.method) selectMethod(methodCard);
+  const serviceCard = Array.from(document.querySelectorAll('#atomCards .card-item')).find(card => normalizeText(card.textContent).includes(normalizeText(FORM_VALUES.service)));
+  if (serviceCard && (!state.combo || !state.combo.atoms.includes(FORM_VALUES.service))) serviceCard.click();
+}
+
+function updateFillControls() {
+  const fillBtn = document.getElementById('fillBtn');
+  const fillHint = document.getElementById('fillHint');
+  if (fillBtn) fillBtn.disabled = !sopConfirmed;
+  if (fillHint) fillHint.classList.toggle('hidden', sopConfirmed);
+}
+
+function resetFillControls() {
+  sopConfirmed = false;
+  const fillBtn = document.getElementById('fillBtn');
+  const fillHint = document.getElementById('fillHint');
+  if (fillBtn) fillBtn.disabled = true;
+  if (fillHint) fillHint.classList.remove('hidden');
+  document.querySelectorAll('.ai-badge').forEach(badge => badge.classList.remove('show'));
+}
+
+function showAiBadge(targetId) {
+  const badge = document.querySelector(`.ai-badge[data-ai-badge-for="${targetId}"]`);
+  if (badge) badge.classList.add('show');
 }
 
 function openAuditModal() {
@@ -954,10 +1132,24 @@ function closeAuditModal() {
   document.getElementById('auditModal').classList.remove('show');
 }
 
+function handleSubmit() {
+  if (state.combo && state.combo.atoms.includes(FORM_VALUES.service)) {
+    document.getElementById('validationModal').classList.add('show');
+    return;
+  }
+  showToast('增值单提交成功（模拟）', 3000);
+}
+
+function closeValidation(confirmed) {
+  document.getElementById('validationModal').classList.remove('show');
+  if (confirmed) showToast('增值单提交成功（模拟）', 3000);
+}
+
 function resetDemo() {
   clearDemoTimers();
   document.getElementById('aiChatArea').innerHTML = '';
   document.getElementById('aiUserInput').value = '';
+  document.getElementById('validationModal').classList.remove('show');
   document.querySelectorAll('.card-item, textarea, select, tr, label').forEach(el => {
     el.style.outline = '';
     el.style.background = '';
@@ -968,6 +1160,8 @@ function resetDemo() {
   });
   state = { method: null, combo: null, orderNos: [] };
   hideFromDetail();
+  document.getElementById('detailBody').innerHTML = '';
+  document.getElementById('feeBody').innerHTML = '';
   document.getElementById('progress-3').style.display = 'none';
   document.getElementById('progress-2-label').textContent = '增值服务';
   document.getElementById('orderStepNum').textContent = '2';
@@ -978,6 +1172,7 @@ function resetDemo() {
   document.getElementById('nextBtn').disabled = true;
   initMethods();
   refreshProgress();
+  resetFillControls();
   closeAuditModal();
   showToast('已重置', 2000);
 }
@@ -1006,6 +1201,9 @@ function normalizeText(value) {
 }
 
 window.addEventListener('DOMContentLoaded', initMethods);
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('submitBtn').addEventListener('click', handleSubmit);
+});
 </script>
 </body>
 </html>
