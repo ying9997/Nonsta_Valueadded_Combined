@@ -6,17 +6,22 @@
   <title>AI 增值指引 — 帮客户选对服务</title>
   <style>
     :root {
-      --primary: #1a73e8;
-      --warning: #f5a623;
+      --primary: #A0792A;
+      --highlight: #C9952E;
+      --dark: #6B4F0A;
+      --dark-menu: #2c2216;
+      --soft: #FFF8E8;
       --success: #52c41a;
-      --purple: #7c3aed;
-      --border: #e5e8ef;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --bg: #f6f8fb;
+      --warning: #faad14;
+      --info: #1890ff;
+      --purple: #722ed1;
+      --text: #262626;
+      --muted: #6f6657;
+      --border: #e8e0d1;
+      --line: #f0ece3;
+      --bg: #f6f3ed;
       --panel: #ffffff;
-      --soft-blue: #e8f4fd;
-      --soft-green: #f0fff4;
+      --shadow: 0 18px 42px rgba(72, 48, 12, 0.12);
     }
 
     * {
@@ -26,484 +31,641 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background: var(--bg);
       color: var(--text);
+      background: var(--bg);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0;
     }
 
     button,
-    input {
+    input,
+    textarea {
       font: inherit;
     }
 
-    .page {
-      width: min(1200px, calc(100vw - 32px));
-      margin: 24px auto 72px;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: 0 16px 40px rgba(28, 42, 67, 0.08);
-      overflow: hidden;
+    button {
+      border: 0;
+      cursor: pointer;
     }
 
-    .page-header {
-      padding: 20px 24px 16px;
-      border-bottom: 1px solid var(--border);
-      background: #ffffff;
+    .top-bar {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: linear-gradient(135deg, #6B4F0A, #8B6914);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(72, 48, 12, 0.2);
     }
 
-    h1 {
-      margin: 0 0 16px;
-      font-size: 24px;
-      line-height: 1.3;
+    .top-bar-left,
+    .top-bar-right,
+    .top-nav {
+      display: flex;
+      align-items: center;
+    }
+
+    .logo {
+      margin-right: 34px;
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: 1.8px;
+    }
+
+    .top-nav {
+      height: 48px;
+      gap: 4px;
+    }
+
+    .top-nav a {
+      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 18px;
+      color: rgba(255, 255, 255, 0.82);
+      text-decoration: none;
+      font-size: 14px;
+      border-bottom: 3px solid transparent;
+    }
+
+    .top-nav a.active {
+      color: #fff;
+      border-bottom-color: var(--highlight);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .top-bar-right {
+      gap: 8px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .avatar {
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.28);
       font-weight: 700;
     }
 
-    .scene-tabs {
+    .app-shell {
+      min-height: calc(100vh - 48px);
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
     }
 
-    .scene-tab {
-      border: 1px solid #cdd8ea;
-      background: #f8fbff;
-      color: #354765;
-      border-radius: 6px;
-      padding: 9px 14px;
-      cursor: pointer;
-      transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+    .side-menu {
+      width: 72px;
+      flex: 0 0 72px;
+      background: var(--dark-menu);
+      color: rgba(255, 255, 255, 0.72);
+      padding-top: 12px;
     }
 
-    .scene-tab.active {
-      color: #ffffff;
-      background: var(--primary);
-      border-color: var(--primary);
-    }
-
-    .scene-tab:disabled {
-      cursor: not-allowed;
-      opacity: 0.62;
-    }
-
-    .workspace {
-      display: flex;
-      min-height: 640px;
-      opacity: 1;
-      transition: opacity 0.3s ease;
-    }
-
-    .workspace.fading {
-      opacity: 0;
-    }
-
-    .order-form {
-      flex: 0 0 60%;
-      padding: 22px 24px;
-      border-right: 1px solid var(--border);
-      background: #ffffff;
-    }
-
-    .ai-sidebar {
-      flex: 0 0 40%;
+    .menu-item {
+      position: relative;
+      min-height: 76px;
       display: flex;
       flex-direction: column;
-      background: #fbfcfe;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 6px;
+      font-size: 12px;
+      text-align: center;
     }
 
-    .form-steps {
+    .menu-item .menu-icon {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .menu-item.active {
+      color: #fff;
+      background: rgba(201, 149, 46, 0.13);
+    }
+
+    .menu-item.active::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 14px;
+      bottom: 14px;
+      width: 3px;
+      background: var(--highlight);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 54px;
+    }
+
+    .page-header {
       display: flex;
       align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 20px;
+      gap: 18px;
+      min-height: 84px;
+      padding: 16px 24px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .page-header h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.25;
+      font-weight: 700;
+      color: #2d2415;
+      white-space: nowrap;
+    }
+
+    .page-steps {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
     }
 
     .step {
       display: inline-flex;
       align-items: center;
       height: 30px;
-      padding: 0 10px;
-      border-radius: 6px;
-      background: #eef2f7;
-      color: #667085;
+      padding: 0 12px;
+      border-radius: 15px;
+      background: #f5f1e8;
+      color: var(--muted);
       font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .step.done {
+      color: var(--success);
+      background: #f6ffed;
+      border: 1px solid #b7eb8f;
     }
 
     .step.active {
-      background: #e8f1ff;
-      color: var(--primary);
+      color: var(--dark);
+      background: var(--soft);
+      border: 1px solid #f0ce88;
       font-weight: 600;
     }
 
     .ai-guide-btn {
-      margin-left: auto;
-      color: var(--primary);
-      border: 1px solid #b9d5ff;
-      background: #f5f9ff;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 13px;
-      cursor: pointer;
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 5px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 8px 18px rgba(160, 121, 42, 0.22);
+      transition: background 0.2s ease, transform 0.2s ease;
+      white-space: nowrap;
     }
 
-    .form-section {
-      margin-bottom: 20px;
+    .ai-guide-btn:hover {
+      background: #8B6914;
+      transform: translateY(-1px);
     }
 
-    .form-section label,
-    .standard-services label {
-      display: block;
-      margin-bottom: 8px;
-      color: #364152;
+    .content {
+      flex: 1;
+      min-width: 0;
+      padding: 18px 24px 22px;
+    }
+
+    .scene-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .scene-tab {
+      position: relative;
+      padding: 12px 16px;
+      background: transparent;
+      color: var(--muted);
       font-size: 14px;
       font-weight: 600;
+      border-radius: 5px 5px 0 0;
+      transition: color 0.2s ease, background 0.2s ease;
     }
 
-    .product-select {
-      width: 100%;
-      min-height: 42px;
+    .scene-tab.active {
+      color: var(--dark);
+      background: #fff;
+    }
+
+    .scene-tab.active::after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: -1px;
+      height: 3px;
+      background: var(--highlight);
+      border-radius: 3px 3px 0 0;
+    }
+
+    .scene-tab:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+    }
+
+    .workspace {
       display: flex;
-      align-items: center;
-      padding: 0 12px;
-      border: 1px solid #d6dce8;
-      border-radius: 6px;
-      color: #8a94a6;
-      background: #ffffff;
-      transition: border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease, background 0.3s ease;
+      align-items: stretch;
+      gap: 16px;
+      animation: fadeIn 0.3s ease both;
     }
 
-    .product-select.selected {
-      border-color: var(--success);
-      color: #1f5f2b;
-      background: #f6ffed;
-      box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.12);
-      font-weight: 600;
+    .form-pane {
+      flex: 1;
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 12px 28px rgba(79, 55, 16, 0.06);
     }
 
     .section-title {
-      margin: 0 0 10px;
-      color: #364152;
-      font-size: 14px;
-      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fffdf8;
     }
 
-    .services-grid {
+    .section-title h2 {
+      margin: 0;
+      font-size: 16px;
+      color: #312713;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .service-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 12px;
-      margin-bottom: 20px;
+      padding: 16px;
+      background: #fff;
     }
 
     .service-card {
       position: relative;
-      min-height: 86px;
-      border: 1px solid #dce2eb;
+      min-height: 116px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 12px;
+      border: 1px solid #e7dfd0;
       border-radius: 8px;
-      background: #ffffff;
-      padding: 14px 12px 12px;
-      transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, transform 0.3s ease;
+      background: #fff;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, transform 0.2s ease;
     }
 
-    .service-card .code {
-      display: block;
-      color: #8a94a6;
-      font-size: 12px;
-      margin-bottom: 6px;
+    .service-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(82, 60, 20, 0.08);
     }
 
-    .service-card .name {
-      display: block;
-      color: #202938;
-      font-size: 14px;
-      font-weight: 650;
+    .service-card.selected {
+      border-color: var(--highlight);
+      background: var(--soft);
+      box-shadow: 0 0 0 3px rgba(201, 149, 46, 0.16);
+      animation: borderPulse 0.3s ease;
+    }
+
+    .service-card.recommended {
+      border-color: var(--success);
+      box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.14), 0 10px 22px rgba(82, 196, 26, 0.1);
+    }
+
+    .service-icon {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .service-name {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      color: #2c2518;
+      font-size: 13px;
+      font-weight: 600;
       line-height: 1.35;
     }
 
-    .service-card.selected-ai {
-      border-color: var(--success);
-      background: #fbfff7;
-      box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.14);
-      animation: selectedPulse 0.3s ease;
-    }
-
-    .service-card.selected-ai::before {
-      content: "✓";
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 22px;
-      height: 22px;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      background: var(--success);
-      color: #ffffff;
-      font-size: 14px;
-      font-weight: 800;
-    }
-
-    .ai-recommend-label {
-      display: none;
-      width: fit-content;
-      margin-top: 10px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #f0eaff;
-      color: var(--purple);
-      font-size: 12px;
+    .service-price {
+      margin-top: 8px;
+      color: var(--primary);
+      font-size: 13px;
       font-weight: 700;
     }
 
-    .service-card.selected-ai .ai-recommend-label {
+    .check-corner {
+      position: absolute;
+      top: 7px;
+      right: 8px;
+      display: none;
+      font-size: 15px;
+    }
+
+    .service-card.selected .check-corner {
+      display: block;
+    }
+
+    .recommend-label {
+      position: absolute;
+      right: 7px;
+      bottom: 7px;
+      display: none;
+      height: 20px;
+      align-items: center;
+      padding: 0 7px;
+      border-radius: 10px;
+      background: var(--purple);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .service-card.recommended .recommend-label {
       display: inline-flex;
     }
 
-    @keyframes selectedPulse {
-      from {
-        transform: translateY(0);
-        box-shadow: 0 0 0 0 rgba(82, 196, 26, 0);
-      }
-      to {
-        transform: translateY(-1px);
-        box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.14);
-      }
+    .form-fields {
+      display: none;
+      padding: 16px;
+      border-top: 1px solid var(--line);
+      background: #fff;
+      animation: fadeIn 0.3s ease both;
     }
 
-    .form-fields-hint,
-    .form-placeholder {
-      border-radius: 8px;
-      padding: 14px;
-      background: #f5f6f8;
-      border: 1px solid #e4e7ec;
+    .form-fields.show {
+      display: block;
     }
 
-    .form-fields-hint p {
-      margin: 0 0 6px;
-      color: #364152;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    .form-fields-hint p:last-child {
-      margin-bottom: 0;
-    }
-
-    .form-placeholder {
+    .field-row {
       display: grid;
-      gap: 10px;
+      grid-template-columns: 132px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      min-height: 44px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f4efe5;
     }
 
-    .placeholder-line {
-      height: 12px;
-      border-radius: 999px;
-      background: #e2e6ee;
+    .field-row label {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
     }
 
-    .placeholder-line.short {
-      width: 52%;
-    }
-
-    .standard-services {
-      margin-bottom: 20px;
-    }
-
-    .selected-standard {
-      min-height: 70px;
+    .field-value {
+      min-height: 34px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      border-color: var(--success);
-      background: #f6ffed;
-      color: #1f5f2b;
-      font-weight: 700;
-      box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.12);
+      padding: 7px 10px;
+      border: 1px solid #e6dfd0;
+      border-radius: 5px;
+      background: #fafafa;
+      color: #333;
+      font-size: 13px;
     }
 
-    .selected-standard::after {
-      content: "免审核";
-      padding: 3px 8px;
-      border-radius: 999px;
-      color: #1f5f2b;
-      background: #dff7d6;
-      font-size: 12px;
+    .field-value.selected {
+      border-color: #f0ce88;
+      background: var(--soft);
+      color: var(--dark);
+      font-weight: 600;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 72px;
+      resize: none;
+      padding: 10px;
+      color: #888;
+      border: 1px solid #e6dfd0;
+      border-radius: 5px;
+      background: #f8f8f8;
+    }
+
+    .info-tip {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1px solid #b7eb8f;
+      border-radius: 6px;
+      background: #f6ffed;
+      color: #3c8618;
+      font-size: 13px;
+    }
+
+    .info-tip.warn {
+      border-color: #ffe58f;
+      background: #fffbe6;
+      color: #ad6800;
+    }
+
+    .ai-sidebar {
+      width: 380px;
+      flex: 0 0 380px;
+      display: flex;
+      flex-direction: column;
+      min-height: 628px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #fff, #f9f8f5);
+      box-shadow: 0 12px 28px rgba(79, 55, 16, 0.08);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .ai-sidebar.closed {
+      display: none;
     }
 
     .sidebar-header {
-      flex: 0 0 auto;
-      padding: 16px 18px;
-      border-bottom: 1px solid var(--border);
-      background: #ffffff;
-      color: #202938;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 14px 0 16px;
+      color: #fff;
+      background: linear-gradient(135deg, #6B4F0A, #A0792A);
       font-weight: 700;
+    }
+
+    .sidebar-status {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.18);
+      font-size: 12px;
+      font-weight: 500;
     }
 
     .chat-area {
-      flex: 1 1 auto;
-      min-height: 0;
-      padding: 18px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
       overflow-y: auto;
+      background: linear-gradient(180deg, #fff, #f9f8f5);
     }
 
     .message {
-      display: flex;
-      margin-bottom: 14px;
-      animation: slideUp 0.28s ease;
+      max-width: 86%;
+      padding: 11px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.58;
+      white-space: pre-line;
+      box-shadow: 0 5px 14px rgba(55, 42, 20, 0.05);
+      animation: slideUp 0.28s ease both;
     }
 
     .message.assistant {
-      justify-content: flex-start;
+      align-self: flex-start;
+      background: #f5f5f5;
+      color: #2b2b2b;
+      border-top-left-radius: 4px;
     }
 
     .message.user {
-      justify-content: flex-end;
-    }
-
-    .bubble {
-      max-width: 86%;
-      border-radius: 12px;
-      padding: 11px 13px;
-      white-space: pre-line;
-      line-height: 1.55;
-      font-size: 14px;
-    }
-
-    .assistant .bubble {
-      background: #f5f5f5;
-      color: #273244;
-    }
-
-    .user .bubble {
-      background: var(--soft-blue);
-      color: #173d69;
-    }
-
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      align-self: flex-end;
+      background: var(--soft);
+      color: var(--dark);
+      border: 1px solid #f2dcae;
+      border-top-right-radius: 4px;
     }
 
     .action-card {
-      width: fit-content;
-      max-width: 92%;
-      margin: 8px auto 14px;
-      padding: 11px 14px;
+      align-self: center;
+      width: 94%;
+      padding: 12px;
       border: 1px dashed var(--success);
       border-radius: 8px;
-      background: var(--soft-green);
-      color: #1f5f2b;
-      font-size: 14px;
-      font-weight: 700;
+      background: #f6ffed;
+      color: #2f7b12;
       text-align: center;
-      animation: slideUp 0.28s ease;
+      font-size: 13px;
+      font-weight: 700;
+      animation: slideUp 0.28s ease both;
     }
 
     .chat-input {
-      flex: 0 0 auto;
       display: flex;
       gap: 8px;
-      padding: 14px 16px;
-      border-top: 1px solid var(--border);
-      background: #ffffff;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      background: #fff;
     }
 
     .chat-input input {
-      min-width: 0;
       flex: 1;
-      height: 38px;
-      border: 1px solid #d6dce8;
-      border-radius: 6px;
+      min-width: 0;
+      height: 34px;
       padding: 0 10px;
-      color: #98a2b3;
-      background: #f7f8fa;
+      border: 1px solid #e4dccd;
+      border-radius: 5px;
+      background: #f7f7f7;
+      color: #8c8c8c;
     }
 
     .chat-input button {
-      height: 38px;
-      border: 0;
-      border-radius: 6px;
-      padding: 0 14px;
-      background: #cbd5e1;
-      color: #ffffff;
+      width: 62px;
+      height: 34px;
+      border-radius: 5px;
+      background: #d9d9d9;
+      color: #fff;
+      cursor: not-allowed;
     }
 
-    .scene-note {
+    .bottom-note {
       position: fixed;
-      left: 50%;
-      bottom: 16px;
-      width: min(1200px, calc(100vw - 32px));
-      transform: translateX(-50%);
-      border: 1px solid #d8e4f7;
-      border-radius: 8px;
-      padding: 12px 16px;
-      background: #ffffff;
-      color: #334155;
-      box-shadow: 0 10px 30px rgba(28, 42, 67, 0.12);
+      left: 72px;
+      right: 0;
+      bottom: 0;
+      z-index: 12;
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 20px;
+      border-top: 1px solid #eadfc9;
+      background: rgba(255, 248, 232, 0.96);
+      color: var(--dark);
       font-size: 14px;
-      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-      z-index: 20;
-    }
-
-    .scene-note.flash {
-      background: #f6ffed;
-      border-color: var(--success);
-      box-shadow: 0 0 0 4px rgba(82, 196, 26, 0.12), 0 10px 30px rgba(28, 42, 67, 0.12);
+      font-weight: 700;
+      box-shadow: 0 -6px 20px rgba(83, 55, 10, 0.08);
     }
 
     .modal-overlay {
       position: fixed;
       inset: 0;
+      z-index: 30;
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-      background: rgba(15, 23, 42, 0.46);
-      z-index: 50;
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.42);
     }
 
     .modal-overlay.show {
       display: flex;
+      animation: fadeIn 0.22s ease both;
     }
 
     .modal-box {
-      width: min(440px, 100%);
+      width: min(520px, 100%);
       overflow: hidden;
       border-radius: 8px;
-      background: #ffffff;
-      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
-      animation: modalPop 0.24s ease;
-    }
-
-    @keyframes modalPop {
-      from {
-        opacity: 0;
-        transform: translateY(14px) scale(0.97);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
+      background: #fff;
+      box-shadow: var(--shadow);
+      animation: scaleIn 0.24s ease both;
     }
 
     .modal-header {
-      padding: 14px 16px;
+      padding: 15px 18px;
+      background: #fff7e6;
+      border-bottom: 1px solid #ffe58f;
+      color: #7a4c00;
+      font-size: 16px;
       font-weight: 800;
     }
 
     .modal-body {
-      padding: 16px;
+      padding: 18px;
+      color: #383226;
+      font-size: 14px;
+      line-height: 1.6;
     }
 
     .modal-body p {
       margin: 0 0 12px;
-      line-height: 1.55;
     }
 
     .recommend-card {
@@ -511,392 +673,544 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      border: 1px solid #ccebc1;
-      border-radius: 8px;
-      padding: 12px;
+      padding: 14px;
+      border: 1px solid #b7eb8f;
+      border-radius: 7px;
       background: #f6ffed;
     }
 
+    .recommend-card strong {
+      color: #255f0d;
+      font-size: 17px;
+      white-space: nowrap;
+    }
+
     .tag-standard {
-      flex: 0 0 auto;
-      padding: 3px 8px;
-      border-radius: 999px;
-      color: #1f5f2b;
-      background: #dff7d6;
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 13px;
+      background: #eaffd9;
+      color: #2f7b12;
       font-size: 12px;
       font-weight: 700;
-      white-space: nowrap;
+      text-align: center;
     }
 
     .modal-footer {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      padding: 14px 16px 16px;
-      border-top: 1px solid var(--border);
+      padding: 14px 18px 18px;
+      border-top: 1px solid var(--line);
+      background: #fff;
     }
 
     .btn-primary,
     .btn-secondary {
-      border-radius: 6px;
-      padding: 8px 12px;
-      cursor: pointer;
+      min-height: 34px;
+      padding: 0 14px;
+      border-radius: 5px;
+      font-weight: 700;
     }
 
     .btn-primary {
-      border: 1px solid var(--primary);
       background: var(--primary);
-      color: #ffffff;
+      color: #fff;
     }
 
     .btn-secondary {
-      border: 1px solid #d0d5dd;
-      background: #ffffff;
-      color: #475467;
+      border: 1px solid #d9d1c1;
+      background: #fff;
+      color: #5f543f;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes borderPulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(201, 149, 46, 0.22);
+      }
+      100% {
+        box-shadow: 0 0 0 3px rgba(201, 149, 46, 0.16);
+      }
+    }
+
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(0.94);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @media (max-width: 1120px) {
+      .service-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 768px) {
-      .page {
-        width: calc(100vw - 20px);
-        margin-top: 10px;
+      .top-bar {
+        padding: 0 12px;
+      }
+
+      .logo {
+        margin-right: 12px;
+      }
+
+      .top-nav a {
+        padding: 0 9px;
+        font-size: 12px;
+      }
+
+      .username {
+        display: none;
+      }
+
+      .side-menu {
+        display: none;
+      }
+
+      .bottom-note {
+        left: 0;
+        text-align: center;
+      }
+
+      .page-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .page-header h1 {
+        white-space: normal;
+        font-size: 20px;
+      }
+
+      .page-steps {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .content {
+        padding: 12px 12px 68px;
+      }
+
+      .scene-tabs {
+        overflow-x: auto;
+        padding-bottom: 0;
+      }
+
+      .scene-tab {
+        flex: 0 0 auto;
+        padding: 11px 12px;
+        font-size: 13px;
       }
 
       .workspace {
         flex-direction: column;
       }
 
-      .order-form,
       .ai-sidebar {
-        flex: 1 1 auto;
+        width: 100%;
+        flex-basis: auto;
+        min-height: 460px;
       }
 
-      .order-form {
-        border-right: 0;
-        border-bottom: 1px solid var(--border);
+      .service-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .services-grid {
+      .field-row {
         grid-template-columns: 1fr;
+        gap: 6px;
       }
 
-      .ai-guide-btn {
-        margin-left: 0;
-      }
-
-      .chat-area {
-        min-height: 420px;
+      .field-row label {
+        text-align: left;
       }
 
       .recommend-card,
       .modal-footer {
-        align-items: stretch;
         flex-direction: column;
-      }
-
-      .tag-standard {
-        width: fit-content;
-        white-space: normal;
+        align-items: stretch;
       }
     }
   </style>
 </head>
 <body>
-  <main class="page">
-    <header class="page-header">
-      <h1>AI 增值指引 — 帮客户选对服务</h1>
-      <div class="scene-tabs">
-        <button class="scene-tab active" onclick="showScene('direct')">场景 1：免审直选（货权转移）</button>
-        <button class="scene-tab" onclick="showScene('intercept')">场景 2：标准可替代拦截</button>
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <span class="logo">WINIT</span>
+      <nav class="top-nav">
+        <a href="#">首页</a>
+        <a href="#">异常单</a>
+        <a class="active">创建增值订单</a>
+      </nav>
+    </div>
+    <div class="top-bar-right">
+      <span class="avatar">K</span>
+      <span class="username">kenghong.huang</span>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="side-menu">
+      <div class="menu-item">
+        <span class="menu-icon">📄</span>
+        <span>商品管理</span>
       </div>
-    </header>
+      <div class="menu-item">
+        <span class="menu-icon">▦</span>
+        <span>库存管理</span>
+      </div>
+      <div class="menu-item active">
+        <span class="menu-icon">▣</span>
+        <span>海外仓</span>
+      </div>
+      <div class="menu-item">
+        <span class="menu-icon">⇄</span>
+        <span>国际送仓</span>
+      </div>
+      <div class="menu-item">
+        <span class="menu-icon">↩</span>
+        <span>退货管理</span>
+      </div>
+      <div class="menu-item">
+        <span class="menu-icon">◈</span>
+        <span>我的钱包</span>
+      </div>
+    </aside>
 
-    <section class="workspace" id="workspace">
-      <section class="order-form">
-        <div class="form-steps">
-          <span class="step active">1. 增值产品信息</span>
-          <span class="step">2. 增值文件</span>
-          <span class="step">3. 提交</span>
-          <span class="ai-guide-btn" onclick="openSidebar()">🤖 AI 指引</span>
+    <main class="main">
+      <div class="page-header">
+        <h1>新建入库增值订单</h1>
+        <div class="page-steps">
+          <span class="step done">基本信息 ✓</span>
+          <span class="step active">增值产品信息</span>
+        </div>
+        <button class="ai-guide-btn" onclick="openSidebar()">🤖 AI 指引</button>
+      </div>
+
+      <div class="content">
+        <div class="scene-tabs">
+          <button class="scene-tab active" onclick="showScene('proactive')">场景 1：AI 主动推荐标准增值</button>
+          <button class="scene-tab" onclick="showScene('intercept')">场景 2：误选非标 → AI 拦截纠正</button>
         </div>
 
-        <div class="form-section">
-          <label>增值产品</label>
-          <div class="product-select" id="productSelect">请选择增值产品</div>
-        </div>
+        <div class="workspace" id="workspace">
+          <section class="form-pane">
+            <div class="section-title">
+              <h2>增值服务</h2>
+              <span>请选择本次入库需要的服务</span>
+            </div>
+            <div class="service-grid" id="serviceGrid"></div>
 
-        <div id="nonstandardBlock">
-          <p class="section-title">增值服务</p>
-          <div class="services-grid" id="servicesGrid"></div>
-        </div>
+            <div class="form-fields" id="standardFields">
+              <div class="field-row">
+                <label>增值产品</label>
+                <div class="field-value selected">标准增值</div>
+              </div>
+              <div class="field-row">
+                <label>增值服务</label>
+                <div class="field-value selected">直接上架</div>
+              </div>
+              <div class="field-row">
+                <label>价格</label>
+                <div class="field-value">$0.00 / 件</div>
+              </div>
+              <div class="info-tip">
+                💡 标准增值服务免审核，提交后仓库直接按标准流程处理。
+              </div>
+            </div>
 
-        <div class="standard-services" id="standardServices" style="display:none;">
-          <label>标准增值服务</label>
-          <div class="service-card selected-standard" id="standardCard">直接上架</div>
-        </div>
+            <div class="form-fields" id="nonstandardFields">
+              <div class="field-row">
+                <label>增值产品</label>
+                <div class="field-value selected">入库非标增值（特批）</div>
+              </div>
+              <div class="field-row">
+                <label>增值服务</label>
+                <div class="field-value selected">入库其他服务需求</div>
+              </div>
+              <div class="field-row">
+                <label>需求背景说明</label>
+                <textarea disabled placeholder="需描述为什么需要该增值服务..."></textarea>
+              </div>
+              <div class="field-row">
+                <label>需求描述 *</label>
+                <textarea disabled placeholder="需描述具体操作要求..."></textarea>
+              </div>
+              <div class="info-tip warn">
+                ⚠️ 非标特批需要审核，处理周期 3-5 个工作日。
+              </div>
+            </div>
+          </section>
 
-        <div class="form-fields-hint" id="fieldsHint" style="display:none;">
-          <p>💡 该服务有专属表单字段，请按页面提示填写相关信息后提交。</p>
-          <p style="color:#999;font-size:12px;">（此服务不需要填写"需求描述"，无需 AI 生成 SOP）</p>
+          <aside class="ai-sidebar" id="aiSidebar">
+            <div class="sidebar-header">
+              <span>AI 增值指引</span>
+              <span class="sidebar-status">在线评估</span>
+            </div>
+            <div class="chat-area" id="chatArea"></div>
+            <div class="chat-input">
+              <input type="text" placeholder="描述您的需求..." disabled />
+              <button disabled>发送</button>
+            </div>
+          </aside>
         </div>
+      </div>
+    </main>
+  </div>
 
-        <div class="form-placeholder" id="formPlaceholder">
-          <div class="placeholder-line"></div>
-          <div class="placeholder-line"></div>
-          <div class="placeholder-line short"></div>
-        </div>
-      </section>
-
-      <aside class="ai-sidebar" id="aiSidebar">
-        <div class="sidebar-header">AI 增值指引</div>
-        <div class="chat-area" id="chatArea"></div>
-        <div class="chat-input">
-          <input type="text" placeholder="描述您的需求..." disabled />
-          <button disabled>发送</button>
-        </div>
-      </aside>
-    </section>
-  </main>
-
-  <div class="scene-note" id="sceneNote">AI 识别出客户需求匹配已上线命名服务 → 推荐直选，不生成 SOP</div>
+  <div class="bottom-note" id="bottomNote">客户需求可被标准增值覆盖 → AI 主动推荐，免审核、更快处理</div>
 
   <div class="modal-overlay" id="interceptModal">
     <div class="modal-box">
-      <div class="modal-header" style="background:#fff7e6;border-bottom:1px solid #ffe58f;">
+      <div class="modal-header">
         ⚠️ AI 建议：使用标准增值服务
       </div>
       <div class="modal-body">
-        <p>您描述的需求可以使用标准增值服务覆盖：</p>
+        <p>AI 检测到您的需求可以使用标准增值服务覆盖：</p>
         <div class="recommend-card">
           <strong>直接上架</strong>
-          <span class="tag-standard">标准增值 · 免审核 · 更快处理</span>
+          <span class="tag-standard">标准增值 · 免审核 · $0.00/件 · 更快处理</span>
         </div>
         <p style="color:#666;font-size:13px;margin-top:12px;">
-          非标特批流程需要审核，处理周期更长。如果标准服务能满足需求，建议优先选择。
+          非标特批流程需要审核（3-5 个工作日），如果标准服务能满足需求，建议优先选择。
         </p>
       </div>
       <div class="modal-footer">
-        <button class="btn-primary" onclick="useStandard()">切换到标准增值</button>
+        <button class="btn-primary" onclick="useStandard()">确认，切换到标准增值</button>
         <button class="btn-secondary" onclick="keepNonstandard()">我确实需要非标</button>
       </div>
     </div>
   </div>
 
   <script>
-    const SERVICES = [
-      { code: "OSF6V1648", name: "代采购包材物料", type: "named" },
-      { code: "OSF6V1660", name: "审计盘点（非标）", type: "named" },
-      { code: "OSF6V1644", name: "DG商品销毁", type: "named" },
-      { code: "OSF6V1646", name: "货权转移（换标模式）", type: "named" },
-      { code: "OSF6V1647", name: "货权转移（改数模式）", type: "named" },
-      { code: "OSF6V1603", name: "库内其他服务需求", type: "fallback" }
+    const ATOM_META = [
+      { code: 'direct', name: '直接上架', price: '$0.00', icon: '📦' },
+      { code: 'destroy', name: '上架前包裹销毁', price: '$5.00', icon: '🗑️' },
+      { code: 'self-pickup-pallet', name: '上架前自提(需WINIT打托)', price: '$0.00', icon: '🚚' },
+      { code: 'self-pickup', name: '上架前自提(无需WINIT打托)', price: '$0.00', icon: '📤' },
+      { code: 'photo', name: '入库-异常包裹开箱拍照', price: '$1.50', icon: '📷' },
+      { code: 'barcode-new', name: '入库-补贴包裹条码', price: '$0.75', icon: '🏷️' },
+      { code: 'barcode-replace', name: '入库-更换新商品条码', price: '$0.75', icon: '🔄' },
+      { code: 'barcode-original', name: '入库-补贴原商品条码', price: '$0.75', icon: '📋' },
+      { code: 'repack', name: '入库-更换商品包装', price: '$2.00', icon: '📦' },
+      { code: 'nonstandard', name: '入库其他服务需求', price: '按报价', icon: '⚙️' },
     ];
 
-    const SCENE_DIRECT = [
+    const SCENE_PROACTIVE = [
       {
-        role: "assistant",
-        text: "您好，我看到您正在新增库内增值单。\n\n请描述您希望仓库如何处理库内的这批货物，我来帮您：\n· 判断应选择哪个增值服务\n· 生成操作 SOP\n· 一键填入表单字段"
+        role: 'assistant',
+        text: '您好，请告诉我您想如何处理这批货物，我来帮您选择增值服务并生成操作说明。'
       },
       {
-        role: "user",
-        text: "账户上的库存可以转移到其他账户上去吗"
+        role: 'user',
+        text: '帮我把到货的那批直接上架就行'
       },
       {
-        role: "assistant",
-        text: "可以，这类需求通常属于货权转移。系统里货权转移已上线为命名服务，但需要先判断是换标模式还是改数模式。\n\n请补充三项信息：\n1. 需要转移哪些 SKU？\n2. 转移数量是多少？单次转移单品数 ≤300 个通常走换标模式，>300 个通常走改数模式。\n3. 是全部库存转移，还是只转移部分库存？"
-      },
-      {
-        role: "user",
-        text: "转 3 个 SKU，一共 150 个，都是这几个 SKU 的全部库存，要从现在账户转到另一个账户。"
-      },
-      {
-        role: "assistant",
-        text: "已判断：您的需求属于【货权转移（换标模式）】，这是已上线的库内非标增值服务，可直接选择提交。\n\n已帮您选中：\n· 增值产品：库内非标增值（特批）\n· 增值服务：货权转移（换标模式）\n\n该服务有专属表单字段，请按页面提示填写相关信息后提交即可。"
+        role: 'assistant',
+        text: '您描述的需求是将到货商品直接上架。\n\n这个操作可以使用标准增值服务【直接上架】覆盖，无需走非标特批流程。标准增值免审核、处理更快。\n\n已帮您选中：\n· 增值产品：标准增值\n· 增值服务：直接上架\n· 费用：$0.00/件\n\n请确认后直接提交即可。'
       }
     ];
 
     const SCENE_INTERCEPT = [
       {
-        role: "assistant",
-        text: "您好，我看到您正在新增库内增值单。\n\n请描述您希望仓库如何处理库内的这批货物，我来帮您：\n· 判断应选择哪个增值服务\n· 生成操作 SOP\n· 一键填入表单字段"
+        role: 'assistant',
+        text: '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。'
       },
       {
-        role: "user",
-        text: "帮我把到货的那批直接上架就行"
+        role: 'user',
+        text: '帮我把到货的那批直接上架就行'
       },
       {
-        role: "assistant",
-        text: "您描述的需求是将到货商品直接上架，这个操作可以使用标准增值服务【直接上架】覆盖，无需走非标特批流程。\n\n标准增值服务免审核、处理更快，建议您直接使用。"
+        role: 'assistant',
+        text: '您描述的需求是将到货商品直接上架，这个操作可以使用标准增值服务【直接上架】覆盖，无需走非标特批流程。\n\n标准增值服务免审核、处理更快，建议您直接使用。'
       }
     ];
 
-    const SCENE_NOTES = {
-      direct: "AI 识别出客户需求匹配已上线命名服务 → 推荐直选，不生成 SOP",
-      intercept: "AI 检测到客户需求可被标准增值覆盖 → 拦截纠正，避免走非标"
+    const sceneNotes = {
+      proactive: '客户需求可被标准增值覆盖 → AI 主动推荐，免审核、更快处理',
+      intercept: '客户误选非标 → AI 检测后弹窗拦截 → 自动切换到标准增值'
     };
 
-    let currentScene = "direct";
+    let activeScene = 'proactive';
+    let timers = [];
     let isPlaying = false;
-    let playToken = 0;
 
-    const workspace = document.getElementById("workspace");
-    const tabs = Array.from(document.querySelectorAll(".scene-tab"));
-    const chatArea = document.getElementById("chatArea");
-    const productSelect = document.getElementById("productSelect");
-    const servicesGrid = document.getElementById("servicesGrid");
-    const fieldsHint = document.getElementById("fieldsHint");
-    const formPlaceholder = document.getElementById("formPlaceholder");
-    const standardServices = document.getElementById("standardServices");
-    const nonstandardBlock = document.getElementById("nonstandardBlock");
-    const modal = document.getElementById("interceptModal");
-    const sceneNote = document.getElementById("sceneNote");
+    function renderCards() {
+      const grid = document.getElementById('serviceGrid');
+      grid.innerHTML = ATOM_META.map(item => `
+        <button class="service-card" data-code="${item.code}" type="button">
+          <span class="check-corner">✅</span>
+          <span class="service-icon">${item.icon}</span>
+          <span class="service-name">${item.name}</span>
+          <span class="service-price">${item.price}</span>
+          <span class="recommend-label">AI 推荐</span>
+        </button>
+      `).join('');
+    }
 
-    function renderServices() {
-      servicesGrid.innerHTML = SERVICES.map((service) => `
-        <div class="service-card" id="service-${service.code}">
-          <span class="code">${service.code}</span>
-          <span class="name">${service.name}</span>
-          <span class="ai-recommend-label">AI 推荐</span>
-        </div>
-      `).join("");
+    function openSidebar() {
+      document.getElementById('aiSidebar').classList.remove('closed');
+    }
+
+    function clearTimers() {
+      timers.forEach(timer => clearTimeout(timer));
+      timers = [];
+    }
+
+    function resetState() {
+      clearTimers();
+      isPlaying = false;
+      document.querySelectorAll('.service-card').forEach(card => {
+        card.classList.remove('selected', 'recommended');
+      });
+      document.getElementById('standardFields').classList.remove('show');
+      document.getElementById('nonstandardFields').classList.remove('show');
+      document.getElementById('chatArea').innerHTML = '';
+      document.getElementById('interceptModal').classList.remove('show');
+      setTabsDisabled(false);
+      openSidebar();
     }
 
     function setTabsDisabled(disabled) {
-      tabs.forEach((tab) => {
+      document.querySelectorAll('.scene-tab').forEach(tab => {
         tab.disabled = disabled;
       });
     }
 
-    function wait(ms) {
-      return new Promise((resolve) => window.setTimeout(resolve, ms));
-    }
-
-    function openSidebar() {
-      document.getElementById("aiSidebar").scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-
-    function appendMessage(role, text) {
-      const message = document.createElement("div");
-      message.className = `message ${role}`;
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      bubble.textContent = text;
-      message.appendChild(bubble);
-      chatArea.appendChild(message);
-      chatArea.scrollTop = chatArea.scrollHeight;
-    }
-
-    function appendAction(text) {
-      const action = document.createElement("div");
-      action.className = "action-card";
-      action.textContent = text;
-      chatArea.appendChild(action);
-      chatArea.scrollTop = chatArea.scrollHeight;
-    }
-
-    function resetForm() {
-      productSelect.textContent = "请选择增值产品";
-      productSelect.classList.remove("selected");
-      fieldsHint.style.display = "none";
-      formPlaceholder.style.display = "grid";
-      standardServices.style.display = "none";
-      nonstandardBlock.style.display = "block";
-      modal.classList.remove("show");
-      renderServices();
-    }
-
-    function updateTabs(sceneId) {
-      tabs.forEach((tab) => {
-        const tabScene = tab.textContent.includes("场景 1") ? "direct" : "intercept";
-        tab.classList.toggle("active", tabScene === sceneId);
+    function setSelected(code, recommended = false) {
+      document.querySelectorAll('.service-card').forEach(card => {
+        const isTarget = card.dataset.code === code;
+        card.classList.toggle('selected', isTarget);
+        card.classList.toggle('recommended', isTarget && recommended);
       });
     }
 
-    async function showScene(sceneId) {
-      if (isPlaying) {
-        return;
-      }
-
-      currentScene = sceneId;
-      isPlaying = true;
-      playToken += 1;
-      const token = playToken;
-      setTabsDisabled(true);
-      updateTabs(sceneId);
-      workspace.classList.add("fading");
-
-      await wait(300);
-      if (token !== playToken) {
-        return;
-      }
-
-      resetForm();
-      chatArea.innerHTML = "";
-      sceneNote.textContent = SCENE_NOTES[sceneId];
-      workspace.classList.remove("fading");
-
-      const messages = sceneId === "direct" ? SCENE_DIRECT : SCENE_INTERCEPT;
-      for (let index = 0; index < messages.length; index += 1) {
-        const message = messages[index];
-        appendMessage(message.role, message.text);
-        if (index < messages.length - 1) {
-          await wait(800);
-          if (token !== playToken) {
-            return;
-          }
-        }
-      }
-
-      if (sceneId === "direct") {
-        applyDirectSelection();
-        setTabsDisabled(false);
-        isPlaying = false;
-        return;
-      }
-
-      await wait(500);
-      if (token !== playToken) {
-        return;
-      }
-      modal.classList.add("show");
-      setTabsDisabled(false);
-      isPlaying = false;
+    function showStandardFields() {
+      document.getElementById('standardFields').classList.add('show');
+      document.getElementById('nonstandardFields').classList.remove('show');
     }
 
-    function applyDirectSelection() {
-      productSelect.textContent = "库内非标增值（特批）";
-      productSelect.classList.add("selected");
+    function showNonstandardFields() {
+      document.getElementById('standardFields').classList.remove('show');
+      document.getElementById('nonstandardFields').classList.add('show');
+    }
 
-      const targetCard = document.getElementById("service-OSF6V1646");
-      if (targetCard) {
-        targetCard.classList.add("selected-ai");
+    function appendMessage(role, text) {
+      const chat = document.getElementById('chatArea');
+      const bubble = document.createElement('div');
+      bubble.className = `message ${role}`;
+      bubble.textContent = text;
+      chat.appendChild(bubble);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function appendActionCard(text) {
+      const chat = document.getElementById('chatArea');
+      const card = document.createElement('div');
+      card.className = 'action-card';
+      card.textContent = text;
+      chat.appendChild(card);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function playMessages(messages, done) {
+      isPlaying = true;
+      setTabsDisabled(true);
+      messages.forEach((message, index) => {
+        const timer = setTimeout(() => {
+          appendMessage(message.role, message.text);
+          if (index === messages.length - 1) {
+            const doneTimer = setTimeout(() => {
+              done();
+              isPlaying = false;
+              setTabsDisabled(false);
+            }, 350);
+            timers.push(doneTimer);
+          }
+        }, index * 800);
+        timers.push(timer);
+      });
+    }
+
+    function showScene(sceneId) {
+      activeScene = sceneId;
+      resetState();
+
+      document.querySelectorAll('.scene-tab').forEach((tab, index) => {
+        const isActive = (sceneId === 'proactive' && index === 0) || (sceneId === 'intercept' && index === 1);
+        tab.classList.toggle('active', isActive);
+      });
+
+      const workspace = document.getElementById('workspace');
+      workspace.style.animation = 'none';
+      void workspace.offsetWidth;
+      workspace.style.animation = 'fadeIn 0.3s ease both';
+      document.getElementById('bottomNote').textContent = sceneNotes[sceneId];
+
+      if (sceneId === 'proactive') {
+        playMessages(SCENE_PROACTIVE, () => {
+          setSelected('direct', true);
+          showStandardFields();
+          appendActionCard('✅ 已选中：标准增值 → 直接上架（免审核·$0.00/件）');
+        });
+      } else {
+        setSelected('nonstandard');
+        showNonstandardFields();
+        playMessages(SCENE_INTERCEPT, () => {
+          const modalTimer = setTimeout(() => {
+            document.getElementById('interceptModal').classList.add('show');
+          }, 500);
+          timers.push(modalTimer);
+        });
       }
-
-      fieldsHint.style.display = "block";
-      formPlaceholder.style.display = "none";
-      appendAction("✅ 已自动选中：库内非标增值（特批） → 货权转移（换标模式）");
     }
 
     function useStandard() {
-      modal.classList.remove("show");
-      nonstandardBlock.style.display = "none";
-      standardServices.style.display = "block";
-      fieldsHint.style.display = "none";
-      formPlaceholder.style.display = "grid";
-      productSelect.textContent = "标准增值";
-      productSelect.classList.add("selected");
-      appendAction("↩️ 已切换：标准增值 → 直接上架（免审核）");
-      sceneNote.classList.add("flash");
-      window.setTimeout(() => sceneNote.classList.remove("flash"), 900);
+      document.getElementById('interceptModal').classList.remove('show');
+      setSelected('direct', true);
+      showStandardFields();
+      appendActionCard('↩️ 已切换：标准增值 → 直接上架（免审核）');
     }
 
     function keepNonstandard() {
-      modal.classList.remove("show");
-      appendMessage("assistant", "好的，如果您确认需要走非标流程，请继续描述具体操作要求，我来帮您生成 SOP。");
+      document.getElementById('interceptModal').classList.remove('show');
+      setSelected('nonstandard');
+      showNonstandardFields();
+      appendMessage('assistant', '好的，如果您确认需要走非标流程，请继续描述具体操作要求，我来帮您生成 SOP。');
     }
 
-    renderServices();
-    window.addEventListener("DOMContentLoaded", () => {
-      showScene("direct");
+    document.addEventListener('DOMContentLoaded', () => {
+      renderCards();
+      showScene('proactive');
     });
   </script>
 </body>
