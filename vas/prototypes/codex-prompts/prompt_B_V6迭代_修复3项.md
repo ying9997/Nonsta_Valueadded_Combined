@@ -121,6 +121,18 @@ function closeValidationA_useStandard() {
 
 已在修复 2 中包含（独立演示行的 `demoForceOpenSidebar` 按钮）。
 
+### 修复 4：去掉旧的"⬆️ 上传附件"占位
+
+**问题**：`ATOM_DETAIL` 配置中 `'入库其他服务需求'` 有 `file: { tpl: false, upload: '上传附件' }`，导致在明细表格的"增值文件"列中渲染出一个 `⬆️ 上传附件` 按钮。但我们已经有了独立的 `#vasFilesSection`（3 个具体上传项），这个旧占位重复且不够具体。
+
+**改为**：将 `ATOM_DETAIL` 中 `'入库其他服务需求'` 的 `file` 改为 `null`：
+
+```javascript
+'入库其他服务需求': { custom: 'requirementFields', file: null, price: '按报价' },
+```
+
+这样明细表格的"增值文件"列对该原子显示 `-`（无上传），所有附件上传统一在下方 `#vasFilesSection` 操作。
+
 ## §2 约束
 
 - **只修改** `prototypes/B_侧边栏演示_V6版.html`
