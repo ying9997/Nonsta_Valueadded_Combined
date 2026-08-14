@@ -219,6 +219,7 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 .ai-badge { display: none; font-size: 10px; padding: 2px 6px; border-radius: 3px; background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; margin-left: 6px; vertical-align: middle; }
 .ai-badge.show { display: inline; }
 .sop-card-v6 { border: 1px solid #f0e4c0; border-radius: 8px; overflow: hidden; margin-top: 10px; background: #fff; }
+.ai-bubble.pulse .sop-card-v6 { animation: pulse 1s ease 2; }
 .sop-card-header { background: #fffaf3; padding: 10px 14px; font-weight: 600; color: #8B6914; border-bottom: 1px solid #f0e4c0; font-size: 13px; }
 .sop-card-body { padding: 12px 14px; font-size: 12px; line-height: 1.8; white-space: pre-line; }
 .sop-card-footer { padding: 10px 14px; border-top: 1px solid #f0e4c0; display: flex; gap: 10px; }
@@ -248,7 +249,7 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 .modal-header h3 { font-size: 16px; font-weight: 600; color: #1a1a1a; }
 .modal-close { border: none; background: transparent; font-size: 22px; line-height: 1; cursor: pointer; color: #666; }
 .modal-body { padding: 18px; }
-.modal-tip { background: #f6ffed; border: 1px solid #b7eb8f; color: #237804; border-radius: 6px; padding: 10px 12px; font-size: 12px; margin-bottom: 16px; }
+.modal-tip { background: #e6f4ff; border: 1px solid #91caff; color: #0958d9; border-radius: 6px; padding: 10px 12px; font-size: 12px; margin-bottom: 16px; }
 .modal-form-row { margin-bottom: 16px; }
 .modal-form-row label { display: block; font-weight: 600; margin-bottom: 6px; }
 .modal-form-row select, .modal-form-row textarea { width: 100%; border: 1px solid #d9d9d9; border-radius: 6px; padding: 9px 10px; font-size: 13px; font-family: inherit; }
@@ -340,7 +341,7 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
         <div class="step"><span class="step-circle done">✓</span><span class="step-text">基本信息</span></div>
         <div class="step-line"></div>
         <div class="step"><span class="step-circle active">2</span><span class="step-text active">增值产品信息</span></div>
-        <button class="ai-guide-btn" onclick="toggleAiSidebar()">AI增值指引</button>
+        <button class="ai-guide-btn" onclick="toggleAiSidebar()">🤖 AI 指引</button>
       </div>
     </div>
 
@@ -452,7 +453,10 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
   <aside class="ai-sidebar" id="aiSidebar">
     <div class="ai-sidebar-header">
       <div class="ai-sidebar-title">
-        <span>在线咨询(AI)        </span>
+        <span>AI 增值指引</span>
+      </div>
+      <div class="ai-sidebar-actions">
+        <button class="ai-sidebar-close" onclick="closeAiSidebar()">×</button>
       </div>
     </div>
     <div class="ai-chat-area" id="aiChatArea"></div>
@@ -473,7 +477,7 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
       <button class="modal-close" onclick="closeAuditModal()">×</button>
     </div>
     <div class="modal-body">
-      <div class="modal-tip">💡 以下内容由 AI 生成并经客户确认，审核人员可在此基础上修改</div>
+      <div class="modal-tip">💡 以下由 AI 生成并经客户确认，审核人员可修改</div>
       <div class="modal-form-row">
         <label><span class="req">*</span> 场景概述</label>
         <select disabled>
@@ -518,7 +522,7 @@ Steps in English:
     <div class="validation-body">
       <div class="validation-item warn" style="border-color:#ffe58f;background:#fffbe6;color:#ad6800;">
         ⚠️ 检测结果：<strong>可以走标准增值</strong><br>
-        <span style="font-size:12px;">AI 检测到您描述的需求可以使用标准增值服务【直接上架】覆盖，无需走非标特批流程。</span>
+        <span style="font-size:12px;">AI 检测到您的需求可以使用【直接上架】覆盖，无需走非标。</span>
       </div>
       <p style="margin-top:12px;font-size:13px;color:#333;">建议选择标准增值服务，提交后无需审核即可直接执行。</p>
     </div>
@@ -531,16 +535,16 @@ Steps in English:
 <div class="validation-modal" id="validationModalB">
   <div class="validation-box">
     <div class="validation-header" style="background:linear-gradient(135deg,#1677ff,#4096ff);">
-      📋 校验 B：提交前完整性检查
+      📋 提交前完整性检查
     </div>
     <div class="validation-body">
-      <div class="validation-item pass">✅ 增值产品名称：已选择</div>
+      <div class="validation-item pass">✅ 增值产品：已选择</div>
       <div class="validation-item pass">✅ 增值服务：已选择</div>
-      <div class="validation-item pass">✅ 需求背景说明：已填写（128字）</div>
-      <div class="validation-item pass">✅ 需求描述：已填写（包含SKU/数量/单据号）</div>
+      <div class="validation-item pass">✅ 需求背景：已填写</div>
+      <div class="validation-item pass">✅ 需求描述：已填写</div>
       <div class="validation-item warn" style="border-color:#ffe58f;background:#fffbe6;color:#ad6800;">
         ⚠️ 附件：未上传<br>
-        <span style="font-size:12px;">根据【良品转不良品上架】场景，建议上传：包裹标签文件、下架出库单截图</span>
+        <span style="font-size:12px;">请补充操作说明附件、商品和标签的对应关系、标签文件</span>
       </div>
     </div>
     <div class="validation-footer">
@@ -755,7 +759,7 @@ function selectCombo(el, combo) {
   refreshProgress();
   renderDetails();
   if (combo.atoms.includes(FORM_VALUES.service) && !sopConfirmed && !suppressNonstandardPrompt) {
-    showNonstandardGuidePrompt();
+    forceOpenSidebarWithMessage();
   }
 }
 
@@ -981,38 +985,28 @@ function refreshProgress() {
 // ============= AI 侧栏演示逻辑 =============
 const DEMO_DIALOG = [
   {
-    role: 'assistant',
-    text: '您好，我看到您正在新增库内增值单。\n\n请描述您希望仓库如何处理库内的这批货物，我来帮您：\n· 判断应选择哪个增值服务\n· 生成操作 SOP\n· 一键填入表单字段'
-  },
-  {
     role: 'user',
     text: '我有一批货跟马上要退仓入库的新货用了同一个三方条码，系统里没法区分，想把老的那批转成不良品存着'
   },
   {
     role: 'assistant',
-    text: '收到，您这个需求看起来是“库内良品转不良品上架”方向，主要目的是把当前在库老货和后续退仓入库的新货区分开。\n\n为了生成可给仓库执行的 SOP，还需要您补充几项关键信息：\n1. 需要处理的 SKU 和数量分别是多少？\n2. 当前库存所在仓库是哪个？\n3. 退仓新货是否已经创建无箱单预报入库单？如果已创建，请提供入库单号。\n4. 在库老货是否需要先创建下架出库单？如果已创建，请提供出库单号。\n5. 这批老货转不良品的原因是为了区分库存，还是商品本身存在破损、质量问题等实际不良？\n\n另外，如果仓库需要补贴包裹标签或商品标签，也请一并说明标签来源和贴标要求。'
+    text: '收到，您这个需求看起来是"良品转不良品上架"方向，主要目的是把当前在库老货和后续退仓入库的新货区分开。\n\n为了生成可给仓库执行的操作说明，还需要您补充几项关键信息：\n1. 需要处理的 SKU 和数量分别是多少？\n2. 当前库存所在仓库是哪个？\n3. 退仓新货是否已经创建无箱单预报入库单？如有请提供单号。\n4. 在库老货是否需要先创建下架出库单？如有请提供单号。\n5. 这批老货转不良品的原因是为了区分库存，还是商品本身存在破损？'
   },
   {
     role: 'user',
-    text: 'SKU 是 SKU-DE-15908221，数量 86 件，在 DEBR2 Warehouse。新货已经建了无箱单预报入库单，单号 WI51339338。老货需要先下架，出库单 WO12120399145 已经创建。转不良品不是因为破损，主要是老货和亚马逊退仓的新货三方条码一样，系统里没法同时绑定两个 SKU，所以先把老货按不良品库存存放，后面可能返修或安排人员处理。需要仓库按新入库单补贴包裹标签后上架到不良品库位。'
+    text: 'SKU 是 SKU-DE-15908221，数量 86 件，在 DEBR2 Warehouse。新货已经建了无箱单预报入库单，单号 WI51339338。老货需要先下架，出库单 WO12120399145 已经创建。转不良品不是因为破损，主要是老货和亚马逊退仓的新货三方条码一样，系统里没法同时绑定两个 SKU。需要仓库按新入库单补贴包裹标签后上架到不良品库位。'
   },
   {
     role: 'assistant',
-    text: '已确认：您的需求为【良品转不良品上架】。\n\n建议填入：\n· 增值产品：入库非标增值（特批）\n· 增值服务：入库其他服务需求\n\n以上仅为 AI 对您需求的理解和 SOP 拆解，是否审核通过由审核人员决定。请确认下方 SOP 后再一键回填。'
+    text: '已确认：您的需求为【良品转不良品上架】。\n\n建议填入：\n· 增值产品：入库非标增值（特批）\n· 增值服务：入库其他服务需求\n\n以上仅为 AI 对您需求的理解和 SOP 拆解，是否审核通过由审核人员决定。\n请确认下方 SOP 后再一键回填。'
   }
 ];
 
-const SOP_CARD_BODY = `背景：客户有一批老货当前存放在 DEBR2 Warehouse，SKU 绑定了第三方条码。后续亚马逊退仓新货使用同一个三方条码，系统无法同时区分两批 SKU。客户希望先将当前在库老货从良品库存转为不良品库存，不是因为商品实际破损。
-
-操作目标：将在库老货 SKU-DE-15908221 从良品库存下架，并按不良品重新上架，用于和后续同三方条码的亚马逊退仓新货区分。
-
-中文步骤：
-1. 仓库先按出库单 WO12120399145 将当前在库老货下架
-2. 核对下架货物的 SKU、数量和三方条码，确认与客户提供信息一致
-3. 按无箱单预报入库单 WI51339338 进行新入库处理
-4. 如仓库系统或实物操作要求补贴包裹标签，请按入库单信息补贴对应包裹标签
-5. 将该批老货按不良品属性上架至不良品库位
-6. 上架完成后反馈实际处理数量、异常差异和最终库位信息`;
+const SOP_CARD_BODY = `1. 按出库单 WO12120399145 下架指定商品（86 件）
+2. 按新入库单 WI51339338 补贴包裹标签
+3. 使用新入库单做不良品上架
+4. 上架后登记"单品包装破损"异常，复核时确认为不良品
+5. 操作完成后拍照留存`;
 
 const FORM_VALUES = {
   product: '入库非标增值（特批）',
@@ -1029,24 +1023,46 @@ const STANDARD_VALUES = {
 
 const FEE_ESTIMATE_TEXT = `💰 预估费用：
 
-| 费用名称 | 价格 |
-|---------|------|
-| 上下架处理费 | $8.50 |
-| 标签处理费 | $2.00/件 × 86件 = $172.00 |
-| 非标操作工时费 | $15.00 |
-| **合计预估** | **$195.50** |
+费用名称          价格
+上下架处理费       $8.50
+标签处理费         $172.00（$2.00/件×86件）
+非标操作工时费     $15.00
+合计预估          $195.50
 
-⚠️ 以上为 AI 预估，最终费用以审核后正式报价为准。`;
+⚠️ 以上为 AI 预估，最终以审核后正式报价为准。`;
 
 let demoTimers = [];
 let sopConfirmed = false;
 let attachmentPromptTimer = null;
 let suppressNonstandardPrompt = false;
+const AI_GUIDE_OPEN_MESSAGE = '您好，请告诉我您想如何处理这批货物，我来帮您选择增值服务并生成操作说明。';
+const NONSTANDARD_OPEN_MESSAGE = '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。';
 
 function toggleAiSidebar(forceOpen) {
   const sidebar = document.getElementById('aiSidebar');
-  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !sidebar.classList.contains('open');
-  sidebar.classList.toggle('open', shouldOpen);
+  if (forceOpen === false) {
+    sidebar.classList.remove('open');
+    return;
+  }
+  sidebar.classList.add('open');
+  appendOpeningMessageIfEmpty(AI_GUIDE_OPEN_MESSAGE);
+}
+
+function closeAiSidebar() {
+  document.getElementById('aiSidebar').classList.remove('open');
+}
+
+function appendOpeningMessageIfEmpty(text) {
+  const list = document.getElementById('aiChatArea');
+  if (list && list.children.length === 0) appendAiBubble('assistant', text);
+}
+
+function forceOpenSidebarWithMessage() {
+  const sidebar = document.getElementById('aiSidebar');
+  sidebar.classList.add('open');
+  const list = document.getElementById('aiChatArea');
+  const hasMessage = list && Array.from(list.querySelectorAll('.ai-bubble-content')).some(node => node.textContent.includes(NONSTANDARD_OPEN_MESSAGE));
+  if (!hasMessage) appendAiBubble('assistant', NONSTANDARD_OPEN_MESSAGE);
 }
 
 function createAiBubble(role, text) {
@@ -1102,6 +1118,7 @@ function appendSopCard() {
   const list = document.getElementById('aiChatArea');
   const card = createSopCard();
   card.classList.add('pulse');
+  card.dataset.demoBubble = 'sop-card';
   list.appendChild(card);
   list.scrollTop = list.scrollHeight;
   return card;
@@ -1116,20 +1133,15 @@ function clearDemoTimers() {
   }
 }
 
-function runDemo() {
+function injectDemoDialog() {
   clearDemoTimers();
-  sopConfirmed = false;
-  resetFillControls();
   clearUploadErrors();
-  const sidebar = document.getElementById('aiSidebar');
-  if (!sidebar.classList.contains('open')) {
-    sidebar.classList.add('open');
-  }
   const list = document.getElementById('aiChatArea');
-  list.querySelectorAll('[data-demo-bubble="nonstandard-special"], [data-demo-bubble="fee-estimate"]').forEach(node => node.remove());
+  list.querySelectorAll('[data-demo-bubble="demo-dialog"], [data-demo-bubble="sop-card"], [data-demo-bubble="fee-estimate"], [data-demo-bubble="attachment-prompt"]').forEach(node => node.remove());
   DEMO_DIALOG.forEach((item, index) => {
     const timer = setTimeout(() => {
-      appendAiBubble(item.role, item.text);
+      const bubble = appendAiBubble(item.role, item.text);
+      bubble.dataset.demoBubble = 'demo-dialog';
       if (index === DEMO_DIALOG.length - 1) {
         appendSopCard();
         ensureNonstandardFormVisible();
@@ -1138,34 +1150,28 @@ function runDemo() {
     }, index * 1500);
     demoTimers.push(timer);
   });
-  showToast('演示开始：AI 侧栏将逐条注入 5 轮对话', 3000);
+  showToast('演示开始：AI 侧栏将逐条注入多轮对话', 3000);
 }
 
 function demoStep1() {
-  const sidebar = document.getElementById('aiSidebar');
-  sidebar.classList.remove('open');
+  let target = Array.from(document.querySelectorAll('#atomCards .card-item')).find(c => c.textContent.includes('其他服务需求'));
+  if (!target) {
+    const methodCard = Array.from(document.querySelectorAll('#methodCards .card-item')).find(card => normalizeText(card.dataset.key) === normalizeText(FORM_VALUES.method));
+    if (methodCard) selectMethod(methodCard);
+    target = Array.from(document.querySelectorAll('#atomCards .card-item')).find(c => c.textContent.includes('其他服务需求'));
+  }
+  if (target) target.click();
 
   const timer = setTimeout(() => {
-    let target = Array.from(document.querySelectorAll('#atomCards .card-item')).find(c => c.textContent.includes('其他服务需求'));
-    if (!target) {
-      const methodCard = Array.from(document.querySelectorAll('#methodCards .card-item')).find(card => normalizeText(card.dataset.key) === normalizeText(FORM_VALUES.method));
-      if (methodCard) selectMethod(methodCard);
-      target = Array.from(document.querySelectorAll('#atomCards .card-item')).find(c => c.textContent.includes('其他服务需求'));
-    }
-    if (target) target.click();
-
-    const doneTimer = setTimeout(() => {
-      markStepDone('demoStep1');
-      enableStep('demoStep2');
-    }, 800);
-    demoTimers.push(doneTimer);
-  }, 300);
+    markStepDone('demoStep1');
+    enableStep('demoStep2');
+  }, 800);
   demoTimers.push(timer);
 }
 
 function demoStep2() {
-  runDemo();
-  const totalDelay = DEMO_DIALOG.length * 1500 + 500;
+  injectDemoDialog();
+  const totalDelay = (DEMO_DIALOG.length - 1) * 1500 + 500;
   const timer = setTimeout(() => {
     markStepDone('demoStep2');
     enableStep('demoStep3');
@@ -1181,25 +1187,12 @@ function demoStep3() {
 
 function demoStep4() {
   fillForm();
-  appendFeeEstimate();
   markStepDone('demoStep4');
   enableStep('demoStep5');
 }
 
 function demoValidationA() {
   showValidationA();
-}
-
-function demoForceOpenSidebar() {
-  const sidebar = document.getElementById('aiSidebar');
-  sidebar.classList.remove('open');
-  showToast('模拟：关闭侧栏后选中非标...', 1000);
-
-  setTimeout(() => {
-    const atomCards = document.querySelectorAll('#atomCards .card-item');
-    const target = Array.from(atomCards).find(c => c.textContent.includes('其他服务需求'));
-    if (target) target.click();
-  }, 500);
 }
 
 function demoStep5() {
@@ -1232,12 +1225,7 @@ function resetDemoSteps() {
 }
 
 function showNonstandardGuidePrompt() {
-  toggleAiSidebar(true);
-  const list = document.getElementById('aiChatArea');
-  const hasPrompt = Array.from(list.querySelectorAll('.ai-bubble-content')).some(node => node.textContent.includes('您选择了非标特批服务'));
-  if (!hasPrompt) {
-    appendAiBubble('assistant', '您选择了非标特批服务，请先告诉我您想如何处理这批货物，我来帮您评估是否需要走非标流程。');
-  }
+  forceOpenSidebarWithMessage();
 }
 
 function sendMessage() {
@@ -1289,6 +1277,7 @@ function fillForm() {
     results.push('需求描述 ✓');
   }
   refreshProgress();
+  if (results.length) appendFeeEstimate();
   showToast(results.length ? '✅ 一键填入完成：' + results.join(' | ') : '⚠️ 未找到目标字段', 4000);
 }
 
@@ -1306,7 +1295,8 @@ function confirmSop() {
   if (attachmentPromptTimer) clearTimeout(attachmentPromptTimer);
   attachmentPromptTimer = setTimeout(() => {
     if (!sopConfirmed) return;
-    appendAiBubble('assistant', '根据【良品转不良品上架】场景，您还需要上传以下文件：\n\n📎 必须上传：\n1. 包裹标签文件（新入库单对应的标签）\n2. 下架出库单截图或单号确认\n\n📎 建议上传（加快审核）：\n3. 三方条码对应关系说明\n\n请在表单“增值文件”处上传后再提交。');
+    const bubble = appendAiBubble('assistant', '根据【良品转不良品上架】场景，您还需要上传以下文件：\n\n📎 必须上传：\n1. 操作说明附件\n2. 商品和标签的对应关系\n3. 标签文件\n\n请在表单"增值文件"处上传后再提交。');
+    bubble.dataset.demoBubble = 'attachment-prompt';
     attachmentPromptTimer = null;
   }, 1000);
 }
@@ -1509,7 +1499,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else if (state.combo && !state.combo.atoms.includes(FORM_VALUES.service)) {
       showToast('增值单提交成功（模拟）', 3000);
     } else {
-      showToast('请先完成演示步骤 1-4（点击控制台按钮）', 3000);
+      showToast('请先完成演示步骤 1-5（点击控制台按钮）', 3000);
     }
   });
 });
