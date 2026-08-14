@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI 增值指引 - 侧边栏演示 V6（Push 模式）</title>
+<title>AI 增值指引 - 侧边栏真实体验版</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f5f5; color: #333; font-size: 13px; line-height: 1.5; }
+body { padding-top: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f5f5; color: #333; font-size: 13px; line-height: 1.5; }
 
 /* 顶部 */
 .top-bar { background: linear-gradient(135deg, #6B4F0A, #8B6914, #A0792A); color: white; height: 50px; display: flex; align-items: center; padding: 0 16px; position: relative; z-index: 10; }
@@ -158,28 +158,6 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 .chip .x:hover { color: #ff4d4f; }
 .chip.invalid { border-color: #ffccc7; background: #fff2f0; color: #cf1322; }
 
-/* 演示控制台 */
-.demo-console { position: fixed; top: 0; left: 0; right: 0; height: auto; min-height: 72px; background: #2d2d2d; color: #fff; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; padding: 8px 16px; z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-.demo-console-title { font-size: 13px; font-weight: 600; white-space: nowrap; }
-.demo-console-steps { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-start; }
-.demo-row-label { color: #ccc; font-size: 11px; margin-right: 6px; white-space: nowrap; }
-.demo-step-btn { display: inline-flex; align-items: center; gap: 5px; background: #4a4a4a; color: #fff; border: 1px solid #666; border-radius: 4px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
-.demo-step-btn:hover { background: #5a5a5a; border-color: #777; }
-.demo-step-btn.demo-extra { background: #333; border-color: #555; }
-.demo-narrator { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; color: #fff; padding: 10px 20px; font-size: 13px; z-index: 9998; border-top: 1px solid #333; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.narrator-text { flex: 1; }
-.narrator-controls { display: flex; align-items: center; gap: 12px; }
-.narrator-btn { padding: 5px 14px; border: 1px solid #555; border-radius: 4px; background: #333; color: #fff; font-size: 12px; cursor: pointer; }
-.narrator-btn:hover { background: #444; border-color: #777; }
-.narrator-btn-primary { background: #A0792A; border-color: #C9952E; }
-.narrator-btn-primary:hover { background: #8B6914; }
-.narrator-progress { font-size: 11px; color: #999; min-width: 70px; text-align: center; }
-.demo-highlight { animation: demoFlash 0.6s ease 2; }
-@keyframes demoFlash {
-  0%, 100% { box-shadow: none; }
-  50% { box-shadow: 0 0 0 4px rgba(160,121,42,0.5); }
-}
-
 /* AI push 侧栏 */
 .ai-guide-btn { margin-left: 12px; padding: 4px 12px; font-size: 12px; border: 1px solid #f0e4c0; border-radius: 14px; background: #fffaf3; color: #8B6914; cursor: pointer; white-space: nowrap; }
 .ai-guide-btn:hover { border-color: #A0792A; background: #fff7e6; }
@@ -283,42 +261,10 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 @media (max-width: 1100px) {
   .ai-sidebar.open { width: 340px; }
   .cards-row, .atoms-row { grid-template-columns: repeat(3, 1fr); }
-  .demo-console { height: auto; min-height: 44px; align-items: flex-start; padding-top: 8px; padding-bottom: 8px; }
 }
 </style>
 </head>
 <body>
-<div class="demo-console">
-  <div class="demo-console-title">🎬 原型演示（点击场景自动播放完整交互）</div>
-  <div class="demo-console-steps">
-    <span class="demo-row-label">入口对比：</span>
-    <button class="demo-step-btn" onclick="demoEntry1()">点"AI指引"触发</button>
-    <button class="demo-step-btn" onclick="demoEntry2()">选中非标触发</button>
-  </div>
-  <div class="demo-console-steps" style="margin-top:6px;">
-    <span class="demo-row-label">场景演示：</span>
-    <button class="demo-step-btn" onclick="demoA1()">A1 AI完整下单✅</button>
-    <button class="demo-step-btn" onclick="demoA2()">A2 附件拦截❌</button>
-    <button class="demo-step-btn" onclick="demoB()">B 跳过AI自己填✅</button>
-    <button class="demo-step-btn" onclick="demoC()">C 填不好拦回AI</button>
-    <button class="demo-step-btn" onclick="demoD()">D 误选非标→纠正</button>
-  </div>
-  <div class="demo-console-steps" style="margin-top:6px;">
-    <span class="demo-row-label">其他：</span>
-    <button class="demo-step-btn demo-extra" onclick="openAuditModal()">审核视角</button>
-    <button class="demo-step-btn demo-extra" onclick="resetDemo()">重置</button>
-  </div>
-</div>
-<div class="demo-narrator" id="narrator">
-  <div class="narrator-text" id="narratorText">💬 点击上方场景按钮开始演示</div>
-  <div class="narrator-controls" id="narratorControls" style="display:none;">
-    <button class="narrator-btn" onclick="prevStep()">◀ 上一步</button>
-    <span class="narrator-progress" id="narratorProgress">步骤 1/10</span>
-    <button class="narrator-btn narrator-btn-primary" onclick="nextStep()">▶ 下一步</button>
-  </div>
-</div>
-<div style="position:fixed;bottom:12px;left:12px;background:linear-gradient(135deg,#ff4d4f,#e6252a);color:white;padding:5px 12px;border-radius:4px;font-size:11px;z-index:9999;box-shadow:0 2px 8px rgba(255,77,79,0.3);">原型 V6 - 增加校验交互</div>
-
 <div class="top-bar">
   <div class="top-logo">W</div>
   <div class="top-tabs">
@@ -981,7 +927,7 @@ function refreshProgress() {
   }
 }
 
-// ============= AI 侧栏演示逻辑 =============
+// ============= AI 侧栏交互逻辑 =============
 const DEMO_DIALOG = [
   {
     role: 'user',
@@ -1030,13 +976,10 @@ const FEE_ESTIMATE_TEXT = `💰 预估费用：
 
 ⚠️ 以上为 AI 预估，最终以审核后正式报价为准。`;
 
-let demoTimers = [];
 let sopConfirmed = false;
 let attachmentsUploaded = false;
 let attachmentPromptTimer = null;
 let suppressNonstandardPrompt = false;
-let currentScenarioSteps = [];
-let currentStepIndex = 0;
 const AI_GUIDE_OPEN_MESSAGE = '您好，请告诉我您想如何处理这批货物，我来帮您选择增值服务并生成操作说明。';
 const NONSTANDARD_OPEN_MESSAGE = '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。';
 
@@ -1048,6 +991,7 @@ function toggleAiSidebar(forceOpen) {
   }
   sidebar.classList.add('open');
   appendOpeningMessageIfEmpty(AI_GUIDE_OPEN_MESSAGE);
+  prepareStarterSop();
 }
 
 function closeAiSidebar() {
@@ -1065,12 +1009,13 @@ function forceOpenSidebarWithMessage() {
   const list = document.getElementById('aiChatArea');
   const hasMessage = list && Array.from(list.querySelectorAll('.ai-bubble-content')).some(node => node.textContent.includes(NONSTANDARD_OPEN_MESSAGE));
   if (!hasMessage) appendAiBubble('assistant', NONSTANDARD_OPEN_MESSAGE);
+  prepareStarterSop();
 }
 
 function createAiBubble(role, text) {
   const bubble = document.createElement('div');
   bubble.className = 'ai-bubble ' + (role === 'user' ? 'user' : 'assistant');
-  bubble.dataset.demoBubble = 'nonstandard-special';
+  bubble.dataset.bubbleKind = 'nonstandard-special';
   const content = document.createElement('div');
   content.className = 'ai-bubble-content';
   content.textContent = text;
@@ -1081,7 +1026,7 @@ function createAiBubble(role, text) {
 function createSopCard() {
   const bubble = document.createElement('div');
   bubble.className = 'ai-bubble assistant';
-  bubble.dataset.demoBubble = 'nonstandard-special';
+  bubble.dataset.bubbleKind = 'nonstandard-special';
 
   const content = document.createElement('div');
   content.className = 'ai-bubble-content';
@@ -1108,11 +1053,11 @@ function appendAiBubble(role, text) {
 }
 
 function appendFeeEstimate() {
-  const existing = document.querySelector('[data-demo-bubble="fee-estimate"]');
+  const existing = document.querySelector('[data-bubble-kind="fee-estimate"]');
   if (existing) existing.remove();
   const bubble = appendAiBubble('assistant', FEE_ESTIMATE_TEXT);
   bubble.classList.add('fee-estimate');
-  bubble.dataset.demoBubble = 'fee-estimate';
+  bubble.dataset.bubbleKind = 'fee-estimate';
   return bubble;
 }
 
@@ -1120,239 +1065,17 @@ function appendSopCard() {
   const list = document.getElementById('aiChatArea');
   const card = createSopCard();
   card.classList.add('pulse');
-  card.dataset.demoBubble = 'sop-card';
+  card.dataset.bubbleKind = 'sop-card';
   list.appendChild(card);
   list.scrollTop = list.scrollHeight;
   return card;
 }
 
-function clearDemoTimers() {
-  demoTimers.forEach(timer => clearTimeout(timer));
-  demoTimers = [];
-  if (attachmentPromptTimer) {
-    clearTimeout(attachmentPromptTimer);
-    attachmentPromptTimer = null;
-  }
-}
-
-function narrate(text) {
-  const narratorText = document.getElementById('narratorText');
-  if (narratorText) narratorText.textContent = '💬 ' + text;
-}
-
-function startScenario(steps) {
-  resetDemo();
-  currentScenarioSteps = steps;
-  currentStepIndex = 0;
-  document.getElementById('narratorControls').style.display = 'flex';
-  executeCurrentStep();
-}
-
-function executeCurrentStep() {
-  if (currentStepIndex >= currentScenarioSteps.length) return;
-  const step = currentScenarioSteps[currentStepIndex];
-  document.getElementById('narratorText').textContent = '💬 ' + step.narrate;
-  document.getElementById('narratorProgress').textContent = '步骤 ' + (currentStepIndex + 1) + '/' + currentScenarioSteps.length;
-  step.exec();
-  if (step.scrollTo) {
-    const target = document.querySelector(step.scrollTo);
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.add('demo-highlight');
-      setTimeout(() => target.classList.remove('demo-highlight'), 2000);
-    }
-  }
-}
-
-function nextStep() {
-  if (currentStepIndex < currentScenarioSteps.length - 1) {
-    currentStepIndex++;
-    executeCurrentStep();
-  } else {
-    document.getElementById('narratorText').textContent = '💬 ✅ 场景演示完成';
-  }
-}
-
-function prevStep() {
-  if (currentStepIndex > 0) {
-    currentStepIndex--;
-    const step = currentScenarioSteps[currentStepIndex];
-    document.getElementById('narratorText').textContent = '💬 [回看] ' + step.narrate;
-    document.getElementById('narratorProgress').textContent = '步骤 ' + (currentStepIndex + 1) + '/' + currentScenarioSteps.length;
-  }
-}
-
-function demoEntry1() {
-  startScenario([
-    { narrate: '客户主动点击"AI指引"按钮，页面无任何选中态', exec: () => {} },
-    { narrate: 'AI 侧栏打开，AI 主动问客户需求。此时 AI 需帮判断走标准还是非标', exec: () => toggleAiSidebar(true), scrollTo: '#aiSidebar' }
-  ]);
-}
-
-function demoEntry2() {
-  startScenario([
-    { narrate: '客户在表单中选中"入库其他服务需求"（非标兜底服务）', exec: () => {} },
-    { narrate: 'AI 侧栏强制弹出，已知走非标，直接追问需求细节', exec: selectNonstandardAtom, scrollTo: '#atomCards' }
-  ]);
-}
-
-function demoA1() {
-  startScenario([
-    { narrate: '客户选中"入库其他服务需求"，AI 侧栏强制弹出', exec: selectNonstandardAtom, scrollTo: '#atomCards' },
-    { narrate: 'AI 主动询问客户需求', exec: appendNonstandardOpening, scrollTo: '.ai-chat-area' },
-    { narrate: '客户用口语描述需求（模糊、不完整）', exec: () => appendAiBubble('user', DEMO_DIALOG[0].text), scrollTo: '.ai-chat-area' },
-    { narrate: 'AI 识别方向，追问关键信息（SKU/数量/单据号）', exec: () => appendAiBubble('assistant', DEMO_DIALOG[1].text), scrollTo: '.ai-chat-area' },
-    { narrate: '客户补充完整信息', exec: () => appendAiBubble('user', DEMO_DIALOG[2].text), scrollTo: '.ai-chat-area' },
-    { narrate: 'AI 确认需求，生成 SOP 卡片', exec: () => { appendAiBubble('assistant', DEMO_DIALOG[3].text); appendSopCard(); }, scrollTo: '.sop-card-v6' },
-    { narrate: '客户确认 SOP → AI 提示需上传附件 → 回填按钮激活', exec: confirmSop, scrollTo: '.sop-card-v6' },
-    { narrate: 'AI 自动填入表单（增值产品+增值服务+需求背景+需求描述）', exec: fillForm, scrollTo: '#requirementBackground' },
-    { narrate: '客户已上传附件（演示中模拟已传）', exec: markAttachmentsUploaded, scrollTo: '#vasFilesSection' },
-    { narrate: '客户点提交 → 描述清晰✅ 附件完整✅ → 提交成功', exec: () => showToast('✅ 增值单提交成功！SOP 已同步至审核后台', 4000) },
-    { narrate: '✅ 场景 A1 完成：AI 帮客户从头到尾搞定下单', exec: () => {} }
-  ]);
-}
-
-function demoA2() {
-  startScenario([
-    { narrate: '客户选中非标，AI 侧栏弹出', exec: selectNonstandardAtom, scrollTo: '#atomCards' },
-    { narrate: 'AI 询问需求', exec: appendNonstandardOpening, scrollTo: '.ai-chat-area' },
-    { narrate: '客户描述需求', exec: () => appendAiBubble('user', DEMO_DIALOG[0].text), scrollTo: '.ai-chat-area' },
-    { narrate: 'AI 追问关键信息', exec: () => appendAiBubble('assistant', DEMO_DIALOG[1].text), scrollTo: '.ai-chat-area' },
-    { narrate: '客户补充', exec: () => appendAiBubble('user', DEMO_DIALOG[2].text), scrollTo: '.ai-chat-area' },
-    { narrate: 'AI 生成 SOP 卡片', exec: () => { appendAiBubble('assistant', DEMO_DIALOG[3].text); appendSopCard(); }, scrollTo: '.sop-card-v6' },
-    { narrate: '客户确认 SOP', exec: confirmSop, scrollTo: '.sop-card-v6' },
-    { narrate: '一键回填需求描述（但客户未上传附件）', exec: fillForm, scrollTo: '#requirementBackground' },
-    { narrate: '客户点提交 → 附件校验不通过 ❌', exec: showValidationB },
-    { narrate: '❌ 附件缺失拦截，上传区标红。客户必须补充后再提交', exec: closeValidationB, scrollTo: '#vasFilesSection' },
-    { narrate: '❌ 场景 A2 完成：AI 已帮填好描述，但附件未传被拦截', exec: () => {} }
-  ]);
-}
-
-function demoB() {
-  startScenario([
-    { narrate: '客户选中非标，AI 侧栏弹出建议对话', exec: selectNonstandardAtom, scrollTo: '#atomCards' },
-    { narrate: 'AI 弹出后主动询问', exec: appendNonstandardOpening, scrollTo: '.ai-chat-area' },
-    { narrate: '客户选择不和 AI 对话，关闭侧栏', exec: () => toggleAiSidebar(false), scrollTo: '#atomCards' },
-    { narrate: '客户自己手动填写需求背景+需求描述（内容详细完整）', exec: fillFormManuallyGood, scrollTo: '#requirementBackground' },
-    { narrate: '客户上传了必要附件', exec: markAttachmentsUploaded, scrollTo: '#vasFilesSection' },
-    { narrate: '客户点提交 → 描述清晰✅ 附件完整✅ → 直接提交成功', exec: () => showToast('✅ 增值单提交成功！不用和 AI 对话，填得好一样能过', 4000) },
-    { narrate: '✅ 场景 B 完成：会填的客户不强制对话，尊重客户能力', exec: () => {} }
-  ]);
-}
-
-function demoC() {
-  startScenario([
-    { narrate: '客户选中非标，AI 侧栏弹出', exec: selectNonstandardAtom, scrollTo: '#atomCards' },
-    { narrate: 'AI 弹出建议对话', exec: appendNonstandardOpening, scrollTo: '.ai-chat-area' },
-    { narrate: '客户关闭侧栏，不和 AI 对话', exec: () => toggleAiSidebar(false), scrollTo: '#atomCards' },
-    { narrate: '客户随便写了"帮我处理下"（信息不完整）', exec: fillFormManuallyBad, scrollTo: '#requirementBackground' },
-    { narrate: '客户点提交 → 描述不清晰 ❌ 缺少关键信息', exec: showValidationB_unclear },
-    { narrate: '❌ 被拦截！AI 侧栏强制重新打开', exec: forceReopenSidebarWithPrompt, scrollTo: '#aiSidebar' },
-    { narrate: 'AI 告知客户需要补充 SKU/数量/单据号/操作要求', exec: () => {}, scrollTo: '.ai-chat-area' },
-    { narrate: '❌→ 场景 C 完成：填不清楚的被拦回 AI，必须补充后再提交', exec: () => {} }
-  ]);
-}
-
-function demoD() {
-  startScenario([
-    { narrate: '客户不确定选什么，点击"AI 指引"按钮（页面无选中态）', exec: () => toggleAiSidebar(true), scrollTo: '#aiSidebar' },
-    { narrate: 'AI 主动询问客户需求', exec: appendAiGuideOpening, scrollTo: '.ai-chat-area' },
-    { narrate: '客户说"帮我直接上架就行"', exec: () => appendAiBubble('user', '帮我直接上架就行'), scrollTo: '.ai-chat-area' },
-    { narrate: 'AI 检测到：这个需求标准增值"直接上架"就能解决', exec: () => appendAiBubble('assistant', '您描述的需求可以使用标准增值服务【直接上架】覆盖，无需走非标特批流程。建议切换到标准增值。'), scrollTo: '.ai-chat-area' },
-    { narrate: '⚠️ 弹窗拦截：提示客户走标准增值即可', exec: showValidationA },
-    { narrate: '客户点击"切换到标准增值" → 自动选中直接上架', exec: closeValidationA_useStandard, scrollTo: '#atomCards' },
-    { narrate: '↩️ 场景 D 完成：AI 帮客户纠正路径，避免走错非标流程', exec: () => {} }
-  ]);
-}
-
-function showNonstandardGuidePrompt() {
-  forceOpenSidebarWithMessage();
-}
-
-function appendNonstandardOpening() {
+function prepareStarterSop() {
   const list = document.getElementById('aiChatArea');
-  const hasMessage = list && Array.from(list.querySelectorAll('.ai-bubble-content')).some(node => node.textContent.includes(NONSTANDARD_OPEN_MESSAGE));
-  if (!hasMessage) appendAiBubble('assistant', NONSTANDARD_OPEN_MESSAGE);
-}
-
-function appendAiGuideOpening() {
-  const list = document.getElementById('aiChatArea');
-  const hasMessage = list && Array.from(list.querySelectorAll('.ai-bubble-content')).some(node => node.textContent.includes(AI_GUIDE_OPEN_MESSAGE));
-  if (!hasMessage) appendAiBubble('assistant', AI_GUIDE_OPEN_MESSAGE);
-}
-
-function selectNonstandardAtom() {
-  const methodCard = Array.from(document.querySelectorAll('#methodCards .card-item')).find(card => normalizeText(card.dataset.key) === normalizeText(FORM_VALUES.method));
-  if (methodCard && state.method !== FORM_VALUES.method) selectMethod(methodCard);
-  const target = Array.from(document.querySelectorAll('#atomCards .card-item')).find(c => c.textContent.includes('其他服务需求'));
-  if (target) target.click();
-  else forceOpenSidebarWithMessage();
-}
-
-function fillFormManuallyGood() {
-  selectNonstandardAtom();
-  const bg = document.getElementById('requirementBackground');
-  const desc = document.getElementById('requirementDescription');
-  if (bg) {
-    setNativeValue(bg, '客户希望将 DEBR2 Warehouse 当前在库老货与后续退仓入库新货区分管理，两批货使用同一个第三方条码，系统内无法同时绑定两个 SKU。');
-    highlight(bg);
-  }
-  if (desc) {
-    setNativeValue(desc, '请处理 SKU-DE-15908221，数量 86 件。关联新入库单 WI51339338，下架出库单 WO12120399145。具体操作要求：先按 WO12120399145 下架老货，再按 WI51339338 补贴包裹标签并上架到不良品库位，完成后反馈处理数量和库位照片。');
-    highlight(desc);
-  }
-  refreshProgress();
-  showToast('已手动填写清晰需求', 3000);
-}
-
-function fillFormManuallyBad() {
-  selectNonstandardAtom();
-  const bg = document.getElementById('requirementBackground');
-  const desc = document.getElementById('requirementDescription');
-  if (bg) {
-    setNativeValue(bg, '临时需要仓库处理。');
-    highlight(bg);
-  }
-  if (desc) {
-    setNativeValue(desc, '帮我处理下');
-    highlight(desc);
-  }
-  refreshProgress();
-  showToast('已手动填写模糊需求', 3000);
-}
-
-function markAttachmentsUploaded() {
-  attachmentsUploaded = true;
-  clearUploadErrors();
-  const files = [
-    ['uploadSop', '操作说明附件-良品转不良品上架.pdf'],
-    ['uploadRelation', '商品标签对应关系-SKU-DE-15908221.xlsx'],
-    ['uploadLabel', 'WI51339338-包裹标签.zip']
-  ];
-  files.forEach(([id, fileName]) => {
-    const item = document.getElementById(id);
-    if (!item) return;
-    item.classList.add('uploaded');
-    const box = item.querySelector('.upload-box');
-    if (box) box.innerHTML = `<span class="upload-file-name">✓ ${fileName}</span>`;
-  });
-  showToast('附件已上传（模拟）', 3000);
-}
-
-function markSingleAttachmentUploaded(id, fileName) {
-  const item = document.getElementById(id);
-  if (!item) return;
-  item.classList.remove('error');
-  item.classList.add('uploaded');
-  const errorTip = item.querySelector('.upload-error-tip');
-  if (errorTip) errorTip.textContent = '';
-  const box = item.querySelector('.upload-box');
-  if (box) box.innerHTML = `<span class="upload-file-name">✓ ${fileName}</span>`;
-  attachmentsUploaded = ['uploadSop', 'uploadRelation', 'uploadLabel'].every(uploadId => {
-    const uploadItem = document.getElementById(uploadId);
-    return uploadItem && uploadItem.classList.contains('uploaded');
-  });
-  showToast(attachmentsUploaded ? '附件已全部上传' : '附件已上传，请继续补齐其他文件', 3000);
+  if (!list || list.querySelector('[data-bubble-kind="sop-card"]')) return;
+  appendAiBubble('assistant', DEMO_DIALOG[3].text);
+  appendSopCard();
 }
 
 function forceReopenSidebarWithPrompt() {
@@ -1371,7 +1094,12 @@ function sendMessage() {
   if (!text) return;
   appendAiBubble('user', text);
   input.value = '';
-  setTimeout(() => appendAiBubble('assistant', '已收到。我会根据您的增值需求补充关键信息，并生成可回填到表单的操作要求。'), 500);
+  const thinking = appendAiBubble('assistant', 'AI 正在思考...');
+  setTimeout(() => {
+    const content = thinking.querySelector('.ai-bubble-content');
+    if (content) content.textContent = '已收到。我会根据您的增值需求补充关键信息，并生成可回填到表单的操作要求。';
+    prepareStarterSop();
+  }, 700);
 }
 
 function fillForm() {
@@ -1433,7 +1161,7 @@ function confirmSop() {
   attachmentPromptTimer = setTimeout(() => {
     if (!sopConfirmed) return;
     const bubble = appendAiBubble('assistant', '根据【良品转不良品上架】场景，您还需要上传以下文件：\n\n📎 必须上传：\n1. 操作说明附件\n2. 商品和标签的对应关系\n3. 标签文件\n\n请在表单"增值文件"处上传后再提交。');
-    bubble.dataset.demoBubble = 'attachment-prompt';
+    bubble.dataset.bubbleKind = 'attachment-prompt';
     attachmentPromptTimer = null;
   }, 1000);
 }
@@ -1580,6 +1308,22 @@ function markUploadErrors() {
   });
 }
 
+function markSingleAttachmentUploaded(id, fileName) {
+  const item = document.getElementById(id);
+  if (!item) return;
+  item.classList.remove('error');
+  item.classList.add('uploaded');
+  const errorTip = item.querySelector('.upload-error-tip');
+  if (errorTip) errorTip.textContent = '';
+  const box = item.querySelector('.upload-box');
+  if (box) box.innerHTML = `<span class="upload-file-name">✓ ${fileName}</span>`;
+  attachmentsUploaded = ['uploadSop', 'uploadRelation', 'uploadLabel'].every(uploadId => {
+    const uploadItem = document.getElementById(uploadId);
+    return uploadItem && uploadItem.classList.contains('uploaded');
+  });
+  showToast(attachmentsUploaded ? '附件已全部上传' : '附件已上传，请继续补齐其他文件', 3000);
+}
+
 function clearUploadErrors() {
   ['uploadSop', 'uploadRelation', 'uploadLabel'].forEach(id => {
     const item = document.getElementById(id);
@@ -1634,49 +1378,6 @@ function validateAndSubmit() {
   showValidationB();
 }
 
-function resetDemo() {
-  clearDemoTimers();
-  currentScenarioSteps = [];
-  currentStepIndex = 0;
-  const narratorControls = document.getElementById('narratorControls');
-  if (narratorControls) narratorControls.style.display = 'none';
-  const narratorProgress = document.getElementById('narratorProgress');
-  if (narratorProgress) narratorProgress.textContent = '步骤 1/10';
-  closeAiSidebar();
-  document.getElementById('aiChatArea').innerHTML = '';
-  document.getElementById('aiUserInput').value = '';
-  document.getElementById('validationModalA').classList.remove('show');
-  document.getElementById('validationModalB').classList.remove('show');
-  clearUploadErrors();
-  clearUploadedFiles();
-  document.querySelectorAll('.card-item, textarea, select, tr, label').forEach(el => {
-    el.style.outline = '';
-    el.style.background = '';
-  });
-  document.querySelectorAll('#requirementBackground, #requirementDescription, #orderNoInput').forEach(el => {
-    el.value = '';
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  state = { method: null, combo: null, orderNos: [] };
-  hideFromDetail();
-  document.getElementById('detailBody').innerHTML = '';
-  document.getElementById('feeBody').innerHTML = '';
-  document.getElementById('progress-3').style.display = 'none';
-  document.getElementById('progress-2-label').textContent = '增值服务';
-  document.getElementById('orderStepNum').textContent = '2';
-  document.getElementById('atomStepNum').textContent = '2';
-  document.getElementById('detailStepNum').textContent = '3';
-  document.getElementById('progress-4-dot').textContent = '3';
-  document.getElementById('orderChips').innerHTML = '';
-  document.getElementById('nextBtn').disabled = true;
-  initMethods();
-  refreshProgress();
-  resetFillControls();
-  closeAuditModal();
-  narrate('点击上方场景按钮开始演示');
-  showToast('已重置', 2000);
-}
-
 function showToast(msg, duration) {
   const toast = document.getElementById('actionToast');
   toast.textContent = msg;
@@ -1700,25 +1401,18 @@ function normalizeText(value) {
   return (value || '').replace(/\s+/g, '').trim();
 }
 
-function syncDemoConsoleOffset() {
-  const demoConsole = document.querySelector('.demo-console');
-  const narrator = document.querySelector('.demo-narrator');
-  if (demoConsole) {
-    document.body.style.paddingTop = demoConsole.offsetHeight + 'px';
-  }
-  if (narrator) {
-    document.body.style.paddingBottom = narrator.offsetHeight + 'px';
-  }
-}
-
 window.addEventListener('DOMContentLoaded', initMethods);
 window.addEventListener('DOMContentLoaded', () => {
-  syncDemoConsoleOffset();
   document.getElementById('submitBtn').addEventListener('click', function() {
     validateAndSubmit();
   });
+  document.addEventListener('keydown', function(event) {
+    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      openAuditModal();
+    }
+  });
 });
-window.addEventListener('resize', syncDemoConsoleOffset);
 </script>
 </body>
 </html>
