@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 增值指引 — SOP 生成与一键填入</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue: #1a73e8;
+  --purple: #722ed1;
+  --success: #52c41a;
+  --warning: #faad14;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --bg: #f5f7fb;
+  --card: #ffffff;
+}
+body {
+  min-height: 100vh;
+  padding: 24px 20px 56px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+}
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+.page {
+  width: min(1280px, 100%);
+  margin: 0 auto;
+}
+.page-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.page-title h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.title-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid #d6e4ff;
+  border-radius: 6px;
+  background: #eef5ff;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.workspace {
+  display: flex;
+  align-items: stretch;
+  gap: 18px;
+}
+.form-panel, .ai-sidebar {
+  min-height: calc(100vh - 128px);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(31, 41, 55, 0.06);
+}
+.form-panel {
+  flex: 0 0 calc(55% - 9px);
+  padding: 22px;
+}
+.ai-sidebar {
+  flex: 0 0 calc(45% - 9px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.form-steps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.step {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 15px;
+  color: #5f6b7a;
+  background: #fafafa;
+  font-size: 13px;
+  font-weight: 600;
+}
+.step.active {
+  border-color: var(--blue);
+  background: #e8f0fe;
+  color: var(--blue);
+}
+.ai-guide-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(26, 115, 232, 0.22);
+}
+.form-section {
+  position: relative;
+  margin-bottom: 20px;
+}
+.form-section label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.required { color: #ff4d4f; }
+.select-box {
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #fff;
+  color: #9ca3af;
+  transition: all 0.25s;
+}
+.select-box.selected {
+  border-color: var(--blue);
+  background: #f0f7ff;
+  color: var(--text);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+}
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.service-card {
+  position: relative;
+  min-height: 84px;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  transition: all 0.2s;
+}
+.service-code {
+  display: block;
+  margin-bottom: 6px;
+  color: #7a8699;
+  font-size: 12px;
+  font-weight: 700;
+}
+.service-name {
+  color: #202938;
+  font-size: 14px;
+  font-weight: 700;
+}
+.service-card.highlight {
+  border-color: var(--blue);
+  background: linear-gradient(135deg, #f0f7ff, #f7f2ff);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+}
+.service-card.highlight::after {
+  content: "已锁定";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--purple);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  outline: none;
+  background: #fff;
+  color: var(--text);
+  transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+}
+textarea:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+}
+textarea.filled {
+  border-color: var(--success);
+  background: linear-gradient(180deg, #fff, #f6ffed);
+  box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.13);
+}
+.fill-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.fill-btn {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #d9d9d9;
+  color: #fff;
+  font-weight: 700;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.fill-btn:not(:disabled) {
+  background: var(--blue);
+  box-shadow: 0 6px 16px rgba(26, 115, 232, 0.22);
+}
+.fill-btn:not(:disabled):hover { transform: translateY(-1px); }
+.fill-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+.textarea-wrap { position: relative; }
+.ai-badge {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--purple);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.textarea-wrap.generated .ai-badge { display: inline-flex; }
+.upload-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px dashed #cfd7e3;
+  border-radius: 6px;
+  background: #fbfcff;
+}
+.upload-icon { color: var(--blue); }
+.upload-status {
+  margin-left: auto;
+  color: #9ca3af;
+  font-size: 12px;
+}
+.submit-btn {
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--blue), #0b57d0);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(26, 115, 232, 0.22);
+}
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(135deg, #f5f9ff, #faf7ff);
+  font-size: 16px;
+  font-weight: 800;
+}
+.sidebar-header::after {
+  content: "在线";
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #f6ffed;
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 700;
+}
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  background: #f8fafc;
+}
+.message {
+  display: flex;
+  margin-bottom: 14px;
+  animation: slideUp 0.35s ease both;
+}
+.message.user { justify-content: flex-end; }
+.bubble {
+  max-width: 86%;
+  padding: 11px 13px;
+  border-radius: 8px;
+  white-space: pre-line;
+  box-shadow: 0 3px 10px rgba(31, 41, 55, 0.06);
+}
+.assistant .bubble {
+  border: 1px solid #d6e4ff;
+  background: #fff;
+  color: var(--text);
+}
+.user .bubble {
+  background: var(--blue);
+  color: #fff;
+}
+.notice .bubble {
+  width: 100%;
+  max-width: 100%;
+  border: 1px dashed #91caff;
+  background: #eef6ff;
+}
+.cost-bubble {
+  max-width: 100%;
+  margin-bottom: 14px;
+  padding: 13px;
+  border: 1px dashed #ffe58f;
+  border-radius: 8px;
+  background: #fffbe6;
+  white-space: pre-line;
+  color: #5d4700;
+  animation: slideUp 0.35s ease both;
+}
+.sop-card {
+  margin: 4px 0 16px;
+  border: 1.5px solid var(--purple);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(114, 46, 209, 0.12);
+  overflow: hidden;
+  animation: slideUp 0.35s ease both, pulseBorder 1.2s ease 0.15s 2;
+}
+.sop-header {
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #f7f0ff, #eef5ff);
+  color: var(--purple);
+  font-weight: 800;
+}
+.sop-body { padding: 14px; }
+.sop-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sop-meta span {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sop-steps {
+  padding-left: 21px;
+  color: #2f3746;
+}
+.sop-steps li { margin-bottom: 8px; }
+.sop-footer {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  background: #fafafa;
+}
+.sop-btn-confirm, .sop-btn-revise {
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 800;
+}
+.sop-btn-confirm {
+  border: 1px solid var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+.sop-btn-confirm.confirmed {
+  border-color: var(--success);
+  background: var(--success);
+  cursor: default;
+}
+.sop-btn-revise {
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #4b5563;
+}
+.action-card {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  animation: slideUp 0.35s ease both;
+}
+.action-card.success {
+  border: 1px solid #b7eb8f;
+  background: #f6ffed;
+  color: #237804;
+  font-weight: 800;
+}
+.chat-input {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.chat-input input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #f9fafb;
+  color: #9ca3af;
+}
+.chat-input button {
+  width: 70px;
+  border: none;
+  border-radius: 6px;
+  background: #d9d9d9;
+  color: #fff;
+  font-weight: 800;
+}
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  min-height: 40px;
+  padding: 10px 16px;
+  background: #111827;
+  color: #fff;
+  text-align: center;
+  font-size: 13px;
+  box-shadow: 0 -6px 16px rgba(17, 24, 39, 0.14);
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseBorder {
+  0%, 100% { box-shadow: 0 10px 24px rgba(114, 46, 209, 0.12), 0 0 0 0 rgba(114, 46, 209, 0.35); }
+  50% { box-shadow: 0 10px 24px rgba(114, 46, 209, 0.12), 0 0 0 7px rgba(114, 46, 209, 0.13); }
+}
+@media (max-width: 768px) {
+  body { padding: 16px 12px 62px; }
+  .page-title { align-items: flex-start; flex-direction: column; }
+  .workspace { flex-direction: column; }
+  .form-panel, .ai-sidebar { flex: none; width: 100%; min-height: auto; }
+  .ai-sidebar { height: 72vh; }
+  .form-panel { padding: 16px; }
+  .services-grid { grid-template-columns: 1fr; }
+  .ai-guide-btn { margin-left: 0; }
+  .bubble { max-width: 94%; }
+}
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="page-title">
+    <h1>AI 增值指引 — SOP 生成与一键填入</h1>
+    <span class="title-tag">B 类场景 · 知识库模板匹配</span>
+  </div>
+
+  <div class="workspace">
+    <section class="form-panel">
+      <div class="form-steps">
+        <span class="step active">1. 增值产品信息</span>
+        <span class="step">2. 增值文件</span>
+        <span class="step">3. 提交</span>
+        <span class="ai-guide-btn" onclick="triggerSidebar()">🤖 AI 指引</span>
+      </div>
+
+      <div class="form-section">
+        <label>增值产品 <span class="required">*</span></label>
+        <div class="select-box" id="productSelect">请选择增值产品</div>
+      </div>
+
+      <div class="form-section">
+        <label>增值服务</label>
+        <div class="services-grid" id="servicesGrid"></div>
+      </div>
+
+      <div class="form-section">
+        <label>需求背景说明</label>
+        <div class="textarea-wrap" id="backgroundWrap">
+          <span class="ai-badge">AI 生成</span>
+          <textarea id="requirementBackground" rows="4" placeholder="请描述为什么需要该增值服务..."></textarea>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <label>需求描述 <span class="required">*</span></label>
+        <div class="fill-btn-row">
+          <button class="fill-btn" id="fillBtn" disabled onclick="fillForm()">📝 一键回填 AI 结果</button>
+          <span class="fill-hint" id="fillHint">请先在侧栏确认 SOP</span>
+        </div>
+        <div class="textarea-wrap" id="descriptionWrap">
+          <span class="ai-badge">AI 生成</span>
+          <textarea id="requirementDescription" rows="8" placeholder="请描述具体操作要求..."></textarea>
+        </div>
+      </div>
+
+      <div class="form-section" id="vasFilesSection">
+        <label>增值文件</label>
+        <div class="upload-item" id="upload1">
+          <span class="upload-icon">📎</span>
+          <span>操作说明附件</span>
+          <span class="upload-status">未上传</span>
+        </div>
+        <div class="upload-item" id="upload2">
+          <span class="upload-icon">📎</span>
+          <span>商品和标签的对应关系</span>
+          <span class="upload-status">未上传</span>
+        </div>
+        <div class="upload-item" id="upload3">
+          <span class="upload-icon">📎</span>
+          <span>标签文件</span>
+          <span class="upload-status">未上传</span>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <button class="submit-btn" id="submitBtn" onclick="handleSubmit()">提交增值单</button>
+      </div>
+    </section>
+
+    <aside class="ai-sidebar" id="aiSidebar">
+      <div class="sidebar-header">AI 增值指引</div>
+      <div class="chat-area" id="chatArea"></div>
+      <div class="chat-input">
+        <input type="text" placeholder="描述您的需求..." disabled>
+        <button disabled>发送</button>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<div class="bottom-bar">B 类场景：客户需求未上线为命名服务，但知识库有 SOP 模板 → AI 追问+生成+填入</div>
+
+<script>
+const SERVICES = [
+  { code: 'OSF6V1646', name: '货权转移（换标模式）' },
+  { code: 'OSF6V1647', name: '货权转移（改数模式）' },
+  { code: 'OSF6V1660', name: '审计盘点（非标）' },
+  { code: 'OSF6V1603', name: '库内其他服务需求', highlight: true },
+];
+
+const DEMO_FLOW = [
+  {
+    role: 'assistant',
+    text: '您好，我看到您正在新增库内增值单。\n\n请描述您希望仓库如何处理库内的这批货物，我来帮您：\n· 判断应选择哪个增值服务\n· 生成操作 SOP\n· 一键填入表单字段',
+    action: null
+  },
+  {
+    role: 'user',
+    text: '我有一批货跟马上要退仓入库的新货用了同一个三方条码，系统里没法区分，想把老的那批转成不良品存着',
+    action: null
+  },
+  {
+    role: 'assistant',
+    text: '收到，您这个需求看起来是"良品转不良品上架"方向，主要目的是把当前在库老货和后续退仓入库的新货区分开。\n\n为了生成可给仓库执行的操作说明，还需要您补充几项关键信息：\n1. 需要处理的 SKU 和数量分别是多少？\n2. 当前库存所在仓库是哪个？\n3. 退仓新货是否已经创建无箱单预报入库单？如有请提供单号。\n4. 在库老货是否需要先创建下架出库单？如有请提供单号。\n5. 这批老货转不良品的原因是为了区分库存，还是商品本身存在破损？',
+    action: null
+  },
+  {
+    role: 'user',
+    text: 'SKU 是 SKU-DE-15908221，数量 86 件，在 DEBR2 Warehouse。新货已经建了无箱单预报入库单，单号 WI51339338。老货需要先下架，出库单 WO12120399145 已经创建。转不良品不是因为破损，主要是老货和亚马逊退仓的新货三方条码一样，系统里没法同时绑定两个 SKU。需要仓库按新入库单补贴包裹标签后上架到不良品库位。',
+    action: null
+  },
+  {
+    role: 'assistant',
+    text: '已确认：您的需求为【良品转不良品上架】。\n\n建议填入：\n· 增值产品：库内非标增值（特批）\n· 增值服务：库内其他服务需求\n\n请确认下方操作 SOP 后，点击「一键回填」填入表单。',
+    action: 'showSopCard'
+  },
+  {
+    role: 'system',
+    text: null,
+    action: 'confirmSop'
+  },
+  {
+    role: 'system',
+    text: null,
+    action: 'fillFormAndShowCost'
+  }
+];
+
+const BACKGROUND_TEXT = '客户有一批老货当前存放在 DEBR2 Warehouse，SKU 绑定了第三方条码。后续会有一批亚马逊退仓新货入库，新货使用同一个三方条码，系统里无法用同一个三方条码同时区分两批 SKU。客户希望先把当前在库老货从良品库存转为不良品库存存放，主要是为了区分老货和新退仓货，不是因为商品实际破损。后续老货可能返修或安排人员进一步处理。';
+
+const DESCRIPTION_TEXT = '操作需求：良品转不良品上架\n\n仓库：DEBR2 Warehouse\nSKU/数量：SKU-DE-15908221，86 件\n新入库单：WI51339338\n下架出库单：WO12120399145\n转不良品原因：用于区分当前在库老货与后续同三方条码的亚马逊退仓新货，不是商品实际破损或质量不良\n\n具体要求：\n1. 仓库先按出库单 WO12120399145 将当前在库老货下架\n2. 下架后核对 SKU、数量、三方条码及实物状态，确认与客户提供信息一致\n3. 按无箱单预报入库单 WI51339338 对该批货物进行重新入库处理\n4. 如操作过程中需要补贴包裹标签，请按入库单信息补贴对应包裹标签\n5. 将该批货物按不良品属性上架至不良品库位\n6. 上架完成后反馈实际处理数量、异常差异及最终库位信息\n7. 如发现实物破损、数量差异、标签无法识别或无法匹配入库单，请暂停异常部分并反馈确认\n8. 费用以仓库实际操作项目和系统报价为准';
+
+let flowIndex = 0;
+let hasFilled = false;
+
+function renderServices() {
+  const grid = document.getElementById('servicesGrid');
+  grid.innerHTML = SERVICES.map(service => `
+    <div class="service-card ${service.highlight ? 'highlight' : ''}">
+      <span class="service-code">${service.code}</span>
+      <span class="service-name">${service.name}</span>
+    </div>
+  `).join('');
+}
+
+function triggerSidebar() {
+  document.getElementById('aiSidebar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function handleSubmit() {
+  const btn = document.getElementById('submitBtn');
+  btn.textContent = '已生成待提交增值单';
+  btn.style.background = 'var(--success)';
+}
+
+function scrollChat() {
+  const chatArea = document.getElementById('chatArea');
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function addMessage(role, text, variant) {
+  if (!text) return;
+  const chatArea = document.getElementById('chatArea');
+  const message = document.createElement('div');
+  message.className = `message ${role} ${variant || ''}`;
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  message.appendChild(bubble);
+  chatArea.appendChild(message);
+  scrollChat();
+}
+
+function addSopCard() {
+  const chatArea = document.getElementById('chatArea');
+  const card = document.createElement('div');
+  card.className = 'sop-card';
+  card.id = 'sopCard';
+  card.innerHTML = `
+    <div class="sop-header">📋 操作 SOP — 良品转不良品上架</div>
+    <div class="sop-body">
+      <div class="sop-meta">
+        <span>仓库：DEBR2 Warehouse</span>
+        <span>SKU：SKU-DE-15908221 × 86 件</span>
+      </div>
+      <ol class="sop-steps">
+        <li>按出库单 WO12120399145 将当前在库老货下架</li>
+        <li>下架后核对商品编码、数量、三方条码，确认与客户提供信息一致</li>
+        <li>按无箱单预报入库单 WI51339338 对该批货物进行重新入库处理</li>
+        <li>按入库单信息补贴对应包裹标签</li>
+        <li>将该批货物按不良品属性上架至不良品库位</li>
+        <li>上架完成后反馈实际处理数量、异常差异及最终库位信息</li>
+      </ol>
+    </div>
+    <div class="sop-footer">
+      <button class="sop-btn-confirm" id="sopConfirmBtn">✓ 确认并使用</button>
+      <button class="sop-btn-revise" id="sopReviseBtn">让 AI 再改一版</button>
+    </div>
+  `;
+  chatArea.appendChild(card);
+  document.getElementById('sopConfirmBtn').addEventListener('click', confirmSop);
+  scrollChat();
+}
+
+function confirmSop() {
+  const confirmBtn = document.getElementById('sopConfirmBtn');
+  const reviseBtn = document.getElementById('sopReviseBtn');
+  if (!confirmBtn || confirmBtn.classList.contains('confirmed')) return;
+  confirmBtn.textContent = '✅ 已确认';
+  confirmBtn.classList.add('confirmed');
+  confirmBtn.disabled = true;
+  if (reviseBtn) reviseBtn.style.display = 'none';
+  addMessage('assistant', '根据【良品转不良品上架】场景，您还需要上传以下文件：\n\n📎 必须上传：\n1. 操作说明附件\n2. 商品和标签的对应关系\n3. 标签文件\n\n请在表单"增值文件"处上传后再提交。', 'notice');
+  const fillBtn = document.getElementById('fillBtn');
+  fillBtn.disabled = false;
+  document.getElementById('fillHint').textContent = '✅ SOP 已确认，可以回填';
+}
+
+function typeText(element, text, speed) {
+  return new Promise(resolve => {
+    element.value = '';
+    let index = 0;
+    const timer = setInterval(() => {
+      element.value += text.charAt(index);
+      index += 1;
+      element.scrollTop = element.scrollHeight;
+      if (index >= text.length) {
+        clearInterval(timer);
+        resolve();
+      }
+    }, speed);
+  });
+}
+
+async function fillForm() {
+  if (hasFilled) return;
+  hasFilled = true;
+  const fillBtn = document.getElementById('fillBtn');
+  fillBtn.disabled = true;
+  fillBtn.textContent = '正在回填...';
+  const productSelect = document.getElementById('productSelect');
+  productSelect.textContent = '库内非标增值（特批）';
+  productSelect.classList.add('selected');
+
+  const background = document.getElementById('requirementBackground');
+  const description = document.getElementById('requirementDescription');
+  await Promise.all([
+    typeText(background, BACKGROUND_TEXT, 50),
+    typeText(description, DESCRIPTION_TEXT, 50)
+  ]);
+  background.classList.add('filled');
+  description.classList.add('filled');
+  document.getElementById('backgroundWrap').classList.add('generated');
+  document.getElementById('descriptionWrap').classList.add('generated');
+  fillBtn.textContent = '✅ AI 结果已回填';
+  document.getElementById('fillHint').textContent = '已填入，可继续上传增值文件并提交';
+  showCostAndSuccess();
+}
+
+function showCostAndSuccess() {
+  const chatArea = document.getElementById('chatArea');
+  const cost = document.createElement('div');
+  cost.className = 'cost-bubble';
+  cost.textContent = '💰 预估费用：\n\n费用名称          价格\n上下架处理费       $8.50\n标签处理费         $172.00（$2.00/件×86件）\n非标操作工时费     $15.00\n合计预估          $195.50\n\n⚠️ 以上为 AI 预估，最终以审核后正式报价为准。';
+  chatArea.appendChild(cost);
+
+  const action = document.createElement('div');
+  action.className = 'action-card success';
+  action.textContent = '✅ 已回填：增值产品 + 增值服务 + 需求背景说明 + 需求描述';
+  chatArea.appendChild(action);
+  scrollChat();
+}
+
+function playNext() {
+  if (flowIndex >= DEMO_FLOW.length) return;
+  const step = DEMO_FLOW[flowIndex];
+  flowIndex += 1;
+  if (step.text) addMessage(step.role, step.text);
+  if (step.action === 'showSopCard') addSopCard();
+  if (step.action === 'confirmSop') confirmSop();
+  if (step.action === 'fillFormAndShowCost') fillForm();
+  if (flowIndex < DEMO_FLOW.length) {
+    setTimeout(playNext, 1000);
+  }
+}
+
+renderServices();
+window.addEventListener('load', () => {
+  setTimeout(playNext, 1000);
+});
+</script>
+</body>
+</html>
