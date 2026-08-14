@@ -498,6 +498,24 @@ Steps in English:
   </div>
 </div>
 
+<div class="validation-modal" id="validationModalD">
+  <div class="validation-box">
+    <div class="validation-header" style="background:linear-gradient(135deg,#fa8c16,#faad14);color:#fff;">
+      🔍 标准增值可替代性检查
+    </div>
+    <div class="validation-body">
+      <div class="validation-item" style="border-color:#ffe58f;background:#fffbe6;color:#ad6800;">
+        ⚠️ AI 检测到您的需求可以使用标准增值服务覆盖：<br>
+        <strong style="font-size:14px;">【直接上架】</strong><br>
+        <span style="font-size:12px;">无需走非标特批流程，选择标准增值即可直接执行，无需审核等待。</span>
+      </div>
+    </div>
+    <div class="validation-footer">
+      <button class="validation-btn-ok" onclick="switchToStandard()">确认，切换到标准增值</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============= 数据配置 =============
 
@@ -980,6 +998,7 @@ let sopConfirmed = false;
 let attachmentsUploaded = false;
 let attachmentPromptTimer = null;
 let suppressNonstandardPrompt = false;
+const STANDARD_KEYWORDS = ['直接上架', '不用换标', '原单上架不贴标', '不需要贴标', '直接入库'];
 const AI_GUIDE_OPEN_MESSAGE = '您好，请告诉我您想如何处理这批货物，我来帮您选择增值服务并生成操作说明。';
 const NONSTANDARD_OPEN_MESSAGE = '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。';
 
@@ -1094,6 +1113,12 @@ function sendMessage() {
   if (!text) return;
   appendAiBubble('user', text);
   input.value = '';
+  if (STANDARD_KEYWORDS.some(kw => text.includes(kw))) {
+    setTimeout(() => {
+      const modal = document.getElementById('validationModalD');
+      if (modal) modal.classList.add('show');
+    }, 1500);
+  }
   const thinking = appendAiBubble('assistant', 'AI 正在思考...');
   setTimeout(() => {
     const content = thinking.querySelector('.ai-bubble-content');
@@ -1234,6 +1259,16 @@ function closeValidationA_useStandard() {
   clearNonstandardFields();
   switchToStandardService();
   showToast('已切换到标准增值【直接上架】', 3000);
+}
+
+function switchToStandard() {
+  const modal = document.getElementById('validationModalD');
+  if (modal) modal.classList.remove('show');
+  clearNonstandardFields();
+  switchToStandardService();
+  const sidebar = document.getElementById('aiSidebar');
+  if (sidebar) sidebar.classList.remove('open');
+  showToast('已切换到标准增值【直接上架】，无需审核即可执行', 4000);
 }
 
 function showValidationB() {
