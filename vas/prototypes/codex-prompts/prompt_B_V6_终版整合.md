@@ -10,45 +10,74 @@
 
 根据以下完整验收清单，一次性修改到位。本 prompt 覆盖所有之前零散提出的修复点，以本文为准，之前的迭代 prompt 作废。
 
+**重要**：本文件中如有残留的旧"Step 1~Step 5"步骤式逻辑（标记为 ~~废弃~~），请直接忽略/删除。以 §4 的场景播放逻辑为准。
+
 ---
 
-## §2 演示控制台布局
+## §2 演示控制台布局（场景化+旁白）
+
+### 2.1 控制台 HTML
 
 ```html
 <div class="demo-console">
-  <div class="demo-console-title">🎬 原型演示控制台（仅开发/评审可见，非线上真实界面）</div>
+  <div class="demo-console-title">🎬 原型演示（点击场景自动播放完整交互）</div>
   <div class="demo-console-steps">
-    <span class="demo-row-label">主流程：</span>
-    <button id="demoStep1" class="demo-step-btn active" onclick="demoStep1()">
-      <span class="step-badge">1</span> 选中非标→弹侧栏
-    </button>
-    <span class="demo-arrow">→</span>
-    <button id="demoStep2" class="demo-step-btn" onclick="demoStep2()" disabled>
-      <span class="step-badge">2</span> AI 对话
-    </button>
-    <span class="demo-arrow">→</span>
-    <button id="demoStep3" class="demo-step-btn" onclick="demoStep3()" disabled>
-      <span class="step-badge">3</span> 确认 SOP
-    </button>
-    <span class="demo-arrow">→</span>
-    <button id="demoStep4" class="demo-step-btn" onclick="demoStep4()" disabled>
-      <span class="step-badge">4</span> 一键回填
-    </button>
-    <span class="demo-arrow">→</span>
-    <button id="demoStep5" class="demo-step-btn" onclick="demoStep5()" disabled>
-      <span class="step-badge">5</span> 提交校验
-    </button>
+    <span class="demo-row-label">入口对比：</span>
+    <button class="demo-step-btn" onclick="demoEntry1()">点"AI指引"触发</button>
+    <button class="demo-step-btn" onclick="demoEntry2()">选中非标触发</button>
   </div>
   <div class="demo-console-steps" style="margin-top:6px;">
-    <span class="demo-row-label">独立演示：</span>
-    <button class="demo-step-btn demo-extra" onclick="demoValidationA()">校验A：标准可替代拦截</button>
+    <span class="demo-row-label">场景演示：</span>
+    <button class="demo-step-btn" onclick="demoA1()">A1 AI完整下单✅</button>
+    <button class="demo-step-btn" onclick="demoA2()">A2 附件拦截❌</button>
+    <button class="demo-step-btn" onclick="demoB()">B 跳过AI自己填✅</button>
+    <button class="demo-step-btn" onclick="demoC()">C 填不好拦回AI</button>
+    <button class="demo-step-btn" onclick="demoD()">D 误选非标→纠正</button>
+  </div>
+  <div class="demo-console-steps" style="margin-top:6px;">
+    <span class="demo-row-label">其他：</span>
     <button class="demo-step-btn demo-extra" onclick="openAuditModal()">审核视角</button>
     <button class="demo-step-btn demo-extra" onclick="resetDemo()">重置</button>
   </div>
 </div>
 ```
 
-**控制台不遮内容**：DOMContentLoaded 时动态设置 `document.body.style.paddingTop = document.querySelector('.demo-console').offsetHeight + 'px'`。
+### 2.2 旁白条
+
+在页面底部固定一个旁白条，演示过程中动态更新文字：
+
+```html
+<div class="demo-narrator" id="narrator">
+  💬 点击上方场景按钮开始演示
+</div>
+```
+
+```css
+.demo-narrator {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #1a1a2e; color: #fff; padding: 10px 20px;
+  font-size: 13px; z-index: 9998; text-align: center;
+  border-top: 1px solid #333;
+  transition: opacity 0.3s;
+}
+```
+
+JS 更新旁白的工具函数：
+```javascript
+function narrate(text) {
+  document.getElementById('narrator').textContent = '💬 ' + text;
+}
+```
+
+### 2.3 控制台不遮内容
+
+DOMContentLoaded 时动态设置：
+```javascript
+const consoleHeight = document.querySelector('.demo-console').offsetHeight;
+const narratorHeight = document.querySelector('.demo-narrator').offsetHeight;
+document.body.style.paddingTop = consoleHeight + 'px';
+document.body.style.paddingBottom = narratorHeight + 'px';
+```
 
 ---
 
@@ -92,7 +121,178 @@
 
 ---
 
-## §4 主流程步骤逻辑
+## §4 场景播放逻辑（替代步骤式）
+
+**整体模式**：每个场景按钮触发一个自动播放序列。每步有延迟+旁白更新。业务方只需点一个按钮即可看完整链路。
+
+### 4.0 通用工具
+
+```javascript
+function playSequence(actions) {
+  resetDemo();
+  let delay = 0;
+  actions.forEach(action => {
+    setTimeout(() => {
+      narrate(action.narrate);
+      action.exec();
+    }, delay);
+    delay += action.wait || 1500;
+  });
+}
+
+function narrate(text) {
+  document.getElementById('narrator').textContent = '💬 ' + text;
+}
+```
+
+### 4.1 入口对比（快速展示两种触发差异）
+
+```javascript
+function demoEntry1() {
+  resetDemo();
+  narrate('客户主动点击"AI指引"按钮，页面无任何选中态');
+  setTimeout(() => {
+    toggleAiSidebar(true);
+    appendAiBubble('assistant', '您好，请告诉我您想如何处理这批货物，我来帮您选择增值服务并生成操作说明。');
+    narrate('AI 侧栏打开，AI 主动问客户需求。此时 AI 需帮判断走标准还是非标');
+  }, 1000);
+}
+
+function demoEntry2() {
+  resetDemo();
+  narrate('客户在表单中选中"入库其他服务需求"（非标兜底服务）');
+  setTimeout(() => {
+    selectNonstandardAtom();
+    appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。');
+    narrate('AI 侧栏强制弹出，已知走非标，直接追问需求细节');
+  }, 1000);
+}
+```
+
+### 4.2 场景 A1：AI 完整下单（成功）
+
+动作序列：选非标→弹侧栏→AI对话→确认SOP→一键回填→附件已上传→提交成功
+
+```javascript
+function demoA1() {
+  playSequence([
+    { narrate: '客户选中"入库其他服务需求"，AI 侧栏强制弹出', exec: selectNonstandardAtom, wait: 1500 },
+    { narrate: 'AI 主动询问客户需求', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。'), wait: 1500 },
+    { narrate: '客户用口语描述需求（模糊、不完整）', exec: () => appendAiBubble('user', DEMO_DIALOG[0].text), wait: 1500 },
+    { narrate: 'AI 识别方向，追问关键信息（SKU/数量/单据号）', exec: () => appendAiBubble('assistant', DEMO_DIALOG[1].text), wait: 2500 },
+    { narrate: '客户补充完整信息', exec: () => appendAiBubble('user', DEMO_DIALOG[2].text), wait: 2500 },
+    { narrate: 'AI 确认需求，生成 SOP 卡片', exec: () => { appendAiBubble('assistant', DEMO_DIALOG[3].text); appendSopCard(); }, wait: 2500 },
+    { narrate: '客户确认 SOP → AI 提示需上传附件 → 回填按钮激活', exec: confirmSop, wait: 2000 },
+    { narrate: 'AI 自动填入表单（增值产品+增值服务+需求背景+需求描述）', exec: fillForm, wait: 2000 },
+    { narrate: '客户已上传附件（演示中模拟已传）', exec: markAttachmentsUploaded, wait: 1500 },
+    { narrate: '客户点提交 → 描述清晰✅ 附件完整✅ → 提交成功', exec: () => showToast('✅ 增值单提交成功！SOP 已同步至审核后台', 4000), wait: 2000 },
+    { narrate: '✅ 场景 A1 完成：AI 帮客户从头到尾搞定下单', exec: () => {}, wait: 0 }
+  ]);
+}
+```
+
+### 4.3 场景 A2：附件缺失被拦截
+
+动作序列：同A1到一键回填→但未传附件→提交→被拦→红框
+
+```javascript
+function demoA2() {
+  playSequence([
+    { narrate: '客户选中非标，AI 侧栏弹出', exec: selectNonstandardAtom, wait: 1500 },
+    { narrate: 'AI 询问需求', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。'), wait: 1500 },
+    { narrate: '客户描述需求', exec: () => appendAiBubble('user', DEMO_DIALOG[0].text), wait: 1500 },
+    { narrate: 'AI 追问关键信息', exec: () => appendAiBubble('assistant', DEMO_DIALOG[1].text), wait: 2500 },
+    { narrate: '客户补充', exec: () => appendAiBubble('user', DEMO_DIALOG[2].text), wait: 2500 },
+    { narrate: 'AI 生成 SOP 卡片', exec: () => { appendAiBubble('assistant', DEMO_DIALOG[3].text); appendSopCard(); }, wait: 2500 },
+    { narrate: '客户确认 SOP', exec: confirmSop, wait: 2000 },
+    { narrate: '一键回填需求描述（但客户未上传附件）', exec: fillForm, wait: 2000 },
+    { narrate: '客户点提交 → 附件校验不通过 ❌', exec: showValidationB, wait: 2000 },
+    { narrate: '❌ 附件缺失拦截，上传区标红。客户必须补充后再提交', exec: closeValidationB, wait: 2000 },
+    { narrate: '❌ 场景 A2 完成：AI 已帮填好描述，但附件未传被拦截', exec: () => {}, wait: 0 }
+  ]);
+}
+```
+
+### 4.4 场景 B：跳过 AI 自己填（成功）
+
+动作序列：弹侧栏→关闭→自己填清楚→传附件→提交成功
+
+```javascript
+function demoB() {
+  playSequence([
+    { narrate: '客户选中非标，AI 侧栏弹出建议对话', exec: selectNonstandardAtom, wait: 1500 },
+    { narrate: 'AI 弹出后主动询问', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求...'), wait: 1500 },
+    { narrate: '客户选择不和 AI 对话，关闭侧栏', exec: () => toggleAiSidebar(false), wait: 1500 },
+    { narrate: '客户自己手动填写需求背景+需求描述（内容详细完整）', exec: fillFormManuallyGood, wait: 2500 },
+    { narrate: '客户上传了必要附件', exec: markAttachmentsUploaded, wait: 1500 },
+    { narrate: '客户点提交 → 描述清晰✅ 附件完整✅ → 直接提交成功', exec: () => showToast('✅ 增值单提交成功！不用和 AI 对话，填得好一样能过', 4000), wait: 2000 },
+    { narrate: '✅ 场景 B 完成：会填的客户不强制对话，尊重客户能力', exec: () => {}, wait: 0 }
+  ]);
+}
+```
+
+### 4.5 场景 C：填不好被拦回 AI
+
+动作序列：弹侧栏→关闭→随便写→提交→拦截→强制弹侧栏→AI追问
+
+```javascript
+function demoC() {
+  playSequence([
+    { narrate: '客户选中非标，AI 侧栏弹出', exec: selectNonstandardAtom, wait: 1500 },
+    { narrate: 'AI 弹出建议对话', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求...'), wait: 1500 },
+    { narrate: '客户关闭侧栏，不和 AI 对话', exec: () => toggleAiSidebar(false), wait: 1500 },
+    { narrate: '客户随便写了"帮我处理下"（信息不完整）', exec: fillFormManuallyBad, wait: 2000 },
+    { narrate: '客户点提交 → 描述不清晰 ❌ 缺少关键信息', exec: showValidationB_unclear, wait: 2000 },
+    { narrate: '❌ 被拦截！AI 侧栏强制重新打开', exec: forceReopenSidebarWithPrompt, wait: 2000 },
+    { narrate: 'AI 告知客户需要补充 SKU/数量/单据号/操作要求', exec: () => {}, wait: 2000 },
+    { narrate: '❌→ 场景 C 完成：填不清楚的被拦回 AI，必须补充后再提交', exec: () => {}, wait: 0 }
+  ]);
+}
+```
+
+### 4.6 场景 D：误选非标→纠正标准（入口 1a 触发）
+
+动作序列：点AI指引→无选中→AI问→客户说直接上架→AI检测→弹窗拦截→切标准
+
+```javascript
+function demoD() {
+  playSequence([
+    { narrate: '客户不确定选什么，点击"AI 指引"按钮（页面无选中态）', exec: () => toggleAiSidebar(true), wait: 1500 },
+    { narrate: 'AI 主动询问客户需求', exec: () => appendAiBubble('assistant', '您好，请告诉我您想如何处理这批货物，我来帮您选择增值服务并生成操作说明。'), wait: 2000 },
+    { narrate: '客户说"帮我直接上架就行"', exec: () => appendAiBubble('user', '帮我直接上架就行'), wait: 1500 },
+    { narrate: 'AI 检测到：这个需求标准增值"直接上架"就能解决', exec: () => appendAiBubble('assistant', '您描述的需求可以使用标准增值服务【直接上架】覆盖，无需走非标特批流程。建议切换到标准增值。'), wait: 2500 },
+    { narrate: '⚠️ 弹窗拦截：提示客户走标准增值即可', exec: showValidationA, wait: 2000 },
+    { narrate: '客户点击"切换到标准增值" → 自动选中直接上架', exec: closeValidationA_useStandard, wait: 2000 },
+    { narrate: '↩️ 场景 D 完成：AI 帮客户纠正路径，避免走错非标流程', exec: () => {}, wait: 0 }
+  ]);
+}
+```
+
+### 4.7 辅助函数清单
+
+| 函数 | 作用 |
+|------|------|
+| `selectNonstandardAtom()` | 选中"入库其他服务需求"卡片高亮 + 强制打开侧栏 |
+| `fillFormManuallyGood()` | 模拟手动填写完整清晰的需求背景+需求描述 |
+| `fillFormManuallyBad()` | 模拟手动填写"帮我处理下"（模糊不完整） |
+| `markAttachmentsUploaded()` | 模拟附件已上传（上传项显示文件名+绿色状态） |
+| `showValidationB()` | 弹校验B模态框（附件缺失场景） |
+| `showValidationB_unclear()` | 弹校验B模态框（描述不清晰场景） |
+| `closeValidationB()` | 关闭校验B + 附件标红 |
+| `forceReopenSidebarWithPrompt()` | 强制打开侧栏 + AI 追问补充信息 |
+| `showValidationA()` | 弹校验A模态框（标准可替代） |
+| `closeValidationA_useStandard()` | 关闭校验A + 切换到标准增值 |
+| `appendSopCard()` | 在对话区追加 SOP 卡片 DOM |
+| `appendAiBubble(role, text)` | 追加对话气泡 |
+| `toggleAiSidebar(forceState)` | 开关侧栏 |
+
+---
+
+## §5 SOP 卡片交互
+
+> 注意：以下 §5 开始为保留的 UI 规格部分，§4 的旧步骤逻辑已被上面的场景播放逻辑完全替代，以下如有残留的 Step 1~5 代码请 Codex 直接删除。
+
+~~以下旧步骤逻辑已废弃，Codex 请删除到下一个 `---` 分隔符为止~~
 
 ### Step 1：选中非标→弹侧栏
 
