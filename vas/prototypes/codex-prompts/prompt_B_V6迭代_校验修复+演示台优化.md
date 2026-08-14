@@ -14,21 +14,22 @@
 
 ## §2 修改内容
 
-### 2.1 修复校验触发逻辑
+### 2.1 删除旧 handleSubmit()，统一由步骤按钮触发
 
-将 `handleSubmit()` 改为：**只要提交时检测到"需求背景说明"或"需求描述"有内容（说明走了非标路径），就触发 AI 校验模态框**。不再依赖 `state.combo`。
+**最终口径**：删除旧的 `handleSubmit()` 函数及其在提交按钮上的 event listener 绑定。校验只通过演示步骤 4 和步骤 5 触发（即 `showValidationA()` 和 `showValidationB()`）。
+
+页面底部的"提交"按钮改为：点击时直接调用 `demoStep5()`（如果 step5 已激活）或显示 toast "请先完成演示步骤 1-4"（如果未激活）。
 
 ```javascript
-function handleSubmit() {
-  const bg = document.getElementById('requirementBackground');
-  const desc = document.getElementById('requirementDescription');
-  // 只要非标字段有内容就触发校验（无论是 AI 填的还是客户手写的）
-  if ((bg && bg.value.trim()) || (desc && desc.value.trim())) {
-    document.getElementById('validationModal').classList.add('show');
-    return;
+// 替换原来的 handleSubmit 绑定
+document.getElementById('submitBtn').addEventListener('click', function() {
+  const step5 = document.getElementById('demoStep5');
+  if (step5 && !step5.disabled) {
+    demoStep5();
+  } else {
+    showToast('请先完成演示步骤 1-4（点击控制台按钮）', 3000);
   }
-  showToast('增值单提交成功（模拟）', 3000);
-}
+});
 ```
 
 ### 2.2 重做演示控制台（步骤化、带状态提示）
@@ -244,9 +245,9 @@ function closeValidationB(confirmed) {
 
 同时删除旧的 `handleSubmit()` 函数，改为由步骤按钮直接调用 `showValidationA()` / `showValidationB()`。
 
-### 2.4 保留旧按钮的功能函数
+### 2.6 保留的功能函数
 
-`runDemo()`、`fillForm()`、`confirmSop()`、`handleSubmit()` 这些函数保留不变（步骤按钮调用它们）。只是不再把它们直接暴露在演示控制台上作为独立按钮。
+`runDemo()`、`fillForm()`、`confirmSop()` 这三个函数保留不变（步骤按钮调用它们）。`handleSubmit()` 删除，由 `showValidationA()` / `showValidationB()` 替代。
 
 ## §3 约束
 
