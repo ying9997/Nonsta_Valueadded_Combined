@@ -4,7 +4,9 @@
 
 - 仓库：https://github.com/ying9997/Vas-Nonstandard-Guide
 - 分支：main
-- 目标文件：`prototypes/B_侧边栏演示_V6版.html`（在现有文件基础上修改）
+- 产出文件（两个）：
+  - `prototypes/B_侧边栏演示_V6版.html` — **演示版**：带演示控制台+旁白+场景按钮，用于给业务方做引导演示
+  - `prototypes/B_侧边栏真实体验版.html` — **真实版**：无任何演示控制台/旁白，还原真实产品交互，业务方自己上手点击验收
 
 ## §1 总体目标
 
@@ -669,16 +671,50 @@ const DEMO_DIALOG = [
 
 ---
 
+## §13b 真实体验版（B_侧边栏真实体验版.html）
+
+基于演示版去掉所有演示专属元素，保留真实产品交互：
+
+**去掉**：
+- 演示控制台（`.demo-console` 整个区块）
+- 旁白条（`.demo-narrator` 整个区块）
+- 场景播放逻辑（`startScenario`、`nextStep`、`prevStep`、`demoA1`~`demoD` 等函数）
+- body 的 padding-top/padding-bottom（无控制台/旁白不需要）
+- V6 标识 badge
+- `demo-highlight` 动画
+
+**保留**：
+- AI 侧栏完整交互（push 模式、打开/关闭）
+- "🤖 AI 指引"按钮（点击打开侧栏 + AI 代发消息）
+- 选中"入库其他服务需求"时强制弹侧栏 + AI 代发消息
+- AI 对话区（客户可输入、AI 回复用静态模拟即可——输入后显示"AI 正在思考..."占位）
+- SOP 卡片（确认/再改按钮）
+- 一键回填按钮（disabled→enabled 逻辑）
+- AI 生成徽章
+- 提交校验（描述清晰度+附件完整性两维度）
+- 校验 A（标准可替代拦截）
+- 附件区 3 个上传项 + 错误态
+- 费用预估气泡
+- 审核模态框（可通过某处隐藏入口打开，如 Ctrl+Shift+A）
+
+**交互逻辑**：
+- 业务方自己点"AI 指引"或选中非标 → 侧栏打开
+- 侧栏有输入框，输入后显示"AI 正在思考..."（不做真实 AI 调用，只是 UI 占位）
+- 如果要看完整 AI 对话效果 → 用演示版
+- 如果要自己验证"一键回填是否正确选中字段""附件校验是否标红" → 用真实版
+
+**注意**：真实版中"一键回填"按钮需要有内容可填。解决方案：侧栏打开后自动预置一条 AI 消息（含 SOP 卡片），客户点确认后即可触发回填。不需要走完整多轮对话。
+
 ## §14 约束
 
-- **只修改** `prototypes/B_侧边栏演示_V6版.html`
-- 所有 CSS/JS 内联，不引入第三方库
+- **产出两个文件**：`prototypes/B_侧边栏演示_V6版.html`（演示版）+ `prototypes/B_侧边栏真实体验版.html`（真实版）
+- 两个文件各自独立，所有 CSS/JS 内联，不引入第三方库
 - 不改其他文件
 - 以本 prompt 为准，之前的零散迭代 prompt 作废
 - 如有歧义标记 `[AMBIGUITY]`
 
 ## §15 Git 规范
 
-- commit message：`feat(prototype-B-V6): final integration - complete demo flow with all interactions`
+- commit message：`feat(prototype-B-V6): final integration - demo version + clean experience version`
 - push 到 main 分支
 - 如果 push 失败，直接输出文件完整内容
