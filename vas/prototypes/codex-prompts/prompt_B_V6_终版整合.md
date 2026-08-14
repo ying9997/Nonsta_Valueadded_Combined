@@ -100,7 +100,48 @@ function executeCurrentStep() {
   document.getElementById('narratorProgress').textContent = 
     '步骤 ' + (currentStepIndex + 1) + '/' + currentScenarioSteps.length;
   step.exec();
+  
+  // 自动滚动到该步骤操作的目标元素，让业务方看到变化
+  if (step.scrollTo) {
+    const target = document.querySelector(step.scrollTo);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // 短暂高亮闪烁，引导视线
+      target.classList.add('demo-highlight');
+      setTimeout(() => target.classList.remove('demo-highlight'), 2000);
+    }
+  }
 }
+```
+
+高亮闪烁样式：
+```css
+.demo-highlight {
+  animation: demoFlash 0.6s ease 2;
+}
+@keyframes demoFlash {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 0 4px rgba(160,121,42,0.5); }
+}
+```
+
+### 每步的 scrollTo 字段说明
+
+每个步骤可选填 `scrollTo`（CSS 选择器），指定该步执行后页面应滚动到哪个元素并高亮：
+
+| 动作类型 | scrollTo 值 |
+|---------|------------|
+| 选中卡片 | `'#atomCards'` 或具体卡片选择器 |
+| AI 侧栏弹出/对话 | `'#aiSidebar'` 或 `'.ai-chat-area'` |
+| SOP 卡片出现 | `'.sop-card-v6'` |
+| 一键回填 | `'#requirementBackground'` |
+| 附件标红 | `'#vasFilesSection'` |
+| 校验模态框 | 不需要 scrollTo（模态框 fixed 居中，自动可见） |
+
+示例（场景 A1 中某步）：
+```javascript
+{ narrate: 'AI 自动填入表单', exec: fillForm, scrollTo: '#requirementBackground' },
+```
 
 function nextStep() {
   if (currentStepIndex < currentScenarioSteps.length - 1) {
