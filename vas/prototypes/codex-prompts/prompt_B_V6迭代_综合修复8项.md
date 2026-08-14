@@ -8,17 +8,103 @@
 
 ## §1 修改清单（8 项）
 
-### 修复 1：校验 B 去掉"仍然提交"，附件错误态
+### 修复 1：校验 B 去掉"仍然提交"，附件错误态 + 附件区域完善
 
-**问题**：校验 B 检测到附件未上传时，不应该让客户跳过，应该强制返回补充。
+**问题**：
+1. 校验 B 检测到附件未上传时，不应该让客户跳过，应该强制返回补充
+2. 当前页面"增值文件"区域不够完整，需要参考线上实际结构
 
 **改为**：
+
+#### 1a. 校验 B 模态框改动
 - 移除"仍然提交（附件可后补）"按钮
 - 只保留"返回补充附件"按钮
-- 点击后关闭模态框，同时把页面上"增值文件"上传区域标记为错误态：
-  - 上传区域加红色边框 `border: 1px solid #ff4d4f`
-  - 上传区域下方加红色提示文字 `<span class="upload-error-tip">请上传此附件</span>`
-  - 样式：`.upload-error-tip { color: #ff4d4f; font-size: 12px; margin-top: 4px; display: block; }`
+- 点击后关闭模态框，同时把页面上"增值文件"中未上传的上传区域标记为错误态
+
+#### 1b. 增值文件区域（参考线上 `入库其他服务需求` 页面）
+
+在表单中需求描述 textarea 下方，新增/替换"增值文件"区域，包含以下 3 个上传项（参考线上真实结构）：
+
+```html
+<div class="form-group" id="vasFilesSection">
+  <label class="form-section-label">增值文件</label>
+  
+  <!-- 上传项 1：操作说明附件 -->
+  <div class="upload-item" id="uploadSop">
+    <div class="upload-label">操作说明附件 <span class="req">*</span></div>
+    <div class="upload-box" id="uploadSopBox">
+      <button class="upload-btn">
+        <span class="upload-icon">📤</span> 操作说明附件
+      </button>
+    </div>
+    <div class="upload-hint">仅支持 .DOC, .DOCX, .PDF, .XLS, .XLSX 格式</div>
+    <a class="upload-template-link">点击下载模板文件</a>
+    <span class="upload-error-tip" id="uploadSopError"></span>
+  </div>
+
+  <!-- 上传项 2：商品和标签的对应关系 -->
+  <div class="upload-item" id="uploadRelation">
+    <div class="upload-label">商品和标签的对应关系 <span class="req">*</span></div>
+    <div class="upload-box" id="uploadRelationBox">
+      <button class="upload-btn">
+        <span class="upload-icon">📤</span> 商品和标签的对应关系
+      </button>
+    </div>
+    <div class="upload-hint">仅支持 .XLS, .XLSX 格式</div>
+    <a class="upload-template-link">点击下载模板文件</a>
+    <span class="upload-error-tip" id="uploadRelationError"></span>
+  </div>
+
+  <!-- 上传项 3：标签文件 -->
+  <div class="upload-item" id="uploadLabel">
+    <div class="upload-label">标签文件 <span class="req">*</span></div>
+    <div class="upload-box" id="uploadLabelBox">
+      <button class="upload-btn">
+        <span class="upload-icon">📤</span> 标签文件
+      </button>
+    </div>
+    <div class="upload-hint">仅支持 .7Z, .JPEG, .JPG, .PDF, .PNG, .RAR, .ZIP 格式</div>
+    <span class="upload-error-tip" id="uploadLabelError"></span>
+  </div>
+</div>
+```
+
+#### 1c. 附件区域样式
+
+```css
+.upload-item { margin-bottom: 14px; padding: 12px; border: 1px solid #eee; border-radius: 6px; background: #fafafa; }
+.upload-item.error { border-color: #ff4d4f; background: #fff2f0; }
+.upload-label { font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #333; }
+.upload-box { margin-bottom: 6px; }
+.upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px dashed #d9d9d9; border-radius: 4px; background: #fff; color: #666; font-size: 12px; cursor: pointer; }
+.upload-btn:hover { border-color: #A0792A; color: #A0792A; }
+.upload-hint { font-size: 11px; color: #faad14; margin-bottom: 4px; }
+.upload-template-link { font-size: 12px; color: #1677ff; cursor: pointer; text-decoration: none; }
+.upload-template-link:hover { text-decoration: underline; }
+.upload-error-tip { color: #ff4d4f; font-size: 12px; margin-top: 4px; display: none; }
+.upload-item.error .upload-error-tip { display: block; }
+.upload-item.error .upload-btn { border-color: #ff4d4f; }
+```
+
+#### 1d. 校验 B 关闭后的错误态逻辑
+
+```javascript
+function closeValidationB(confirmed) {
+  document.getElementById('validationModalB').classList.remove('show');
+  // 标记所有附件上传项为错误态
+  ['uploadSop', 'uploadRelation', 'uploadLabel'].forEach(id => {
+    const item = document.getElementById(id);
+    if (item) {
+      item.classList.add('error');
+      const errorTip = item.querySelector('.upload-error-tip');
+      if (errorTip) errorTip.textContent = '请上传此附件';
+    }
+  });
+  // 滚动到附件区域
+  const filesSection = document.getElementById('vasFilesSection');
+  if (filesSection) filesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+```
 
 ### 修复 2：SOP 卡片只展示中文步骤
 
