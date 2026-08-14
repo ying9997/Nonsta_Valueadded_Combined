@@ -220,6 +220,7 @@ body { padding-top: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI
 .upload-box { margin-bottom: 6px; }
 .upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px dashed #d9d9d9; border-radius: 4px; background: #fff; color: #666; font-size: 12px; cursor: pointer; }
 .upload-btn:hover { border-color: #A0792A; color: #A0792A; }
+.upload-item.uploaded .upload-btn { border-color: #52c41a; cursor: default; }
 .upload-file-name { color: #237804; font-size: 12px; font-weight: 500; }
 .upload-hint { font-size: 11px; color: #faad14; margin-bottom: 4px; }
 .upload-template-link { font-size: 12px; color: #1677ff; cursor: pointer; text-decoration: none; }
@@ -467,6 +468,10 @@ Steps in English:
 
 <div class="action-toast" id="actionToast"></div>
 
+<div class="verify-hint" style="position:fixed;bottom:40px;right:20px;background:#e6f7ff;border:1px solid #91d5ff;border-radius:6px;padding:8px 12px;font-size:11px;color:#0050b3;max-width:280px;z-index:50;">
+  💡 验证提示：关闭侧栏后手动填写需求描述（含SKU+数量+单据号+操作要求，≥50字），上传附件后点提交可直接成功
+</div>
+
 <div class="validation-modal" id="validationModalA">
   <div class="validation-box">
     <div class="validation-header" style="background:linear-gradient(135deg,#fa8c16,#faad14);">
@@ -494,6 +499,43 @@ Steps in English:
     </div>
     <div class="validation-footer">
       <button class="validation-btn-ok" id="validationModalBAction" onclick="closeValidationB()">返回补充附件</button>
+    </div>
+  </div>
+</div>
+
+<div class="validation-modal" id="validationModalB_unclear">
+  <div class="validation-box">
+    <div class="validation-header" style="background:linear-gradient(135deg,#1677ff,#4096ff);color:#fff;">
+      📋 提交前智能校验
+    </div>
+    <div class="validation-body">
+      <div class="validation-item" style="border-color:#ff4d4f;background:#fff2f0;color:#a8071a;">
+        ❌ 需求描述清晰度：不通过<br>
+        <span style="font-size:12px;">描述中缺少关键信息（需包含：SKU/商品编码、数量、单据号、具体操作要求），请与 AI 对话补充完善。</span>
+      </div>
+    </div>
+    <div class="validation-footer">
+      <button class="validation-btn-ok" onclick="closeValidationB_unclear()">与 AI 对话补充</button>
+    </div>
+  </div>
+</div>
+
+<div class="validation-modal" id="validationModalB_attachment">
+  <div class="validation-box">
+    <div class="validation-header" style="background:linear-gradient(135deg,#1677ff,#4096ff);color:#fff;">
+      📋 提交前智能校验
+    </div>
+    <div class="validation-body">
+      <div class="validation-item" style="border-color:#52c41a;background:#f6ffed;color:#237804;">
+        ✅ 需求描述清晰度：通过
+      </div>
+      <div class="validation-item" style="border-color:#ffe58f;background:#fffbe6;color:#ad6800;">
+        ⚠️ 附件完整性：未上传<br>
+        <span style="font-size:12px;">操作说明附件、商品标签对应关系、标签文件未上传完整。</span>
+      </div>
+    </div>
+    <div class="validation-footer">
+      <button class="validation-btn-cancel" onclick="closeValidationB_attachment()">返回补充附件</button>
     </div>
   </div>
 </div>
@@ -1276,22 +1318,27 @@ function showValidationB() {
 }
 
 function showValidationB_unclear() {
-  const body = document.getElementById('validationModalBBody');
-  const action = document.getElementById('validationModalBAction');
-  body.innerHTML = `
-      <div class="validation-item pass">✅ 增值产品：已选择</div>
-      <div class="validation-item pass">✅ 增值服务：已选择</div>
-      <div class="validation-item fail" style="border-color:#ff4d4f;background:#fff2f0;color:#a8071a;">
-        ❌ 需求描述清晰度：不通过<br>
-        <span style="font-size:12px;">描述中缺少关键信息（SKU/数量/单据号），需要与 AI 对话补充。</span>
-      </div>
-      <div class="validation-item warn" style="border-color:#ffe58f;background:#fffbe6;color:#ad6800;">
-        ⚠️ 附件完整性：未上传<br>
-        <span style="font-size:12px;">操作说明附件、商品标签对应关系、标签文件均未上传。</span>
-      </div>`;
-  action.textContent = '与 AI 对话补充';
-  action.onclick = forceReopenSidebarWithPrompt;
-  document.getElementById('validationModalB').classList.add('show');
+  document.getElementById('validationModalB_unclear').classList.add('show');
+}
+
+function closeValidationB_unclear() {
+  document.getElementById('validationModalB_unclear').classList.remove('show');
+  const sidebar = document.getElementById('aiSidebar');
+  if (sidebar && !sidebar.classList.contains('open')) {
+    sidebar.classList.add('open');
+  }
+  appendAiBubble('assistant', '您的需求描述信息不够完整，请补充以下关键信息：\n1. 具体 SKU 编号\n2. 处理数量\n3. 关联单据号\n4. 具体操作要求\n\n补充后我帮您生成规范的操作说明。');
+}
+
+function showValidationB_attachment() {
+  document.getElementById('validationModalB_attachment').classList.add('show');
+}
+
+function closeValidationB_attachment() {
+  document.getElementById('validationModalB_attachment').classList.remove('show');
+  markUploadErrors();
+  const filesSection = document.getElementById('vasFilesSection');
+  if (filesSection) filesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function closeValidationB() {
@@ -1323,7 +1370,7 @@ function clearNonstandardFields() {
 function markUploadErrors() {
   ['uploadSop', 'uploadRelation', 'uploadLabel'].forEach(id => {
     const item = document.getElementById(id);
-    if (item) {
+    if (item && !item.classList.contains('uploaded')) {
       item.classList.add('error');
       const errorTip = item.querySelector('.upload-error-tip');
       if (errorTip) errorTip.textContent = '请上传此附件';
@@ -1339,11 +1386,8 @@ function markSingleAttachmentUploaded(id, fileName) {
   const errorTip = item.querySelector('.upload-error-tip');
   if (errorTip) errorTip.textContent = '';
   const box = item.querySelector('.upload-box');
-  if (box) box.innerHTML = `<span class="upload-file-name">✓ ${fileName}</span>`;
-  attachmentsUploaded = ['uploadSop', 'uploadRelation', 'uploadLabel'].every(uploadId => {
-    const uploadItem = document.getElementById(uploadId);
-    return uploadItem && uploadItem.classList.contains('uploaded');
-  });
+  if (box) box.innerHTML = `<span class="upload-file-name">✅ 已上传：${fileName}</span>`;
+  attachmentsUploaded = checkAttachmentsUploaded();
   showToast(attachmentsUploaded ? '附件已全部上传' : '附件已上传，请继续补齐其他文件', 3000);
 }
 
@@ -1374,9 +1418,24 @@ function clearUploadedFiles() {
 }
 
 function isDescriptionClear() {
-  const desc = document.getElementById('requirementDescription');
-  const text = desc ? desc.value : '';
-  return /SKU[-\w]*/i.test(text) && /\d+\s*件/.test(text) && /(WI|WO)\w+/i.test(text) && text.length > 80;
+  const desc = (document.getElementById('requirementDescription') || {}).value || '';
+  const bg = (document.getElementById('requirementBackground') || {}).value || '';
+  if (!desc.trim() || !bg.trim()) return false;
+  const checks = [
+    /SKU|sku|商品编码|产品编码|货物/.test(desc),
+    /\d+\s*(件|个|pcs|箱|PCS)/.test(desc),
+    /WI|WO|IH|RT|EB|单号|入库单|出库单/.test(desc),
+    desc.length >= 50,
+    /步骤|操作|要求|需要|处理|上架|下架|贴标|换标|销毁|拍照/.test(desc),
+  ];
+  const score = checks.filter(Boolean).length;
+  return score >= 3;
+}
+
+function checkAttachmentsUploaded() {
+  const uploadItems = document.querySelectorAll('.upload-item');
+  if (uploadItems.length === 0) return true;
+  return Array.from(uploadItems).every(item => item.classList.contains('uploaded'));
 }
 
 function validateAndSubmit() {
@@ -1389,16 +1448,22 @@ function validateAndSubmit() {
     return;
   }
   const clear = isDescriptionClear();
-  if (clear && attachmentsUploaded) {
-    showToast('✅ 增值单提交成功！描述清晰且附件完整', 4000);
+  const attachmentsOk = checkAttachmentsUploaded();
+  attachmentsUploaded = attachmentsOk;
+  if (clear && attachmentsOk) {
+    showToast('✅ 增值单提交成功！描述清晰且附件完整，无需 AI 对话也可提交', 4000);
+    return;
+  }
+  if (!clear && !attachmentsOk) {
+    showValidationB_unclear();
+    markUploadErrors();
     return;
   }
   if (!clear) {
     showValidationB_unclear();
-    if (!attachmentsUploaded) markUploadErrors();
     return;
   }
-  showValidationB();
+  showValidationB_attachment();
 }
 
 function showToast(msg, duration) {
