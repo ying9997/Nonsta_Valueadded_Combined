@@ -283,30 +283,33 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
   <div class="demo-console-steps">
     <span class="demo-row-label">主流程：</span>
     <button id="demoStep1" class="demo-step-btn active" onclick="demoStep1()">
-      <span class="step-badge">1</span> AI 对话
+      <span class="step-badge">1</span> 选中非标→弹侧栏
     </button>
     <span class="demo-arrow">→</span>
     <button id="demoStep2" class="demo-step-btn" onclick="demoStep2()" disabled>
-      <span class="step-badge">2</span> 确认 SOP
+      <span class="step-badge">2</span> AI 对话
     </button>
     <span class="demo-arrow">→</span>
     <button id="demoStep3" class="demo-step-btn" onclick="demoStep3()" disabled>
-      <span class="step-badge">3</span> 一键回填
+      <span class="step-badge">3</span> 确认 SOP
+    </button>
+    <span class="demo-arrow">→</span>
+    <button id="demoStep4" class="demo-step-btn" onclick="demoStep4()" disabled>
+      <span class="step-badge">4</span> 一键回填
     </button>
     <span class="demo-arrow">→</span>
     <button id="demoStep5" class="demo-step-btn" onclick="demoStep5()" disabled>
-      <span class="step-badge">4</span> 提交校验
+      <span class="step-badge">5</span> 提交校验
     </button>
   </div>
   <div class="demo-console-steps" style="margin-top:6px;">
     <span class="demo-row-label">独立演示：</span>
     <button class="demo-step-btn demo-extra" onclick="demoValidationA()">校验A：标准可替代拦截</button>
-    <button class="demo-step-btn demo-extra" onclick="demoForceOpenSidebar()">选中非标→自动弹侧栏</button>
     <button class="demo-step-btn demo-extra" onclick="openAuditModal()">审核视角</button>
     <button class="demo-step-btn demo-extra" onclick="resetDemo()">重置</button>
   </div>
 </div>
-<div style="position:fixed;bottom:12px;left:12px;background:linear-gradient(135deg,#ff4d4f,#e6252a);color:white;padding:5px 12px;border-radius:4px;font-size:11px;z-index:99;box-shadow:0 2px 8px rgba(255,77,79,0.3);">原型 V6 - 两步塌缩版</div>
+<div style="position:fixed;bottom:12px;left:12px;background:linear-gradient(135deg,#ff4d4f,#e6252a);color:white;padding:5px 12px;border-radius:4px;font-size:11px;z-index:99;box-shadow:0 2px 8px rgba(255,77,79,0.3);">原型 V6 - 增加校验交互</div>
 
 <div class="top-bar">
   <div class="top-logo">W</div>
@@ -337,7 +340,7 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
         <div class="step"><span class="step-circle done">✓</span><span class="step-text">基本信息</span></div>
         <div class="step-line"></div>
         <div class="step"><span class="step-circle active">2</span><span class="step-text active">增值产品信息</span></div>
-        <button class="ai-guide-btn" onclick="toggleAiSidebar()">🤖 AI 指引</button>
+        <button class="ai-guide-btn" onclick="toggleAiSidebar()">AI增值指引</button>
       </div>
     </div>
 
@@ -449,11 +452,7 @@ body { padding-top: 80px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
   <aside class="ai-sidebar" id="aiSidebar">
     <div class="ai-sidebar-header">
       <div class="ai-sidebar-title">
-        <span>AI 增值指引</span>
-      </div>
-      <div class="ai-sidebar-actions">
-        <label class="pref-label"><input type="checkbox" id="prefCheckbox"> 不自动弹出</label>
-        <button class="ai-sidebar-close" onclick="toggleAiSidebar()">×</button>
+        <span>在线咨询(AI)        </span>
       </div>
     </div>
     <div class="ai-chat-area" id="aiChatArea"></div>
@@ -1122,7 +1121,10 @@ function runDemo() {
   sopConfirmed = false;
   resetFillControls();
   clearUploadErrors();
-  toggleAiSidebar(true);
+  const sidebar = document.getElementById('aiSidebar');
+  if (!sidebar.classList.contains('open')) {
+    sidebar.classList.add('open');
+  }
   const list = document.getElementById('aiChatArea');
   list.querySelectorAll('[data-demo-bubble="nonstandard-special"], [data-demo-bubble="fee-estimate"]').forEach(node => node.remove());
   DEMO_DIALOG.forEach((item, index) => {
@@ -1140,25 +1142,47 @@ function runDemo() {
 }
 
 function demoStep1() {
-  runDemo();
-  const totalDelay = DEMO_DIALOG.length * 1500 + 500;
+  const sidebar = document.getElementById('aiSidebar');
+  sidebar.classList.remove('open');
+
   const timer = setTimeout(() => {
-    markStepDone('demoStep1');
-    enableStep('demoStep2');
-  }, totalDelay);
+    let target = Array.from(document.querySelectorAll('#atomCards .card-item')).find(c => c.textContent.includes('其他服务需求'));
+    if (!target) {
+      const methodCard = Array.from(document.querySelectorAll('#methodCards .card-item')).find(card => normalizeText(card.dataset.key) === normalizeText(FORM_VALUES.method));
+      if (methodCard) selectMethod(methodCard);
+      target = Array.from(document.querySelectorAll('#atomCards .card-item')).find(c => c.textContent.includes('其他服务需求'));
+    }
+    if (target) target.click();
+
+    const doneTimer = setTimeout(() => {
+      markStepDone('demoStep1');
+      enableStep('demoStep2');
+    }, 800);
+    demoTimers.push(doneTimer);
+  }, 300);
   demoTimers.push(timer);
 }
 
 function demoStep2() {
-  confirmSop();
-  markStepDone('demoStep2');
-  enableStep('demoStep3');
+  runDemo();
+  const totalDelay = DEMO_DIALOG.length * 1500 + 500;
+  const timer = setTimeout(() => {
+    markStepDone('demoStep2');
+    enableStep('demoStep3');
+  }, totalDelay);
+  demoTimers.push(timer);
 }
 
 function demoStep3() {
+  confirmSop();
+  markStepDone('demoStep3');
+  enableStep('demoStep4');
+}
+
+function demoStep4() {
   fillForm();
   appendFeeEstimate();
-  markStepDone('demoStep3');
+  markStepDone('demoStep4');
   enableStep('demoStep5');
 }
 
