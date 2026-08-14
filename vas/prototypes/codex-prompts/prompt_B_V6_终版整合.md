@@ -250,13 +250,78 @@ SOP 确认后（`confirmSop()` 中），延迟 1s 侧栏追加：
 
 ---
 
-## §9 校验 B（提交完整性+附件）
+## §9 校验 B（提交时智能校验 — 两个维度独立判断）
+
+### 9.1 校验逻辑
+
+提交时 AI 校验两个维度，**独立判断**：
+
+| 维度 | 通过条件 | 不通过时的处理 |
+|------|---------|-------------|
+| 需求描述清晰度 | 描述中包含 SKU/数量/单据号/具体操作要求 | **强制重新弹出 AI 侧栏**，追问补充 |
+| 附件完整性 | 必须上传的附件已上传 | **附件区红框**，不需要弹侧栏 |
+
+**组合结果**：
+- 描述清晰 + 附件完整 → ✅ 直接提交成功（**不需要和 AI 对话也能过**）
+- 描述清晰 + 附件缺失 → 拦截，只标红附件区
+- 描述不清晰 + 附件完整 → 拦截，强制弹侧栏
+- 描述不清晰 + 附件缺失 → 拦截，强制弹侧栏 + 标红附件区
+
+### 9.2 演示中展示"描述不清晰+附件缺失"场景
 
 模态框内容：
-- 蓝色 header："📋 提交前完整性检查"
-- body 逐项展示：增值产品✅、增值服务✅、需求背景✅、需求描述✅、附件⚠️未上传
-- footer 只有一个按钮：**「返回补充附件」**（无"仍然提交"）
-- 点击后：关闭模态框 + 附件区 3 个上传项标红错误态 + 滚动到附件区
+- 蓝色 header："📋 提交前智能校验"
+- body：
+
+```html
+<div class="validation-item pass">✅ 增值产品：已选择</div>
+<div class="validation-item pass">✅ 增值服务：已选择</div>
+<div class="validation-item fail" style="border-color:#ff4d4f;background:#fff2f0;color:#a8071a;">
+  ❌ 需求描述清晰度：不通过<br>
+  <span style="font-size:12px;">描述中缺少关键信息（SKU/数量/单据号），需要与 AI 对话补充。</span>
+</div>
+<div class="validation-item warn" style="border-color:#ffe58f;background:#fffbe6;color:#ad6800;">
+  ⚠️ 附件完整性：未上传<br>
+  <span style="font-size:12px;">操作说明附件、商品标签对应关系、标签文件均未上传。</span>
+</div>
+```
+
+- footer 按钮：**「与 AI 对话补充」**（只有这一个）
+- 点击后：
+  1. 关闭模态框
+  2. 强制打开 AI 侧栏
+  3. AI 代发消息："您的需求描述信息不够完整，请补充以下关键信息：\n1. 具体 SKU 编号\n2. 处理数量\n3. 关联单据号\n4. 具体操作要求"
+  4. 附件区 3 个上传项标红错误态
+  5. 滚动到附件区
+
+### 9.3 JS 逻辑
+
+```javascript
+function showValidationB() {
+  document.getElementById('validationModalB').classList.add('show');
+}
+
+function closeValidationB() {
+  document.getElementById('validationModalB').classList.remove('show');
+  // 强制弹侧栏 + AI 追问
+  const sidebar = document.getElementById('aiSidebar');
+  if (!sidebar.classList.contains('open')) {
+    sidebar.classList.add('open');
+  }
+  appendAiBubble('assistant', '您的需求描述信息不够完整，请补充以下关键信息：\n1. 具体 SKU 编号\n2. 处理数量\n3. 关联单据号\n4. 具体操作要求');
+  // 附件标红
+  markUploadErrors();
+  const filesSection = document.getElementById('vasFilesSection');
+  if (filesSection) filesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+```
+
+### 9.4 关键原则（给业务方理解）
+
+- 客户可以关闭侧栏不和 AI 聊，自己填表 → AI 不阻止
+- 但提交时必须过校验：**写得清楚+传了附件 = 不用聊也能过**
+- 写不清楚 = 强制拉回 AI 对话（弹侧栏+追问）
+- 附件缺 = 红框提示（不强制对话，客户自己传就行）
 
 ---
 
