@@ -175,7 +175,7 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 /* AI push 侧栏 */
 .ai-guide-btn { border: 1px solid #7a5cff; color: #5d4fff; background: #f7f5ff; border-radius: 6px; height: 30px; padding: 0 12px; font-size: 12px; cursor: pointer; font-weight: 600; }
 .ai-guide-btn:hover { background: #eeeaff; border-color: #5d4fff; }
-.ai-sidebar { width: 0; overflow: hidden; transition: width 0.3s ease; border-left: 0 solid #e0e0e0; display: flex; flex-direction: column; background: #fff; flex-shrink: 0; }
+.ai-sidebar { width: 0; overflow: hidden; transition: width 0.3s ease; border-left: 0 solid #e0e0e0; display: flex; flex-direction: column; background: #fff; flex-shrink: 0; position: sticky; top: 0; height: 100vh; align-self: flex-start; }
 .ai-sidebar.open { width: 380px; border-left-width: 1px; }
 .ai-sidebar-header { height: 48px; background: #fff; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 16px; flex-shrink: 0; }
 .ai-sidebar-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #1f1f2f; white-space: nowrap; }
@@ -190,6 +190,12 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 .ai-bubble-content { max-width: 92%; padding: 9px 10px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; border: 1px solid #f0f0f0; }
 .ai-bubble.assistant .ai-bubble-content { background: #fff; border-radius: 8px 8px 8px 0; color: #333; }
 .ai-bubble.user .ai-bubble-content { background: linear-gradient(270deg, #f1e6ff, #dde0ff); border-radius: 8px 8px 0 8px; color: #25213f; }
+.ai-bubble.pulse .ai-bubble-content { animation: pulse 1s ease 2; }
+.ai-bubble.fee-estimate .ai-bubble-content { background: #fffbe6; border: 1px dashed #faad14; border-radius: 8px 8px 8px 0; color: #5f3d00; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(160,121,42,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(160,121,42,0); }
+}
 .ai-sidebar-footer { background: #fff; border-top: 1px solid #f0f0f0; padding: 12px; flex-shrink: 0; }
 .ai-input-box { display: flex; gap: 8px; align-items: flex-end; }
 .ai-input-box textarea { flex: 1; height: 64px; min-height: 64px; max-height: 100px; resize: vertical; border: 1px solid #d9d9d9; border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; line-height: 1.5; outline: none; }
@@ -202,6 +208,7 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 .form-group label { display: block; font-size: 12px; color: #333; font-weight: 600; margin-bottom: 6px; }
 .form-group textarea { width: 100%; min-height: 88px; padding: 10px 12px; font-size: 13px; border: 1px solid #d9d9d9; border-radius: 6px; outline: none; resize: vertical; font-family: inherit; line-height: 1.6; }
 .form-group textarea:focus { border-color: #A0792A; box-shadow: 0 0 0 2px rgba(160,121,42,0.12); }
+.form-section-label { display: block; font-size: 12px; color: #333; font-weight: 600; margin-bottom: 8px; }
 .fill-btn-row { margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
 .fill-btn { padding: 10px 20px; border: none; border-radius: 6px; background: linear-gradient(135deg, #A0792A, #C9952E); color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; }
 .fill-btn:disabled { background: #d9d9d9; color: #999; cursor: not-allowed; }
@@ -219,6 +226,18 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 .sop-btn-confirm.confirmed { background: #52c41a; cursor: default; }
 .sop-btn-revise { flex: 1; padding: 8px; border: 1px solid #d9d9d9; border-radius: 6px; background: #fff; color: #333; font-size: 13px; cursor: pointer; }
 .sop-btn-revise:hover { border-color: #A0792A; color: #A0792A; }
+.upload-item { margin-bottom: 14px; padding: 12px; border: 1px solid #eee; border-radius: 6px; background: #fafafa; }
+.upload-item.error { border-color: #ff4d4f; background: #fff2f0; }
+.upload-label { font-size: 13px; font-weight: 500; margin-bottom: 8px; color: #333; }
+.upload-box { margin-bottom: 6px; }
+.upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px dashed #d9d9d9; border-radius: 4px; background: #fff; color: #666; font-size: 12px; cursor: pointer; }
+.upload-btn:hover { border-color: #A0792A; color: #A0792A; }
+.upload-hint { font-size: 11px; color: #faad14; margin-bottom: 4px; }
+.upload-template-link { font-size: 12px; color: #1677ff; cursor: pointer; text-decoration: none; }
+.upload-template-link:hover { text-decoration: underline; }
+.upload-error-tip { color: #ff4d4f; font-size: 12px; margin-top: 4px; display: none; }
+.upload-item.error .upload-error-tip { display: block; }
+.upload-item.error .upload-btn { border-color: #ff4d4f; }
 
 /* 审核弹窗与提示 */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
@@ -285,7 +304,7 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
     <button class="demo-step-btn demo-extra" onclick="resetDemo()">重置</button>
   </div>
 </div>
-<div style="position:fixed;top:102px;right:16px;background:linear-gradient(135deg,#ff4d4f,#e6252a);color:white;padding:5px 12px;border-radius:4px;font-size:11px;z-index:99;box-shadow:0 2px 8px rgba(255,77,79,0.3);">原型 V6 - 两步塌缩版</div>
+<div style="position:fixed;bottom:12px;left:12px;background:linear-gradient(135deg,#ff4d4f,#e6252a);color:white;padding:5px 12px;border-radius:4px;font-size:11px;z-index:99;box-shadow:0 2px 8px rgba(255,77,79,0.3);">原型 V6 - 两步塌缩版</div>
 
 <div class="top-bar">
   <div class="top-logo">W</div>
@@ -495,14 +514,14 @@ Steps in English:
       🔍 校验 A：标准增值可替代性检查
     </div>
     <div class="validation-body">
-      <p style="margin-bottom:12px;color:#333;font-size:13px;">AI 正在检测您的需求是否可以用标准增值服务覆盖...</p>
-      <div class="validation-item pass">
-        ✅ 检测结果：<strong>不可替代</strong><br>
-        <span style="color:#666;font-size:12px;">当前需求"良品转不良品上架"不在标准增值服务范围内，需要走非标特批流程。</span>
+      <div class="validation-item warn" style="border-color:#ffe58f;background:#fffbe6;color:#ad6800;">
+        ⚠️ 检测结果：<strong>可以走标准增值</strong><br>
+        <span style="font-size:12px;">AI 检测到您描述的需求可以使用标准增值服务【直接上架】覆盖，无需走非标特批流程。</span>
       </div>
+      <p style="margin-top:12px;font-size:13px;color:#333;">建议选择标准增值服务，提交后无需审核即可直接执行。</p>
     </div>
     <div class="validation-footer">
-      <button class="validation-btn-ok" onclick="closeValidationA()">确认，继续非标流程</button>
+      <button class="validation-btn-ok" onclick="closeValidationA_useStandard()">确认，切换到标准增值</button>
     </div>
   </div>
 </div>
@@ -523,8 +542,7 @@ Steps in English:
       </div>
     </div>
     <div class="validation-footer">
-      <button class="validation-btn-ok" onclick="closeValidationB(true)">仍然提交（附件可后补）</button>
-      <button class="validation-btn-cancel" onclick="closeValidationB(false)">返回补充附件</button>
+      <button class="validation-btn-cancel" onclick="closeValidationB()">返回补充附件</button>
     </div>
   </div>
 </div>
@@ -734,6 +752,9 @@ function selectCombo(el, combo) {
   state.combo = combo;
   refreshProgress();
   renderDetails();
+  if (combo.atoms.includes(FORM_VALUES.service) && !sopConfirmed && !suppressNonstandardPrompt) {
+    showNonstandardGuidePrompt();
+  }
 }
 
 // 解析入库单号（换行 / 逗号 / 分号 / 空格）
@@ -813,6 +834,41 @@ function renderDetails() {
 <div class="form-group">
   <label>需求描述 <span class="req">*</span><span class="ai-badge" data-ai-badge-for="requirementDescription">AI 生成</span></label>
   <textarea id="requirementDescription" placeholder="请描述具体操作要求（越详细越好，减少审核退回）" rows="5"></textarea>
+</div>
+<div class="form-group" id="vasFilesSection">
+  <label class="form-section-label">增值文件</label>
+  <div class="upload-item" id="uploadSop">
+    <div class="upload-label">操作说明附件 <span class="req">*</span></div>
+    <div class="upload-box" id="uploadSopBox">
+      <button class="upload-btn" type="button">
+        <span class="upload-icon">📤</span> 操作说明附件
+      </button>
+    </div>
+    <div class="upload-hint">仅支持 .DOC, .DOCX, .PDF, .XLS, .XLSX 格式</div>
+    <a class="upload-template-link">点击下载模板文件</a>
+    <span class="upload-error-tip" id="uploadSopError"></span>
+  </div>
+  <div class="upload-item" id="uploadRelation">
+    <div class="upload-label">商品和标签的对应关系 <span class="req">*</span></div>
+    <div class="upload-box" id="uploadRelationBox">
+      <button class="upload-btn" type="button">
+        <span class="upload-icon">📤</span> 商品和标签的对应关系
+      </button>
+    </div>
+    <div class="upload-hint">仅支持 .XLS, .XLSX 格式</div>
+    <a class="upload-template-link">点击下载模板文件</a>
+    <span class="upload-error-tip" id="uploadRelationError"></span>
+  </div>
+  <div class="upload-item" id="uploadLabel">
+    <div class="upload-label">标签文件 <span class="req">*</span></div>
+    <div class="upload-box" id="uploadLabelBox">
+      <button class="upload-btn" type="button">
+        <span class="upload-icon">📤</span> 标签文件
+      </button>
+    </div>
+    <div class="upload-hint">仅支持 .7Z, .JPEG, .JPG, .PDF, .PNG, .RAR, .ZIP 格式</div>
+    <span class="upload-error-tip" id="uploadLabelError"></span>
+  </div>
 </div>`;
       } else {
         reqHtml = cfg.reqs.map(r => `<div class="req-row"><span class="req">*</span> ${r[0]}：<select class="req-select"><option>${r[1]}</option></select></div>`).join('');
@@ -954,15 +1010,7 @@ const SOP_CARD_BODY = `背景：客户有一批老货当前存放在 DEBR2 Wareh
 3. 按无箱单预报入库单 WI51339338 进行新入库处理
 4. 如仓库系统或实物操作要求补贴包裹标签，请按入库单信息补贴对应包裹标签
 5. 将该批老货按不良品属性上架至不良品库位
-6. 上架完成后反馈实际处理数量、异常差异和最终库位信息
-
-Steps in English:
-1. De-shelve SKU-DE-15908221 (86 pcs) per outbound order WO12120399145
-2. Verify SKU, quantity, third-party barcode and physical condition
-3. Process inbound again under inbound order WI51339338
-4. Attach parcel labels from the inbound order if required
-5. Shelve the goods as defective inventory
-6. Report actual quantity, discrepancies and final location after completion`;
+6. 上架完成后反馈实际处理数量、异常差异和最终库位信息`;
 
 const FORM_VALUES = {
   product: '入库非标增值（特批）',
@@ -972,9 +1020,26 @@ const FORM_VALUES = {
   description: '操作需求：良品转不良品上架\n\n仓库：DEBR2 Warehouse\nSKU/数量：SKU-DE-15908221，86 件\n新入库单：WI51339338\n下架出库单：WO12120399145\n转不良品原因：用于区分当前在库老货与后续同三方条码的亚马逊退仓新货，不是商品实际破损或质量不良\n\n具体要求：\n1. 仓库先按出库单 WO12120399145 将当前在库老货下架\n2. 下架后核对 SKU、数量、三方条码及实物状态，确认与客户提供信息一致\n3. 按无箱单预报入库单 WI51339338 对该批货物进行重新入库处理\n4. 如操作过程中需要补贴包裹标签，请按入库单信息补贴对应包裹标签\n5. 将该批货物按不良品属性上架至不良品库位\n6. 上架完成后反馈实际处理数量、异常差异及最终库位信息\n7. 如发现实物破损、数量差异、标签无法识别或无法匹配入库单，请暂停异常部分并反馈确认\n8. 费用以仓库实际操作项目和系统报价为准，可能涉及上下架处理费、标签处理费及非标操作工时费'
 };
 
+const STANDARD_VALUES = {
+  method: '原单上架',
+  service: '直接上架'
+};
+
+const FEE_ESTIMATE_TEXT = `💰 预估费用：
+
+| 费用名称 | 价格 |
+|---------|------|
+| 上下架处理费 | $8.50 |
+| 标签处理费 | $2.00/件 × 86件 = $172.00 |
+| 非标操作工时费 | $15.00 |
+| **合计预估** | **$195.50** |
+
+⚠️ 以上为 AI 预估，最终费用以审核后正式报价为准。`;
+
 let demoTimers = [];
 let sopConfirmed = false;
 let attachmentPromptTimer = null;
+let suppressNonstandardPrompt = false;
 
 function toggleAiSidebar(forceOpen) {
   const sidebar = document.getElementById('aiSidebar');
@@ -1022,9 +1087,19 @@ function appendAiBubble(role, text) {
   return bubble;
 }
 
+function appendFeeEstimate() {
+  const existing = document.querySelector('[data-demo-bubble="fee-estimate"]');
+  if (existing) existing.remove();
+  const bubble = appendAiBubble('assistant', FEE_ESTIMATE_TEXT);
+  bubble.classList.add('fee-estimate');
+  bubble.dataset.demoBubble = 'fee-estimate';
+  return bubble;
+}
+
 function appendSopCard() {
   const list = document.getElementById('aiChatArea');
   const card = createSopCard();
+  card.classList.add('pulse');
   list.appendChild(card);
   list.scrollTop = list.scrollHeight;
   return card;
@@ -1043,9 +1118,10 @@ function runDemo() {
   clearDemoTimers();
   sopConfirmed = false;
   resetFillControls();
+  clearUploadErrors();
   toggleAiSidebar(true);
   const list = document.getElementById('aiChatArea');
-  list.querySelectorAll('[data-demo-bubble="nonstandard-special"]').forEach(node => node.remove());
+  list.querySelectorAll('[data-demo-bubble="nonstandard-special"], [data-demo-bubble="fee-estimate"]').forEach(node => node.remove());
   DEMO_DIALOG.forEach((item, index) => {
     const timer = setTimeout(() => {
       appendAiBubble(item.role, item.text);
@@ -1078,6 +1154,7 @@ function demoStep2() {
 
 function demoStep3() {
   fillForm();
+  appendFeeEstimate();
   markStepDone('demoStep3');
   enableStep('demoStep4');
 }
@@ -1112,6 +1189,15 @@ function resetDemoSteps() {
     el.classList.remove('active', 'done');
     el.disabled = i !== 1;
     if (i === 1) el.classList.add('active');
+  }
+}
+
+function showNonstandardGuidePrompt() {
+  toggleAiSidebar(true);
+  const list = document.getElementById('aiChatArea');
+  const hasPrompt = Array.from(list.querySelectorAll('.ai-bubble-content')).some(node => node.textContent.includes('您选择了非标特批服务'));
+  if (!hasPrompt) {
+    appendAiBubble('assistant', '您选择了非标特批服务，请先告诉我您想如何处理这批货物，我来帮您评估是否需要走非标流程。');
   }
 }
 
@@ -1206,7 +1292,14 @@ function ensureNonstandardFormVisible() {
   const methodCard = Array.from(document.querySelectorAll('#methodCards .card-item')).find(card => normalizeText(card.dataset.key) === normalizeText(FORM_VALUES.method));
   if (methodCard && state.method !== FORM_VALUES.method) selectMethod(methodCard);
   const serviceCard = Array.from(document.querySelectorAll('#atomCards .card-item')).find(card => normalizeText(card.textContent).includes(normalizeText(FORM_VALUES.service)));
-  if (serviceCard && (!state.combo || !state.combo.atoms.includes(FORM_VALUES.service))) serviceCard.click();
+  if (serviceCard && (!state.combo || !state.combo.atoms.includes(FORM_VALUES.service))) {
+    suppressNonstandardPrompt = true;
+    try {
+      serviceCard.click();
+    } finally {
+      suppressNonstandardPrompt = false;
+    }
+  }
 }
 
 function updateFillControls() {
@@ -1242,22 +1335,69 @@ function showValidationA() {
   document.getElementById('validationModalA').classList.add('show');
 }
 
-function closeValidationA() {
+function closeValidationA_useStandard() {
   document.getElementById('validationModalA').classList.remove('show');
+  clearNonstandardFields();
+  switchToStandardService();
   markStepDone('demoStep4');
-  enableStep('demoStep5');
+  const step5 = document.getElementById('demoStep5');
+  if (step5) {
+    step5.classList.remove('active', 'done');
+    step5.disabled = true;
+  }
+  showToast('已切换到标准增值【直接上架】', 3000);
 }
 
 function showValidationB() {
   document.getElementById('validationModalB').classList.add('show');
 }
 
-function closeValidationB(confirmed) {
+function closeValidationB() {
   document.getElementById('validationModalB').classList.remove('show');
-  if (confirmed) {
-    showToast('增值单提交成功（模拟）', 3000);
-    markStepDone('demoStep5');
+  markUploadErrors();
+  const filesSection = document.getElementById('vasFilesSection');
+  if (filesSection) filesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function switchToStandardService() {
+  const methodCard = Array.from(document.querySelectorAll('#methodCards .card-item')).find(card => normalizeText(card.dataset.key) === normalizeText(STANDARD_VALUES.method));
+  if (methodCard) selectMethod(methodCard);
+  const serviceCard = Array.from(document.querySelectorAll('#atomCards .card-item')).find(card => normalizeText(card.textContent).includes(normalizeText(STANDARD_VALUES.service)));
+  if (serviceCard) {
+    serviceCard.click();
+    highlight(serviceCard);
   }
+}
+
+function clearNonstandardFields() {
+  document.querySelectorAll('#requirementBackground, #requirementDescription').forEach(el => {
+    el.value = '';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  document.querySelectorAll('.ai-badge').forEach(badge => badge.classList.remove('show'));
+}
+
+function markUploadErrors() {
+  ['uploadSop', 'uploadRelation', 'uploadLabel'].forEach(id => {
+    const item = document.getElementById(id);
+    if (item) {
+      item.classList.add('error');
+      const errorTip = item.querySelector('.upload-error-tip');
+      if (errorTip) errorTip.textContent = '请上传此附件';
+    }
+  });
+}
+
+function clearUploadErrors() {
+  ['uploadSop', 'uploadRelation', 'uploadLabel'].forEach(id => {
+    const item = document.getElementById(id);
+    if (item) {
+      item.classList.remove('error');
+      const errorTip = item.querySelector('.upload-error-tip');
+      if (errorTip) errorTip.textContent = '';
+    }
+  });
 }
 
 function resetDemo() {
@@ -1266,6 +1406,7 @@ function resetDemo() {
   document.getElementById('aiUserInput').value = '';
   document.getElementById('validationModalA').classList.remove('show');
   document.getElementById('validationModalB').classList.remove('show');
+  clearUploadErrors();
   document.querySelectorAll('.card-item, textarea, select, tr, label').forEach(el => {
     el.style.outline = '';
     el.style.background = '';
@@ -1324,6 +1465,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const step5 = document.getElementById('demoStep5');
     if (step5 && !step5.disabled) {
       demoStep5();
+    } else if (state.combo && !state.combo.atoms.includes(FORM_VALUES.service)) {
+      showToast('增值单提交成功（模拟）', 3000);
     } else {
       showToast('请先完成演示步骤 1-4（点击控制台按钮）', 3000);
     }
