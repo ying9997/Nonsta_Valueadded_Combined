@@ -946,24 +946,9 @@ function refreshProgress() {
 }
 
 // ============= AI 侧栏交互逻辑 =============
-const DEMO_DIALOG = [
-  {
-    role: 'user',
-    text: '我有一批货跟马上要退仓入库的新货用了同一个三方条码，系统里没法区分，想把老的那批转成不良品存着'
-  },
-  {
-    role: 'assistant',
-    text: '收到，您这个需求看起来是"良品转不良品上架"方向，主要目的是把当前在库老货和后续退仓入库的新货区分开。\n\n为了生成可给仓库执行的操作说明，还需要您补充几项关键信息：\n1. 需要处理的 SKU 和数量分别是多少？\n2. 当前库存所在仓库是哪个？\n3. 退仓新货是否已经创建无箱单预报入库单？如有请提供单号。\n4. 在库老货是否需要先创建下架出库单？如有请提供单号。\n5. 这批老货转不良品的原因是为了区分库存，还是商品本身存在破损？'
-  },
-  {
-    role: 'user',
-    text: 'SKU 是 SKU-DE-15908221，数量 86 件，在 DEBR2 Warehouse。新货已经建了无箱单预报入库单，单号 WI51339338。老货需要先下架，出库单 WO12120399145 已经创建。转不良品不是因为破损，主要是老货和亚马逊退仓的新货三方条码一样，系统里没法同时绑定两个 SKU。需要仓库按新入库单补贴包裹标签后上架到不良品库位。'
-  },
-  {
-    role: 'assistant',
-    text: '已确认：您的需求为【良品转不良品上架】。\n\n建议填入：\n· 增值产品：入库非标增值（特批）\n· 增值服务：入库其他服务需求\n\n以上仅为 AI 对您需求的理解和 SOP 拆解，是否审核通过由审核人员决定。\n请确认下方 SOP 后再一键回填。'
-  }
-];
+const AI_FIRST_RESPONSE = '收到，您这个需求我来帮您评估。为了生成准确的操作说明，需要您补充几项信息：\n\n1. 需要处理的 SKU 和数量？\n2. 当前库存所在仓库？\n3. 关联的单据号（入库单/出库单）？\n4. 有无特殊要求（时间、包材等）？\n\n请逐一补充，或一次性说明。';
+const AI_SECOND_RESPONSE = '已确认：您的需求为【良品转不良品上架】。\n\n建议填入：\n· 增值产品：入库非标增值（特批）\n· 增值服务：入库其他服务需求\n\n请确认下方 SOP 后再一键回填。';
+const AI_STANDARD_RESPONSE = 'AI 识别到您的需求推荐选择标准增值服务【原单上架 - 直接上架】，无需走非标特批流程。';
 
 const SOP_CARD_BODY = `1. 按出库单 WO12120399145 下架指定商品（86 件）
 2. 按新入库单 WI51339338 补贴包裹标签
@@ -998,6 +983,7 @@ let sopConfirmed = false;
 let attachmentsUploaded = false;
 let attachmentPromptTimer = null;
 let suppressNonstandardPrompt = false;
+let userMessageCount = 0;
 const STANDARD_KEYWORDS = ['直接上架', '不用换标', '原单上架不贴标', '不需要贴标', '直接入库'];
 const AI_GUIDE_OPEN_MESSAGE = '您好，请告诉我您想如何处理这批货物，我来帮您选择增值服务并生成操作说明。';
 const NONSTANDARD_OPEN_MESSAGE = '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。';
@@ -1010,7 +996,6 @@ function toggleAiSidebar(forceOpen) {
   }
   sidebar.classList.add('open');
   appendOpeningMessageIfEmpty(AI_GUIDE_OPEN_MESSAGE);
-  prepareStarterSop();
 }
 
 function closeAiSidebar() {
@@ -1028,7 +1013,6 @@ function forceOpenSidebarWithMessage() {
   const list = document.getElementById('aiChatArea');
   const hasMessage = list && Array.from(list.querySelectorAll('.ai-bubble-content')).some(node => node.textContent.includes(NONSTANDARD_OPEN_MESSAGE));
   if (!hasMessage) appendAiBubble('assistant', NONSTANDARD_OPEN_MESSAGE);
-  prepareStarterSop();
 }
 
 function createAiBubble(role, text) {
@@ -1090,13 +1074,6 @@ function appendSopCard() {
   return card;
 }
 
-function prepareStarterSop() {
-  const list = document.getElementById('aiChatArea');
-  if (!list || list.querySelector('[data-bubble-kind="sop-card"]')) return;
-  appendAiBubble('assistant', DEMO_DIALOG[3].text);
-  appendSopCard();
-}
-
 function forceReopenSidebarWithPrompt() {
   document.getElementById('validationModalB').classList.remove('show');
   const sidebar = document.getElementById('aiSidebar');
@@ -1113,18 +1090,29 @@ function sendMessage() {
   if (!text) return;
   appendAiBubble('user', text);
   input.value = '';
+  userMessageCount++;
   if (STANDARD_KEYWORDS.some(kw => text.includes(kw))) {
     setTimeout(() => {
-      const modal = document.getElementById('validationModalD');
-      if (modal) modal.classList.add('show');
-    }, 1500);
+      appendAiBubble('assistant', AI_STANDARD_RESPONSE);
+      setTimeout(() => {
+        const modal = document.getElementById('validationModalD');
+        if (modal) modal.classList.add('show');
+      }, 1000);
+    }, 1000);
+    return;
   }
-  const thinking = appendAiBubble('assistant', 'AI 正在思考...');
-  setTimeout(() => {
-    const content = thinking.querySelector('.ai-bubble-content');
-    if (content) content.textContent = '已收到。我会根据您的增值需求补充关键信息，并生成可回填到表单的操作要求。';
-    prepareStarterSop();
-  }, 700);
+  if (userMessageCount === 1) {
+    setTimeout(() => {
+      appendAiBubble('assistant', AI_FIRST_RESPONSE);
+    }, 1000);
+  } else if (userMessageCount >= 2) {
+    setTimeout(() => {
+      appendAiBubble('assistant', AI_SECOND_RESPONSE);
+      if (!document.querySelector('[data-bubble-kind="sop-card"]')) {
+        setTimeout(() => appendSopCard(), 500);
+      }
+    }, 1200);
+  }
 }
 
 function fillForm() {
