@@ -42,13 +42,18 @@
 </div>
 ```
 
-### 2.2 旁白条
+### 2.2 旁白条 + 播放控制（幻灯片模式）
 
-在页面底部固定一个旁白条，演示过程中动态更新文字：
+在页面底部固定一个旁白条，带"上一步/下一步"控制和进度指示：
 
 ```html
 <div class="demo-narrator" id="narrator">
-  💬 点击上方场景按钮开始演示
+  <div class="narrator-text" id="narratorText">💬 点击上方场景按钮开始演示</div>
+  <div class="narrator-controls" id="narratorControls" style="display:none;">
+    <button class="narrator-btn" onclick="prevStep()">◀ 上一步</button>
+    <span class="narrator-progress" id="narratorProgress">步骤 1/10</span>
+    <button class="narrator-btn narrator-btn-primary" onclick="nextStep()">▶ 下一步</button>
+  </div>
 </div>
 ```
 
@@ -56,18 +61,69 @@
 .demo-narrator {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: #1a1a2e; color: #fff; padding: 10px 20px;
-  font-size: 13px; z-index: 9998; text-align: center;
+  font-size: 13px; z-index: 9998;
   border-top: 1px solid #333;
-  transition: opacity 0.3s;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.narrator-text { flex: 1; }
+.narrator-controls { display: flex; align-items: center; gap: 12px; }
+.narrator-btn {
+  padding: 5px 14px; border: 1px solid #555; border-radius: 4px;
+  background: #333; color: #fff; font-size: 12px; cursor: pointer;
+}
+.narrator-btn:hover { background: #444; border-color: #777; }
+.narrator-btn-primary { background: #A0792A; border-color: #C9952E; }
+.narrator-btn-primary:hover { background: #8B6914; }
+.narrator-progress { font-size: 11px; color: #999; min-width: 70px; text-align: center; }
+```
+
+### 2.3 播放控制逻辑（幻灯片模式）
+
+**核心机制**：每个场景是一个 steps 数组。点场景按钮后执行第 1 步并暂停，每点"▶ 下一步"执行下一步。
+
+```javascript
+let currentScenarioSteps = [];
+let currentStepIndex = 0;
+
+function startScenario(steps) {
+  resetDemo();
+  currentScenarioSteps = steps;
+  currentStepIndex = 0;
+  document.getElementById('narratorControls').style.display = 'flex';
+  executeCurrentStep();
+}
+
+function executeCurrentStep() {
+  if (currentStepIndex >= currentScenarioSteps.length) return;
+  const step = currentScenarioSteps[currentStepIndex];
+  document.getElementById('narratorText').textContent = '💬 ' + step.narrate;
+  document.getElementById('narratorProgress').textContent = 
+    '步骤 ' + (currentStepIndex + 1) + '/' + currentScenarioSteps.length;
+  step.exec();
+}
+
+function nextStep() {
+  if (currentStepIndex < currentScenarioSteps.length - 1) {
+    currentStepIndex++;
+    executeCurrentStep();
+  } else {
+    document.getElementById('narratorText').textContent = '💬 ✅ 场景演示完成';
+  }
+}
+
+function prevStep() {
+  // 不回退操作（DOM 变化不可逆），只回退旁白让业务方重看说明
+  if (currentStepIndex > 0) {
+    currentStepIndex--;
+    const step = currentScenarioSteps[currentStepIndex];
+    document.getElementById('narratorText').textContent = '💬 [回看] ' + step.narrate;
+    document.getElementById('narratorProgress').textContent = 
+      '步骤 ' + (currentStepIndex + 1) + '/' + currentScenarioSteps.length;
+  }
 }
 ```
 
-JS 更新旁白的工具函数：
-```javascript
-function narrate(text) {
-  document.getElementById('narrator').textContent = '💬 ' + text;
-}
-```
+**每个场景按钮改为调用 `startScenario(steps)`**，不再用 `playSequence`（取消自动延迟播放）。
 
 ### 2.3 控制台不遮内容
 
@@ -125,25 +181,11 @@ document.body.style.paddingBottom = narratorHeight + 'px';
 
 **整体模式**：每个场景按钮触发一个自动播放序列。每步有延迟+旁白更新。业务方只需点一个按钮即可看完整链路。
 
-### 4.0 通用工具
+### 4.0 说明
 
-```javascript
-function playSequence(actions) {
-  resetDemo();
-  let delay = 0;
-  actions.forEach(action => {
-    setTimeout(() => {
-      narrate(action.narrate);
-      action.exec();
-    }, delay);
-    delay += action.wait || 1500;
-  });
-}
+每个场景函数调用 `startScenario(steps)`，传入步骤数组。每步包含 `{ narrate, exec }` — narrate 是旁白文字，exec 是该步执行的 DOM 操作。
 
-function narrate(text) {
-  document.getElementById('narrator').textContent = '💬 ' + text;
-}
-```
+**不再自动播放**。点场景按钮 → 执行第 1 步 → 暂停等"▶ 下一步" → 执行第 2 步 → ... 直到结束。
 
 ### 4.1 入口对比（快速展示两种触发差异）
 
@@ -175,18 +217,18 @@ function demoEntry2() {
 
 ```javascript
 function demoA1() {
-  playSequence([
-    { narrate: '客户选中"入库其他服务需求"，AI 侧栏强制弹出', exec: selectNonstandardAtom, wait: 1500 },
-    { narrate: 'AI 主动询问客户需求', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。'), wait: 1500 },
-    { narrate: '客户用口语描述需求（模糊、不完整）', exec: () => appendAiBubble('user', DEMO_DIALOG[0].text), wait: 1500 },
-    { narrate: 'AI 识别方向，追问关键信息（SKU/数量/单据号）', exec: () => appendAiBubble('assistant', DEMO_DIALOG[1].text), wait: 2500 },
-    { narrate: '客户补充完整信息', exec: () => appendAiBubble('user', DEMO_DIALOG[2].text), wait: 2500 },
-    { narrate: 'AI 确认需求，生成 SOP 卡片', exec: () => { appendAiBubble('assistant', DEMO_DIALOG[3].text); appendSopCard(); }, wait: 2500 },
-    { narrate: '客户确认 SOP → AI 提示需上传附件 → 回填按钮激活', exec: confirmSop, wait: 2000 },
-    { narrate: 'AI 自动填入表单（增值产品+增值服务+需求背景+需求描述）', exec: fillForm, wait: 2000 },
-    { narrate: '客户已上传附件（演示中模拟已传）', exec: markAttachmentsUploaded, wait: 1500 },
-    { narrate: '客户点提交 → 描述清晰✅ 附件完整✅ → 提交成功', exec: () => showToast('✅ 增值单提交成功！SOP 已同步至审核后台', 4000), wait: 2000 },
-    { narrate: '✅ 场景 A1 完成：AI 帮客户从头到尾搞定下单', exec: () => {}, wait: 0 }
+  startScenario([
+    { narrate: '客户选中"入库其他服务需求"，AI 侧栏强制弹出', exec: selectNonstandardAtom },
+    { narrate: 'AI 主动询问客户需求', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。') },
+    { narrate: '客户用口语描述需求（模糊、不完整）', exec: () => appendAiBubble('user', DEMO_DIALOG[0].text) },
+    { narrate: 'AI 识别方向，追问关键信息（SKU/数量/单据号）', exec: () => appendAiBubble('assistant', DEMO_DIALOG[1].text) },
+    { narrate: '客户补充完整信息', exec: () => appendAiBubble('user', DEMO_DIALOG[2].text) },
+    { narrate: 'AI 确认需求，生成 SOP 卡片', exec: () => { appendAiBubble('assistant', DEMO_DIALOG[3].text); appendSopCard(); } },
+    { narrate: '客户确认 SOP → AI 提示需上传附件 → 回填按钮激活', exec: confirmSop },
+    { narrate: 'AI 自动填入表单（增值产品+增值服务+需求背景+需求描述）', exec: fillForm },
+    { narrate: '客户已上传附件（演示中模拟已传）', exec: markAttachmentsUploaded },
+    { narrate: '客户点提交 → 描述清晰✅ 附件完整✅ → 提交成功', exec: () => showToast('✅ 增值单提交成功！SOP 已同步至审核后台', 4000) },
+    { narrate: '✅ 场景 A1 完成：AI 帮客户从头到尾搞定下单', exec: () => {} }
   ]);
 }
 ```
@@ -197,18 +239,18 @@ function demoA1() {
 
 ```javascript
 function demoA2() {
-  playSequence([
-    { narrate: '客户选中非标，AI 侧栏弹出', exec: selectNonstandardAtom, wait: 1500 },
-    { narrate: 'AI 询问需求', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。'), wait: 1500 },
-    { narrate: '客户描述需求', exec: () => appendAiBubble('user', DEMO_DIALOG[0].text), wait: 1500 },
-    { narrate: 'AI 追问关键信息', exec: () => appendAiBubble('assistant', DEMO_DIALOG[1].text), wait: 2500 },
-    { narrate: '客户补充', exec: () => appendAiBubble('user', DEMO_DIALOG[2].text), wait: 2500 },
-    { narrate: 'AI 生成 SOP 卡片', exec: () => { appendAiBubble('assistant', DEMO_DIALOG[3].text); appendSopCard(); }, wait: 2500 },
-    { narrate: '客户确认 SOP', exec: confirmSop, wait: 2000 },
-    { narrate: '一键回填需求描述（但客户未上传附件）', exec: fillForm, wait: 2000 },
-    { narrate: '客户点提交 → 附件校验不通过 ❌', exec: showValidationB, wait: 2000 },
-    { narrate: '❌ 附件缺失拦截，上传区标红。客户必须补充后再提交', exec: closeValidationB, wait: 2000 },
-    { narrate: '❌ 场景 A2 完成：AI 已帮填好描述，但附件未传被拦截', exec: () => {}, wait: 0 }
+  startScenario([
+    { narrate: '客户选中非标，AI 侧栏弹出', exec: selectNonstandardAtom },
+    { narrate: 'AI 询问需求', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求，我来帮您评估并生成 SOP。') },
+    { narrate: '客户描述需求', exec: () => appendAiBubble('user', DEMO_DIALOG[0].text) },
+    { narrate: 'AI 追问关键信息', exec: () => appendAiBubble('assistant', DEMO_DIALOG[1].text) },
+    { narrate: '客户补充', exec: () => appendAiBubble('user', DEMO_DIALOG[2].text) },
+    { narrate: 'AI 生成 SOP 卡片', exec: () => { appendAiBubble('assistant', DEMO_DIALOG[3].text); appendSopCard(); } },
+    { narrate: '客户确认 SOP', exec: confirmSop },
+    { narrate: '一键回填需求描述（但客户未上传附件）', exec: fillForm },
+    { narrate: '客户点提交 → 附件校验不通过 ❌', exec: showValidationB },
+    { narrate: '❌ 附件缺失拦截，上传区标红。客户必须补充后再提交', exec: closeValidationB },
+    { narrate: '❌ 场景 A2 完成：AI 已帮填好描述，但附件未传被拦截', exec: () => {} }
   ]);
 }
 ```
@@ -219,14 +261,14 @@ function demoA2() {
 
 ```javascript
 function demoB() {
-  playSequence([
-    { narrate: '客户选中非标，AI 侧栏弹出建议对话', exec: selectNonstandardAtom, wait: 1500 },
-    { narrate: 'AI 弹出后主动询问', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求...'), wait: 1500 },
-    { narrate: '客户选择不和 AI 对话，关闭侧栏', exec: () => toggleAiSidebar(false), wait: 1500 },
-    { narrate: '客户自己手动填写需求背景+需求描述（内容详细完整）', exec: fillFormManuallyGood, wait: 2500 },
-    { narrate: '客户上传了必要附件', exec: markAttachmentsUploaded, wait: 1500 },
-    { narrate: '客户点提交 → 描述清晰✅ 附件完整✅ → 直接提交成功', exec: () => showToast('✅ 增值单提交成功！不用和 AI 对话，填得好一样能过', 4000), wait: 2000 },
-    { narrate: '✅ 场景 B 完成：会填的客户不强制对话，尊重客户能力', exec: () => {}, wait: 0 }
+  startScenario([
+    { narrate: '客户选中非标，AI 侧栏弹出建议对话', exec: selectNonstandardAtom },
+    { narrate: 'AI 弹出后主动询问', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求...') },
+    { narrate: '客户选择不和 AI 对话，关闭侧栏', exec: () => toggleAiSidebar(false) },
+    { narrate: '客户自己手动填写需求背景+需求描述（内容详细完整）', exec: fillFormManuallyGood },
+    { narrate: '客户上传了必要附件', exec: markAttachmentsUploaded },
+    { narrate: '客户点提交 → 描述清晰✅ 附件完整✅ → 直接提交成功', exec: () => showToast('✅ 增值单提交成功！不用和 AI 对话，填得好一样能过', 4000) },
+    { narrate: '✅ 场景 B 完成：会填的客户不强制对话，尊重客户能力', exec: () => {} }
   ]);
 }
 ```
@@ -237,15 +279,15 @@ function demoB() {
 
 ```javascript
 function demoC() {
-  playSequence([
-    { narrate: '客户选中非标，AI 侧栏弹出', exec: selectNonstandardAtom, wait: 1500 },
-    { narrate: 'AI 弹出建议对话', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求...'), wait: 1500 },
-    { narrate: '客户关闭侧栏，不和 AI 对话', exec: () => toggleAiSidebar(false), wait: 1500 },
-    { narrate: '客户随便写了"帮我处理下"（信息不完整）', exec: fillFormManuallyBad, wait: 2000 },
-    { narrate: '客户点提交 → 描述不清晰 ❌ 缺少关键信息', exec: showValidationB_unclear, wait: 2000 },
-    { narrate: '❌ 被拦截！AI 侧栏强制重新打开', exec: forceReopenSidebarWithPrompt, wait: 2000 },
-    { narrate: 'AI 告知客户需要补充 SKU/数量/单据号/操作要求', exec: () => {}, wait: 2000 },
-    { narrate: '❌→ 场景 C 完成：填不清楚的被拦回 AI，必须补充后再提交', exec: () => {}, wait: 0 }
+  startScenario([
+    { narrate: '客户选中非标，AI 侧栏弹出', exec: selectNonstandardAtom },
+    { narrate: 'AI 弹出建议对话', exec: () => appendAiBubble('assistant', '您选择了非标特批服务，请先描述您的具体需求...') },
+    { narrate: '客户关闭侧栏，不和 AI 对话', exec: () => toggleAiSidebar(false) },
+    { narrate: '客户随便写了"帮我处理下"（信息不完整）', exec: fillFormManuallyBad },
+    { narrate: '客户点提交 → 描述不清晰 ❌ 缺少关键信息', exec: showValidationB_unclear },
+    { narrate: '❌ 被拦截！AI 侧栏强制重新打开', exec: forceReopenSidebarWithPrompt },
+    { narrate: 'AI 告知客户需要补充 SKU/数量/单据号/操作要求', exec: () => {} },
+    { narrate: '❌→ 场景 C 完成：填不清楚的被拦回 AI，必须补充后再提交', exec: () => {} }
   ]);
 }
 ```
@@ -256,14 +298,14 @@ function demoC() {
 
 ```javascript
 function demoD() {
-  playSequence([
-    { narrate: '客户不确定选什么，点击"AI 指引"按钮（页面无选中态）', exec: () => toggleAiSidebar(true), wait: 1500 },
-    { narrate: 'AI 主动询问客户需求', exec: () => appendAiBubble('assistant', '您好，请告诉我您想如何处理这批货物，我来帮您选择增值服务并生成操作说明。'), wait: 2000 },
-    { narrate: '客户说"帮我直接上架就行"', exec: () => appendAiBubble('user', '帮我直接上架就行'), wait: 1500 },
-    { narrate: 'AI 检测到：这个需求标准增值"直接上架"就能解决', exec: () => appendAiBubble('assistant', '您描述的需求可以使用标准增值服务【直接上架】覆盖，无需走非标特批流程。建议切换到标准增值。'), wait: 2500 },
-    { narrate: '⚠️ 弹窗拦截：提示客户走标准增值即可', exec: showValidationA, wait: 2000 },
-    { narrate: '客户点击"切换到标准增值" → 自动选中直接上架', exec: closeValidationA_useStandard, wait: 2000 },
-    { narrate: '↩️ 场景 D 完成：AI 帮客户纠正路径，避免走错非标流程', exec: () => {}, wait: 0 }
+  startScenario([
+    { narrate: '客户不确定选什么，点击"AI 指引"按钮（页面无选中态）', exec: () => toggleAiSidebar(true) },
+    { narrate: 'AI 主动询问客户需求', exec: () => appendAiBubble('assistant', '您好，请告诉我您想如何处理这批货物，我来帮您选择增值服务并生成操作说明。') },
+    { narrate: '客户说"帮我直接上架就行"', exec: () => appendAiBubble('user', '帮我直接上架就行') },
+    { narrate: 'AI 检测到：这个需求标准增值"直接上架"就能解决', exec: () => appendAiBubble('assistant', '您描述的需求可以使用标准增值服务【直接上架】覆盖，无需走非标特批流程。建议切换到标准增值。') },
+    { narrate: '⚠️ 弹窗拦截：提示客户走标准增值即可', exec: showValidationA },
+    { narrate: '客户点击"切换到标准增值" → 自动选中直接上架', exec: closeValidationA_useStandard },
+    { narrate: '↩️ 场景 D 完成：AI 帮客户纠正路径，避免走错非标流程', exec: () => {} }
   ]);
 }
 ```
