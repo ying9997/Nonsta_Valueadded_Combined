@@ -161,9 +161,16 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 /* 演示控制台 */
 .demo-console { position: fixed; top: 0; left: 0; right: 0; height: 44px; background: #1f1f2f; color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; z-index: 999; box-shadow: 0 2px 10px rgba(0,0,0,0.18); }
 .demo-console-title { font-size: 13px; font-weight: 600; white-space: nowrap; }
-.demo-console-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-.demo-console-actions button { height: 28px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); color: #fff; border-radius: 4px; padding: 0 10px; font-size: 12px; cursor: pointer; }
-.demo-console-actions button:hover { background: rgba(255,255,255,0.18); }
+.demo-console-steps { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.demo-step-btn { display: inline-flex; align-items: center; gap: 5px; background: #4a4a4a; color: #fff; border: 1px solid #666; border-radius: 4px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.demo-step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.demo-step-btn.active { background: #A0792A; border-color: #C9952E; }
+.demo-step-btn.done { background: #52c41a; border-color: #73d13d; }
+.demo-step-btn.demo-extra { background: #333; border-color: #555; }
+.demo-arrow { color: #999; font-size: 14px; }
+.demo-sep { color: #666; margin: 0 4px; }
+.step-badge { width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,0.2); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+.demo-step-btn.done .step-badge { background: rgba(255,255,255,0.3); }
 
 /* AI push 侧栏 */
 .ai-guide-btn { border: 1px solid #7a5cff; color: #5d4fff; background: #f7f5ff; border-radius: 6px; height: 30px; padding: 0 12px; font-size: 12px; cursor: pointer; font-weight: 600; }
@@ -252,11 +259,30 @@ body { padding-top: 44px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 </head>
 <body>
 <div class="demo-console">
-  <span class="demo-console-title">🎬 原型演示控制台（仅开发/评审可见）</span>
-  <div class="demo-console-actions">
-    <button onclick="runDemo()">演示：非标特批场景（良品转不良品）</button>
-    <button onclick="openAuditModal()">模拟：审核视角</button>
-    <button onclick="resetDemo()">重置</button>
+  <div class="demo-console-title">🎬 原型演示控制台（仅开发/评审可见，非线上真实界面）</div>
+  <div class="demo-console-steps">
+    <button id="demoStep1" class="demo-step-btn active" onclick="demoStep1()">
+      <span class="step-badge">1</span> 打开 AI 侧栏 + 对话
+    </button>
+    <span class="demo-arrow">→</span>
+    <button id="demoStep2" class="demo-step-btn" onclick="demoStep2()" disabled>
+      <span class="step-badge">2</span> 确认 SOP
+    </button>
+    <span class="demo-arrow">→</span>
+    <button id="demoStep3" class="demo-step-btn" onclick="demoStep3()" disabled>
+      <span class="step-badge">3</span> 一键回填表单
+    </button>
+    <span class="demo-arrow">→</span>
+    <button id="demoStep4" class="demo-step-btn" onclick="demoStep4()" disabled>
+      <span class="step-badge">4</span> 校验A：标准可替代？
+    </button>
+    <span class="demo-arrow">→</span>
+    <button id="demoStep5" class="demo-step-btn" onclick="demoStep5()" disabled>
+      <span class="step-badge">5</span> 校验B：完整性+提交
+    </button>
+    <span class="demo-sep">|</span>
+    <button class="demo-step-btn demo-extra" onclick="openAuditModal()">审核视角</button>
+    <button class="demo-step-btn demo-extra" onclick="resetDemo()">重置</button>
   </div>
 </div>
 <div style="position:fixed;top:102px;right:16px;background:linear-gradient(135deg,#ff4d4f,#e6252a);color:white;padding:5px 12px;border-radius:4px;font-size:11px;z-index:99;box-shadow:0 2px 8px rgba(255,77,79,0.3);">原型 V6 - 两步塌缩版</div>
@@ -463,17 +489,42 @@ Steps in English:
 
 <div class="action-toast" id="actionToast"></div>
 
-<div class="validation-modal" id="validationModal">
+<div class="validation-modal" id="validationModalA">
   <div class="validation-box">
-    <div class="validation-header">🤖 AI 提交前校验</div>
+    <div class="validation-header" style="background:linear-gradient(135deg,#fa8c16,#faad14);">
+      🔍 校验 A：标准增值可替代性检查
+    </div>
     <div class="validation-body">
-      <div class="validation-item pass">✅ 需求描述完整性：通过（已填写背景说明和操作描述）</div>
-      <div class="validation-item pass">✅ 标准增值可替代性检查：不可替代（当前需求无法用标准增值服务覆盖）</div>
-      <div class="validation-item pass">✅ 关键字段：SKU/数量/单据号均已填写</div>
+      <p style="margin-bottom:12px;color:#333;font-size:13px;">AI 正在检测您的需求是否可以用标准增值服务覆盖...</p>
+      <div class="validation-item pass">
+        ✅ 检测结果：<strong>不可替代</strong><br>
+        <span style="color:#666;font-size:12px;">当前需求"良品转不良品上架"不在标准增值服务范围内，需要走非标特批流程。</span>
+      </div>
     </div>
     <div class="validation-footer">
-      <button class="validation-btn-ok" onclick="closeValidation(true)">校验通过，确认提交</button>
-      <button class="validation-btn-cancel" onclick="closeValidation(false)">返回修改</button>
+      <button class="validation-btn-ok" onclick="closeValidationA()">确认，继续非标流程</button>
+    </div>
+  </div>
+</div>
+
+<div class="validation-modal" id="validationModalB">
+  <div class="validation-box">
+    <div class="validation-header" style="background:linear-gradient(135deg,#1677ff,#4096ff);">
+      📋 校验 B：提交前完整性检查
+    </div>
+    <div class="validation-body">
+      <div class="validation-item pass">✅ 增值产品名称：已选择</div>
+      <div class="validation-item pass">✅ 增值服务：已选择</div>
+      <div class="validation-item pass">✅ 需求背景说明：已填写（128字）</div>
+      <div class="validation-item pass">✅ 需求描述：已填写（包含SKU/数量/单据号）</div>
+      <div class="validation-item warn" style="border-color:#ffe58f;background:#fffbe6;color:#ad6800;">
+        ⚠️ 附件：未上传<br>
+        <span style="font-size:12px;">根据【良品转不良品上架】场景，建议上传：包裹标签文件、下架出库单截图</span>
+      </div>
+    </div>
+    <div class="validation-footer">
+      <button class="validation-btn-ok" onclick="closeValidationB(true)">仍然提交（附件可后补）</button>
+      <button class="validation-btn-cancel" onclick="closeValidationB(false)">返回补充附件</button>
     </div>
   </div>
 </div>
@@ -1009,6 +1060,61 @@ function runDemo() {
   showToast('演示开始：AI 侧栏将逐条注入 5 轮对话', 3000);
 }
 
+function demoStep1() {
+  runDemo();
+  const totalDelay = DEMO_DIALOG.length * 1500 + 500;
+  const timer = setTimeout(() => {
+    markStepDone('demoStep1');
+    enableStep('demoStep2');
+  }, totalDelay);
+  demoTimers.push(timer);
+}
+
+function demoStep2() {
+  confirmSop();
+  markStepDone('demoStep2');
+  enableStep('demoStep3');
+}
+
+function demoStep3() {
+  fillForm();
+  markStepDone('demoStep3');
+  enableStep('demoStep4');
+}
+
+function demoStep4() {
+  showValidationA();
+}
+
+function demoStep5() {
+  showValidationB();
+}
+
+function markStepDone(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('active');
+  el.classList.add('done');
+  el.disabled = true;
+}
+
+function enableStep(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.disabled = false;
+  el.classList.add('active');
+}
+
+function resetDemoSteps() {
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('demoStep' + i);
+    if (!el) continue;
+    el.classList.remove('active', 'done');
+    el.disabled = i !== 1;
+    if (i === 1) el.classList.add('active');
+  }
+}
+
 function sendMessage() {
   const input = document.getElementById('aiUserInput');
   const text = input.value.trim();
@@ -1132,24 +1238,34 @@ function closeAuditModal() {
   document.getElementById('auditModal').classList.remove('show');
 }
 
-function handleSubmit() {
-  if (state.combo && state.combo.atoms.includes(FORM_VALUES.service)) {
-    document.getElementById('validationModal').classList.add('show');
-    return;
-  }
-  showToast('增值单提交成功（模拟）', 3000);
+function showValidationA() {
+  document.getElementById('validationModalA').classList.add('show');
 }
 
-function closeValidation(confirmed) {
-  document.getElementById('validationModal').classList.remove('show');
-  if (confirmed) showToast('增值单提交成功（模拟）', 3000);
+function closeValidationA() {
+  document.getElementById('validationModalA').classList.remove('show');
+  markStepDone('demoStep4');
+  enableStep('demoStep5');
+}
+
+function showValidationB() {
+  document.getElementById('validationModalB').classList.add('show');
+}
+
+function closeValidationB(confirmed) {
+  document.getElementById('validationModalB').classList.remove('show');
+  if (confirmed) {
+    showToast('增值单提交成功（模拟）', 3000);
+    markStepDone('demoStep5');
+  }
 }
 
 function resetDemo() {
   clearDemoTimers();
   document.getElementById('aiChatArea').innerHTML = '';
   document.getElementById('aiUserInput').value = '';
-  document.getElementById('validationModal').classList.remove('show');
+  document.getElementById('validationModalA').classList.remove('show');
+  document.getElementById('validationModalB').classList.remove('show');
   document.querySelectorAll('.card-item, textarea, select, tr, label').forEach(el => {
     el.style.outline = '';
     el.style.background = '';
@@ -1173,6 +1289,7 @@ function resetDemo() {
   initMethods();
   refreshProgress();
   resetFillControls();
+  resetDemoSteps();
   closeAuditModal();
   showToast('已重置', 2000);
 }
@@ -1202,7 +1319,15 @@ function normalizeText(value) {
 
 window.addEventListener('DOMContentLoaded', initMethods);
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('submitBtn').addEventListener('click', handleSubmit);
+  resetDemoSteps();
+  document.getElementById('submitBtn').addEventListener('click', function() {
+    const step5 = document.getElementById('demoStep5');
+    if (step5 && !step5.disabled) {
+      demoStep5();
+    } else {
+      showToast('请先完成演示步骤 1-4（点击控制台按钮）', 3000);
+    }
+  });
 });
 </script>
 </body>
