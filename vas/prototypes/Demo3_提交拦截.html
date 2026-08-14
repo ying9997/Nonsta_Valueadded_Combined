@@ -6,20 +6,19 @@
   <title>AI 增值指引 — 提交前智能校验</title>
   <style>
     :root {
+      --winit-main: #A0792A;
+      --winit-highlight: #C9952E;
+      --winit-deep: #6B4F0A;
+      --winit-soft: #FFF8E8;
       --green: #52c41a;
       --red: #ff4d4f;
       --orange: #faad14;
-      --blue: #1677ff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --line: #e5e7eb;
-      --bg: #f5f7fb;
+      --text: #252525;
+      --muted: #727272;
+      --line: #e8e0d0;
+      --page: #f6f2ea;
       --panel: #ffffff;
-      --soft-blue: #eef5ff;
-      --soft-green: #f0fbeb;
-      --soft-red: #fff1f0;
-      --soft-orange: #fff7e6;
-      --shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+      --shadow: 0 16px 36px rgba(58, 42, 15, 0.12);
     }
 
     * {
@@ -28,8 +27,8 @@
 
     body {
       margin: 0;
-      background: var(--bg);
       color: var(--text);
+      background: var(--page);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 14px;
       line-height: 1.55;
@@ -43,462 +42,531 @@
 
     button {
       cursor: pointer;
+      border: 0;
     }
 
-    .page-shell {
+    .top-bar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 18px;
+      color: #fff;
+      background: linear-gradient(135deg, #6B4F0A, #8B6914);
+      box-shadow: 0 3px 12px rgba(38, 29, 10, 0.22);
+    }
+
+    .top-bar-left,
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      height: 100%;
+      margin-right: 26px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    .top-nav {
+      display: flex;
+      height: 100%;
+    }
+
+    .top-nav a {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 16px;
+      color: rgba(255, 255, 255, 0.82);
+      text-decoration: none;
+      border-bottom: 3px solid transparent;
+    }
+
+    .top-nav a.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.09);
+      border-bottom-color: var(--winit-highlight);
+    }
+
+    .avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      margin-right: 8px;
+      color: var(--winit-deep);
+      font-weight: 700;
+      background: #fff;
+      border-radius: 50%;
+    }
+
+    .username {
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 13px;
+    }
+
+    .side-menu {
+      position: fixed;
+      top: 48px;
+      bottom: 0;
+      left: 0;
+      z-index: 20;
+      width: 72px;
+      padding-top: 10px;
+      background: #2c2216;
+    }
+
+    .menu-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      min-height: 72px;
+      padding: 12px 5px 10px;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 12px;
+      text-align: center;
+      border-left: 3px solid transparent;
+    }
+
+    .menu-icon {
+      font-size: 19px;
+      line-height: 1;
+    }
+
+    .menu-item.active {
+      color: #fff;
+      background: rgba(201, 149, 46, 0.14);
+      border-left: 3px solid #C9952E;
+    }
+
+    .main-shell {
       min-height: 100vh;
-      padding: 28px 20px 44px;
-      transition: padding-right 300ms ease;
+      padding: 70px 24px 74px 96px;
     }
 
-    .page-shell.sidebar-open {
-      padding-right: 400px;
+    .page-header {
+      max-width: 1120px;
+      margin: 0 auto 16px;
+      padding: 18px 22px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 8px 22px rgba(62, 44, 12, 0.06);
     }
 
-    .topbar {
-      max-width: 960px;
-      margin: 0 auto 18px;
-      padding-bottom: 18px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    h1 {
-      margin: 0 0 16px;
-      color: #111827;
+    .page-header h1 {
+      margin: 0 0 14px;
       font-size: 24px;
       font-weight: 700;
       letter-spacing: 0;
+    }
+
+    .page-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .step {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 13px;
+      color: var(--muted);
+      background: #f7f4ef;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+
+    .step.done {
+      color: #23640d;
+      background: #f2faed;
+      border-color: #b9e7a5;
+    }
+
+    .step.active {
+      color: var(--winit-deep);
+      font-weight: 700;
+      background: var(--winit-soft);
+      border-color: var(--winit-highlight);
     }
 
     .scene-tabs {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
+      max-width: 1120px;
+      margin: 0 auto 16px;
     }
 
     .scene-tab {
       min-height: 40px;
       padding: 0 16px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
+      color: var(--winit-deep);
       background: #fff;
-      color: #374151;
-      transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 5px 14px rgba(70, 50, 14, 0.06);
     }
 
     .scene-tab.active {
-      border-color: var(--blue);
-      background: var(--soft-blue);
-      color: #0958d9;
-      box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.08);
-      font-weight: 600;
-    }
-
-    .form-card,
-    .comparison-table,
-    .bottom-note {
-      max-width: 720px;
-      margin: 0 auto;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      color: #fff;
+      font-weight: 700;
+      background: var(--winit-main);
+      border-color: var(--winit-main);
     }
 
     .form-card {
-      padding: 26px;
-    }
-
-    .form-heading {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 22px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .form-heading h2 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: 0;
-    }
-
-    .form-status {
-      flex: 0 0 auto;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: #f3f4f6;
-      color: var(--muted);
-      font-size: 12px;
+      max-width: 720px;
+      margin: 0 auto 18px;
+      padding: 22px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
     }
 
     .form-section {
       margin-bottom: 18px;
     }
 
-    label {
+    .form-section label {
       display: block;
       margin-bottom: 8px;
-      color: #374151;
-      font-weight: 600;
+      color: #453518;
+      font-weight: 700;
     }
 
     .select-box,
     .service-card {
       min-height: 42px;
-      display: flex;
-      align-items: center;
-      padding: 11px 13px;
-      border: 1px solid #c7d2fe;
+      padding: 10px 12px;
+      color: #33260d;
+      background: #fffdf8;
+      border: 1px solid var(--line);
       border-radius: 6px;
-      background: #f8fbff;
-      color: #1d4ed8;
     }
 
-    .service-card {
-      border-color: #bae6fd;
-      background: #f0f9ff;
-      color: #075985;
-      font-weight: 600;
+    .select-box.selected,
+    .service-card.selected {
+      border-color: var(--winit-highlight);
+      box-shadow: inset 3px 0 0 var(--winit-highlight);
     }
 
     textarea {
       width: 100%;
-      min-height: 118px;
+      min-height: 124px;
       resize: vertical;
-      padding: 12px 13px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
+      padding: 12px;
+      color: #272727;
       background: #fff;
-      color: var(--text);
+      border: 1px solid #d9d1c2;
+      border-radius: 6px;
       outline: none;
-      transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
-    }
-
-    #requirementDesc {
-      min-height: 230px;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
     }
 
     textarea:focus {
-      border-color: var(--blue);
-      box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12);
+      border-color: var(--winit-highlight);
+      box-shadow: 0 0 0 3px rgba(201, 149, 46, 0.15);
     }
 
     textarea.error {
       border-color: var(--red);
-      background: var(--soft-red);
-      animation: shake 420ms ease;
+      background: #fff6f6;
+      box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.12);
     }
 
-    .upload-area {
+    .upload-list {
       display: grid;
       gap: 10px;
     }
 
     .upload-item {
-      display: flex;
+      display: grid;
+      grid-template-columns: 32px 1fr auto;
+      gap: 10px;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      min-height: 46px;
-      padding: 11px 13px;
-      border: 1px solid var(--line);
+      min-height: 64px;
+      padding: 12px;
+      background: #fffdf8;
+      border: 1px solid #d9d1c2;
       border-radius: 6px;
-      background: #fff;
-      transition: border-color 160ms ease, background 160ms ease;
+      transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
     }
 
-    .upload-item.missing {
+    .upload-item.error {
+      background: #fff6f6;
       border-color: var(--red);
-      background: var(--soft-red);
-      animation: shake 420ms ease;
+      box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.10);
     }
 
-    .file-title {
-      color: #374151;
-      font-weight: 600;
+    .upload-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: var(--winit-soft);
+      border-radius: 50%;
     }
 
-    .file-status {
-      flex: 0 0 auto;
-      color: var(--green);
+    .upload-info {
+      min-width: 0;
+    }
+
+    .upload-name,
+    .upload-format {
+      display: block;
+    }
+
+    .upload-name {
+      color: #33260d;
       font-weight: 700;
     }
 
-    .upload-item.pending .file-status {
-      color: #9ca3af;
-      font-weight: 600;
-    }
-
-    .upload-item.missing .file-status {
+    .required {
       color: var(--red);
     }
 
-    .submit-row {
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid var(--line);
+    .upload-format {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .upload-status {
+      white-space: nowrap;
+      color: var(--muted);
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .upload-status.uploaded {
+      color: var(--green);
+    }
+
+    .upload-status.error-text {
+      color: var(--red);
+    }
+
+    .upload-error {
+      display: block;
+      margin-top: 5px;
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .form-footer {
+      display: flex;
+      justify-content: center;
+      padding-top: 6px;
     }
 
     .submit-btn,
-    .btn-primary,
-    .chat-input button {
-      min-height: 42px;
-      border: 0;
-      border-radius: 6px;
-      background: var(--blue);
+    .btn-primary {
+      min-height: 40px;
+      padding: 0 20px;
       color: #fff;
       font-weight: 700;
-      transition: background 160ms ease, transform 160ms ease, opacity 160ms ease;
-    }
-
-    .submit-btn {
-      width: 100%;
-      font-size: 15px;
-    }
-
-    .submit-btn:hover,
-    .btn-primary:hover,
-    .chat-input button:hover {
-      background: #0958d9;
-    }
-
-    .submit-btn:active,
-    .btn-primary:active,
-    .chat-input button:active {
-      transform: translateY(1px);
+      background: var(--winit-main);
+      border-radius: 6px;
+      box-shadow: 0 8px 16px rgba(160, 121, 42, 0.22);
     }
 
     .submit-btn.loading {
-      opacity: 0.72;
       pointer-events: none;
+      opacity: 0.78;
     }
 
-    .result-host {
+    .validation-host {
       max-width: 720px;
-      margin: 16px auto 0;
+      margin: 0 auto;
     }
 
     .validation-result {
+      margin-bottom: 16px;
       overflow: hidden;
+      background: #fff;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #fff;
-      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      box-shadow: var(--shadow);
       animation: slideDown 260ms ease;
     }
 
     .validation-result.pass {
-      border-color: rgba(82, 196, 26, 0.45);
+      border-color: rgba(82, 196, 26, 0.55);
     }
 
     .validation-result.fail {
-      border-color: rgba(255, 77, 79, 0.45);
+      border-color: rgba(255, 77, 79, 0.55);
     }
 
     .validation-result.warn {
-      border-color: rgba(250, 173, 20, 0.55);
+      border-color: rgba(250, 173, 20, 0.62);
     }
 
     .result-header {
-      padding: 14px 18px;
+      padding: 12px 16px;
+      color: #33260d;
+      font-weight: 800;
+      background: var(--winit-soft);
       border-bottom: 1px solid var(--line);
-      background: #f9fafb;
-      font-weight: 700;
-    }
-
-    .validation-result.pass .result-header {
-      background: var(--soft-green);
-      color: #237804;
-    }
-
-    .validation-result.fail .result-header {
-      background: var(--soft-red);
-      color: #a8071a;
-    }
-
-    .validation-result.warn .result-header {
-      background: var(--soft-orange);
-      color: #ad6800;
     }
 
     .result-body {
       display: grid;
-      gap: 10px;
-      padding: 16px 18px;
+      gap: 9px;
+      padding: 16px;
     }
 
     .check-item {
       padding: 10px 12px;
       border-radius: 6px;
-      background: #f9fafb;
     }
 
     .check-item.pass {
-      background: var(--soft-green);
       color: #237804;
+      background: #f0fbeb;
     }
 
     .check-item.fail {
-      background: var(--soft-red);
       color: #a8071a;
+      background: #fff1f0;
     }
 
     .check-item.warn {
-      background: var(--soft-orange);
       color: #ad6800;
+      background: #fff7e6;
     }
 
     .fail-detail,
     .warn-detail {
       display: inline-block;
-      margin-top: 5px;
+      margin-top: 4px;
       color: inherit;
       font-size: 13px;
     }
 
     .result-footer {
-      padding: 0 18px 18px;
+      padding: 0 16px 16px;
     }
 
     .result-summary {
       padding: 12px;
+      font-weight: 800;
       border-radius: 6px;
-      font-weight: 700;
-      text-align: center;
     }
 
     .result-summary.pass {
-      background: var(--soft-green);
       color: #237804;
+      background: #f0fbeb;
     }
 
     .result-summary.warn {
-      background: var(--soft-orange);
       color: #ad6800;
-    }
-
-    .btn-primary {
-      padding: 0 18px;
+      background: #fff7e6;
     }
 
     .key-point {
-      margin-top: 12px;
-      padding: 13px 15px;
-      border: 1px solid #bfdbfe;
+      margin: 0 0 18px;
+      padding: 12px 14px;
+      color: #533c09;
+      background: var(--winit-soft);
+      border: 1px solid rgba(201, 149, 46, 0.45);
+      border-left: 4px solid var(--winit-highlight);
       border-radius: 8px;
-      background: #eff6ff;
-      color: #1e40af;
-      font-weight: 600;
       animation: slideDown 260ms ease;
     }
 
     .comparison-table {
-      margin-top: 22px;
-      padding: 22px;
+      max-width: 960px;
+      margin: 18px auto 0;
+      padding: 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 10px 26px rgba(58, 42, 15, 0.08);
     }
 
     .comparison-table h3 {
-      margin: 0 0 14px;
+      margin: 0 0 12px;
+      color: #33260d;
       font-size: 17px;
-      letter-spacing: 0;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--line);
-      border-radius: 8px;
     }
 
     table {
       width: 100%;
-      min-width: 620px;
       border-collapse: collapse;
-      background: #fff;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 6px;
     }
 
     th,
     td {
-      padding: 11px 12px;
-      border-bottom: 1px solid var(--line);
+      padding: 12px;
       text-align: left;
-      white-space: nowrap;
+      border-bottom: 1px solid var(--line);
     }
 
     th {
-      background: #f3f4f6;
-      color: #374151;
-      font-weight: 700;
+      color: #453518;
+      background: #fbf6ec;
+      font-weight: 800;
     }
 
     tbody tr:nth-child(even) {
-      background: #fafafa;
+      background: #fffaf0;
     }
 
     tbody tr:last-child td {
       border-bottom: 0;
     }
 
-    .row-pass.active-row {
-      background: var(--soft-green);
-      box-shadow: inset 4px 0 0 var(--green);
-    }
-
-    .row-fail.active-row {
-      background: var(--soft-red);
-      box-shadow: inset 4px 0 0 var(--red);
-    }
-
-    .row-warn.active-row {
-      background: var(--soft-orange);
-      box-shadow: inset 4px 0 0 var(--orange);
+    tbody tr.highlight {
+      background: #fff3cf;
+      box-shadow: inset 4px 0 0 var(--winit-highlight);
     }
 
     .bottom-note {
-      margin-top: 22px;
-      padding: 15px 18px;
-      color: #374151;
-      text-align: center;
-      font-weight: 700;
-    }
-
-    .toast {
       position: fixed;
-      top: 18px;
-      left: 50%;
-      z-index: 40;
-      transform: translate(-50%, -24px);
-      min-width: 240px;
-      padding: 12px 18px;
-      border-radius: 8px;
-      background: var(--green);
+      right: 0;
+      bottom: 0;
+      left: 72px;
+      z-index: 25;
+      padding: 10px 16px;
       color: #fff;
-      box-shadow: var(--shadow);
       text-align: center;
-      font-weight: 700;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .toast.show {
-      animation: toastIn 260ms ease forwards, toastOut 360ms ease 2.65s forwards;
+      background: #3a2c19;
+      box-shadow: 0 -3px 12px rgba(38, 29, 10, 0.18);
     }
 
     .ai-sidebar {
       position: fixed;
-      top: 0;
+      top: 48px;
       right: 0;
-      z-index: 30;
+      bottom: 0;
+      z-index: 60;
       width: 380px;
-      height: 100vh;
       display: flex;
       flex-direction: column;
-      border-left: 1px solid var(--line);
       background: #fff;
-      box-shadow: -12px 0 28px rgba(15, 23, 42, 0.14);
+      border-left: 1px solid var(--line);
+      box-shadow: -12px 0 30px rgba(34, 24, 8, 0.18);
       transform: translateX(100%);
       transition: transform 300ms ease;
     }
@@ -511,73 +579,94 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      min-height: 58px;
-      padding: 0 18px;
-      border-bottom: 1px solid var(--line);
-      background: #0f172a;
+      min-height: 52px;
+      padding: 0 16px;
       color: #fff;
-      font-weight: 700;
+      font-weight: 800;
+      background: var(--winit-main);
     }
 
     .close-btn {
-      width: 32px;
-      height: 32px;
-      border: 0;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.12);
+      width: 30px;
+      height: 30px;
       color: #fff;
-      font-size: 16px;
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 50%;
     }
 
     .chat-area {
       flex: 1;
-      overflow-y: auto;
-      padding: 18px;
-      background: #f8fafc;
+      padding: 16px;
+      overflow: auto;
+      background: #fbf7ef;
     }
 
-    .ai-message {
-      max-width: 100%;
-      padding: 13px 14px;
-      border: 1px solid #dbeafe;
-      border-radius: 8px;
-      background: #fff;
-      color: #1e3a8a;
+    .message {
+      max-width: 92%;
+      margin-bottom: 12px;
+      padding: 12px 13px;
       white-space: pre-line;
-      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+      border-radius: 8px;
+    }
+
+    .message.ai {
+      color: #37270b;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 4px 12px rgba(58, 42, 15, 0.08);
     }
 
     .chat-input {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr 64px;
       gap: 8px;
-      padding: 14px;
-      border-top: 1px solid var(--line);
+      padding: 12px;
       background: #fff;
+      border-top: 1px solid var(--line);
     }
 
     .chat-input input {
       min-width: 0;
-      flex: 1;
-      height: 40px;
-      padding: 0 11px;
-      border: 1px solid #d1d5db;
+      height: 38px;
+      padding: 0 10px;
+      border: 1px solid #d9d1c2;
       border-radius: 6px;
       outline: none;
     }
 
-    .chat-input input:focus {
-      border-color: var(--blue);
-      box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12);
+    .chat-input button {
+      color: #fff;
+      font-weight: 700;
+      background: var(--winit-main);
+      border-radius: 6px;
     }
 
-    .chat-input button {
-      padding: 0 14px;
+    .toast {
+      position: fixed;
+      top: 62px;
+      left: 50%;
+      z-index: 80;
+      min-width: 220px;
+      padding: 10px 16px;
+      color: #237804;
+      font-weight: 800;
+      text-align: center;
+      background: #f0fbeb;
+      border: 1px solid rgba(82, 196, 26, 0.5);
+      border-radius: 8px;
+      box-shadow: 0 10px 24px rgba(25, 90, 8, 0.16);
+      transform: translate(-50%, -18px);
+      animation: toastIn 220ms ease forwards, toastOut 360ms ease 2.65s forwards;
+    }
+
+    .shake {
+      animation: shake 360ms ease;
     }
 
     @keyframes slideDown {
       from {
         opacity: 0;
-        transform: translateY(-10px);
+        transform: translateY(-12px);
       }
       to {
         opacity: 1;
@@ -585,26 +674,7 @@
       }
     }
 
-    @keyframes shake {
-      0%,
-      100% {
-        transform: translateX(0);
-      }
-      20%,
-      60% {
-        transform: translateX(-4px);
-      }
-      40%,
-      80% {
-        transform: translateX(4px);
-      }
-    }
-
     @keyframes toastIn {
-      from {
-        opacity: 0;
-        transform: translate(-50%, -24px);
-      }
       to {
         opacity: 1;
         transform: translate(-50%, 0);
@@ -618,139 +688,222 @@
       }
     }
 
-    @media (max-width: 900px) {
-      .page-shell.sidebar-open {
-        padding-right: 20px;
+    @keyframes shake {
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+      25% {
+        transform: translateX(-6px);
+      }
+      50% {
+        transform: translateX(6px);
+      }
+      75% {
+        transform: translateX(-4px);
       }
     }
 
     @media (max-width: 768px) {
-      .page-shell {
-        padding: 18px 12px 32px;
+      .side-menu {
+        display: none;
       }
 
+      .main-shell {
+        padding: 64px 12px 76px;
+      }
+
+      .top-nav a {
+        padding: 0 8px;
+      }
+
+      .username {
+        display: none;
+      }
+
+      .page-header,
       .form-card,
       .comparison-table {
-        padding: 18px;
-      }
-
-      .form-heading {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .scene-tab {
-        flex: 1 1 100%;
+        border-radius: 6px;
       }
 
       .upload-item {
-        align-items: flex-start;
-        flex-direction: column;
+        grid-template-columns: 28px 1fr;
+      }
+
+      .upload-status {
+        grid-column: 2;
+        text-align: left;
+      }
+
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tr {
+        border-bottom: 1px solid var(--line);
+      }
+
+      td {
+        border-bottom: 0;
+      }
+
+      .bottom-note {
+        left: 0;
+        font-size: 12px;
       }
 
       .ai-sidebar {
-        width: 100%;
-        border-left: 0;
+        left: 0;
+        width: auto;
       }
     }
   </style>
 </head>
 <body>
-  <div class="toast" id="toast">✅ 增值单提交成功！</div>
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <span class="logo">WINIT</span>
+      <nav class="top-nav">
+        <a href="#">首页</a>
+        <a href="#">异常单</a>
+        <a class="active">创建增值订单</a>
+      </nav>
+    </div>
+    <div class="top-bar-right">
+      <span class="avatar">K</span>
+      <span class="username">kenghong.huang</span>
+    </div>
+  </div>
 
-  <main class="page-shell" id="pageShell">
-    <header class="topbar">
-      <h1>AI 增值指引 — 提交前智能校验</h1>
-      <div class="scene-tabs">
-        <button class="scene-tab active" onclick="showResult('pass')">结果 1：通过 ✅</button>
-        <button class="scene-tab" onclick="showResult('unclear')">结果 2：描述不清 ❌</button>
-        <button class="scene-tab" onclick="showResult('missing')">结果 3：附件缺失 ❌</button>
+  <aside class="side-menu">
+    <div class="menu-item"><span class="menu-icon">📦</span><span>商品管理</span></div>
+    <div class="menu-item"><span class="menu-icon">📊</span><span>库存管理</span></div>
+    <div class="menu-item active"><span class="menu-icon">🏬</span><span>海外仓</span></div>
+    <div class="menu-item"><span class="menu-icon">🚚</span><span>国际送仓</span></div>
+    <div class="menu-item"><span class="menu-icon">↩</span><span>退货管理</span></div>
+    <div class="menu-item"><span class="menu-icon">💳</span><span>我的钱包</span></div>
+  </aside>
+
+  <main class="main-shell">
+    <div class="page-header">
+      <h1>新建入库增值订单</h1>
+      <div class="page-steps">
+        <span class="step done">基本信息 ✓</span>
+        <span class="step active">增值产品信息</span>
       </div>
-    </header>
+    </div>
 
-    <section class="form-card" aria-label="增值下单表单">
-      <div class="form-heading">
-        <h2>增值下单表单</h2>
-        <span class="form-status">已填状态</span>
-      </div>
+    <div class="scene-tabs">
+      <button class="scene-tab active" onclick="showResult('pass')">结果 1：通过 ✅</button>
+      <button class="scene-tab" onclick="showResult('unclear')">结果 2：描述不清 ❌</button>
+      <button class="scene-tab" onclick="showResult('missing')">结果 3：附件缺失 ⚠️</button>
+    </div>
 
+    <section class="form-card">
       <div class="form-section">
         <label>增值产品</label>
-        <div class="select-box selected">库内非标增值（特批）</div>
+        <div class="select-box selected">入库非标增值（特批）</div>
       </div>
-
       <div class="form-section">
         <label>增值服务</label>
-        <div class="service-card selected">库内其他服务需求</div>
+        <div class="service-card selected">入库其他服务需求</div>
       </div>
-
       <div class="form-section">
-        <label for="backgroundDesc">需求背景说明</label>
-        <textarea id="backgroundDesc"></textarea>
+        <label for="bgText">需求背景说明</label>
+        <textarea id="bgText"></textarea>
       </div>
-
       <div class="form-section">
-        <label for="requirementDesc">需求描述</label>
-        <textarea id="requirementDesc"></textarea>
+        <label for="descText">需求描述</label>
+        <textarea id="descText"></textarea>
       </div>
-
-      <div class="form-section" id="uploadSection">
+      <div class="form-section" id="vasFilesSection">
         <label>增值文件</label>
-        <div class="upload-area" id="uploadArea"></div>
+        <div class="upload-list">
+          <div class="upload-item" id="upload1">
+            <span class="upload-icon">📎</span>
+            <div class="upload-info">
+              <span class="upload-name">操作说明附件 <span class="required">*</span></span>
+              <span class="upload-format">支持 .DOC / .DOCX / .PDF / .XLS / .XLSX</span>
+              <span class="upload-error" id="upload1Error"></span>
+            </div>
+            <span class="upload-status" id="upload1Status"></span>
+          </div>
+          <div class="upload-item" id="upload2">
+            <span class="upload-icon">📎</span>
+            <div class="upload-info">
+              <span class="upload-name">商品和标签的对应关系 <span class="required">*</span></span>
+              <span class="upload-format">支持 .XLS / .XLSX</span>
+              <span class="upload-error" id="upload2Error"></span>
+            </div>
+            <span class="upload-status" id="upload2Status"></span>
+          </div>
+          <div class="upload-item" id="upload3">
+            <span class="upload-icon">📎</span>
+            <div class="upload-info">
+              <span class="upload-name">标签文件 <span class="required">*</span></span>
+              <span class="upload-format">支持 .7Z / .JPEG / .JPG / .PDF / .PNG / .RAR / .ZIP</span>
+              <span class="upload-error" id="upload3Error"></span>
+            </div>
+            <span class="upload-status" id="upload3Status"></span>
+          </div>
+        </div>
       </div>
-
-      <div class="submit-row">
+      <div class="form-footer">
         <button class="submit-btn" id="submitBtn" onclick="handleSubmit()">提交增值单</button>
       </div>
     </section>
 
-    <section class="result-host" id="resultHost" aria-live="polite"></section>
+    <div class="validation-host" id="validationHost"></div>
 
     <section class="comparison-table">
       <h3>校验 B 逻辑：两个维度独立判断</h3>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>描述清晰度</th>
-              <th>附件完整性</th>
-              <th>结果</th>
-              <th>处理方式</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="row-pass active-row" data-row="pass">
-              <td>✅ 清晰</td>
-              <td>✅ 完整</td>
-              <td>直接提交成功</td>
-              <td>无需 AI 对话</td>
-            </tr>
-            <tr class="row-fail" data-row="unclear">
-              <td>❌ 不清晰</td>
-              <td>✅ 完整</td>
-              <td>拦截</td>
-              <td>强制弹 AI 侧栏补充</td>
-            </tr>
-            <tr class="row-warn" data-row="missing">
-              <td>✅ 清晰</td>
-              <td>⚠️ 缺失</td>
-              <td>拦截</td>
-              <td>红框标注，客户自传</td>
-            </tr>
-            <tr class="row-fail">
-              <td>❌ 不清晰</td>
-              <td>⚠️ 缺失</td>
-              <td>拦截</td>
-              <td>弹侧栏 + 红框</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>描述清晰度</th>
+            <th>附件完整性</th>
+            <th>结果</th>
+            <th>处理方式</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="row-pass" id="compareRow1">
+            <td>✅ 清晰（含SKU+数量/单据号，&gt;80字）</td>
+            <td>✅ 完整（3/3）</td>
+            <td>直接提交成功</td>
+            <td>无需 AI 对话</td>
+          </tr>
+          <tr class="row-fail" id="compareRow2">
+            <td>❌ 不清晰（缺SKU/数量/单据号，或&lt;80字）</td>
+            <td>✅ 完整</td>
+            <td>拦截</td>
+            <td>强制弹 AI 侧栏补充</td>
+          </tr>
+          <tr class="row-warn" id="compareRow3">
+            <td>✅ 清晰</td>
+            <td>⚠️ 缺失</td>
+            <td>拦截</td>
+            <td>红框标注，客户自传</td>
+          </tr>
+          <tr class="row-fail" id="compareRow4">
+            <td>❌ 不清晰</td>
+            <td>⚠️ 缺失</td>
+            <td>拦截</td>
+            <td>弹侧栏 + 红框（双重）</td>
+          </tr>
+        </tbody>
+      </table>
     </section>
-
-    <footer class="bottom-note">
-      校验 B：提交时 AI 校验两个维度（描述清晰度 + 附件完整性），独立判断，独立处理
-    </footer>
   </main>
 
   <aside class="ai-sidebar" id="aiSidebar">
@@ -765,10 +918,11 @@
     </div>
   </aside>
 
-  <script>
-    const completeBackground = `客户有一批老货当前存放在 DEBR2 Warehouse，SKU 绑定了第三方条码。后续会有一批亚马逊退仓新货入库，新货使用同一个三方条码，系统里无法用同一个三方条码同时区分两批 SKU。客户希望先把当前在库老货从良品库存转为不良品库存存放，主要是为了区分老货和新退仓货，不是因为商品实际破损。`;
+  <div class="bottom-note">校验 B：提交时 AI 校验两个维度（描述清晰度 + 附件完整性），独立判断，独立处理</div>
 
-    const completeRequirement = `操作需求：良品转不良品上架
+  <script>
+    const clearBackground = `客户有一批老货当前存放在 DEBR2 Warehouse，SKU 绑定了第三方条码。后续会有一批亚马逊退仓新货入库，新货使用同一个三方条码，系统里无法用同一个三方条码同时区分两批 SKU。客户希望先把当前在库老货从良品库存转为不良品库存存放，主要是为了区分老货和新退仓货，不是因为商品实际破损。`;
+    const clearDescription = `操作需求：良品转不良品上架
 
 仓库：DEBR2 Warehouse
 SKU/数量：SKU-DE-15908221，86 件
@@ -786,119 +940,192 @@ SKU/数量：SKU-DE-15908221，86 件
 
     const scenes = {
       pass: {
-        background: completeBackground,
-        requirement: completeRequirement,
-        filesUploaded: true
+        bg: clearBackground,
+        desc: clearDescription,
+        uploads: [true, true, true],
+        compare: 'compareRow1'
       },
       unclear: {
-        background: '帮我处理下库里那批货',
-        requirement: '帮我把那批货转一下不良品',
-        filesUploaded: true
+        bg: '帮我处理下库里那批货',
+        desc: '帮我把那批货转一下不良品',
+        uploads: [true, true, true],
+        compare: 'compareRow2'
       },
       missing: {
-        background: completeBackground,
-        requirement: completeRequirement,
-        filesUploaded: false
+        bg: clearBackground,
+        desc: clearDescription,
+        uploads: [false, false, false],
+        compare: 'compareRow3'
       }
     };
 
-    const fileNames = ['操作说明附件', '商品和标签的对应关系', '标签文件'];
-    const aiText = `您的需求描述信息不够完整，无法直接提交。请补充以下关键信息：
-1. 具体 SKU 编号
-2. 处理数量
-3. 关联单据号（入库单/出库单）
-4. 具体操作要求（仓库需要做什么）
-
-补充完整后我帮您重新整理并回填。`;
-
+    const uploadedNames = ['操作说明.docx', 'SKU对应关系.xlsx', '标签文件.zip'];
+    const uploadLabels = ['操作说明附件', '商品和标签的对应关系', '标签文件'];
     let currentScene = 'pass';
-    let loadingTimer = null;
-    let typingTimer = null;
+    let uploadState = [true, true, true];
+    let submitTimer = null;
+    let submitToken = 0;
 
-    function showResult(sceneKey) {
-      currentScene = sceneKey;
-      clearTimeout(loadingTimer);
-      clearInterval(typingTimer);
-
-      document.querySelectorAll('.scene-tab').forEach((tab) => tab.classList.remove('active'));
-      const tabIndex = sceneKey === 'pass' ? 0 : sceneKey === 'unclear' ? 1 : 2;
-      document.querySelectorAll('.scene-tab')[tabIndex].classList.add('active');
-
-      document.getElementById('backgroundDesc').value = scenes[sceneKey].background;
-      document.getElementById('requirementDesc').value = scenes[sceneKey].requirement;
-      document.getElementById('resultHost').innerHTML = '';
-      document.getElementById('submitBtn').textContent = '提交增值单';
-      document.getElementById('submitBtn').classList.remove('loading');
-      document.getElementById('backgroundDesc').classList.remove('error');
-      document.getElementById('requirementDesc').classList.remove('error');
-      document.getElementById('toast').classList.remove('show');
+    function showResult(scene) {
+      cancelPendingSubmit();
+      currentScene = scene;
+      const data = scenes[scene];
+      document.getElementById('bgText').value = data.bg;
+      document.getElementById('descText').value = data.desc;
+      uploadState = [...data.uploads];
+      document.querySelectorAll('.scene-tab').forEach((tab, index) => {
+        tab.classList.toggle('active', ['pass', 'unclear', 'missing'][index] === scene);
+      });
+      document.querySelectorAll('tbody tr').forEach(row => row.classList.remove('highlight'));
+      document.getElementById(data.compare).classList.add('highlight');
+      resetValidation();
+      renderUploads();
       closeSidebar();
-      renderUploadItems(sceneKey, false);
-      highlightComparisonRow(sceneKey);
     }
 
-    function renderUploadItems(sceneKey, forceMissing) {
-      const uploadArea = document.getElementById('uploadArea');
-      const uploaded = scenes[sceneKey].filesUploaded;
-      uploadArea.innerHTML = fileNames.map((name) => {
-        const stateClass = uploaded ? 'uploaded' : forceMissing ? 'missing' : 'pending';
-        const status = uploaded ? '✅ 已上传' : forceMissing ? '❌ 必须上传' : '未上传';
-        return `
-          <div class="upload-item ${stateClass}">
-            <span class="file-title">${name}</span>
-            <span class="file-status">${status}</span>
-          </div>
-        `;
-      }).join('');
+    function renderUploads() {
+      uploadState.forEach((isUploaded, index) => {
+        const item = document.getElementById(`upload${index + 1}`);
+        const status = document.getElementById(`upload${index + 1}Status`);
+        const error = document.getElementById(`upload${index + 1}Error`);
+        item.classList.remove('error', 'shake');
+        status.className = 'upload-status';
+        error.textContent = '';
+        if (isUploaded) {
+          status.textContent = `✅ ${uploadedNames[index]}`;
+          status.classList.add('uploaded');
+        } else {
+          status.textContent = '未上传';
+        }
+      });
+    }
+
+    function resetValidation() {
+      document.getElementById('validationHost').innerHTML = '';
+      document.getElementById('submitBtn').textContent = '提交增值单';
+      document.getElementById('submitBtn').classList.remove('loading');
+      document.getElementById('bgText').classList.remove('error', 'shake');
+      document.getElementById('descText').classList.remove('error', 'shake');
+      document.querySelectorAll('.toast').forEach(toast => toast.remove());
+    }
+
+    function cancelPendingSubmit() {
+      submitToken += 1;
+      if (submitTimer) {
+        clearTimeout(submitTimer);
+        submitTimer = null;
+      }
+    }
+
+    function isDescriptionClear(bgText, descText) {
+      const combined = bgText + descText;
+      const hasSku = /SKU[-\w]*/i.test(combined);
+      const hasQuantity = /\d+\s*件/.test(combined);
+      const hasOrderNo = /(WI|WO)\w{5,}/.test(combined);
+      const hasLength = combined.length > 80;
+      return hasLength && hasSku && (hasQuantity || hasOrderNo);
+    }
+
+    function isAttachmentComplete() {
+      return uploadState.every(Boolean);
     }
 
     function handleSubmit() {
-      clearTimeout(loadingTimer);
-      const submitBtn = document.getElementById('submitBtn');
-      submitBtn.textContent = 'AI 校验中...';
-      submitBtn.classList.add('loading');
-      document.getElementById('resultHost').innerHTML = '';
-      document.getElementById('backgroundDesc').classList.remove('error');
-      document.getElementById('requirementDesc').classList.remove('error');
-      renderUploadItems(currentScene, false);
-      closeSidebar();
+      cancelPendingSubmit();
+      resetValidation();
+      renderUploads();
+      const button = document.getElementById('submitBtn');
+      button.textContent = '智能校验中...';
+      button.classList.add('loading');
+      const activeToken = submitToken;
 
-      loadingTimer = setTimeout(() => {
-        submitBtn.textContent = '提交增值单';
-        submitBtn.classList.remove('loading');
-        if (currentScene === 'pass') {
-          renderPassResult();
-          showToast();
-        } else if (currentScene === 'unclear') {
-          renderUnclearResult();
-          markDescriptionError();
-        } else {
-          renderMissingResult();
-          markMissingFiles();
+      submitTimer = setTimeout(() => {
+        if (activeToken !== submitToken) {
+          return;
         }
+        submitTimer = null;
+        const bgText = document.getElementById('bgText').value;
+        const descText = document.getElementById('descText').value;
+        const descClear = isDescriptionClear(bgText, descText);
+        const attachOk = isAttachmentComplete();
+        button.textContent = '提交增值单';
+        button.classList.remove('loading');
+
+        if (descClear && attachOk) {
+          renderPass();
+          showToast('✅ 增值单提交成功！');
+          return;
+        }
+
+        if (!descClear) {
+          markDescriptionError();
+        }
+
+        if (!attachOk) {
+          markAttachmentError();
+        }
+
+        if (!descClear && attachOk) {
+          renderUnclear();
+          showSidebarForce();
+          return;
+        }
+
+        if (descClear && !attachOk) {
+          renderMissing();
+          document.getElementById('vasFilesSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+
+        renderCombined();
+        showSidebarForce();
+        document.getElementById('vasFilesSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 1000);
     }
 
-    function renderPassResult() {
-      document.getElementById('resultHost').innerHTML = `
+    function markDescriptionError() {
+      ['bgText', 'descText'].forEach(id => {
+        const element = document.getElementById(id);
+        element.classList.add('error', 'shake');
+      });
+    }
+
+    function markAttachmentError() {
+      uploadState.forEach((isUploaded, index) => {
+        if (!isUploaded) {
+          const item = document.getElementById(`upload${index + 1}`);
+          const status = document.getElementById(`upload${index + 1}Status`);
+          const error = document.getElementById(`upload${index + 1}Error`);
+          item.classList.add('error', 'shake');
+          status.textContent = '❌ 必须上传';
+          status.className = 'upload-status error-text';
+          error.textContent = `❌ 必须上传 — ${uploadLabels[index]}`;
+        }
+      });
+    }
+
+    function renderPass() {
+      document.getElementById('validationHost').innerHTML = `
         <div class="validation-result pass">
           <div class="result-header">📋 提交前智能校验</div>
           <div class="result-body">
             <div class="check-item pass">✅ 增值产品：已选择</div>
             <div class="check-item pass">✅ 增值服务：已选择</div>
-            <div class="check-item pass">✅ 需求描述清晰度：通过 — 包含 SKU、数量、单据号、操作要求</div>
+            <div class="check-item pass">✅ 需求描述清晰度：通过 — 包含 SKU、数量、单据号、具体操作要求</div>
             <div class="check-item pass">✅ 附件完整性：通过 — 3/3 已上传</div>
           </div>
           <div class="result-footer">
             <div class="result-summary pass">🎉 校验全部通过，增值单已提交成功！</div>
           </div>
         </div>
-        <div class="key-point">💡 客户没有和 AI 对话，但自己填写得足够清晰、附件完整 → 直接通过，不强制对话。</div>
+        <div class="key-point">
+          💡 客户没有和 AI 对话，但自己填写得足够清晰、附件完整 → 直接通过，不强制对话。
+        </div>
       `;
     }
 
-    function renderUnclearResult() {
-      document.getElementById('resultHost').innerHTML = `
+    function renderUnclear() {
+      document.getElementById('validationHost').innerHTML = `
         <div class="validation-result fail">
           <div class="result-header">📋 提交前智能校验</div>
           <div class="result-body">
@@ -906,7 +1133,7 @@ SKU/数量：SKU-DE-15908221，86 件
             <div class="check-item pass">✅ 增值服务：已选择</div>
             <div class="check-item fail">
               ❌ 需求描述清晰度：不通过<br>
-              <span class="fail-detail">描述中缺少关键信息：SKU 编号、处理数量、关联单据号、具体操作步骤</span>
+              <span class="fail-detail">缺少关键信息：SKU 编号、处理数量、关联单据号（WI/WO开头）。描述总长度不足 80 字。</span>
             </div>
             <div class="check-item pass">✅ 附件完整性：通过 — 3/3 已上传</div>
           </div>
@@ -914,88 +1141,86 @@ SKU/数量：SKU-DE-15908221，86 件
             <button class="btn-primary" onclick="showSidebarForce()">与 AI 对话补充信息</button>
           </div>
         </div>
-        <div class="key-point">💡 描述不清晰 → 强制打开 AI 侧栏，客户必须补充信息后才能再次提交。</div>
+        <div class="key-point">
+          💡 描述不清晰 → 强制打开 AI 侧栏，客户必须补充信息后才能再次提交。不是红框提示，是拉回 AI 对话。
+        </div>
       `;
     }
 
-    function renderMissingResult() {
-      document.getElementById('resultHost').innerHTML = `
+    function renderMissing() {
+      document.getElementById('validationHost').innerHTML = `
         <div class="validation-result warn">
           <div class="result-header">📋 提交前智能校验</div>
           <div class="result-body">
             <div class="check-item pass">✅ 增值产品：已选择</div>
             <div class="check-item pass">✅ 增值服务：已选择</div>
-            <div class="check-item pass">✅ 需求描述清晰度：通过 — 包含 SKU、数量、单据号、操作要求</div>
+            <div class="check-item pass">✅ 需求描述清晰度：通过 — 包含 SKU、数量、单据号、具体操作要求</div>
             <div class="check-item warn">
               ⚠️ 附件完整性：未通过<br>
-              <span class="warn-detail">缺少：操作说明附件、商品和标签的对应关系、标签文件</span>
+              <span class="warn-detail">缺少：操作说明附件、商品和标签的对应关系、标签文件（共 3 项未上传）</span>
             </div>
           </div>
           <div class="result-footer">
             <div class="result-summary warn">请上传缺失附件后重新提交</div>
           </div>
         </div>
-        <div class="key-point">💡 附件缺失 → 只标红提示，不强制 AI 对话。客户自己补传即可。</div>
+        <div class="key-point">
+          💡 附件缺失 → 只标红提示，不强制 AI 对话。客户自己补传即可，不需要和 AI 聊。
+        </div>
       `;
     }
 
-    function markDescriptionError() {
-      restartAnimation(document.getElementById('backgroundDesc'), 'error');
-      restartAnimation(document.getElementById('requirementDesc'), 'error');
-    }
-
-    function markMissingFiles() {
-      renderUploadItems('missing', true);
-      document.getElementById('uploadSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    function restartAnimation(element, className) {
-      element.classList.remove(className);
-      void element.offsetWidth;
-      element.classList.add(className);
+    function renderCombined() {
+      document.getElementById('validationHost').innerHTML = `
+        <div class="validation-result fail">
+          <div class="result-header">📋 提交前智能校验</div>
+          <div class="result-body">
+            <div class="check-item pass">✅ 增值产品：已选择</div>
+            <div class="check-item pass">✅ 增值服务：已选择</div>
+            <div class="check-item fail">
+              ❌ 需求描述清晰度：不通过<br>
+              <span class="fail-detail">缺少关键信息：SKU 编号、处理数量、关联单据号（WI/WO开头）。描述总长度不足 80 字。</span>
+            </div>
+            <div class="check-item warn">
+              ⚠️ 附件完整性：未通过<br>
+              <span class="warn-detail">缺少必传附件，请补齐 3 项文件后重新提交。</span>
+            </div>
+          </div>
+          <div class="result-footer">
+            <button class="btn-primary" onclick="showSidebarForce()">与 AI 对话补充信息</button>
+          </div>
+        </div>
+        <div class="key-point">
+          💡 描述不清晰且附件缺失 → 弹侧栏补充关键信息，同时标红缺失附件。
+        </div>
+      `;
     }
 
     function showSidebarForce() {
-      clearInterval(typingTimer);
       const sidebar = document.getElementById('aiSidebar');
-      const pageShell = document.getElementById('pageShell');
       const chatArea = document.getElementById('chatArea');
       sidebar.classList.add('open');
-      pageShell.classList.add('sidebar-open');
-      chatArea.innerHTML = '<div class="ai-message" id="aiMessage"></div>';
-      typeAiMessage(aiText);
+      chatArea.innerHTML = `
+        <div class="message ai">您的需求描述信息不够完整，无法直接提交。请补充以下关键信息：
+1. 具体 SKU 编号（如 SKU-XX-12345678）
+2. 处理数量（X 件）
+3. 关联单据号（入库单 WI... / 出库单 WO...）
+4. 具体操作要求（仓库需要做什么）
+
+补充完整后我帮您重新整理并回填。</div>
+      `;
     }
 
     function closeSidebar() {
       document.getElementById('aiSidebar').classList.remove('open');
-      document.getElementById('pageShell').classList.remove('sidebar-open');
-      document.getElementById('chatArea').innerHTML = '';
-      clearInterval(typingTimer);
     }
 
-    function typeAiMessage(text) {
-      const target = document.getElementById('aiMessage');
-      let index = 0;
-      typingTimer = setInterval(() => {
-        target.textContent = text.slice(0, index);
-        index += 1;
-        if (index > text.length) {
-          clearInterval(typingTimer);
-        }
-      }, 18);
-    }
-
-    function showToast() {
-      const toast = document.getElementById('toast');
-      toast.classList.remove('show');
-      void toast.offsetWidth;
-      toast.classList.add('show');
-    }
-
-    function highlightComparisonRow(sceneKey) {
-      document.querySelectorAll('[data-row]').forEach((row) => {
-        row.classList.toggle('active-row', row.dataset.row === sceneKey);
-      });
+    function showToast(text) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = text;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3100);
     }
 
     showResult('pass');
