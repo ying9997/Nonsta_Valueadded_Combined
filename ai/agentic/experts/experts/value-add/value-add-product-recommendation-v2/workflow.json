@@ -1,0 +1,302 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "inputContext",
+        "inputs",
+        "exceptionCode",
+        "exceptionName",
+        "exceptionCategory",
+        "exceptionObject",
+        "customerActionIntent",
+        "inboundOrderNo",
+        "orderStatusHint",
+        "handoffFacts",
+        "enrichedContext"
+      ],
+      "outputs": [
+        "recommendationInput",
+        "validationResult",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "recommendationInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-flow-context",
+      "file": "nodes/load-flow-context.ts",
+      "inputs": [
+        "recommendationInput",
+        "validationResult",
+        "kbFlowContext",
+        "kbInferenceRules"
+      ],
+      "outputs": [
+        "flowContextKb",
+        "recommendationInput",
+        "validationResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "flowContextKb": {
+            "type": "string"
+          },
+          "recommendationInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-classify",
+      "type": "llm",
+      "promptFile": "prompts/classify.md",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "recommendationInput",
+        "flowContextKb",
+        "inputContext"
+      ],
+      "outputs": [
+        "classificationResult"
+      ]
+    },
+    {
+      "id": "llm-clarify",
+      "type": "llm",
+      "promptFile": "prompts/clarify.md",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "recommendationInput",
+        "classificationResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "clarificationResult"
+      ]
+    },
+    {
+      "id": "load-intent-guide",
+      "file": "nodes/load-intent-guide.ts",
+      "inputs": [
+        "recommendationInput",
+        "classificationResult",
+        "clarificationResult",
+        "kbIntentGuide",
+        "kbDecisionSystemPrompt",
+        "kbInferenceRules",
+        "kbIntentRoutingB0102E23",
+        "kbIntentRoutingB03E03",
+        "kbForbiddenProducts",
+        "kbHRules"
+      ],
+      "outputs": [
+        "intentGuideKb",
+        "recommendationInput",
+        "classificationResult",
+        "clarificationResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "intentGuideKb": {
+            "type": "string"
+          },
+          "recommendationInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "classificationResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "clarificationResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "verify-with-mapping",
+      "file": "nodes/verify-with-mapping.ts",
+      "inputs": [
+        "recommendationInput",
+        "intentGuideKb",
+        "kbMappingTable",
+        "kbVascConstraints",
+        "kbForbiddenProducts",
+        "kbHRules"
+      ],
+      "outputs": [
+        "candidateSeed",
+        "mappingEvidence",
+        "recommendationInput",
+        "intentGuideKb",
+        "constraintsKb"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "candidateSeed": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "mappingEvidence": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "recommendationInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "intentGuideKb": {
+            "type": "string"
+          },
+          "constraintsKb": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "filter-by-constraints",
+      "file": "nodes/filter-by-constraints.ts",
+      "inputs": [
+        "recommendationInput",
+        "candidateSeed"
+      ],
+      "outputs": [
+        "filteredRecommendation",
+        "recommendationInput"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "filteredRecommendation": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "recommendationInput": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "evidence-gate",
+      "file": "nodes/evidence-gate.ts",
+      "inputs": [
+        "recommendationInput",
+        "filteredRecommendation"
+      ],
+      "outputs": [
+        "filteredRecommendation",
+        "recommendationInput"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "filteredRecommendation": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "recommendationInput": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-recommend",
+      "type": "llm",
+      "promptFile": "prompts/main.md",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "recommendationInput",
+        "filteredRecommendation",
+        "intentGuideKb",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "recommendationInput",
+        "filteredRecommendation",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object"
+          },
+          "recommendationInput": {
+            "type": "object"
+          },
+          "filteredRecommendation": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

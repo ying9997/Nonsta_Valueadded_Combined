@@ -1,0 +1,406 @@
+{
+  "cases": [
+    {
+      "id": "validate_fail_empty",
+      "description": "无任何入参，validate 失败；仍可走 stub LLM + format",
+      "params": {},
+      "expect": {
+        "valid": false,
+        "branch": "need_human",
+        "missingFactsIncludes": ["staleFacts"]
+      }
+    },
+    {
+      "id": "with_upstream_context",
+      "description": "有上游 enrichedContext 与 previousOutput，可进入正常分析链路",
+      "params": {
+        "query": "客户反馈轨迹停滞",
+        "trackingIds": [
+          "1Z999AA10123456784"
+        ],
+        "customerIntent": "已超过10天未更新，想确认是否能索赔",
+        "enrichedContext": {
+          "recognizedException": false,
+          "ascanDetected": true,
+          "noUpdateDays": 11,
+          "hasClaimService": true,
+          "isDomestic": true,
+          "claimWindowStatus": "in_window"
+        },
+        "inputContext": {
+          "chainId": "case-stale-001",
+          "sourceExpertId": "delivery-status",
+          "previousOutput": {
+            "analysis": "最后轨迹更新时间为 4/20，当前已超 10 天。"
+          }
+        }
+      },
+      "expect": {
+        "valid": true,
+        "staleFactsSource": "upstream_noUpdateDays",
+        "staleFactsCalcStatus": "ok",
+        "staleFactsIsOver10Days": true,
+        "branch": "domestic_claim_recommended",
+        "suggestedNextExpertsIncludes": ["substitute-claim"],
+        "analysisIncludes": ["支持丢失类代客索赔", "查件"]
+      }
+    },
+    {
+      "id": "compute_from_last_tracking_at",
+      "description": "无 noUpdateDays，使用 lastTrackingAt + analysisClock 路径计算停更天数",
+      "params": {
+        "query": "客户反馈轨迹停滞",
+        "trackingIds": [
+          "YT-CALC-001"
+        ],
+        "customerIntent": "请判断是否超过10天",
+        "enrichedContext": {
+          "recognizedException": false,
+          "ascanDetected": true,
+          "lastTrackingAt": "2024-01-01T00:00:00.000Z",
+          "hasClaimService": true,
+          "isDomestic": true
+        },
+        "inputContext": {
+          "chainId": "case-stale-002",
+          "sourceExpertId": "delivery-status",
+          "previousOutput": {
+            "analysis": "需要根据最后轨迹时间计算停更天数。"
+          }
+        }
+      },
+      "expect": {
+        "valid": true,
+        "staleFactsSource": "computed_lastTrackingAt",
+        "staleFactsCalcStatus": "ok",
+        "staleFactsIsOver10Days": true,
+        "branch": "domestic_claim_recommended",
+        "missingFactsIncludes": ["claimWindowStatus"],
+        "analysisIncludes": ["人工核实是否仍在提交时效内"]
+      }
+    },
+    {
+      "id": "insufficient_data_for_date_calc",
+      "description": "缺 noUpdateDays 与 lastTrackingAt，日期计算应返回 insufficient_data",
+      "params": {
+        "query": "客户说很久没更新",
+        "trackingIds": [
+          "YT-NO-DATE-001"
+        ],
+        "customerIntent": "判断停更时长",
+        "enrichedContext": {
+          "recognizedException": false,
+          "ascanDetected": true
+        },
+        "inputContext": {
+          "chainId": "case-stale-003",
+          "sourceExpertId": "delivery-status",
+          "previousOutput": {
+            "analysis": "上游未给最后轨迹时间与停更天数。"
+          }
+        }
+      },
+      "expect": {
+        "valid": true,
+        "staleFactsSource": "unavailable",
+        "staleFactsCalcStatus": "insufficient_data",
+        "branch": "need_human",
+        "missingFactsIncludes": ["staleFacts"]
+      }
+    },
+    {
+      "id": "delivered_suppresses_stale_threshold",
+      "description": "已妥投（Dscan 与 lastTrackingAt 一致）时即使 noUpdateDays 很大也应豁免停更阈值并标记 isDelivered",
+      "params": {
+        "query": "查不到轨迹",
+        "trackingIds": ["FE519438375GB"],
+        "customerIntent": "轨迹异常",
+        "enrichedContext": {
+          "ascanDetected": true,
+          "noUpdateDays": 22,
+          "lastTrackingAt": "2026-04-22 11:46:00",
+          "hasClaimService": false,
+          "isDomestic": false,
+          "computedScanFacts": [
+            {
+              "trackingNo": "FE519438375GB",
+              "deliveryFailureLikely": false,
+              "ascanEvents": [
+                {
+                  "description": "Shipment Received in Depot",
+                  "location": null,
+                  "status": "Ascan",
+                  "time": "2026-04-21 04:47:00"
+                }
+              ],
+              "dscanEvents": [
+                {
+                  "description": "派送完成",
+                  "location": null,
+                  "status": "Dscan",
+                  "time": "2026-04-22 11:46:00"
+                }
+              ],
+              "rdscanEvents": []
+            }
+          ]
+        },
+        "inputContext": {
+          "chainId": "case-stale-delivered",
+          "sourceExpertId": "delivery-status",
+          "previousOutput": {
+            "analysis": "轨迹显示已派送完成。"
+          }
+        }
+      },
+      "expect": {
+        "valid": true,
+        "staleFactsSource": "upstream_noUpdateDays",
+        "staleFactsCalcStatus": "ok",
+        "staleFactsIsOver10Days": false,
+        "staleFactsIsDelivered": true,
+        "branch": "terminal_delivered_not_stale",
+        "analysisExcludes": ["无索赔服务"]
+      }
+    },
+    {
+      "id": "platform_waybill_no_claim",
+      "description": "3PL 平台面单：6 天停更仍应标记 isPlatformWaybill，staleFacts 含该标记；不应走 below_claim_threshold",
+      "params": {
+        "query": "分析轨迹未更新原因",
+        "trackingIds": ["9234690391604809959011"],
+        "outboundOrderNos": ["WO11566539452"],
+        "customerIntent": "-",
+        "enrichedContext": {
+          "recognizedException": false,
+          "ascanDetected": false,
+          "noUpdateDays": 6,
+          "hasClaimService": false,
+          "isDomestic": false,
+          "last-mile/delivery-status": [
+            {
+              "_meta": { "at": "2026-06-25T08:18:57.504Z", "stepIndex": 1 },
+              "noUpdateDays": 6,
+              "lastTrackingAt": "2026-06-18T08:37:06.000Z"
+            }
+          ]
+        },
+        "inputContext": {
+          "chainId": "case-stale-3pl",
+          "sourceExpertId": "delivery-status",
+          "previousOutput": {
+            "analysis": "该订单为3PL平台面单类型，尾程物流轨迹通常不会同步到万邑通系统。"
+          }
+        }
+      },
+      "expect": {
+        "valid": true,
+        "staleFactsSource": "upstream_noUpdateDays",
+        "staleFactsCalcStatus": "ok",
+        "staleFactsIsOver10Days": false,
+        "staleFactsIsPlatformWaybill": true,
+        "branch": "no_claim_service",
+        "analysisIncludes": ["3PL平台面单"]
+      }
+    },
+    {
+      "id": "explicit_no_claim_over_10_days",
+      "description": "上游明确无索赔服务且已停更超过10天，应保留无索赔分支",
+      "params": {
+        "query": "轨迹长期未更新",
+        "trackingIds": ["TRACK-NO-CLAIM"],
+        "enrichedContext": {
+          "noUpdateDays": 20,
+          "hasClaimService": false,
+          "isDomestic": true
+        }
+      },
+      "llmResult": {
+        "branch": "domestic_claim_recommended",
+        "analysis": "模型错误建议索赔"
+      },
+      "expect": {
+        "valid": true,
+        "staleFactsCalcStatus": "ok",
+        "staleFactsIsOver10Days": true,
+        "branch": "no_claim_service",
+        "analysisIncludes": ["已明确该渠道无索赔服务"]
+      }
+    },
+    {
+      "id": "missing_claim_fact_over_10_days",
+      "description": "停更超过10天但索赔能力未知，必须转人工且标记缺失事实",
+      "params": {
+        "query": "轨迹长期未更新",
+        "trackingIds": ["TRACK-UNKNOWN-CLAIM"],
+        "enrichedContext": {
+          "noUpdateDays": 20,
+          "isDomestic": true
+        }
+      },
+      "llmResult": {
+        "branch": "no_claim_service",
+        "analysis": "模型擅自判断无索赔服务"
+      },
+      "expect": {
+        "valid": true,
+        "staleFactsCalcStatus": "ok",
+        "staleFactsIsOver10Days": true,
+        "branch": "need_human",
+        "missingFactsIncludes": ["hasClaimService"],
+        "analysisExcludes": ["该渠道无索赔服务"]
+      }
+    },
+    {
+      "id": "us_7day_zonal_claim_regression",
+      "description": "美国7日达分区变体、已A-scan并停更34天，应按产品规则识别为可索赔",
+      "params": {
+        "query": "美国订单轨迹19号后无更新",
+        "trackingIds": ["TRACK-7DAY-ZONAL"],
+        "outboundOrderNos": ["WO-REGRESSION-7DAY"],
+        "enrichedContext": {
+          "outbound/outbound-order-status": [
+            {
+              "orderFacts": [
+                {
+                  "outboundOrderNo": "WO-REGRESSION-7DAY",
+                  "effectiveProductCode": "PRODUCT-VARIANT-ZONAL",
+                  "effectiveProductName": "Winit Fulfillment-7日达(2-7 Business Days)-Zonal-US",
+                  "isPlatformWaybill": false
+                }
+              ]
+            }
+          ],
+          "last-mile/delivery-status": [
+            {
+              "noUpdateDays": 34,
+              "lastTrackingAt": "2026-06-19T19:51:50.000Z",
+              "computedScanFacts": [
+                {
+                  "trackingNo": "TRACK-7DAY-ZONAL",
+                  "ascanEvents": [{"status": "Ascan", "time": "2026-06-19 19:51:50"}],
+                  "dscanEvents": [],
+                  "rdscanEvents": [],
+                  "deliveryFailureLikely": false
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "llmResult": {
+        "branch": "no_claim_service",
+        "analysis": "模型错误判断该渠道无索赔服务"
+      },
+      "expect": {
+        "valid": true,
+        "staleFactsCalcStatus": "ok",
+        "staleFactsIsOver10Days": true,
+        "branch": "domestic_claim_recommended",
+        "suggestedNextExpertsIncludes": ["substitute-claim"],
+        "analysisIncludes": ["已停更34天", "支持丢失类代客索赔", "查件"],
+        "analysisExcludes": ["无索赔服务"]
+      }
+    },
+    {
+      "id": "ascan_stale_3_to_10_days",
+      "description": "已A-scan且停更3至10天时只建议查件观察，不判断索赔能力",
+      "params": {
+        "query": "轨迹6天没更新",
+        "trackingIds": ["TRACK-STALE-6D"],
+        "enrichedContext": {
+          "noUpdateDays": 6,
+          "hasClaimService": true,
+          "isDomestic": true
+        }
+      },
+      "llmResult": {
+        "branch": "no_claim_service",
+        "analysis": "模型错误判断该渠道无索赔服务"
+      },
+      "expect": {
+        "valid": true,
+        "staleFactsCalcStatus": "ok",
+        "staleFactsIsOver10Days": false,
+        "branch": "ascan_stale_within_3_days",
+        "analysisIncludes": ["提交查件"],
+        "analysisExcludes": ["无索赔服务", "发起索赔"]
+      }
+    },
+    {
+      "id": "all_no_ascan_handoff",
+      "description": "两票仓库已发货但均无承运商 Ascan，必须转 tracking-no-scan，不能卡 hasClaimService",
+      "params": {
+        "query": "两张出库单超过11天无上网",
+        "trackingIds": ["TRACK-NOASCAN-001", "TRACK-NOASCAN-002"],
+        "outboundOrderNos": ["WO-NOASCAN-001", "WO-NOASCAN-002"],
+        "enrichedContext": {
+          "noUpdateDays": 12,
+          "ascanDetected": false,
+          "computedScanFacts": [
+            {"trackingNo":"TRACK-NOASCAN-001","ascanEvents":[],"dscanEvents":[],"rdscanEvents":[],"deliveryFailureLikely":false},
+            {"trackingNo":"TRACK-NOASCAN-002","ascanEvents":[],"dscanEvents":[],"rdscanEvents":[],"deliveryFailureLikely":false}
+          ]
+        }
+      },
+      "llmResult": {"branch":"need_human","analysis":"缺少 hasClaimService"},
+      "expect": {
+        "valid": true,
+        "scanStateSummary": "all_no_ascan",
+        "scanStateCount": 2,
+        "branch": "handoff_no_ascan",
+        "suggestedNextExpertsIncludes": ["tracking-no-scan"],
+        "analysisIncludes": ["未检测到 Ascan", "无上网"],
+        "analysisExcludes": ["缺少该渠道是否支持索赔", "hasClaimService"]
+      }
+    },
+    {
+      "id": "all_no_ascan_boolean_fallback",
+      "description": "模拟 Coze 仅保留显式 ascanDetected=false 与运单号时，仍须逐票回退为 no_ascan",
+      "params": {
+        "query": "两张出库单无承运商扫描",
+        "trackingIds": ["TRACK-NOASCAN-FALLBACK-001", "TRACK-NOASCAN-FALLBACK-002"],
+        "outboundOrderNos": ["WO-NOASCAN-FALLBACK-001", "WO-NOASCAN-FALLBACK-002"],
+        "enrichedContext": {
+          "noUpdateDays": 13,
+          "ascanDetected": false,
+          "warehouseLastEventAt": "2026-07-17T08:16:09.000Z"
+        }
+      },
+      "llmResult": {"branch":"need_human","analysis":"缺少 hasClaimService"},
+      "expect": {
+        "valid": true,
+        "scanStateSummary": "all_no_ascan",
+        "scanStateCount": 2,
+        "branch": "handoff_no_ascan",
+        "suggestedNextExpertsIncludes": ["tracking-no-scan"],
+        "analysisIncludes": ["未检测到 Ascan", "无上网"],
+        "analysisExcludes": ["hasClaimService"]
+      }
+    },
+    {
+      "id": "mixed_scan_state_requires_split",
+      "description": "同批一票有 Ascan、一票无 Ascan，必须输出逐票状态并要求拆票",
+      "params": {
+        "query": "批量轨迹停滞",
+        "trackingIds": ["TRACK-MIXED-A", "TRACK-MIXED-B"],
+        "enrichedContext": {
+          "noUpdateDays": 12,
+          "computedScanFacts": [
+            {"trackingNo":"TRACK-MIXED-A","ascanEvents":[{"status":"Ascan","time":"2026-07-15 10:00:00"}],"dscanEvents":[],"rdscanEvents":[],"deliveryFailureLikely":false},
+            {"trackingNo":"TRACK-MIXED-B","ascanEvents":[],"dscanEvents":[],"rdscanEvents":[],"deliveryFailureLikely":false}
+          ]
+        }
+      },
+      "expect": {
+        "valid": true,
+        "scanStateSummary": "mixed",
+        "scanStateCount": 2,
+        "branch": "mixed_scan_state",
+        "suggestedNextExpertsIncludes": ["tracking-no-scan"],
+        "missingFactsIncludes": ["splitByTrackingScanState"],
+        "analysisIncludes": ["扫描状态不一致", "拆票"]
+      }
+    }
+  ]
+}

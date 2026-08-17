@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "verifiedAt": "2026-07-28",
+  "coveredInputs": [
+    "businessNo",
+    "bookingNo",
+    "claimIds",
+    "containerNo",
+    "inboundOrderNo",
+    "inboundOrderNos",
+    "inquiryIds",
+    "orderIdentifiers",
+    "outboundOrderNos",
+    "podIds",
+    "targetPackageNos",
+    "trackingIds",
+    "transportOrderNo",
+    "vasOrderNo"
+  ],
+  "types": [
+    {
+      "id": "inbound-order",
+      "status": "supported",
+      "patterns": ["^WI[A-Z0-9_-]+$"],
+      "priority": 10,
+      "route": "/InboundOrderSearch/index",
+      "searchLabels": ["订单号"],
+      "identityFields": ["customerCode", "customerName"],
+      "repoEvidence": ["inboundOrderNo", "inboundOrderNos"]
+    },
+    {
+      "id": "outbound-order",
+      "status": "supported",
+      "patterns": ["^WO\\d+[A-Z]*$"],
+      "priority": 10,
+      "route": "/OverseasOBOrder/index",
+      "searchLabels": ["订单编号"],
+      "identityFields": ["customerInfo.customerCode", "customerInfo.customerName"],
+      "repoEvidence": ["outboundOrderNos"]
+    },
+    {
+      "id": "value-add-order",
+      "status": "supported",
+      "patterns": ["^V\\d+$", "^VASC\\d+$"],
+      "priority": 20,
+      "route": "/VasOrder/index",
+      "searchLabels": ["增值单号"],
+      "identityFields": ["customer.customerCode", "customer.customerName"],
+      "repoEvidence": ["vasOrderNo", "businessNo"],
+      "notes": "VASC also identifies products; require an exact returned order row."
+    },
+    {
+      "id": "transport-order",
+      "status": "partial",
+      "patterns": ["^TO[A-Z0-9_-]+$"],
+      "priority": 20,
+      "route": "TMS:tms.transportorder.queryPage",
+      "searchLabels": ["orderNo"],
+      "identityFields": ["customerCode", "customerName"],
+      "repoEvidence": ["transportOrderNo"],
+      "gap": "The seller OpenAPI injects current customer context; cross-customer TOM raw-row verification is still required."
+    },
+    {
+      "id": "claim-order",
+      "status": "gap",
+      "patterns": ["^(CLM|CLAIM)[A-Z0-9_-]+$"],
+      "priority": 20,
+      "route": "afs.customer.compensate.pageList",
+      "searchLabels": ["claimIds"],
+      "identityFields": [],
+      "repoEvidence": ["claimIds"],
+      "gap": "The repository query needs customer context and does not provide a verified cross-customer reverse lookup."
+    },
+    {
+      "id": "pod-record",
+      "status": "partial",
+      "patterns": ["^POD[A-Z0-9_-]+$"],
+      "priority": 20,
+      "route": "resolve-linked-outbound",
+      "searchLabels": ["podIds"],
+      "identityFields": [],
+      "repoEvidence": ["podIds"],
+      "gap": "Resolve a linked WO or tracking number first; POD id alone has no verified owner lookup."
+    },
+    {
+      "id": "booking-order",
+      "status": "supported",
+      "patterns": [],
+      "hints": ["booking", "预约"],
+      "priority": 40,
+      "route": "/BookingManagement/bookingList",
+      "searchLabels": ["预约单号", "预约码", "订单号", "物流单号", "送仓单", "海外中转单"],
+      "identityFields": ["customerCode", "customerName"],
+      "repoEvidence": ["bookingNo", "containerNo"]
+    },
+    {
+      "id": "tracking-inquiry-record",
+      "status": "partial",
+      "patterns": ["^TA[A-Z0-9_-]+$"],
+      "priority": 25,
+      "route": "TailTrace.getList",
+      "searchLabels": ["serialNumber"],
+      "identityFields": ["orderNo", "trackingNo", "shippingNo"],
+      "repoEvidence": ["inquiryIds"],
+      "gap": "Resolve the exact inquiry row to a linked outbound order or tracking number, then verify the customer through the outbound route."
+    },
+    {
+      "id": "isp-order",
+      "status": "supported",
+      "patterns": ["^ISP[A-Z0-9_-]+$"],
+      "priority": 30,
+      "route": "/IspOrder/index",
+      "searchLabels": ["ISP订单号", "跟踪号", "卖家订单号"],
+      "identityFields": ["bpartnerValue", "bpartnerName"],
+      "repoEvidence": []
+    },
+    {
+      "id": "return-order",
+      "status": "supported",
+      "patterns": ["^(RMA|WR|RT)[A-Z0-9_-]+$"],
+      "priority": 30,
+      "route": "/ReturnInventoryManagement/index",
+      "searchLabels": ["Winit订单号", "RMA号", "退货跟踪号", "客户退货跟踪号"],
+      "identityFields": ["customterCode", "customterName"],
+      "repoEvidence": []
+    },
+    {
+      "id": "global-transfer-order",
+      "status": "partial",
+      "patterns": [],
+      "hints": ["国际送仓", "全球送"],
+      "priority": 40,
+      "route": "/InternationalWarehouse/index",
+      "searchLabels": ["Winit订单号", "物流单号", "FBA包裹号", "Tracking No."],
+      "identityFields": ["userName"],
+      "repoEvidence": [],
+      "gap": "Source row exposes userName; recover code and name by an exact account lookup."
+    },
+    {
+      "id": "allocation-order",
+      "status": "partial",
+      "patterns": [],
+      "hints": ["调拨"],
+      "priority": 40,
+      "route": "/TransferManagement/index",
+      "searchLabels": ["调拨单编号"],
+      "identityFields": ["customerInfo.customerName"],
+      "repoEvidence": [],
+      "gap": "The list displays only customer name; accept only a unique exact customer match or obtain code from raw detail."
+    },
+    {
+      "id": "unusual-event-order",
+      "status": "partial",
+      "patterns": [],
+      "hints": ["异常单", "event"],
+      "priority": 40,
+      "route": "/UnusualEvent/index",
+      "searchLabels": ["Winit订单号", "异常单号", "主异常单号", "单号", "子包裹号"],
+      "identityFields": ["customerName"],
+      "repoEvidence": [],
+      "gap": "The list exposes only customer name; require a unique exact customer lookup."
+    },
+    {
+      "id": "inbound-alternate-identifier",
+      "status": "supported",
+      "patterns": [],
+      "hints": ["包裹", "单品", "商品条码", "第三方箱号", "物流单号", "客户参考号"],
+      "priority": 60,
+      "route": "/InboundOrderSearch/index",
+      "searchLabels": ["包裹条码", "子包裹条码", "单品条码", "商品条码", "第三方箱号", "物流单号"],
+      "identityFields": ["customerCode", "customerName"],
+      "repoEvidence": ["inboundOrderNo", "inboundOrderNos", "targetPackageNos"]
+    },
+    {
+      "id": "outbound-alternate-identifier",
+      "status": "supported",
+      "patterns": [],
+      "hints": ["tracking", "跟踪号", "快递单号", "卖家订单号", "客户订单号", "包裹号"],
+      "priority": 60,
+      "route": "/OverseasOBOrder/index",
+      "searchLabels": ["客户订单号", "万邑通跟踪单号", "快递单号", "源单号", "越库入库单号"],
+      "identityFields": ["customerInfo.customerCode", "customerInfo.customerName"],
+      "repoEvidence": ["orderIdentifiers", "trackingIds"]
+    },
+    {
+      "id": "unknown-identifier",
+      "status": "gap",
+      "patterns": ["^.+$"],
+      "priority": 999,
+      "route": "multi-route-fallback",
+      "searchLabels": [],
+      "identityFields": [],
+      "repoEvidence": [],
+      "gap": "Try applicable supported routes, then request customerCode, customerName, and username."
+    }
+  ]
+}

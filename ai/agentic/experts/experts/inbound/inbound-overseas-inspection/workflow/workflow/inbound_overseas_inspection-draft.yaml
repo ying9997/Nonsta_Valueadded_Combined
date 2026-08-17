@@ -1,0 +1,1943 @@
+schema_version: 1.0.0
+name: inbound_overseas_inspection
+id: 7332092717740030917
+description: 海外验状态解读（resolve → getOrderDetail → compute-overseas-inspection-phase → WMS Gap → KB → LLM）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      inboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 入库单号；progress 意图时必填
+                      inspectionMode:
+                          type: string
+                          value: null
+                          description: 海外验模式：with_carton(OW01031) / without_carton / forecast(OW01032) / auto(从单号推断)
+                      intent:
+                          type: string
+                          value: null
+                          description: progress=按单查进度；mode_faq=模式差异 FAQ
+                      modeTopic:
+                          type: string
+                          value: null
+                          description: mode_faq 时主题：packing_list_vs_forecast / no_packing_list
+                      maxTrajectoryNodes:
+                          type: integer
+                          value: null
+                          description: 轨迹节点保留条数上限；默认 20
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163013"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163013"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163013"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163013"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: resolve-overseas-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：解析海外验查询意图与模式
+               */
+
+              const VALID_INTENTS = new Set(["progress", "mode_faq"]);
+              const VALID_MODES = new Set(["with_carton", "without_carton", "forecast", "auto"]);
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function normalizeIntent(raw: unknown): string {
+                const t = str(raw).toLowerCase();
+                return VALID_INTENTS.has(t) ? t : "progress";
+              }
+
+              function normalizeMode(raw: unknown): string {
+                const t = str(raw).toLowerCase();
+                return VALID_MODES.has(t) ? t : "auto";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intent = normalizeIntent(params.intent);
+                const inspectionMode = normalizeMode(params.inspectionMode);
+                const modeTopic = str(params.modeTopic) || "packing_list_vs_forecast";
+                const inboundOrderNos = ((params.inboundOrderNos as string[]) ?? [])
+                  .map((o) => String(o ?? "").trim())
+                  .filter(Boolean);
+
+                if (intent === "mode_faq") {
+                  return {
+                    intent,
+                    inspectionMode,
+                    modeTopic,
+                    skipApi: true,
+                    validationOk: true,
+                    inboundOrderNos,
+                  };
+                }
+
+                const validationOk = inboundOrderNos.length > 0;
+                return {
+                  intent,
+                  inspectionMode,
+                  modeTopic,
+                  skipApi: !validationOk,
+                  validationOk,
+                  error: validationOk ? "" : "progress 意图需提供 inboundOrderNos",
+                  inboundOrderNos,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-overseas-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intent
+                input:
+                    value:
+                        path: inputs.intent
+                        ref_node: "100001"
+              - name: inspectionMode
+                input:
+                    value:
+                        path: inputs.inspectionMode
+                        ref_node: "100001"
+              - name: modeTopic
+                input:
+                    value:
+                        path: inputs.modeTopic
+                        ref_node: "100001"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inputs.inboundOrderNos
+                        ref_node: "100001"
+          node_outputs:
+              intent:
+                  type: string
+                  value: null
+              inspectionMode:
+                  type: string
+                  value: null
+              modeTopic:
+                  type: string
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+              validationOk:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: resolve-inbound-lookup
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化入库单查询标识
+               */
+
+              function isWiOrderToken(raw: string): boolean {
+                return /^WI/i.test(raw.trim());
+              }
+
+              function normalizeWiOrderNum(raw: string): string {
+                return raw.trim().toUpperCase();
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipFromParent = params.skipApi === true;
+                const raw = ((params.inboundOrderNos as string[]) ?? [])
+                  .map((o) => String(o ?? "").trim())
+                  .filter(Boolean);
+
+                const wiSeen = new Set<string>();
+                const refSeen = new Set<string>();
+                const wiOrderNos: string[] = [];
+                const customerRefNos: string[] = [];
+
+                for (const token of raw) {
+                  if (isWiOrderToken(token)) {
+                    const normalized = normalizeWiOrderNum(token);
+                    if (!wiSeen.has(normalized)) {
+                      wiSeen.add(normalized);
+                      wiOrderNos.push(normalized);
+                    }
+                  } else {
+                    const normalized = token.trim();
+                    if (!refSeen.has(normalized)) {
+                      refSeen.add(normalized);
+                      customerRefNos.push(normalized);
+                    }
+                  }
+                }
+
+                const hasOrders = wiOrderNos.length > 0 || customerRefNos.length > 0;
+                const skipApi = skipFromParent || !hasOrders;
+
+                return {
+                  wiOrderNos,
+                  customerRefNos,
+                  inboundOrderNos: [...wiOrderNos, ...customerRefNos],
+                  skipApi,
+                  lookupMeta: { hasOrders, skipApi },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-inbound-lookup")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163000"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163000"
+          node_outputs:
+              wiOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerRefNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+              lookupMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: code
+      title: build-winit-inbound-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 947
+      parameters:
+          code: |-
+              /**
+               * 节点：为 winit.wh.inbound.getOrderDetail 组装插件批处理动作
+               */
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+              const PLUGIN_BATCH_MAX_ACTIONS_DEFAULT = 100;
+
+              function getPluginBatchMaxActions(): number {
+                if (typeof process !== "undefined" && process.env?.COZE_WINIT_PLUGIN_BATCH_MAX) {
+                  const n = Number(process.env.COZE_WINIT_PLUGIN_BATCH_MAX);
+                  if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+                }
+                return PLUGIN_BATCH_MAX_ACTIONS_DEFAULT;
+              }
+
+              type ActionPlan = { inputToken: string; queryBy: "orderNo" | "customerOrderNo" };
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipApi = params.skipApi === true;
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const customerRefNos = ((params.customerRefNos as string[]) ?? []).filter((o) => o?.trim());
+
+                if (skipApi) {
+                  return {
+                    actions: [],
+                    actionPlans: [],
+                    winitPluginBatchActionsCount: 0,
+                    actionName: INBOUND_DETAIL_ACTION,
+                    skipApi: true,
+                  };
+                }
+
+                const actionPlans: ActionPlan[] = [];
+                for (const no of wiOrderNos) actionPlans.push({ inputToken: no, queryBy: "orderNo" });
+                for (const ref of customerRefNos) actionPlans.push({ inputToken: ref, queryBy: "customerOrderNo" });
+
+                const forPlugin = actionPlans.slice(0, getPluginBatchMaxActions());
+                const actions = forPlugin.map((p) => {
+                  const data: Record<string, string> = {};
+                  if (p.queryBy === "orderNo") data.orderNo = p.inputToken;
+                  else data.customerOrderNo = p.inputToken;
+                  return { action: INBOUND_DETAIL_ACTION, data: JSON.stringify(data) };
+                });
+
+                return {
+                  actions,
+                  actionPlans: forPlugin,
+                  winitPluginBatchActionsCount: actions.length,
+                  actionName: INBOUND_DETAIL_ACTION,
+                  skipApi: false,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-winit-inbound-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163001"
+              - name: customerRefNos
+                input:
+                    value:
+                        path: customerRefNos
+                        ref_node: "163001"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163001"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              winitPluginBatchActionsCount:
+                  type: integer
+                  value: null
+              actionName:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163003"
+      type: plugin
+      title: winit_inbound_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163002"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163003"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163003"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163004"
+      type: code
+      title: fetch-inbound-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          code: |-
+              /**
+               * 节点：本地 Runner 补拉入库单详情
+               */
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceDetailPayload(parsed: unknown): Record<string, unknown> | null {
+                if (parsed == null || typeof parsed !== "object") return null;
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null && typeof o.output === "object") return coerceDetailPayload(o.output);
+                if (o.code === "0" || o.code === 0) {
+                  const inner = o.data;
+                  if (typeof inner === "string") {
+                    try {
+                      return coerceDetailPayload(JSON.parse(inner));
+                    } catch {
+                      return null;
+                    }
+                  }
+                  if (inner != null && typeof inner === "object") return coerceDetailPayload(inner);
+                  return null;
+                }
+                if (o.orderNo != null || o.inboundOrderNum != null || o.inboundOrderNo != null) return o;
+                return null;
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              function mergePluginOutputs(params: Record<string, unknown>): Record<string, unknown> {
+                const outputList = (Array.isArray(params.winitPluginOutputList) ? params.winitPluginOutputList : []) as Array<{
+                  data?: unknown;
+                }>;
+                const rowsByKey = new Map<string, Record<string, unknown>>();
+                for (const item of outputList) {
+                  const row = coerceDetailPayload(parseCozeWorkflowDataField(item?.data));
+                  if (!row) continue;
+                  const key = String(row.orderNo ?? row.inboundOrderNum ?? "").trim().toUpperCase();
+                  if (key) rowsByKey.set(key, row);
+                }
+                const list = Array.from(rowsByKey.values());
+                return { list, total: list.length, _fetchMeta: { strategy: "detail-only", batchPluginMerged: true } };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipApi === true) {
+                  return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "kb-only" } } };
+                }
+
+                const pluginList = params.winitPluginOutputList;
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  return { rawOrderData: mergePluginOutputs(params) };
+                }
+
+                const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                  action: string;
+                  data: string;
+                }>;
+                const env = getCozeWinitEnv();
+                const list: Record<string, unknown>[] = [];
+                const errors: string[] = [];
+
+                if (!env) {
+                  return {
+                    rawOrderData: {
+                      list: [],
+                      total: 0,
+                      _fetchMeta: { strategy: "local-fetch-skipped", reason: "missing Coze env" },
+                    },
+                  };
+                }
+
+                for (const act of actions) {
+                  try {
+                    const data = JSON.parse(act.data) as Record<string, unknown>;
+                    const parsed = await runCozeWinitWorkflow(env, act.action || INBOUND_DETAIL_ACTION, data);
+                    const row = coerceDetailPayload(parsed);
+                    if (row) list.push(row);
+                  } catch (e) {
+                    errors.push(String(e instanceof Error ? e.message : e));
+                  }
+                }
+
+                return {
+                  rawOrderData: {
+                    list,
+                    total: list.length,
+                    _fetchMeta: { strategy: "local-proxy-detail", resolvedCount: list.length, errors: errors.length ? errors : undefined },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-inbound-order")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163002"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163002"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163003"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163001"
+          node_outputs:
+              rawOrderData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163005"
+      type: code
+      title: prune-inbound-json
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          code: |-
+              /**
+               * 节点：海外验专家入库单 JSON 剪枝（保留验货相关字段与轨迹）
+               */
+
+              const INSPECTION_FIELDS = [
+                "orderNo",
+                "inboundOrderNum",
+                "status",
+                "winitProductCode",
+                "inspectionType",
+                "inspectionStatus",
+                "dicDate",
+                "awhDate",
+                "actualArrivalTime",
+                "isAbnormal",
+                "bookingStatus",
+                "orderMerchandiseQty",
+                "actualOrderMerchandiseQty",
+                "trajectoryList",
+              ];
+
+              const DEFAULT_MAX_TRAJECTORY = 20;
+
+              function pickFields(order: Record<string, unknown>, maxTrajectory: number) {
+                const copy: Record<string, unknown> = {};
+                for (const key of INSPECTION_FIELDS) {
+                  if (order[key] != null) copy[key] = order[key];
+                }
+                const traj = copy.trajectoryList;
+                if (Array.isArray(traj) && traj.length > maxTrajectory) {
+                  copy.trajectoryList = traj.slice(-maxTrajectory);
+                  copy._trajectoryTruncated = true;
+                }
+                return copy;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipApi === true) {
+                  return { prunedOrderData: { list: [], total: 0 }, _pruneMeta: { skipped: true } };
+                }
+
+                const rawOrderData = (params.rawOrderData ?? {}) as Record<string, unknown>;
+                const list = (rawOrderData.list as unknown[]) ?? [];
+                const maxTrajectory =
+                  typeof params.maxTrajectoryNodes === "number" && params.maxTrajectoryNodes >= 1
+                    ? Math.floor(params.maxTrajectoryNodes)
+                    : DEFAULT_MAX_TRAJECTORY;
+
+                const prunedList = list
+                  .filter((item) => item && typeof item === "object")
+                  .map((item) => pickFields(item as Record<string, unknown>, maxTrajectory));
+
+                return {
+                  prunedOrderData: { ...rawOrderData, list: prunedList },
+                  _pruneMeta: { orderCount: prunedList.length },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("prune-inbound-json")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163004"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163001"
+              - name: maxTrajectoryNodes
+                input:
+                    value:
+                        path: inputs.maxTrajectoryNodes
+                        ref_node: "100001"
+          node_outputs:
+              prunedOrderData:
+                  type: object
+                  value: null
+              _pruneMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163006"
+      type: code
+      title: compute-overseas-inspection-phase
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          code: |-
+              /**
+               * 节点：从 OMS 入库单推断海外验阶段、模式与轨迹行为
+               */
+
+              type OverseasInspectionPhase =
+                | "not_arrived"
+                | "awaiting_inspection"
+                | "in_progress"
+                | "completed"
+                | "blocked";
+
+              type InspectionMode = "with_carton" | "without_carton" | "forecast" | "unknown";
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function stringArray(value: unknown): string[] {
+                return Array.isArray(value)
+                  ? value.map((item) => str(item)).filter(Boolean)
+                  : [];
+              }
+
+              function parseDate(v: unknown): Date | null {
+                const s = str(v);
+                if (!s) return null;
+                const d = new Date(s);
+                return Number.isNaN(d.getTime()) ? null : d;
+              }
+
+              function isWeekend(d: Date): boolean {
+                const dow = d.getDay();
+                return dow === 0 || dow === 6;
+              }
+
+              function countBusinessDaysBetween(start: Date, end: Date): number {
+                let count = 0;
+                const cur = new Date(start);
+                cur.setHours(0, 0, 0, 0);
+                const endDay = new Date(end);
+                endDay.setHours(0, 0, 0, 0);
+                while (cur < endDay) {
+                  cur.setDate(cur.getDate() + 1);
+                  if (!isWeekend(cur)) count++;
+                }
+                return count;
+              }
+
+              const INSPECTION_KEYWORDS = ["验货", "验收", "海外验", "inspection", "pewc", "ewc"];
+
+              function isInspectionNode(node: Record<string, unknown>): boolean {
+                const text = [node.nodeName, node.nodeDesc, node.status, node.remark, node.eventName, node.trajectoryDesc]
+                  .map(str)
+                  .join(" ")
+                  .toLowerCase();
+                return INSPECTION_KEYWORDS.some((kw) => text.includes(kw));
+              }
+
+              function inferInspectionMode(
+                order: Record<string, unknown>,
+                requestedMode: string
+              ): InspectionMode {
+                if (requestedMode === "with_carton") return "with_carton";
+                if (requestedMode === "without_carton") return "without_carton";
+                if (requestedMode === "forecast") return "forecast";
+
+                const psc = str(order.winitProductCode).toUpperCase();
+                const inspectionType = str(order.inspectionType).toLowerCase();
+
+                if (psc === "OW01031" || inspectionType.includes("有箱单") || inspectionType.includes("packing")) {
+                  return "with_carton";
+                }
+                if (psc === "OW01032" || inspectionType.includes("预报") || inspectionType.includes("forecast")) {
+                  return "forecast";
+                }
+                if (inspectionType.includes("无箱单") || inspectionType.includes("without")) {
+                  return "without_carton";
+                }
+                return "unknown";
+              }
+
+              function mapPhase(order: Record<string, unknown>): OverseasInspectionPhase {
+                const status = str(order.status).toUpperCase();
+                const inspectionStatus = str(order.inspectionStatus);
+                const dicDate = str(order.dicDate);
+                const isAbnormal = order.isAbnormal === true || order.isAbnormal === "Y";
+
+                if (status === "TS") return "not_arrived";
+                if (dicDate || status === "EWC" || status === "SHD") return "completed";
+                if (status === "PEWC") {
+                  if (/in\s*progress|进行中/i.test(inspectionStatus)) return "in_progress";
+                  return "awaiting_inspection";
+                }
+                if (isAbnormal) return "blocked";
+                return "awaiting_inspection";
+              }
+
+              function extractTrajectorySummary(order: Record<string, unknown>) {
+                const trajectory = Array.isArray(order.trajectoryList) ? order.trajectoryList : [];
+                return trajectory
+                  .filter((n) => n && typeof n === "object" && isInspectionNode(n as Record<string, unknown>))
+                  .slice(-10)
+                  .map((n) => {
+                    const node = n as Record<string, unknown>;
+                    return {
+                      nodeName: str(node.nodeName ?? node.eventName ?? node.status),
+                      eventTime: str(node.eventTime ?? node.createTime ?? node.operateTime),
+                      nodeDesc: str(node.nodeDesc ?? node.trajectoryDesc ?? node.remark),
+                    };
+                  });
+              }
+
+              function computeOrderPhase(order: Record<string, unknown>, requestedMode: string) {
+                const awhDate = str(order.awhDate ?? order.actualArrivalTime);
+                const awhParsed = parseDate(awhDate);
+                const daysSinceArrival = awhParsed ? countBusinessDaysBetween(awhParsed, new Date()) : 0;
+                let overseasInspectionPhase = mapPhase(order);
+                const isAbnormal = order.isAbnormal === true || order.isAbnormal === "Y";
+                const blockedReason = isAbnormal ? "存在异常单，可能阻塞验货进度" : "";
+
+                if (isAbnormal && overseasInspectionPhase !== "completed" && overseasInspectionPhase !== "not_arrived") {
+                  overseasInspectionPhase = "blocked";
+                }
+
+                return {
+                  orderNo: str(order.orderNo ?? order.inboundOrderNum),
+                  winitProductCode: str(order.winitProductCode),
+                  inspectionType: str(order.inspectionType),
+                  inspectionStatus: str(order.inspectionStatus),
+                  inspectionMode: inferInspectionMode(order, requestedMode),
+                  currentStatus: str(order.status),
+                  overseasInspectionPhase,
+                  dicDate: str(order.dicDate) || null,
+                  awhDate: awhDate || null,
+                  daysSinceArrival,
+                  trajectorySummary: extractTrajectorySummary(order),
+                  isAbnormal,
+                  blockedReason: blockedReason || null,
+                  qtySnapshot: {
+                    orderMerchandiseQty: order.orderMerchandiseQty ?? null,
+                    actualOrderMerchandiseQty: order.actualOrderMerchandiseQty ?? null,
+                  },
+                  bookingStatus: str(order.bookingStatus) || null,
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intent = str(params.intent) || "progress";
+                const inspectionMode = str(params.inspectionMode) || "auto";
+
+                if (intent === "mode_faq") {
+                  return {
+                    inspectionPhase: {
+                      intent: "mode_faq",
+                      inspectionMode,
+                      orders: [],
+                      orderCount: 0,
+                    },
+                  };
+                }
+
+                const prunedOrderData = (params.prunedOrderData ?? {}) as Record<string, unknown>;
+                const list = (prunedOrderData.list as unknown[]) ?? [];
+                const orders = list
+                  .filter((item) => item && typeof item === "object")
+                  .map((item) => computeOrderPhase(item as Record<string, unknown>, inspectionMode));
+
+                if (orders.length === 0 && intent === "progress" && stringArray(params.inboundOrderNos).length > 0) {
+                  return {
+                    inspectionPhase: {
+                      outputPath: "no_data",
+                      dataAvailable: false,
+                      needsClarification: true,
+                      clarificationFields: ["inboundOrderNo"],
+                      orderNo: "",
+                      winitProductCode: "",
+                      inspectionType: "",
+                      inspectionStatus: "",
+                      inspectionMode: inspectionMode === "auto" ? "unknown" : inspectionMode,
+                      currentStatus: "",
+                      overseasInspectionPhase: "unknown",
+                      dicDate: null,
+                      awhDate: null,
+                      daysSinceArrival: null,
+                      trajectorySummary: [],
+                      isAbnormal: null,
+                      blockedReason: null,
+                      qtySnapshot: { orderMerchandiseQty: null, actualOrderMerchandiseQty: null },
+                      bookingStatus: null,
+                      intent: "progress",
+                      orders: [],
+                      orderCount: 0,
+                      wmsDataAvailable: false,
+                    },
+                  };
+                }
+
+                const primary = orders[0] ?? {
+                  orderNo: "",
+                  winitProductCode: "",
+                  inspectionType: "",
+                  inspectionStatus: "",
+                  inspectionMode: inspectionMode === "auto" ? "unknown" : inspectionMode,
+                  currentStatus: "",
+                  overseasInspectionPhase: "not_arrived" as OverseasInspectionPhase,
+                  dicDate: null,
+                  awhDate: null,
+                  daysSinceArrival: 0,
+                  trajectorySummary: [],
+                  isAbnormal: false,
+                  blockedReason: null,
+                  qtySnapshot: { orderMerchandiseQty: null, actualOrderMerchandiseQty: null },
+                  bookingStatus: null,
+                };
+
+                return {
+                  inspectionPhase: {
+                    ...primary,
+                    intent: "progress",
+                    orders,
+                    orderCount: orders.length,
+                    wmsDataAvailable: false,
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("compute-overseas-inspection-phase")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: prunedOrderData
+                input:
+                    value:
+                        path: prunedOrderData
+                        ref_node: "163005"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: inspectionMode
+                input:
+                    value:
+                        path: inspectionMode
+                        ref_node: "163000"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163001"
+          node_outputs:
+              inspectionPhase:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163007"
+      type: code
+      title: check-wms-gap
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          code: |-
+              /**
+               * 节点：WMS 验货细粒度阶段 Gap 标注（当前固定不可用）
+               */
+
+              const WMS_GAP_NOTE = `WMS 开箱/点数/报告等细粒度验货阶段当前系统不可查。
+              本专家基于 OMS 入库单状态（PEWC/EWC）与轨迹解读海外验进展，不输出无依据的开箱/点数阶段信息。`;
+
+              async function main() {
+                return {
+                  wmsAvailable: false,
+                  wmsDataAvailable: false,
+                  gapNote: WMS_GAP_NOTE,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("check-wms-gap")) {
+                main().then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs: []
+          node_outputs:
+              wmsAvailable:
+                  type: boolean
+                  value: null
+              wmsDataAvailable:
+                  type: boolean
+                  value: null
+              gapNote:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163008"
+      type: text
+      title: kb-with-carton
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 海外验 - 有箱单模式（OW01031）
+
+                        ## 模式说明
+
+                        - PSC：**OW01031**（海外验-有箱单）
+                        - 客户提交完整装箱单（Packing List），仓库按箱单验货
+                        - 验货由 Winit 全程执行，客户被动等待
+
+                        ## 状态机映射
+
+                        | OMS 状态 | 海外验阶段 | 说明 |
+                        |----------|-----------|------|
+                        | TS | not_arrived | 头程在途，海外验尚未开始 |
+                        | PEWC + Pending | awaiting_inspection | 已到仓，排队待验 |
+                        | PEWC + InProgress | in_progress | 验货进行中（OMS 粗粒度）|
+                        | EWC / dicDate 有值 | completed | 验货完成，入库确认 |
+
+                        ## 典型时效（工作日）
+
+                        - 到仓（awhDate）→ 验货完成（dicDate）：约 **3-5 个工作日**
+                        - 超 KB 参考时效 2 倍且仍为 awaiting/in_progress → 建议升级人工
+
+                        ## PEWC 等待常见原因
+
+                        - 验货排队（高峰期）
+                        - 箱单信息待核对
+                        - 异常单阻塞（isAbnormal=true）
+
+                        ## 对客要点
+
+                        - 有箱单模式进度以 OMS 状态 PEWC→EWC 为准
+                        - WMS 开箱/点数细粒度进度当前不可查
+                        - 不承诺验货完成时间
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163009"
+      type: text
+      title: kb-without-carton
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2627
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 海外验 - 无箱单模式
+
+                        ## 模式说明
+
+                        - 客户**未提供**完整装箱单，仓库按预报信息或到货实物验货
+                        - 与有箱单模式相比，验货启动可能更慢（需核对实物与预报）
+                        - 验货由 Winit 全程执行，客户无法介入
+
+                        ## 状态解读
+
+                        - 进度仍以 OMS 状态 **PEWC → EWC** 为主
+                        - `inspectionStatus=Pending` 在 PEWC 阶段较常见，表示排队或待启动
+                        - 无箱单不等于异常，但等待时间可能长于有箱单模式
+
+                        ## 典型时效（工作日）
+
+                        - 到仓 → 验货完成：约 **5-7 个工作日**（较有箱单略长）
+                        - 缺箱单可能导致验货排队延后
+
+                        ## 常见问题
+
+                        **Q：没有箱单怎么查进度？**
+                        A：查看入库单 OMS 状态是否为 PEWC（验货中）或 EWC（已完成），关注 awhDate 与 dicDate。
+
+                        **Q：能否加快验货？**
+                        A：海外验由 Winit 执行，客户无法催促介入；超时效可联系客服核实。
+
+                        ## 升级条件
+
+                        - daysSinceArrival 超 KB 参考 2 倍
+                        - isAbnormal=true 存在阻塞性异常
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163010"
+      type: text
+      title: kb-forecast
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2867
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 海外验 - 预报模式（OW01032）
+
+                        ## 模式说明
+
+                        - PSC：**OW01032**（海外验-预报/无箱单）
+                        - 客户仅提交预报信息（SKU/数量），无完整箱单
+                        - 仓库按预报与到货实物进行验货核对
+
+                        ## 与有箱单模式差异
+
+                        | 维度 | 有箱单 OW01031 | 预报 OW01032 |
+                        |------|---------------|--------------|
+                        | 装箱单 | 完整箱单 | 仅预报 |
+                        | 验货启动 | 较快 | 可能需实物核对 |
+                        | 典型耗时 | 3-5 工作日 | 5-7 工作日 |
+                        | 进度可见性 | OMS PEWC/EWC | 同左 |
+
+                        ## 状态机
+
+                        - TS → not_arrived
+                        - PEWC → awaiting_inspection / in_progress
+                        - EWC 或 dicDate → completed
+                        - isAbnormal → blocked
+
+                        ## 预报单进度查看
+
+                        1. 确认入库单状态（PEWC = 验货中，EWC = 完成）
+                        2. 查看 awhDate（到仓时间）与 dicDate（验货完成时间）
+                        3. 关注 inspectionStatus 字段（Pending/InProgress/Completed，若返回）
+
+                        ## 对客约束
+
+                        - 预报模式无 WMS 细粒度开箱进度
+                        - 不承诺验货完成时间
+                        - 数量差异可能触发异常单，见 inbound-exception-check 专家
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163011"
+      type: code
+      title: load-overseas-inspection-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3107
+      parameters:
+          code: |-
+              /**
+               * 节点：按 intent / inspectionMode 选择性拼接海外验 KB
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function pickModeKb(
+                mode: string,
+                kbWithCarton: string,
+                kbWithoutCarton: string,
+                kbForecast: string
+              ): { content: string; scope: string } {
+                switch (mode) {
+                  case "with_carton":
+                    return { content: kbWithCarton, scope: "with_carton" };
+                  case "without_carton":
+                    return { content: kbWithoutCarton, scope: "without_carton" };
+                  case "forecast":
+                    return { content: kbForecast, scope: "forecast" };
+                  default:
+                    return {
+                      content: [kbWithCarton, kbWithoutCarton, kbForecast].filter(Boolean).join("\n\n---\n\n"),
+                      scope: "all_modes",
+                    };
+                }
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intent = str(params.intent) || "progress";
+                const inspectionMode = str(params.inspectionMode) || "auto";
+                const overseasInspectionPhase = str(params.overseasInspectionPhase);
+                const gapNote = str(params.gapNote);
+
+                const kbWithCarton = str(params.kbWithCarton);
+                const kbWithoutCarton = str(params.kbWithoutCarton);
+                const kbForecast = str(params.kbForecast);
+
+                if (intent === "mode_faq") {
+                  const { content, scope } = pickModeKb("auto", kbWithCarton, kbWithoutCarton, kbForecast);
+                  return {
+                    kbContent: content,
+                    kbScope: `mode_faq:${scope}`,
+                    phaseGuide: content,
+                    modeDiffGuide: content,
+                  };
+                }
+
+                const { content, scope } = pickModeKb(inspectionMode, kbWithCarton, kbWithoutCarton, kbForecast);
+                const phaseSection = overseasInspectionPhase
+                  ? `\n\n## 当前阶段参考\n\n阶段：${overseasInspectionPhase}`
+                  : "";
+                const wmsSection = gapNote ? `\n\n## WMS 数据说明\n\n${gapNote}` : "";
+
+                return {
+                  kbContent: `${content}${phaseSection}${wmsSection}`.trim(),
+                  kbScope: `progress:${scope}${overseasInspectionPhase ? `:${overseasInspectionPhase}` : ""}`,
+                  phaseGuide: content,
+                  modeDiffGuide: "",
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-overseas-inspection-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: inspectionMode
+                input:
+                    value:
+                        path: inspectionMode
+                        ref_node: "163000"
+              - name: overseasInspectionPhase
+                input:
+                    value:
+                        path: inspectionPhase.overseasInspectionPhase
+                        ref_node: "163006"
+              - name: kbWithCarton
+                input:
+                    value:
+                        path: output
+                        ref_node: "163008"
+              - name: kbWithoutCarton
+                input:
+                    value:
+                        path: output
+                        ref_node: "163009"
+              - name: kbForecast
+                input:
+                    value:
+                        path: output
+                        ref_node: "163010"
+              - name: gapNote
+                input:
+                    value:
+                        path: gapNote
+                        ref_node: "163007"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              phaseGuide:
+                  type: string
+                  value: null
+              modeDiffGuide:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163012"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 3347
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 海外验状态解读专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是海外验状态解读专家。以 OMS 入库单状态与轨迹为主路径，解读 PEWC→EWC 阶段进展；结合 inspectionMode KB 说明有箱单/无箱单/预报差异。
+
+                        ## 禁止项
+
+                        - 不承诺验货完成时间
+                        - WMS Gap 必须明确告知，不给无依据的开箱/点数阶段信息
+                        - 不做上架进度判断（→ inbound-putaway-status）
+                        - 不推翻 `inspectionPhase.overseasInspectionPhase` 与 `wmsDataAvailable=false`
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **intent**：`{{intent}}`（progress | mode_faq）
+                        - **inspectionMode**：`{{inspectionMode}}`
+                        - **inspectionPhase**：
+
+                        ```json
+                        {{inspectionPhase}}
+                        ```
+
+                        - **wmsDataAvailable**：`{{wmsDataAvailable}}`（固定 false）
+                        - **gapNote**：`{{gapNote}}`
+                        - **kbContent**：`{{kbContent}}`
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "orderNo": "",
+                              "outputPath": "status_found|no_data",
+                              "dataAvailable": true,
+                              "needsClarification": false,
+                              "clarificationFields": [],
+                              "winitProductCode": "",
+                              "inspectionMode": "with_carton|without_carton|forecast|unknown",
+                              "currentStatus": "",
+                              "overseasInspectionPhase": "not_arrived|awaiting_inspection|in_progress|completed|blocked|unknown",
+                              "dicDate": "",
+                              "awhDate": "",
+                              "daysSinceArrival": 0,
+                              "trajectorySummary": [],
+                              "isAbnormal": false,
+                              "wmsDataAvailable": false,
+                              "estimatedCompleteNote": ""
+                            },
+                            "analysis": "客观描述海外验阶段、模式差异与 WMS Gap。"
+                          }
+                        }
+                        ```
+
+                        ## 特殊规则
+
+                        - `intent=mode_faq`：重点解释三种模式差异，无需单号数据
+                        - `outputPath=no_data` 或 `dataAvailable=false`：只说明未取得该入库单海外验事实，要求客户核对/补充入库单号；不得写成未到仓、未异常或 0 天
+                        - `intent=progress`：以 inspectionPhase 为准输出阶段解读
+                        - `overseasInspectionPhase=blocked`：说明异常阻塞，建议升级
+                        - `daysSinceArrival` 超 KB 2 倍 → 建议联系客服核实
+                        - `estimatedCompleteNote` 为 KB 参考说明，非时间承诺
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: inspectionMode
+                input:
+                    value:
+                        path: inspectionMode
+                        ref_node: "163000"
+              - name: inspectionPhase
+                input:
+                    value:
+                        path: inspectionPhase
+                        ref_node: "163006"
+              - name: wmsDataAvailable
+                input:
+                    value:
+                        path: wmsDataAvailable
+                        ref_node: "163007"
+              - name: gapNote
+                input:
+                    value:
+                        path: gapNote
+                        ref_node: "163007"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163011"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163013"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3587
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function asRecord(value: unknown): Record<string, unknown> {
+                return value && typeof value === "object" && !Array.isArray(value)
+                  ? (value as Record<string, unknown>)
+                  : {};
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw.trim() || "解析失败。" };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const inspectionPhase = asRecord(params.inspectionPhase);
+                const structured: Record<string, unknown> = {
+                  wmsDataAvailable: false,
+                  ...coerced.structured,
+                  ...(inspectionPhase.outputPath === "no_data" ? inspectionPhase : {}),
+                };
+                structured.wmsDataAvailable = false;
+
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "海外验状态解读完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {expertId: "inbound-overseas-inspection",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "" },
+                  enrichedContext: {
+                      overseasInspectionPhase: structured.overseasInspectionPhase,
+                      inspectionMode: structured.inspectionMode,
+                      isAbnormal: structured.isAbnormal,
+                      daysSinceArrival: structured.daysSinceArrival,
+                    },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163012"
+              - name: inspectionPhase
+                input:
+                    value:
+                        path: inspectionPhase
+                        ref_node: "163006"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "900001"

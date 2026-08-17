@@ -1,0 +1,133 @@
+yamlBasename: sku_profile-draft.yaml
+packageMainName: sku_profile
+packageDescription: SKU 档案事实（validate → resolve page.list → OpenAPI → fetch → prune-map → derive → itemType → format）
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-sku-profile
+    logicalId: winit_item_page_list_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 20
+      concurrentSize: 5
+      actionsFrom:
+        logicalId: resolve-fetch-plan
+        path: actions
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+inputBindings:
+  validate-sku-codes:
+    skuCodes:
+      ref: __start__
+      path: inputs.skuCodes
+    warehouseCode:
+      ref: __start__
+      path: inputs.warehouseCode
+    importCountryCode:
+      ref: __start__
+      path: inputs.importCountryCode
+    fetchProfile:
+      ref: __start__
+      path: inputs.fetchProfile
+    inputContext:
+      ref: __start__
+      path: inputContext
+  resolve-fetch-plan:
+    skipApi:
+      ref: validate-sku-codes
+      path: skipApi
+    normalizedSkuCodes:
+      ref: validate-sku-codes
+      path: normalizedSkuCodes
+    importCountryCode:
+      ref: validate-sku-codes
+      path: importCountryCode
+    fetchProfile:
+      ref: validate-sku-codes
+      path: fetchProfile
+  fetch-sku-profile:
+    skipApi:
+      ref: validate-sku-codes
+      path: skipApi
+    normalizedSkuCodes:
+      ref: validate-sku-codes
+      path: normalizedSkuCodes
+    fetchProfile:
+      ref: resolve-fetch-plan
+      path: fetchProfile
+    actions:
+      ref: resolve-fetch-plan
+      path: actions
+    actionPlans:
+      ref: resolve-fetch-plan
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_item_page_list_batch
+      path: outputList
+  prune-and-map-item:
+    rawItems:
+      ref: fetch-sku-profile
+      path: rawItems
+    fetchMeta:
+      ref: fetch-sku-profile
+      path: fetchMeta
+    fetchProfile:
+      ref: resolve-fetch-plan
+      path: fetchProfile
+    importCountryCode:
+      ref: resolve-fetch-plan
+      path: importCountryCode
+  derive-from-context:
+    normalizedSkuCodes:
+      ref: validate-sku-codes
+      path: normalizedSkuCodes
+    apiProfiles:
+      ref: prune-and-map-item
+      path: apiProfiles
+    fetchMeta:
+      ref: prune-and-map-item
+      path: fetchMeta
+    inputContext:
+      ref: validate-sku-codes
+      path: inputContext
+    customerCode:
+      ref: __start__
+      path: customerCode
+    importCountryCode:
+      ref: validate-sku-codes
+      path: importCountryCode
+  calc-item-type-from-kb:
+    mergedProfiles:
+      ref: derive-from-context
+      path: mergedProfiles
+    missingFacts:
+      ref: derive-from-context
+      path: missingFacts
+  format-output:
+    skus:
+      ref: calc-item-type-from-kb
+      path: skus
+    missingFacts:
+      ref: calc-item-type-from-kb
+      path: missingFacts
+    fetchMeta:
+      ref: prune-and-map-item
+      path: fetchMeta
+    validationError:
+      ref: validate-sku-codes
+      path: validationError
+    inputContext:
+      ref: validate-sku-codes
+      path: inputContext

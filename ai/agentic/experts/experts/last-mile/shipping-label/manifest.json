@@ -1,0 +1,115 @@
+{
+  "id": "shipping-label",
+  "domain": "last-mile",
+  "name": "查询尾程面单",
+  "description": "自助查询客户账号下出库订单的已处理尾程面单 PDF，支持 WO 主单号、包裹号、trackingNo 和卖家订单号，按订单与跟踪号返回临时下载链接及逐单失败原因；无需默认转人工。Use when 用户要查询、下载、留档或用于平台申诉的尾程发货面单。",
+  "capabilities": [
+    "尾程面单查询",
+    "面单下载",
+    "多单批量查询",
+    "订单标识解析"
+  ],
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [
+      "orderIdentifiers"
+    ],
+    "properties": {
+      "orderIdentifiers": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 10,
+        "items": {
+          "type": "string"
+        },
+        "description": "1～10 个订单标识，可为 WO 主单号、WO...A 包裹号、trackingNo 或卖家订单号"
+      }
+    },
+    "x_invoke_contract": "orderIdentifiers 必填，单次最多提交 10 个非空标识；进入查询前会去重。客户与账号字段由调用框架顶层传入。"
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "尾程面单查询结果",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "partial_success",
+              "failed",
+              "need_input",
+              "too_many_matches"
+            ]
+          },
+          "requestedIdentifiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "orderNo": { "type": "string" },
+                "matchedFrom": { "type": "array", "items": { "type": "string" } },
+                "result": {
+                  "type": "string",
+                  "enum": [
+                    "success",
+                    "no_label",
+                    "not_found",
+                    "not_supported",
+                    "forbidden",
+                    "service_error"
+                  ]
+                },
+                "businessCode": { "type": "string" },
+                "message": { "type": "string" },
+                "labels": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "trackingNo": { "type": "string" },
+                      "labelUrls": { "type": "array", "items": { "type": "string" } }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "unresolvedIdentifiers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "identifier": { "type": "string" },
+                "reason": { "type": "string" }
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "requestedCount": { "type": "integer" },
+              "resolvedOrderCount": { "type": "integer" },
+              "successOrderCount": { "type": "integer" },
+              "failedOrderCount": { "type": "integer" },
+              "labelFileCount": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "按订单和 trackingNo 列出的临时 PDF 下载链接、有效期与不可用于实际发货打印的提示，以及逐单失败原因"
+      }
+    }
+  }
+}

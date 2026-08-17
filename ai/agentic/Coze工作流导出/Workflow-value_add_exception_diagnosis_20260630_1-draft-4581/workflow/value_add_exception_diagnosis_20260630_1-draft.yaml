@@ -1,0 +1,1932 @@
+schema_version: 1.0.0
+name: value_add_exception_diagnosis_20260630_1
+id: 7665289303716003850
+description: "增值异常诊断（validate → normalize → classify → decide → clarify/analyze → format）"
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: "工作流的起始节点，用于设定启动工作流需要的信息"
+      position:
+        x: -150
+        y: 230
+      parameters:
+        node_outputs:
+            customerCode:
+                type: string
+                value: null
+                description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+            customerIntent:
+                type: string
+                value: null
+                description: 当前正在为客户解决的业务问题或诉求摘要
+            customerName:
+                type: string
+                value: null
+                description: 客户名称（租户展示上下文；可为空）
+            inputContext:
+                type: object
+                value: null
+                description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+            inputs:
+                type: object
+                properties:
+                    customerDescription:
+                        type: string
+                        value: null
+                        description: 客户自然语言描述
+                    enrichedContext:
+                        type: object
+                        value: null
+                        description: 编排器聚合事实
+                    evidenceSummary:
+                        type: object
+                        value: null
+                        description: 数量、条码、图片、状态等证据摘要
+                    exceptionCode:
+                        type: string
+                        value: null
+                        description: 异常编码，如 B01E1615
+                    exceptionDescription:
+                        type: string
+                        value: null
+                        description: 异常系统描述或客服摘要
+                    exceptionName:
+                        type: string
+                        value: null
+                        description: 异常名称
+                    valueAddHandoff:
+                        type: object
+                        value: null
+                        description: 上游 inbound-exception-check 输出的增值异常 handoff facts
+                value: null
+                description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+            language:
+                type: string
+                value: null
+                description: 语言/区域偏好（如 zh_CN；可为空）
+            query:
+                type: string
+                value: null
+                description: 上游 Agent 委托本专家需要完成的具体任务说明
+            username:
+                type: string
+                value: null
+                description: 操作者用户名（审计上下文；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: "工作流的最终节点，用于返回工作流运行后的结果信息"
+      position:
+        x: 2900
+        y: 310
+      parameters:
+        node_inputs:
+            - name: structured
+              input:
+                type: object
+                value:
+                    path: structured
+                    ref_node: "163012"
+            - name: analysis
+              input:
+                type: string
+                value:
+                    path: analysis
+                    ref_node: "163012"
+            - name: outputContext
+              input:
+                type: object
+                value:
+                    path: outputContext
+                    ref_node: "163012"
+            - name: enrichedContext
+              input:
+                type: object
+                value:
+                    path: enrichedContext
+                    ref_node: "163012"
+        terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 120
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：validate-input — 校验异常诊断最小入参。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const handoff = asRecord(params.valueAddHandoff);
+              const hasExceptionFact = Boolean(
+                asText(params.exceptionCode) ||
+                  asText(params.exceptionName) ||
+                  asText(params.exceptionDescription) ||
+                  asText(params.customerDescription) ||
+                  asText(params.query) ||
+                  asText(handoff.exceptionCode) ||
+                  asText(handoff.exceptionName) ||
+                  asText(handoff.exceptionDescription)
+              );
+
+              return {
+                validationResult: {
+                  ok: hasExceptionFact,
+                  outputPath: hasExceptionFact ? "input_ready" : "unknown_exception",
+                  missingEvidence: hasExceptionFact ? [] : ["exceptionCode_or_description"],
+                  validationMessage: hasExceptionFact ? "" : "请补充异常编码、异常名称或异常描述。",
+                },
+                rawExceptionInput: {
+                  query: asText(params.query),
+                  customerIntent: asText(params.customerIntent),
+                  exceptionCode: asText(params.exceptionCode),
+                  exceptionName: asText(params.exceptionName),
+                  exceptionDescription: asText(params.exceptionDescription),
+                  customerDescription: asText(params.customerDescription),
+                  valueAddHandoff: handoff,
+                  evidenceSummary: asRecord(params.evidenceSummary),
+                  enrichedContext: asRecord(params.enrichedContext),
+                },
+                inputContext: asRecord(params.inputContext),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "validate-input failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abs6yzmzyjr9
+        language: 5
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "100001"
+            - name: exceptionCode
+              input:
+                value:
+                    path: inputs.exceptionCode
+                    ref_node: "100001"
+            - name: exceptionName
+              input:
+                value:
+                    path: inputs.exceptionName
+                    ref_node: "100001"
+            - name: exceptionDescription
+              input:
+                value:
+                    path: inputs.exceptionDescription
+                    ref_node: "100001"
+            - name: customerDescription
+              input:
+                value:
+                    path: inputs.customerDescription
+                    ref_node: "100001"
+            - name: valueAddHandoff
+              input:
+                value:
+                    path: inputs.valueAddHandoff
+                    ref_node: "100001"
+            - name: evidenceSummary
+              input:
+                value:
+                    path: inputs.evidenceSummary
+                    ref_node: "100001"
+            - name: enrichedContext
+              input:
+                value:
+                    path: inputs.enrichedContext
+                    ref_node: "100001"
+        node_outputs:
+            inputContext:
+                type: object
+                value: null
+            rawExceptionInput:
+                type: object
+                value: null
+            validationResult:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absl9athfpn6
+    - id: "163001"
+      type: code
+      title: normalize-exception-facts
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 400
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：normalize-exception-facts — 合并直接入参、handoff 与证据摘要。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function isVerifiedHandoff(handoff: Record<string, unknown>): boolean {
+              const evidenceSummary = asRecord(handoff.evidenceSummary);
+              return (
+                evidenceSummary.verified === true ||
+                asText(evidenceSummary.source) === "inbound-exception-check" ||
+                asText(handoff.recommendedEntryExpert).length > 0
+              );
+            }
+
+            function normalizeNaturalLanguage(text: string): Record<string, unknown> {
+              if (
+                (text.includes("包裹") && text.includes("条码")) ||
+                text.includes("包裹条码贴错") ||
+                text.includes("贴错条码") ||
+                text.includes("条码贴错")
+              ) {
+                return {
+                  exceptionCode: "B01E1615",
+                  exceptionName: "包裹条码批量异常（需客户处理）",
+                  exceptionCategory: "barcode_package",
+                  exceptionObject: "包裹条码",
+                  objectLevel: "package",
+                  requiresCustomerAction: true,
+                };
+              }
+              return {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const raw = asRecord(params.rawExceptionInput);
+              const handoff = asRecord(raw.valueAddHandoff);
+              const evidenceSummary = {
+                ...asRecord(raw.evidenceSummary),
+                ...asRecord(handoff.evidenceSummary),
+              };
+              const verifiedHandoff = isVerifiedHandoff(handoff);
+              const directExceptionCode = asText(raw.exceptionCode);
+              const directExceptionName = asText(raw.exceptionName);
+              const handoffExceptionCode = asText(handoff.exceptionCode);
+              const handoffExceptionName = asText(handoff.exceptionName);
+              const directText = [
+                raw.customerDescription,
+                raw.exceptionDescription,
+                raw.query,
+                raw.customerIntent,
+              ]
+                .map(asText)
+                .filter(Boolean)
+                .join(" ");
+              const naturalFacts = normalizeNaturalLanguage(directText);
+              const conflictWarnings: string[] = [];
+              if (
+                verifiedHandoff &&
+                handoffExceptionCode &&
+                directExceptionCode &&
+                handoffExceptionCode.toUpperCase() !== directExceptionCode.toUpperCase()
+              ) {
+                conflictWarnings.push("exceptionCode");
+              }
+              if (
+                verifiedHandoff &&
+                handoffExceptionName &&
+                directExceptionName &&
+                handoffExceptionName !== directExceptionName
+              ) {
+                conflictWarnings.push("exceptionName");
+              }
+
+              return {
+                diagnosisInput: {
+                  exceptionCode:
+                    (verifiedHandoff ? handoffExceptionCode : "") ||
+                    directExceptionCode ||
+                    asText(naturalFacts.exceptionCode) ||
+                    handoffExceptionCode,
+                  exceptionName:
+                    (verifiedHandoff ? handoffExceptionName : "") ||
+                    directExceptionName ||
+                    asText(naturalFacts.exceptionName) ||
+                    handoffExceptionName,
+                  exceptionDescription: asText(raw.exceptionDescription) || asText(handoff.exceptionDescription),
+                  customerDescription:
+                    asText(raw.customerDescription) || asText(raw.query) || asText(raw.customerIntent),
+                  exceptionCategory: asText(handoff.exceptionCategory) || asText(naturalFacts.exceptionCategory),
+                  exceptionObject: asText(handoff.exceptionObject) || asText(naturalFacts.exceptionObject),
+                  objectLevel: asText(handoff.objectLevel) || asText(naturalFacts.objectLevel),
+                  inboundOrderNo: asText(handoff.inboundOrderNo),
+                  eventNo: asText(handoff.eventNo),
+                  evidenceSummary,
+                  requiresCustomerAction:
+                    handoff.requiresCustomerAction === true || naturalFacts.requiresCustomerAction === true,
+                  customerActionHint: asText(handoff.customerActionHint),
+                  conflictWarnings,
+                  enrichedContext: asRecord(raw.enrichedContext),
+                  source: Object.keys(handoff).length > 0 ? "valueAddHandoff" : "direct_input",
+                },
+                validationResult: asRecord(params.validationResult),
+                inputContext: asRecord(params.inputContext),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("normalize-exception-facts")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "normalize-exception-facts failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abs47fykihds
+        language: 5
+        node_inputs:
+            - name: rawExceptionInput
+              input:
+                value:
+                    path: rawExceptionInput
+                    ref_node: "163000"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163000"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163000"
+        node_outputs:
+            diagnosisInput:
+                type: object
+                value: null
+            inputContext:
+                type: object
+                value: null
+            validationResult:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absl9athg41a
+    - id: "163002"
+      type: text
+      title: kb-exception-entity
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 400
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 入库异常实体层\n\n本文件为 `value-add-exception-diagnosis` 提供异常归一依据。它只回答“这是什么异常、对象是什么、阻断哪个流程阶段、是否需要客户动作”，不推荐 VASC。\n\n---\n\n## 使用规则\n\n- 优先按 `exceptionCode` 精确命中；未命中时再按异常名称/描述归一。\n- `candidateEvidenceLevel=exception_mapping_exists` 只表示存在异常到增值产品的关系线索，不表示可下单或应选择某个 VASC。\n- `requiresCustomerAction=conditional` 表示通常需要客户补充处理意图或材料，但仍需结合上游异常事实。\n- 库内、出库、自提关联异常可以解释为 value-add candidate 线索，但入库链路中不得跨阶段套用。\n\n---\n\n## 异常实体表\n\n当前运行时切片覆盖 35 个真实异常编码。\n\n| exceptionCode | exceptionName | exceptionCategory | exceptionNode | sgCode | objectLevel | blockedStage | requiresCustomerAction | candidateEvidenceLevel |\n|---|---|---|---|---|---|---|---|---|\n| `B0102E08` | 商品包装异常 | `packaging_quality` | `IN_WAREHOUSE` | `B04,B05,B06` | `product` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B0102E21` | 包裹条码异常(需客户处理) | `barcode_package` | `IN_BOUND` | `B01` | `package` | `putaway` | `true` | `exception_mapping_exists` |\n| `B0102E23` | A+包裹质量异常 | `packaging_quality` | `IN_BOUND` | `B01,B04` | `package` | `inspection` | `conditional` | `exception_mapping_exists` |\n| `B0102E27` | 商品裸装 | `packaging_quality` | `IN_BOUND` | `B01,B04` | `product` | `inspection` | `conditional` | `exception_mapping_exists` |\n| `B01E01` | 入库单状态异常 | `order_status` | `IN_BOUND` | `B01` | `order` | `putaway` | `conditional` | `exception_mapping_exists` |\n| `B01E1314` | 商品质量异常(影响销售) | `packaging_quality` | `IN_BOUND` | `B01,B04` | `product` | `inspection` | `conditional` | `exception_mapping_exists` |\n| `B01E1315` | 商品条码异常(需客户处理) | `barcode_product` | `IN_BOUND` | `B01,B04` | `product` | `putaway` | `true` | `exception_mapping_exists` |\n| `B01E1316` | 商品有条码但系统无法识别 | `barcode_product` | `IN_BOUND` | `B01,B04` | `product` | `inspection` | `true` | `exception_mapping_exists` |\n| `B01E1378` | A+包裹/箱产品无批次信息或批次信息不全 | `batch_attribute` | `IN_BOUND` | `B01,B02,B04` | `package` | `inspection` | `conditional` | `exception_mapping_exists` |\n| `B01E1381` | 商品实物无批次信息或批次信息不全 | `batch_attribute` | `IN_BOUND` | `B01,B02,B04,B05,B08` | `product` | `inspection` | `conditional` | `exception_mapping_exists` |\n| `B01E1470` | 订单状态被终止无法上架 | `order_status` | `IN_BOUND` | `B01` | `order` | `putaway` | `true` | `exception_mapping_exists` |\n| `B01E1514` | 订单状态已上架需拦截 | `order_status` | `IN_BOUND` | `B01,B02,B03,B04` | `order` | `putaway` | `true` | `exception_mapping_exists` |\n| `B01E1516` | ABC类包裹/子包裹内商品错装暂存（需客户处理） | `wrong_item_mispack` | `IN_BOUND` | `B01,B02,B03,B04` | `package` | `inspection` | `true` | `exception_mapping_exists` |\n| `B01E1517` | 到仓包裹商品数量大于验货数量（需客户处理） | `quantity_discrepancy` | `IN_BOUND` | `B01,B02,B03,B04` | `package` | `inspection` | `true` | `exception_mapping_exists` |\n| `B01E1579` | A+包商品条码和包裹条码对应关系校验不一致 | `barcode_package` | `IN_BOUND` | `B01` | `package` | `inspection` | `conditional` | `exception_mapping_exists` |\n| `B01E1615` | 包裹条码批量异常（需客户处理） | `barcode_package` | `IN_BOUND` | `B01` | `package` | `putaway` | `true` | `exception_mapping_exists` |\n| `B01E49` | 客户直发包裹串仓 | `wrong_warehouse` | `IN_BOUND` | `B01` | `package` | `unload` | `true` | `exception_mapping_exists` |\n| `B03E03` | 包裹内出现订单外商品 | `wrong_item_mispack` | `IN_BOUND` | `B03` | `package` | `inspection` | `true` | `exception_mapping_exists` |\n| `B05E012` | 单品外包装破损 | `packaging_quality` | `IN_WAREHOUSE` | `B05` | `item` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B05E013` | 包裹内商品错装 | `wrong_item_mispack` | `IN_WAREHOUSE` | `B05` | `package` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B05E014` | 单品质量异常 | `packaging_quality` | `IN_WAREHOUSE` | `B05` | `item` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B05E1382` | 库存批次号错误 | `batch_attribute` | `IN_WAREHOUSE` | `B05,B06,B08` | `item` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B05E1383` | 计划外批次 | `batch_attribute` | `IN_WAREHOUSE` | `B05,B06,B08` | `item` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B05E1586` | 单品条码无法扫描(需客户处理） | `barcode_product` | `IN_WAREHOUSE` | `B05` | `item` | `storage` | `true` | `exception_mapping_exists` |\n| `B06E1369` | 2B箱内商品条码异常 | `barcode_product` | `IN_WAREHOUSE` | `B06` | `package` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B06E1370` | 2B箱内多单品 | `quantity_discrepancy` | `IN_WAREHOUSE` | `B06` | `package` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B06E1371` | 2B箱内少单品 | `quantity_discrepancy` | `IN_WAREHOUSE` | `B06` | `package` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B06E1613` | A+包裹条码无法扫描 | `barcode_package` | `IN_WAREHOUSE` | `B06,B12` | `package` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B06E1628` | DG商品包装不符合标准 | `packaging_quality` | `IN_WAREHOUSE` | `B06` | `product` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B06E1735` | 打包完成后作废出库单（有商品增值） | `outbound_related` | `IN_WAREHOUSE` | `B06` | `order` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B07E1339` | 自提单取消出库（需要客户下入库单） | `outbound_related` | `IN_WAREHOUSE` | `B07` | `order` | `storage` | `true` | `exception_mapping_exists` |\n| `B07E1616` | 自提出库单分批提货 | `outbound_related` | `OUT_BOUND` | `B07` | `order` | `outbound` | `conditional` | `exception_mapping_exists` |\n| `B0809E03` | 库内商品包装破损 | `packaging_quality` | `IN_WAREHOUSE` | `B08` | `product` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B0809E05` | 库内单品条码异常--人工不可识别 | `barcode_product` | `IN_WAREHOUSE` | `B08` | `item` | `storage` | `conditional` | `exception_mapping_exists` |\n| `B12E1784` | SN码缺失无法采集 | `batch_attribute` | `OUT_BOUND` | `B12` | `item` | `outbound` | `conditional` | `exception_mapping_exists` |\n\n---\n\n## 未命中时的归一规则\n\n| 名称/描述线索 | 归一类别 | 对象层级倾向 | 注意事项 |\n|---|---|---|---|\n| 包裹条码、箱唛、外箱标签、包商品条码对应关系 | `barcode_package` | `package` | 只归一异常，不给 VASC |\n| 商品条码、SKU 条码、单品条码、人工不可识别 | `barcode_product` | `product` / `item` | 需区分商品级和单品级 |\n| 包装异常、破损、裸装、质量异常、DG 包装 | `packaging_quality` | `package` / `product` / `item` | 可能是入库或库内阶段 |\n| 批次、SN、属性、计划外批次 | `batch_attribute` | `product` / `item` | 不反推具体处理动作 |\n| 多单品、少单品、数量大于验货数量 | `quantity_discrepancy` | `package` / `item` | 无核实结果时优先 `needs_upstream_check` |\n| 串仓、目的仓错误、调拨 | `wrong_warehouse` | `package` / `order` | 多为非标或人工确认 |\n| 错装、订单外商品、子包裹错装 | `wrong_item_mispack` | `package` / `product` | 需先确认实物归属 |\n| 自提单、出库单、打包后作废、分批提货 | `outbound_related` | `order` | 入库链路中需提示跨阶段边界 |\n\n- 无法稳定归一时输出 `unknown`，不得编造异常编码。\n- 只有数量差异口述但没有异常单或差异核实事实时，输出 `needs_upstream_check`。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163003"
+      type: code
+      title: load-exception-entity
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 680
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：load-exception-entity — 注入异常实体 KB。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              return {
+                exceptionEntityKb: asText(params.kbExceptionEntity),
+                diagnosisInput: asRecord(params.diagnosisInput),
+                validationResult: asRecord(params.validationResult),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("load-exception-entity")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "load-exception-entity failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrs6pbe1ugv
+        language: 5
+        node_inputs:
+            - name: diagnosisInput
+              input:
+                value:
+                    path: diagnosisInput
+                    ref_node: "163001"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163001"
+            - name: kbExceptionEntity
+              input:
+                value:
+                    path: output
+                    ref_node: "163002"
+        node_outputs:
+            diagnosisInput:
+                type: object
+                value: null
+            exceptionEntityKb:
+                type: string
+                value: null
+            validationResult:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absl9athghee
+    - id: "163004"
+      type: llm
+      title: llm-classify
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "调用大语言模型,使用变量和提示词生成回复"
+      version: "3"
+      position:
+        x: 960
+        y: 310
+      parameters:
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: temperature
+              input:
+                type: string
+                value: "0.5"
+            - name: topP
+              input:
+                type: string
+                value: "1"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: disabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: minimal
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: ""
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: false
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "3"
+            - name: systemPrompt
+              input:
+                type: string
+                value: |
+                    # Value-Add 异常诊断专家 - 分类 Prompt
+
+                    ## 角色
+
+                    你是增值异常诊断的异常归一节点，根据客户输入、上游 handoff 和异常实体 KB，判断异常类别、对象层级、阻断阶段和是否需要客户动作。**不推荐 VASC。**
+
+                    ## 禁止项
+
+                    - 不输出 VASC 编码或服务名称
+                    - 不判责、不承诺赔付
+                    - 不声称异常必然可下增值单
+                    - 不引用内部资料名称
+
+                    ## 输入
+
+                    - **query**：`{{query}}`
+                    - **customerIntent**：`{{customerIntent}}`
+                    - **diagnosisInput**（normalize-exception-facts 输出）：
+
+                    ```json
+                    {{diagnosisInput}}
+                    ```
+
+                    - **exceptionEntityKb**（load-exception-entity 输出）：
+
+                    ```text
+                    {{exceptionEntityKb}}
+                    ```
+
+                    - **inputContext**（参考）：
+
+                    ```json
+                    {{inputContext}}
+                    ```
+
+                    ## 输出格式
+
+                    ```json
+                    {
+                      "structured": {
+                        "outputPath": "classified|unknown_exception|needs_upstream_check",
+                        "normalizedException": {
+                          "code": "",
+                          "name": "",
+                          "source": "code_exact|name_match|description_match|unknown"
+                        },
+                        "exceptionCategory": "",
+                        "exceptionObject": "",
+                        "objectLevel": "package|product|item|pallet|unknown",
+                        "blockedStage": "receiving|inspection|putaway|unknown",
+                        "requiresCustomerAction": false,
+                        "blockingMissing": [],
+                        "informationalMissing": []
+                      },
+                      "analysis": "一句话说明异常归一结果。"
+                    }
+                    ```
+
+                    ## 特殊规则
+
+                    - 优先用 `diagnosisInput.exceptionCode` 做精确匹配
+                    - 无编码时再用异常名称、客户描述和 `exceptionEntityKb` 保守匹配
+                    - 无法稳定识别时输出 `unknown_exception`
+                    - 数量差异类异常需要上游核实，不直接判责
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: diagnosisInput
+              input:
+                value:
+                    path: diagnosisInput
+                    ref_node: "163003"
+            - name: exceptionEntityKb
+              input:
+                value:
+                    path: exceptionEntityKb
+                    ref_node: "163003"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163001"
+        node_outputs:
+            analysisResult:
+                type: object
+                properties:
+                    analysis:
+                        type: string
+                        value: null
+                    structured:
+                        type: object
+                        value: null
+                value: null
+            classificationResult:
+                type: object
+                value: null
+            reasoning_content:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 180000
+    - id: "163005"
+      type: text
+      title: kb-value-add-entry
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 960
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 增值入口层\n\n本文件定义哪些异常具备进入 value-add 推荐链的入口证据。它不决定具体 VASC；具体候选只能由 `value-add-product-recommendation` 基于映射和客户意图继续判断。\n\n---\n\n## 总体入口规则\n\n| 判断维度 | 可进入推荐链的条件 | 不可直接进入的条件 |\n|---|---|---|\n| 异常类别 | 异常属于操作增值类，或当前异常实体存在映射关系线索 | 仅为知悉类、仓库可直接处理类，且无客户处理动作 |\n| 异常对象 | 对象层级可归一为 `order` / `package` / `product` / `item` / `pallet` | 对象未知且客户描述不足 |\n| 客户意图 | 客户表达继续上架、拍照/视频、销毁、自提、调拨、非标、调查等处理诉求 | 客户只问责任、赔付、费用减免 |\n| 上游事实 | 已有异常编码、异常名称、异常单号或 `valueAddHandoff` | 只有“少货/多货/系统异常”口述，未核实差异事实 |\n\n---\n\n## 类别级入口判断\n\n| exceptionCategory | 入口判断 | 诊断说明 |\n|---|---|---|\n| `barcode_package` | `candidate` | 包裹条码异常通常阻断到仓识别或上架，可进入推荐链判断后续处理方向 |\n| `barcode_product` | `candidate` | 商品/单品条码异常影响验收、识别或上架，可进入推荐链 |\n| `packaging_quality` | `candidate` | 包装、裸装、质量、DG 包装异常可能触发拍照、销毁、包装或上架处理 |\n| `order_status` | `candidate` | 入库单终止、已上架需拦截等状态问题可进入处理意图判断，但需保留状态限制 |\n| `batch_attribute` | `candidate` | 批次、SN、属性缺失或异常存在映射线索；下游必须结合客户意图和限制过滤 |\n| `wrong_item_mispack` | `candidate` | 错装、订单外商品、计划外实物可进入推荐链，但需先确认实物归属 |\n| `wrong_warehouse` | `candidate` | 串仓可进入调拨、自提、新单或非标方向判断；置信度需结合实际仓/目标仓 |\n| `quantity_discrepancy` | `needs_upstream_check` 或 `candidate` | 缺差异核实时先回到入库异常核实；有异常编码且为操作增值类时可条件进入 |\n| `outbound_related` | `candidate`，但跨阶段 | 自提/出库关联异常可有增值关系线索；入库专家需提示跨阶段边界 |\n| `unknown` | `unknown_exception` | 需要补异常编码、异常单号、异常名称或对象描述 |\n\n---\n\n## 客户处理意图线索\n\n| 客户意图线索 | 本专家处理方式 |\n|---|---|\n| 原单上架 / 新单上架 / 直接上架 | 只写入 `handoffFacts.customerActionHint`，不判断具体 VASC |\n| 拍照 / 视频 / 调查 | 标为中间确认动作；不默认等于异常关闭 |\n| 销毁 / 自提 | 标记需要对象匹配；不判断商品销毁还是包裹销毁 |\n| 调拨 / 转仓 / 非标 | 标记为非标或人工确认方向；不承诺系统可下单 |\n| 责任、赔付、减免 | 输出 `needs_upstream_check` 或人工转向，本专家不判责 |\n\n---\n\n## 缺失项分级\n\n| 缺失维度 | 类型 | 说明 |\n|---|---|---|\n| `exceptionCode` | blocking | 无编码且名称/描述不足时无法稳定命中异常实体 |\n| `exceptionName` | blocking | 无编码时必须有标准异常名称或异常截图描述 |\n| `exceptionCategory` | blocking | 无法判断异常类别时不能进入推荐链 |\n| `objectLevel` | informational | 有助于下游推荐；本专家可先输出条件性 handoff |\n| `customerActionHint` | informational | 下游推荐首选方向会更准，但不阻断异常诊断 |\n| `discrepancyFacts` | blocking | 数量差异类缺核实结果时必须先回上游核实 |\n\n---\n\n## 降级输出\n\n- `unknown_exception`：异常编码/名称/描述都不足，生成追问，不进入推荐。\n- `needs_upstream_check`：数量差异、责任判定、赔付或缺少上游异常核实。\n- `not_value_add`：用户询问已提交增值单状态、未下单前报价、费用明细或与入库异常无关的问题。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163006"
+      type: code
+      title: load-value-add-entry
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1240
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：load-value-add-entry — 注入增值入口规则 KB。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              return {
+                valueAddEntryKb: asText(params.kbValueAddEntry),
+                diagnosisInput: asRecord(params.diagnosisInput),
+                classificationResult: asRecord(params.classificationResult),
+                validationResult: asRecord(params.validationResult),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("load-value-add-entry")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "load-value-add-entry failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abru2wp6bqrm
+        language: 5
+        node_inputs:
+            - name: diagnosisInput
+              input:
+                value:
+                    path: diagnosisInput
+                    ref_node: "163003"
+            - name: classificationResult
+              input:
+                value:
+                    path: classificationResult
+                    ref_node: "163004"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163003"
+            - name: kbValueAddEntry
+              input:
+                value:
+                    path: output
+                    ref_node: "163005"
+        node_outputs:
+            classificationResult:
+                type: object
+                value: null
+            diagnosisInput:
+                type: object
+                value: null
+            validationResult:
+                type: object
+                value: null
+            valueAddEntryKb:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absl9evtwzkj
+    - id: "163007"
+      type: text
+      title: kb-exception-mapping-summary
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "用于处理多个字符串类型变量的格式"
+      position:
+        x: 1240
+        y: 480
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: "# 异常到 VASC 映射线索层\n\n本文件只用于判断“异常是否存在进入 VASC 推荐的关系线索”，不用于直接推荐具体 VASC。不得从本文件输出 VASC 编码、VASC 名称或服务项。\n\n---\n\n## 覆盖统计\n\n| 指标 | 数量 | 运行时含义 |\n|---|---:|---|\n| VASC 产品数 | 18 | 只证明映射覆盖范围，不在本专家输出候选 |\n| 唯一异常编码数 | 35 | `kb-exception-entity.md` 已裁剪为实体表 |\n| 去重异常到 VASC 关系数 | 168 | 用作 `candidateEvidence`，不直接推荐 |\n\n---\n\n## 异常级映射证据\n\n| exceptionCode | exceptionName | relationCount | activeRelationCount | inactiveRelationCount | mappingEvidence |\n|---|---|---:|---:|---:|---|\n| `B0102E08` | 商品包装异常 | 6 | 6 | 0 | `candidate_relation_exists` |\n| `B0102E21` | 包裹条码异常(需客户处理) | 7 | 7 | 0 | `candidate_relation_exists` |\n| `B0102E23` | A+包裹质量异常 | 8 | 7 | 1 | `candidate_relation_exists_with_inactive` |\n| `B0102E27` | 商品裸装 | 7 | 7 | 0 | `candidate_relation_exists` |\n| `B01E01` | 入库单状态异常 | 7 | 7 | 0 | `candidate_relation_exists` |\n| `B01E1314` | 商品质量异常(影响销售) | 9 | 8 | 1 | `candidate_relation_exists_with_inactive` |\n| `B01E1315` | 商品条码异常(需客户处理) | 8 | 7 | 1 | `candidate_relation_exists_with_inactive` |\n| `B01E1316` | 商品有条码但系统无法识别 | 8 | 7 | 1 | `candidate_relation_exists_with_inactive` |\n| `B01E1378` | A+包裹/箱产品无批次信息或批次信息不全 | 4 | 3 | 1 | `candidate_relation_exists_with_inactive` |\n| `B01E1381` | 商品实物无批次信息或批次信息不全 | 2 | 2 | 0 | `candidate_relation_exists` |\n| `B01E1470` | 订单状态被终止无法上架 | 5 | 5 | 0 | `candidate_relation_exists` |\n| `B01E1514` | 订单状态已上架需拦截 | 6 | 6 | 0 | `candidate_relation_exists` |\n| `B01E1516` | ABC类包裹/子包裹内商品错装暂存（需客户处理） | 6 | 5 | 1 | `candidate_relation_exists_with_inactive` |\n| `B01E1517` | 到仓包裹商品数量大于验货数量（需客户处理） | 4 | 3 | 1 | `candidate_relation_exists_with_inactive` |\n| `B01E1579` | A+包商品条码和包裹条码对应关系校验不一致 | 5 | 5 | 0 | `candidate_relation_exists` |\n| `B01E1615` | 包裹条码批量异常（需客户处理） | 7 | 7 | 0 | `candidate_relation_exists` |\n| `B01E49` | 客户直发包裹串仓 | 7 | 7 | 0 | `candidate_relation_exists` |\n| `B03E03` | 包裹内出现订单外商品 | 8 | 7 | 1 | `candidate_relation_exists_with_inactive` |\n| `B05E012` | 单品外包装破损 | 5 | 5 | 0 | `candidate_relation_exists` |\n| `B05E013` | 包裹内商品错装 | 4 | 4 | 0 | `candidate_relation_exists` |\n| `B05E014` | 单品质量异常 | 6 | 6 | 0 | `candidate_relation_exists` |\n| `B05E1382` | 库存批次号错误 | 4 | 4 | 0 | `candidate_relation_exists` |\n| `B05E1383` | 计划外批次 | 4 | 4 | 0 | `candidate_relation_exists` |\n| `B05E1586` | 单品条码无法扫描(需客户处理） | 4 | 4 | 0 | `candidate_relation_exists` |\n| `B06E1369` | 2B箱内商品条码异常 | 4 | 4 | 0 | `candidate_relation_exists` |\n| `B06E1370` | 2B箱内多单品 | 4 | 4 | 0 | `candidate_relation_exists` |\n| `B06E1371` | 2B箱内少单品 | 4 | 4 | 0 | `candidate_relation_exists` |\n| `B06E1613` | A+包裹条码无法扫描 | 4 | 4 | 0 | `candidate_relation_exists` |\n| `B06E1628` | DG商品包装不符合标准 | 4 | 4 | 0 | `candidate_relation_exists` |\n| `B06E1735` | 打包完成后作废出库单（有商品增值） | 1 | 1 | 0 | `candidate_relation_exists` |\n| `B07E1339` | 自提单取消出库（需要客户下入库单） | 1 | 1 | 0 | `candidate_relation_exists` |\n| `B07E1616` | 自提出库单分批提货 | 1 | 1 | 0 | `candidate_relation_exists` |\n| `B0809E03` | 库内商品包装破损 | 1 | 1 | 0 | `candidate_relation_exists` |\n| `B0809E05` | 库内单品条码异常--人工不可识别 | 1 | 1 | 0 | `candidate_relation_exists` |\n| `B12E1784` | SN码缺失无法采集 | 2 | 2 | 0 | `candidate_relation_exists` |\n\n---\n\n## 输出规则\n\n- 命中 `candidate_relation_exists` 时，只能输出“存在映射关系线索，可交由推荐专家继续判断候选”。\n- 命中 `candidate_relation_exists_with_inactive` 时，必须补充边界：“映射中存在 inactive 产品线索，下游仍需过滤启用态和适用限制”。\n- 未命中异常编码时，不得反推不存在增值路径；输出 `unknown_exception` 或 `needs_upstream_check`。\n- 数量差异类异常即使命中映射，也必须结合上游差异核实结果；缺核实时输出 `needs_upstream_check`。\n- 本专家不得输出 VASC 编码、VASC 名称、服务项、原子、字段、附件或模板。\n"
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: "，"
+            - name: allArrayItemConcatChars
+              input:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value:
+                    - isDefault: true
+                      label: "换行"
+                      value: "\n"
+                    - isDefault: true
+                      label: "制表符"
+                      value: "\t"
+                    - isDefault: true
+                      label: "句号"
+                      value: "。"
+                    - isDefault: true
+                      label: "逗号"
+                      value: "，"
+                    - isDefault: true
+                      label: "分号"
+                      value: "；"
+                    - isDefault: true
+                      label: "空格"
+                      value: " "
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                value: null
+    - id: "163008"
+      type: code
+      title: load-exception-mapping-summary
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1520
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：load-exception-mapping-summary — 注入异常到 VASC 映射摘要 KB。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              return {
+                exceptionMappingSummaryKb: asText(params.kbExceptionMappingSummary),
+                diagnosisInput: asRecord(params.diagnosisInput),
+                classificationResult: asRecord(params.classificationResult),
+                valueAddEntryKb: asText(params.valueAddEntryKb),
+                validationResult: asRecord(params.validationResult),
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("load-exception-mapping-summary")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "load-exception-mapping-summary failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abs61bph6k42
+        language: 5
+        node_inputs:
+            - name: diagnosisInput
+              input:
+                value:
+                    path: diagnosisInput
+                    ref_node: "163006"
+            - name: classificationResult
+              input:
+                value:
+                    path: classificationResult
+                    ref_node: "163006"
+            - name: valueAddEntryKb
+              input:
+                value:
+                    path: valueAddEntryKb
+                    ref_node: "163006"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163006"
+            - name: kbExceptionMappingSummary
+              input:
+                value:
+                    path: output
+                    ref_node: "163007"
+        node_outputs:
+            classificationResult:
+                type: object
+                value: null
+            diagnosisInput:
+                type: object
+                value: null
+            exceptionMappingSummaryKb:
+                type: string
+                value: null
+            validationResult:
+                type: object
+                value: null
+            valueAddEntryKb:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absl9evtxdxn
+    - id: "163009"
+      type: code
+      title: decide-value-add-candidacy
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 1800
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：decide-value-add-candidacy — 决定异常是否进入增值推荐链。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asKnownText(value: unknown): string {
+              const text = asText(value);
+              return text && text.toLowerCase() !== "unknown" ? text : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function coerceStructured(raw: unknown): Record<string, unknown> {
+              if (typeof raw === "string") {
+                try {
+                  return coerceStructured(JSON.parse(raw));
+                } catch {
+                  return {};
+                }
+              }
+              const obj = asRecord(raw);
+              return asRecord(obj.structured ?? obj);
+            }
+
+            function asOptionalBoolean(value: unknown): boolean | undefined {
+              if (typeof value === "boolean") return value;
+              if (typeof value === "string") {
+                const normalized = value.trim().toLowerCase();
+                if (normalized === "true") return true;
+                if (normalized === "false") return false;
+              }
+              return undefined;
+            }
+
+            function isDeprecatedOrRedirectNote(line: string): boolean {
+              const lower = line.toLowerCase();
+              return (
+                lower.includes("deprecated") ||
+                line.includes("已废弃") ||
+                line.includes("废弃") ||
+                line.includes("请使用") ||
+                line.includes("替代")
+              );
+            }
+
+            function evidenceLineMentions(kb: string, needle: string): boolean {
+              if (!needle) return false;
+              const lowerNeedle = needle.toLowerCase();
+              return kb
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.length > 0 && !isDeprecatedOrRedirectNote(line))
+                .some((line) => line.toLowerCase().includes(lowerNeedle));
+            }
+
+            function isVerifiedDiscrepancy(evidenceSummary: Record<string, unknown>): boolean {
+              return (
+                evidenceSummary.verified === true ||
+                evidenceSummary.discrepancyVerified === true ||
+                evidenceSummary.responsibilityVerified === true ||
+                asText(evidenceSummary.checkResult).length > 0 ||
+                asText(evidenceSummary.discrepancyCheckResult).length > 0
+              );
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const diagnosisInput = asRecord(params.diagnosisInput);
+              const validationResult = asRecord(params.validationResult);
+              const classification = coerceStructured(params.classificationResult);
+              const normalizedException = asRecord(classification.normalizedException);
+              const exceptionCode =
+                asKnownText(classification.exceptionCode) || asKnownText(normalizedException.code) || asKnownText(diagnosisInput.exceptionCode);
+              const exceptionName =
+                asKnownText(classification.exceptionName) || asKnownText(normalizedException.name) || asKnownText(diagnosisInput.exceptionName);
+              const entryKb = asText(params.valueAddEntryKb);
+              const mappingKb = asText(params.exceptionMappingSummaryKb);
+              const hasKnownException = Boolean(exceptionCode || exceptionName || asText(diagnosisInput.exceptionDescription));
+              const hasMappingEvidence =
+                evidenceLineMentions(mappingKb, exceptionCode) || evidenceLineMentions(mappingKb, exceptionName);
+              const hasEntryEvidence =
+                hasMappingEvidence ||
+                evidenceLineMentions(entryKb, exceptionCode) ||
+                evidenceLineMentions(entryKb, exceptionName);
+              const exceptionCategory = asKnownText(classification.exceptionCategory) || asKnownText(diagnosisInput.exceptionCategory);
+              const requiresCustomerAction =
+                asOptionalBoolean(classification.requiresCustomerAction) ?? asOptionalBoolean(diagnosisInput.requiresCustomerAction);
+              const evidenceSummary = asRecord(diagnosisInput.evidenceSummary);
+              const needsDiscrepancyCheck =
+                exceptionCategory === "quantity_discrepancy" && !isVerifiedDiscrepancy(evidenceSummary);
+              const outputPath = !validationResult.ok
+                ? "unknown_exception"
+                : !hasKnownException
+                  ? "unknown_exception"
+                  : needsDiscrepancyCheck
+                    ? "needs_upstream_check"
+                  : hasEntryEvidence
+                    ? "candidate"
+                    : "needs_upstream_check";
+
+              const handoffFacts = {
+                exceptionCode,
+                exceptionName,
+                exceptionCategory,
+                exceptionObject: asKnownText(classification.exceptionObject) || asKnownText(diagnosisInput.exceptionObject),
+                objectLevel: asKnownText(classification.objectLevel) || asKnownText(diagnosisInput.objectLevel),
+                blockedStage: asKnownText(classification.blockedStage),
+                requiresCustomerAction,
+                inboundOrderNo: asText(diagnosisInput.inboundOrderNo),
+                eventNo: asText(diagnosisInput.eventNo),
+                evidenceSummary: asRecord(diagnosisInput.evidenceSummary),
+              };
+
+              return {
+                candidacyDecision: {
+                  outputPath,
+                  isValueAddCandidate: outputPath === "candidate",
+                  missingEvidence:
+                    outputPath === "candidate"
+                      ? []
+                      : outputPath === "unknown_exception"
+                        ? ["exception_identity"]
+                        : needsDiscrepancyCheck
+                          ? ["discrepancyFacts"]
+                        : ["upstream_exception_check"],
+                  handoffFacts,
+                },
+                diagnosisInput: {
+                  ...diagnosisInput,
+                  exceptionCode,
+                  exceptionName,
+                  exceptionCategory: handoffFacts.exceptionCategory,
+                  exceptionObject: handoffFacts.exceptionObject,
+                  objectLevel: handoffFacts.objectLevel,
+                  requiresCustomerAction,
+                },
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("decide-value-add-candidacy")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "decide-value-add-candidacy failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrtmelhzpoz
+        language: 5
+        node_inputs:
+            - name: diagnosisInput
+              input:
+                value:
+                    path: diagnosisInput
+                    ref_node: "163008"
+            - name: classificationResult
+              input:
+                value:
+                    path: classificationResult
+                    ref_node: "163008"
+            - name: validationResult
+              input:
+                value:
+                    path: validationResult
+                    ref_node: "163008"
+            - name: valueAddEntryKb
+              input:
+                value:
+                    path: valueAddEntryKb
+                    ref_node: "163008"
+            - name: exceptionMappingSummaryKb
+              input:
+                value:
+                    path: exceptionMappingSummaryKb
+                    ref_node: "163008"
+        node_outputs:
+            candidacyDecision:
+                type: object
+                value: null
+            diagnosisInput:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absl9evtxrbr
+    - id: "163010"
+      type: llm
+      title: llm-clarify
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "调用大语言模型,使用变量和提示词生成回复"
+      version: "3"
+      position:
+        x: 2080
+        y: 170
+      parameters:
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: temperature
+              input:
+                type: string
+                value: "0.5"
+            - name: topP
+              input:
+                type: string
+                value: "1"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: disabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: minimal
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: ""
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: false
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "3"
+            - name: systemPrompt
+              input:
+                type: string
+                value: |
+                    # Value-Add 异常诊断专家 - 追问 Prompt
+
+                    ## 角色
+
+                    你是增值异常诊断的追问节点。当异常未知、需要上游核实或存在阻断缺失项时，生成补充信息问题。**不推荐 VASC。**
+
+                    ## 禁止项
+
+                    - 不输出 VASC 编码或服务名称
+                    - 不输出下单字段、附件或模板
+                    - 不判责、不承诺赔付
+                    - 不把 `candidate` 路径写成追问路径
+
+                    ## 输入
+
+                    - **query**：`{{query}}`
+                    - **customerIntent**：`{{customerIntent}}`
+                    - **diagnosisInput**（normalize-exception-facts 输出）：
+
+                    ```json
+                    {{diagnosisInput}}
+                    ```
+
+                    - **candidacyDecision**（decide-value-add-candidacy 输出）：
+
+                    ```json
+                    {{candidacyDecision}}
+                    ```
+
+                    - **inputContext**（参考）：
+
+                    ```json
+                    {{inputContext}}
+                    ```
+
+                    ## 输出格式
+
+                    ```json
+                    {
+                      "structured": {
+                        "outputPath": "clarify_exception|needs_upstream_check|already_candidate",
+                        "clarificationQuestion": "",
+                        "clarificationOptions": [
+                          {
+                            "field": "",
+                            "label": "",
+                            "reason": ""
+                          }
+                        ],
+                        "blockingMissing": []
+                      },
+                      "analysis": "一句话说明需要补充什么，或说明无需追问。"
+                    }
+                    ```
+
+                    ## 特殊规则
+
+                    - `unknown_exception`：追问异常编码、异常名称、异常单号或截图异常文本
+                    - `needs_upstream_check`：追问入库异常核实、差异核实或责任相关事实
+                    - 有 `missingEvidence.blockingMissing` 时，逐项转成客户可理解的问题
+                    - 追问项不超过 4 个
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: diagnosisInput
+              input:
+                value:
+                    path: diagnosisInput
+                    ref_node: "163009"
+            - name: candidacyDecision
+              input:
+                value:
+                    path: candidacyDecision
+                    ref_node: "163009"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163001"
+        node_outputs:
+            analysisResult:
+                type: object
+                properties:
+                    analysis:
+                        type: string
+                        value: null
+                    structured:
+                        type: object
+                        value: null
+                value: null
+            clarificationResult:
+                type: object
+                value: null
+            reasoning_content:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 180000
+    - id: "163011"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "调用大语言模型,使用变量和提示词生成回复"
+      version: "3"
+      position:
+        x: 2080
+        y: 450
+      parameters:
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: temperature
+              input:
+                type: string
+                value: "0.5"
+            - name: topP
+              input:
+                type: string
+                value: "1"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: disabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: minimal
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: ""
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: false
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "3"
+            - name: systemPrompt
+              input:
+                type: string
+                value: |
+                    # Value-Add 异常诊断专家 - LLM Prompt
+
+                    ## 角色
+
+                    你是入库异常增值入口诊断顾问，解释系统识别到的异常、阻断阶段，以及是否具备进入增值推荐链的证据。**不推荐具体 VASC。**
+
+                    ## 禁止项
+
+                    - 不输出 VASC 编码或服务名称
+                    - 不输出服务项、原子、字段、附件或模板
+                    - 不判责、不承诺赔付或仓库处理时效
+                    - 不新增异常编码，不覆盖 `candidacyDecision`
+                    - 不引用内部系统 URL、接口文档或离线来源名称
+
+                    ## 输入
+
+                    - **query**：`{{query}}`
+                    - **customerIntent**：`{{customerIntent}}`
+                    - **diagnosisInput**（normalize-exception-facts 输出）：
+
+                    ```json
+                    {{diagnosisInput}}
+                    ```
+
+                    - **candidacyDecision**（入口判断结果）：
+
+                    ```json
+                    {{candidacyDecision}}
+                    ```
+
+                    - **valueAddEntryKb**（load-value-add-entry 输出）：
+
+                    ```text
+                    {{valueAddEntryKb}}
+                    ```
+
+                    - **exceptionMappingSummaryKb**（load-exception-mapping-summary 输出）：
+
+                    ```text
+                    {{exceptionMappingSummaryKb}}
+                    ```
+
+                    - **inputContext**（参考）：
+
+                    ```json
+                    {{inputContext}}
+                    ```
+
+                    ## 输出格式
+
+                    返回完整四字段结构：
+
+                    ```json
+                    {
+                      "structured": {
+                        "outputPath": "candidate|not_value_add|unknown_exception|needs_upstream_check",
+                        "normalizedException": {
+                          "code": "",
+                          "name": "",
+                          "source": ""
+                        },
+                        "exceptionCategory": "",
+                        "exceptionObject": "",
+                        "objectLevel": "",
+                        "blockedStage": "",
+                        "requiresCustomerAction": false,
+                        "isValueAddCandidate": false,
+                        "candidateEvidence": [],
+                        "missingEvidence": {
+                          "blockingMissing": [],
+                          "informationalMissing": []
+                        },
+                        "handoffFacts": {}
+                      },
+                      "analysis": "说明异常归一结果、是否进入增值推荐链、缺失项和下一步。",
+                      "outputContext": {
+                        "expertId": "value-add-exception-diagnosis",
+                        "resultSummary": "",
+                        "chainId": ""
+                      },
+                      "enrichedContext": {
+                        "valueAddExceptionFacts": {}
+                      }
+                    }
+                    ```
+
+                    ## 特殊规则
+
+                    - 输出路径必须以 `candidacyDecision.outputPath` 为准
+                    - `candidate`：只说可继续由产品推荐专家判断候选，不给 VASC
+                    - `unknown_exception`：说明缺异常编码、异常名称、异常单号或截图文本
+                    - `needs_upstream_check`：说明需先完成入库异常或差异核实，不判责
+                    - `valueAddEntryKb` 和 `exceptionMappingSummaryKb` 只用于解释证据边界
+                    - `outputContext.resultSummary` 不超过 200 字
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: query
+              input:
+                value:
+                    path: query
+                    ref_node: "100001"
+            - name: customerIntent
+              input:
+                value:
+                    path: customerIntent
+                    ref_node: "100001"
+            - name: diagnosisInput
+              input:
+                value:
+                    path: diagnosisInput
+                    ref_node: "163009"
+            - name: candidacyDecision
+              input:
+                value:
+                    path: candidacyDecision
+                    ref_node: "163009"
+            - name: valueAddEntryKb
+              input:
+                value:
+                    path: valueAddEntryKb
+                    ref_node: "163008"
+            - name: exceptionMappingSummaryKb
+              input:
+                value:
+                    path: exceptionMappingSummaryKb
+                    ref_node: "163008"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163001"
+        node_outputs:
+            analysisResult:
+                type: object
+                properties:
+                    analysis:
+                        type: string
+                        value: null
+                    structured:
+                        type: object
+                        value: null
+                value: null
+            reasoning_content:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 180000
+    - id: "163012"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 2520
+        y: 310
+      parameters:
+        code: |-
+            /**
+             * 节点：format-output - 归一化异常诊断输出。
+             * FaaS 单文件闭环，无外部 import。
+             */
+
+            interface AnalysisResult {
+              structured?: Record<string, unknown>;
+              analysis?: string;
+            }
+
+            function asText(value: unknown): string {
+              return typeof value === "string" ? value.trim() : "";
+            }
+
+            function asRecord(value: unknown): Record<string, unknown> {
+              return value && typeof value === "object" && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : {};
+            }
+
+            function asOptionalBoolean(value: unknown): boolean | undefined {
+              if (typeof value === "boolean") return value;
+              if (typeof value === "string") {
+                const normalized = value.trim().toLowerCase();
+                if (normalized === "true") return true;
+                if (normalized === "false") return false;
+              }
+              return undefined;
+            }
+
+            function coerceAnalysisResult(raw: unknown): AnalysisResult {
+              if (typeof raw === "string") {
+                try {
+                  return coerceAnalysisResult(JSON.parse(raw));
+                } catch {
+                  return { structured: {}, analysis: raw };
+                }
+              }
+              const obj = asRecord(raw);
+              return {
+                structured: asRecord(obj.structured),
+                analysis: asText(obj.analysis),
+              };
+            }
+
+            function buildCandidateAnalysis(structured: Record<string, unknown>): string {
+              const exceptionName = asText(structured.exceptionName);
+              const exceptionCode = asText(structured.exceptionCode);
+              const exceptionCategory = asText(structured.exceptionCategory);
+              const objectLevel = asText(structured.objectLevel);
+              const blockedStage = asText(structured.blockedStage);
+              const identity = exceptionName
+                ? `${exceptionName}${exceptionCode ? `，异常编码为 ${exceptionCode}` : ""}`
+                : exceptionCode
+                  ? `异常编码 ${exceptionCode}`
+                  : "当前异常";
+              const facts = [
+                exceptionCategory ? `类别为 ${exceptionCategory}` : "",
+                objectLevel ? `对象层级为 ${objectLevel}` : "",
+                blockedStage ? `阻断阶段为 ${blockedStage}` : "",
+              ].filter(Boolean);
+              const factText = facts.length > 0 ? `，${facts.join("，")}` : "";
+              return `异常归一结果为${identity}${factText}。该异常可进入增值推荐链；下一步可由产品推荐专家继续判断候选。`;
+            }
+
+            function hasMissingObjectLevelContradiction(analysis: string, structured: Record<string, unknown>): boolean {
+              return Boolean(asText(structured.objectLevel)) && analysis.includes("缺失") && analysis.includes("objectLevel");
+            }
+
+            async function main({ params }: { params: Record<string, unknown> }) {
+              const diagnosisInput = asRecord(params.diagnosisInput);
+              const decision = asRecord(params.candidacyDecision);
+              const result = coerceAnalysisResult(params.analysisResult);
+              const clarification = coerceAnalysisResult(params.clarificationResult);
+              const outputPath = asText(decision.outputPath) || "unknown_exception";
+              const handoffFacts = asRecord(decision.handoffFacts);
+              const requiresCustomerAction =
+                asOptionalBoolean(handoffFacts.requiresCustomerAction) ?? asOptionalBoolean(diagnosisInput.requiresCustomerAction);
+              const structured = {
+                outputPath,
+                isValueAddCandidate: Boolean(decision.isValueAddCandidate),
+                exceptionCode: asText(handoffFacts.exceptionCode) || asText(diagnosisInput.exceptionCode),
+                exceptionName: asText(handoffFacts.exceptionName) || asText(diagnosisInput.exceptionName),
+                exceptionCategory: asText(handoffFacts.exceptionCategory) || asText(diagnosisInput.exceptionCategory),
+                exceptionObject: asText(handoffFacts.exceptionObject) || asText(diagnosisInput.exceptionObject),
+                objectLevel: asText(handoffFacts.objectLevel) || asText(diagnosisInput.objectLevel),
+                blockedStage: asText(handoffFacts.blockedStage) || asText(diagnosisInput.blockedStage),
+                requiresCustomerAction: requiresCustomerAction ?? false,
+                missingEvidence: Array.isArray(decision.missingEvidence) ? decision.missingEvidence : [],
+                handoffFacts,
+                normalizedException: {
+                  code: asText(handoffFacts.exceptionCode) || asText(diagnosisInput.exceptionCode),
+                  name: asText(handoffFacts.exceptionName) || asText(diagnosisInput.exceptionName),
+                  source: asText(diagnosisInput.source) || "normalized_facts",
+                },
+              };
+              const candidateAnalysis = result.analysis || buildCandidateAnalysis(structured);
+              const analysis =
+                outputPath === "unknown_exception" || outputPath === "needs_upstream_check"
+                  ? clarification.analysis || result.analysis || "当前异常事实不足，请补充异常编码、异常名称或上游核实结果。"
+                  : hasMissingObjectLevelContradiction(candidateAnalysis, structured)
+                    ? buildCandidateAnalysis(structured)
+                    : candidateAnalysis;
+              const inputContext = asRecord(params.inputContext);
+              const chainId = asText(inputContext.chainId);
+
+              return {
+                structured,
+                analysis,
+                outputContext: {
+                  expertId: "value-add-exception-diagnosis",
+                  resultSummary: analysis.slice(0, 200),
+                  chainId,
+                },
+                enrichedContext: {
+                  valueAddExceptionDiagnosis: structured,
+                  handoffFacts: structured.handoffFacts,
+                },
+              };
+            }
+
+            if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+              const params = JSON.parse(process.argv[2] || "{}");
+              main({ params })
+                .then((r) => process.stdout.write(JSON.stringify(r)))
+                .catch((e) => {
+                  console.error(e instanceof Error ? e.message : "format-output failed");
+                  process.exit(1);
+                });
+            }
+        functionID: 3abrr6a7r5yzl
+        language: 5
+        node_inputs:
+            - name: analysisResult
+              input:
+                value:
+                    path: analysisResult
+                    ref_node: "163011"
+            - name: clarificationResult
+              input:
+                value:
+                    path: clarificationResult
+                    ref_node: "163010"
+            - name: diagnosisInput
+              input:
+                value:
+                    path: diagnosisInput
+                    ref_node: "163009"
+            - name: candidacyDecision
+              input:
+                value:
+                    path: candidacyDecision
+                    ref_node: "163009"
+            - name: inputContext
+              input:
+                value:
+                    path: inputContext
+                    ref_node: "163001"
+        node_outputs:
+            analysis:
+                type: string
+                value: null
+            enrichedContext:
+                type: object
+                value: null
+            outputContext:
+                type: object
+                value: null
+            structured:
+                type: object
+                value: null
+        settingOnError:
+            processType: 1
+            switch: false
+            timeoutMs: 60000
+        vefaasFunctionID: 3absl9evty5ov
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163012"
+      target_node: "900001"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"

@@ -1,0 +1,58 @@
+{
+  "id": "tracking-stale",
+  "domain": "last-mile",
+  "name": "轨迹长时间未更新",
+  "description": "仅处理已有承运商 Ascan 后的轨迹长时间未更新、停滞或疑似丢件。若结构化事实无 Ascan，必须转 tracking-no-scan，不得在本专家内按渠道代客索赔判断。依赖上游 delivery-status 提供逐票扫描事实。",
+  "capabilities": [
+    "轨迹分析",
+    "异常识别"
+  ],
+  "version": "0.2.3",
+  "x_framework_input_required": [
+    "inputContext"
+  ],
+  "x_framework_require_previous_output": true,
+  "x_recaller_propagate_previous_enriched_context": true,
+  "x_recaller_enriched_context_preferred_source_experts": [
+    "delivery-status"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "x_constraint": "本专家不自行拉取轨迹，正式编排建议前置 delivery-status 并把轨迹事实放入 enrichedContext、分析结论放入 inputContext.previousOutput.analysis。JSON Schema 不强制 required，以支持降级调用与补充信息分支。",
+    "x_invoke_contract": "编排闭环建议调用 JSON 顶层包含 inputContext.previousOutput.analysis（上游分析）与 sourceExpertId。inputs.enrichedContext 应包含 delivery-status.computedScanFacts；全部无 Ascan 时先转 tracking-no-scan。只有已有 Ascan 后停滞才继续读取 outbound-order-status.orderFacts 与 hasClaimService；未知不得当 false。",
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "出库单号"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "上游传入的轨迹事实或域索引。保持为不展开子字段的对象，以原样承载 delivery-status 的 computedScanFacts、trajectories、扫描时间以及 last-mile/delivery-status 域快照；字段语义见 design.md。",
+        "additionalProperties": true
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化分支结果：branch、逐票 scanStates、trackingIds、outboundOrderNos、suggestedNextExperts、missingFacts"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "分析结论与建议"
+      }
+    }
+  }
+}

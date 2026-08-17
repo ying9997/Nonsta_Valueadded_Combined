@@ -1,0 +1,69 @@
+{
+  "id": "value-add-order-status",
+  "domain": "value-add",
+  "name": "增值单状态查询",
+  "description": "查询已提交增值单主状态、原子执行进度、退回/部分完成原因和下一步动作；P0 主路径使用 wh.va.order.basicInfo 与 wh.va.order.getVasList，费用和货物明细仅作增强。Use when 客户提供增值单号询问处理到哪一步、为什么退回、为什么部分完成或已提交增值单的执行事实。",
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "vasOrderNo": {
+        "type": "string",
+        "description": "增值单号，优先使用"
+      },
+      "businessNo": {
+        "type": "string",
+        "description": "关联业务单号，仅作辅助定位；无法唯一定位时要求补充增值单号"
+      },
+      "includeAtoms": {
+        "type": "boolean",
+        "description": "是否查询原子执行列表；P0 主路径默认开启",
+        "default": true
+      },
+      "includePayment": {
+        "type": "boolean",
+        "description": "是否查询事后实际费用；P2 增强，失败不影响主状态",
+        "default": false
+      },
+      "includePrepayment": {
+        "type": "boolean",
+        "description": "是否查询已有增值单预估费用；依赖 orderNo，不是未下单前报价",
+        "default": false
+      },
+      "includeGoods": {
+        "type": "boolean",
+        "description": "是否查询子货物明细；P2 增强，失败不影响主状态",
+        "default": false
+      },
+      "parentGoodsId": {
+        "type": "number",
+        "description": "查询子货物明细时的父货物或父记录 ID；仅 includeGoods=true 时使用"
+      },
+      "maxAtomRows": {
+        "type": "integer",
+        "description": "原子执行列表保留条数上限，默认 20",
+        "default": 20,
+        "minimum": 1,
+        "maximum": 200
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "编排器聚合事实"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "增值单状态结构化结果"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客可读状态说明"
+      }
+    }
+  }
+}

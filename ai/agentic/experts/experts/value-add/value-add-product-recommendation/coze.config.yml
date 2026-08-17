@@ -1,0 +1,103 @@
+# 增值产品推荐 — Coze 工作流包导出
+yamlBasename: value_add_product_recommendation-draft.yaml
+packageMainName: value_add_product_recommendation
+packageDescription: 增值产品推荐（validate → classify/clarify → mapping/filter/gate → recommend → format）
+
+textNodes:
+  - logicalId: kb-flow-context-text
+    title: kb-flow-context
+    insertAfter: validate-input
+    sourceFile: prompts/kb-flow-context.md
+  - logicalId: kb-intent-guide-text
+    title: kb-intent-guide
+    insertAfter: llm-clarify
+    sourceFile: prompts/kb-intent-guide.md
+  - logicalId: kb-mapping-table-text
+    title: kb-mapping-table
+    insertAfter: load-intent-guide
+    sourceFile: prompts/kb-mapping-table.md
+  - logicalId: kb-vasc-constraints-text
+    title: kb-vasc-constraints
+    insertAfter: load-intent-guide
+    sourceFile: prompts/kb-vasc-constraints.md
+
+inputBindings:
+  load-flow-context:
+    kbFlowContext:
+      ref: kb-flow-context-text
+      path: output
+  load-intent-guide:
+    kbIntentGuide:
+      ref: kb-intent-guide-text
+      path: output
+  verify-with-mapping:
+    kbMappingTable:
+      ref: kb-mapping-table-text
+      path: output
+    kbVascConstraints:
+      ref: kb-vasc-constraints-text
+      path: output
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: -150
+    y: 230
+  __end__:
+    x: 3140
+    y: 310
+  validate-input:
+    x: 120
+    y: 310
+  kb-flow-context-text:
+    x: 120
+    y: 480
+  load-flow-context:
+    x: 400
+    y: 310
+  llm-classify:
+    x: 680
+    y: 310
+  llm-clarify:
+    x: 960
+    y: 170
+  kb-intent-guide-text:
+    x: 960
+    y: 480
+  load-intent-guide:
+    x: 1240
+    y: 310
+  kb-mapping-table-text:
+    x: 1240
+    y: 480
+  kb-vasc-constraints-text:
+    x: 1240
+    y: 620
+  verify-with-mapping:
+    x: 1520
+    y: 310
+  filter-by-constraints:
+    x: 1800
+    y: 310
+  evidence-gate:
+    x: 2080
+    y: 310
+  llm-recommend:
+    x: 2360
+    y: 310
+  format-output:
+    x: 2640
+    y: 310

@@ -1,0 +1,310 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "inputContext",
+        "vascCode",
+        "vascName",
+        "serviceIntent",
+        "scenarioConditions",
+        "handoffToServiceConfig",
+        "enrichedContext"
+      ],
+      "outputs": [
+        "rawServiceConfigInput",
+        "validationResult",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawServiceConfigInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "resolve-vasc-context",
+      "file": "nodes/resolve-vasc-context.ts",
+      "inputs": [
+        "rawServiceConfigInput",
+        "validationResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "serviceConfigInput",
+        "validationResult",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "serviceConfigInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-vasc-context",
+      "file": "nodes/load-vasc-context.ts",
+      "inputs": [
+        "serviceConfigInput",
+        "validationResult",
+        "kbVascContext"
+      ],
+      "outputs": [
+        "vascContextKb",
+        "serviceConfigInput",
+        "validationResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "vascContextKb": {
+            "type": "string"
+          },
+          "serviceConfigInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-service-orchestration",
+      "file": "nodes/load-service-orchestration.ts",
+      "inputs": [
+        "serviceConfigInput",
+        "validationResult",
+        "vascContextKb",
+        "kbServiceOrchestration"
+      ],
+      "outputs": [
+        "serviceOrchestrationKb",
+        "vascContextKb",
+        "serviceConfigInput",
+        "validationResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "serviceOrchestrationKb": {
+            "type": "string"
+          },
+          "vascContextKb": {
+            "type": "string"
+          },
+          "serviceConfigInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-field-evidence",
+      "file": "nodes/load-field-evidence.ts",
+      "inputs": [
+        "serviceConfigInput",
+        "validationResult",
+        "vascContextKb",
+        "serviceOrchestrationKb",
+        "kbFieldEvidence"
+      ],
+      "outputs": [
+        "fieldEvidenceKb",
+        "serviceOrchestrationKb",
+        "vascContextKb",
+        "serviceConfigInput",
+        "validationResult"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "fieldEvidenceKb": {
+            "type": "string"
+          },
+          "serviceOrchestrationKb": {
+            "type": "string"
+          },
+          "vascContextKb": {
+            "type": "string"
+          },
+          "serviceConfigInput": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "validationResult": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "apply-atom-selectability-rules",
+      "file": "nodes/apply-atom-selectability-rules.ts",
+      "inputs": [
+        "serviceConfigInput",
+        "serviceOrchestrationKb",
+        "fieldEvidenceKb",
+        "kbAtomSelectability"
+      ],
+      "outputs": [
+        "configEvidence",
+        "serviceConfigInput"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "configEvidence": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "serviceConfigInput": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "compose-conditional-config",
+      "file": "nodes/compose-conditional-config.ts",
+      "inputs": [
+        "serviceConfigInput",
+        "configEvidence"
+      ],
+      "outputs": [
+        "conditionalConfigEvidence",
+        "serviceConfigInput"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "conditionalConfigEvidence": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "serviceConfigInput": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "compose-committed-config",
+      "file": "nodes/compose-committed-config.ts",
+      "inputs": [
+        "serviceConfigInput",
+        "conditionalConfigEvidence"
+      ],
+      "outputs": [
+        "configEvidence",
+        "serviceConfigInput"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "configEvidence": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "serviceConfigInput": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "promptFile": "prompts/main.md",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "serviceConfigInput",
+        "configEvidence",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "serviceConfigInput",
+        "configEvidence",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object"
+          },
+          "serviceConfigInput": {
+            "type": "object"
+          },
+          "configEvidence": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

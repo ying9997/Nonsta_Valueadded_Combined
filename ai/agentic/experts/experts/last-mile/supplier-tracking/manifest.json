@@ -1,0 +1,61 @@
+{
+  "id": "supplier-tracking",
+  "domain": "last-mile",
+  "name": "承运商官网轨迹查询入口",
+  "description": "按国家/尾程产品给出承运商官网物流查询网址与自助查轨迹步骤（SOP/KB）；不执行官网 HTTP 抓取。轨迹正文以 delivery-status 与系统侧能力为准。Use when 用户需要官网轨迹查询网址、组合渠道说明。NOT when 用户咨询尾程查件申请/查件进度（→ tracking-inquiry）或需要轨迹解读（→ delivery-status）。",
+  "capabilities": [
+    "承运商官网轨迹查询入口",
+    "尾程产品轨迹查询链接"
+  ],
+  "version": "0.1.0",
+  "x_recaller_propagate_previous_enriched_context": true,
+  "x_recaller_enriched_context_preferred_source_experts": [
+    "delivery-status"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "x_constraint": "至少提供 trackingIds、country+lastMileProductName、lastMileProductName、carrierCode、region、enrichedContext、customerIntent 或 query 之一；建议前置 delivery-status 以填充 carrierHints / trajectories。",
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "跟踪号"
+      },
+      "country": {
+        "type": "string",
+        "description": "国家/地区（与 SOP 表国家列对齐，如 AU、DE、US）"
+      },
+      "lastMileProductName": {
+        "type": "string",
+        "description": "尾程产品或供应商名称（与 SOP 表供应商/承运商列对齐）"
+      },
+      "carrierCode": {
+        "type": "string",
+        "description": "可选承运商编码，辅助匹配"
+      },
+      "region": {
+        "type": "string",
+        "description": "区域描述，可与 country 同用"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "上游上下文（推荐 delivery-status 的 carrierHints、trajectories 等）",
+        "additionalProperties": true
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "fetchStatus 恒为 fallback_links；trackingPortalUrls、selfServiceSteps 来自 KB；events 恒为空"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客话术：官网轨迹查询链接与自助查轨迹步骤"
+      }
+    }
+  }
+}

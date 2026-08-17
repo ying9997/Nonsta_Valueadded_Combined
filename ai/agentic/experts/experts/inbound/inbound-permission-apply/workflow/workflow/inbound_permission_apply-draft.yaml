@@ -1,0 +1,1140 @@
+schema_version: 1.0.0
+name: inbound_permission_apply
+id: 7276552506346609857
+description: 权限申请指引（validate → evaluate-bitable-gap → load-kb → LLM → format，当前 Sprint kb_only）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      intent:
+                          type: string
+                          value: null
+                          description: 申请意图：apply 提交申请 / progress 查进度 / renew 续期 / general 通用
+                          required: true
+                      permissionType:
+                          type: string
+                          value: null
+                          description: 权限类型
+                          required: true
+                      warehouseCode:
+                          type: string
+                          value: null
+                          description: 目标仓库编码
+                      applicationId:
+                          type: string
+                          value: null
+                          description: 已有申请单号（progress 场景可选）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163006"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163006"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163006"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163006"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-permission-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-permission-query — 规范化 intent 与 permissionType
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type PermissionIntent = "apply" | "progress" | "renew" | "general";
+              type PermissionType = "self_inspection" | "overseas_inspection" | "cbm_quota" | "general";
+
+              const VALID_INTENTS = new Set<PermissionIntent>(["apply", "progress", "renew", "general"]);
+              const VALID_TYPES = new Set<PermissionType>([
+                "self_inspection",
+                "overseas_inspection",
+                "cbm_quota",
+                "general",
+              ]);
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function normalizeIntent(raw: unknown): PermissionIntent {
+                const s = str(raw).toLowerCase();
+                if (VALID_INTENTS.has(s as PermissionIntent)) return s as PermissionIntent;
+                if (/申请|提交|开通|apply/i.test(s)) return "apply";
+                if (/进度|审核|查询|progress/i.test(s)) return "progress";
+                if (/续期|续费|renew/i.test(s)) return "renew";
+                return "general";
+              }
+
+              function normalizePermissionType(raw: unknown): PermissionType {
+                const s = str(raw).toLowerCase();
+                if (VALID_TYPES.has(s as PermissionType)) return s as PermissionType;
+                if (/自验|self/i.test(s)) return "self_inspection";
+                if (/海外验|overseas/i.test(s)) return "overseas_inspection";
+                if (/cbm|额度|quota/i.test(s)) return "cbm_quota";
+                return "general";
+              }
+
+              function extractPscSnapshot(inputContext: unknown): {
+                enabledProducts: string[];
+                hasSelfInspection: boolean;
+                hasOverseasInspection: boolean;
+              } {
+                const empty = { enabledProducts: [] as string[], hasSelfInspection: false, hasOverseasInspection: false };
+                if (!inputContext || typeof inputContext !== "object" || Array.isArray(inputContext)) return empty;
+                const prev = (inputContext as Record<string, unknown>).previousOutput;
+                if (!prev || typeof prev !== "object" || Array.isArray(prev)) return empty;
+                const structured = (prev as Record<string, unknown>).structured;
+                if (!structured || typeof structured !== "object") return empty;
+                const s = structured as Record<string, unknown>;
+                const enabledProducts = Array.isArray(s.enabledProducts) ? s.enabledProducts.map(String) : [];
+                return {
+                  enabledProducts,
+                  hasSelfInspection: s.hasSelfInspection === true || enabledProducts.some((p) => /^OW0102[12]$/i.test(p)),
+                  hasOverseasInspection: s.hasOverseasInspection === true || enabledProducts.some((p) => /^OW0103[12]$/i.test(p)),
+                };
+              }
+
+              function checkAlreadyEnabled(permissionType: PermissionType, snapshot: ReturnType<typeof extractPscSnapshot>): boolean {
+                if (permissionType === "self_inspection") return snapshot.hasSelfInspection;
+                if (permissionType === "overseas_inspection") return snapshot.hasOverseasInspection;
+                return false;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intent = normalizeIntent(params.intent);
+                const permissionType = normalizePermissionType(params.permissionType);
+                const warehouseCode = str(params.warehouseCode).toUpperCase();
+                const applicationId = str(params.applicationId);
+                const customerIntent = str(params.customerIntent);
+                const inputContext = params.inputContext ?? {};
+                const snapshot = extractPscSnapshot(inputContext);
+                const alreadyEnabled = checkAlreadyEnabled(permissionType, snapshot);
+
+                const validationOk = permissionType.length > 0;
+
+                return {
+                  validationOk,
+                  intent,
+                  permissionType,
+                  warehouseCode,
+                  applicationId,
+                  customerIntent,
+                  inputContext,
+                  alreadyEnabled,
+                  enabledProducts: snapshot.enabledProducts,
+                  targetPscCodes:
+                    permissionType === "self_inspection"
+                      ? ["OW01021", "OW01022"]
+                      : permissionType === "overseas_inspection"
+                        ? ["OW01031", "OW01032"]
+                        : [],
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-permission-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intent
+                input:
+                    value:
+                        path: inputs.intent
+                        ref_node: "100001"
+              - name: permissionType
+                input:
+                    value:
+                        path: inputs.permissionType
+                        ref_node: "100001"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: inputs.warehouseCode
+                        ref_node: "100001"
+              - name: applicationId
+                input:
+                    value:
+                        path: inputs.applicationId
+                        ref_node: "100001"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              validationOk:
+                  type: boolean
+                  value: null
+              intent:
+                  type: string
+                  value: null
+              permissionType:
+                  type: string
+                  value: null
+              warehouseCode:
+                  type: string
+                  value: null
+              applicationId:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+              alreadyEnabled:
+                  type: boolean
+                  value: null
+              enabledProducts:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              targetPscCodes:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: kb-permission-apply
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 707
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 权限申请材料与申请指引
+
+                        ## 自验权限（self_inspection → OW01021/OW01022）
+
+                        ### 材料清单
+                        - 公司名称、联系人邮箱、联系电话
+                        - 验货能力说明（自有验货团队或第三方）
+                        - 营业执照（如需）
+
+                        ### 前提条件
+                        - 商品 SKU 已注册
+                        - 了解自验直发须先完成验货才能创建预约单
+
+                        ### 申请步骤
+                        1. 万邑联 → 个人中心 → 产品权限
+                        2. 选择自验产品（OW01021 直发 / OW01022 头程）
+                        3. 填写材料并提交
+                        4. 等待审核（通常 3–5 个工作日）
+
+                        ---
+
+                        ## 海外验权限（overseas_inspection → OW01031/OW01032）
+
+                        ### 材料清单
+                        - 公司名称、联系人邮箱
+                        - 目的仓编码
+                        - 业务说明
+
+                        ### 申请步骤
+                        同自验，选择海外验产品 OW01031/OW01032。
+
+                        ---
+
+                        ## CBM 额度扩容（cbm_quota）
+
+                        ### 材料清单
+                        - 公司名称、联系人邮箱
+                        - 目标仓库
+                        - 申请扩容 CBM 数量与业务理由
+
+                        ### 申请步骤
+                        1. 万邑联 → 账户中心 → 库容额度
+                        2. 提交扩容申请
+                        3. 等待审核
+
+                        ---
+
+                        ## 续期（renew）
+
+                        权限到期前 30 天提交续期申请，流程与初次申请类似。
+
+                        ## 当前 Sprint 限制
+
+                        - 飞书 Bitable/审批 API 为 Gap，**无法自动代提**
+                        - 输出材料清单与手动操作步骤（dataSource: kb_only）
+                        - 不承诺审批通过
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: text
+      title: kb-permission-progress
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 947
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 权限审批进度查询指引
+
+                        ## 查询方式
+
+                        1. **万邑联平台**
+                           - 个人中心 → 产品权限 → 申请记录
+                           - 查看状态：待审核 / 审核中 / 已通过 / 已拒绝
+
+                        2. **邮件通知**
+                           - 审核结果通常会发送至申请时填写的联系人邮箱
+
+                        3. **客服查询**
+                           - 提供公司名称、申请类型、申请日期
+                           - 飞书审批 API 当前为 Gap，无法实时查单
+
+                        ## 状态说明
+
+                        | 状态 | 含义 |
+                        |------|------|
+                        | 待审核 | 已提交，排队中 |
+                        | 审核中 | 运营/合规审核中 |
+                        | 已通过 | PSC/额度已开通 |
+                        | 已拒绝 | 需补充材料后重新申请 |
+
+                        ## 预计时长
+
+                        KB 参考：通常 3–5 个工作日，**不承诺**具体时长。
+
+                        ## 当前 Sprint 限制
+
+                        - 有 applicationId 时仍无法调用 Bitable API 查进度
+                        - 引导客户通过万邑联平台或联系客服
+                        - dataSource: kb_only
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163003"
+      type: code
+      title: evaluate-bitable-gap
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          code: |-
+              /**
+               * 节点：evaluate-bitable-gap — 飞书 Bitable 自动代提当前为 Gap
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const alreadyEnabled = params.alreadyEnabled === true;
+                const intent = String(params.intent ?? "apply");
+
+                return {
+                  dataSource: "kb_only",
+                  bitableAvailable: false,
+                  canAutoSubmit: false,
+                  submitStatus: alreadyEnabled ? "already_enabled" : "api_not_available",
+                  submitReason: alreadyEnabled
+                    ? "permission_already_enabled"
+                    : "bitable_api_gap_current_sprint_kb_only",
+                  missingFields: [] as string[],
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("evaluate-bitable-gap")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: alreadyEnabled
+                input:
+                    value:
+                        path: alreadyEnabled
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+          node_outputs:
+              dataSource:
+                  type: string
+                  value: null
+              bitableAvailable:
+                  type: boolean
+                  value: null
+              canAutoSubmit:
+                  type: boolean
+                  value: null
+              submitStatus:
+                  type: string
+                  value: null
+              submitReason:
+                  type: string
+                  value: null
+              missingFields:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163004"
+      type: code
+      title: load-permission-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          code: |-
+              /**
+               * 节点：load-permission-kb — 按 intent 分支加载 KB
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              type PermissionIntent = "apply" | "progress" | "renew" | "general";
+              type PermissionType = "self_inspection" | "overseas_inspection" | "cbm_quota" | "general";
+
+              const MATERIAL_CHECKLISTS: Record<string, string[]> = {
+                self_inspection: ["公司名称", "联系人邮箱", "联系电话", "营业执照（如需）", "验货能力说明"],
+                overseas_inspection: ["公司名称", "联系人邮箱", "目的仓", "业务说明"],
+                cbm_quota: ["公司名称", "联系人邮箱", "目标仓库", "申请扩容 CBM 数量", "业务理由"],
+                general: ["权限类型说明", "联系人信息"],
+              };
+
+              const REVIEW_TIME = "通常 3–5 个工作日（KB 参考，不承诺）";
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validationOk = params.validationOk === true;
+                const intent = (str(params.intent) || "apply") as PermissionIntent;
+                const permissionType = (str(params.permissionType) || "general") as PermissionType;
+                const kbApply = str(params.kbPermissionApply);
+                const kbProgress = str(params.kbPermissionProgress);
+                const warehouseCode = str(params.warehouseCode);
+                const alreadyEnabled = params.alreadyEnabled === true;
+
+                if (!validationOk) {
+                  return { kbContent: "", kbScope: "invalid", materialChecklist: [], applySteps: [] };
+                }
+
+                let kbContent = "";
+                let kbScope = "";
+
+                if (intent === "progress") {
+                  kbContent = kbProgress;
+                  kbScope = "progress";
+                } else if (intent === "renew") {
+                  kbContent = `${kbApply}\n\n---\n\n## 续期说明\n权限续期流程与初次申请类似，请提前 30 天提交续期申请。`;
+                  kbScope = "renew";
+                } else {
+                  kbContent = kbApply;
+                  kbScope = intent === "apply" ? "apply" : "general";
+                }
+
+                const materialChecklist = MATERIAL_CHECKLISTS[permissionType] ?? MATERIAL_CHECKLISTS.general;
+
+                const applySteps = alreadyEnabled
+                  ? ["权限已开通，无需重复申请"]
+                  : [
+                      "确认所需权限类型与目标仓库",
+                      "准备材料清单所列文件/信息",
+                      "登录万邑联 → 个人中心 → 产品权限/服务设置提交申请",
+                      "等待审核（预计 3–5 个工作日）",
+                      "审核通过后 PSC 自动开通",
+                    ];
+
+                return {
+                  kbContent,
+                  kbScope,
+                  intent,
+                  permissionType,
+                  warehouseCode,
+                  materialChecklist,
+                  applySteps,
+                  estimatedReviewTime: REVIEW_TIME,
+                  alreadyEnabled,
+                  targetPscCodes: Array.isArray(params.targetPscCodes) ? params.targetPscCodes : [],
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-permission-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: permissionType
+                input:
+                    value:
+                        path: permissionType
+                        ref_node: "163000"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+              - name: alreadyEnabled
+                input:
+                    value:
+                        path: alreadyEnabled
+                        ref_node: "163000"
+              - name: targetPscCodes
+                input:
+                    value:
+                        path: targetPscCodes
+                        ref_node: "163000"
+              - name: kbPermissionApply
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+              - name: kbPermissionProgress
+                input:
+                    value:
+                        path: output
+                        ref_node: "163002"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              intent:
+                  type: string
+                  value: null
+              permissionType:
+                  type: string
+                  value: null
+              warehouseCode:
+                  type: string
+                  value: null
+              materialChecklist:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              applySteps:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              estimatedReviewTime:
+                  type: string
+                  value: null
+              alreadyEnabled:
+                  type: boolean
+                  value: null
+              targetPscCodes:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163005"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 权限申请指引专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是权限申请指引专家，根据 intent、permissionType、PSC 快照与 KB，输出材料清单与操作步骤。当前 Sprint 为纯 KB 路径（Bitable Gap）。
+
+                        ## 禁止项
+
+                        - 不承诺审批通过
+                        - 不引用飞书内部直链
+                        - canAutoSubmit 必须为 false；dataSource 必须为 kb_only
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **intent**：`{{intent}}`（apply/progress/renew/general）
+                        - **permissionType**：`{{permissionType}}`
+                        - **warehouseCode**：`{{warehouseCode}}`
+                        - **alreadyEnabled**：`{{alreadyEnabled}}`
+                        - **enabledProducts**：`{{enabledProducts}}`
+                        - **targetPscCodes**：`{{targetPscCodes}}`
+                        - **kbContent**：`{{kbContent}}`
+                        - **materialChecklist**：`{{materialChecklist}}`
+                        - **applySteps**：`{{applySteps}}`
+                        - **dataSource**：`{{dataSource}}`（kb_only）
+                        - **submitStatus**：`{{submitStatus}}`
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "permissionType": "",
+                              "intent": "",
+                              "alreadyEnabled": false,
+                              "canAutoSubmit": false,
+                              "submitStatus": "api_not_available",
+                              "dataSource": "kb_only",
+                              "targetPscCodes": [],
+                              "materialChecklist": [],
+                              "applySteps": [],
+                              "estimatedReviewTime": ""
+                            },
+                            "analysis": "材料清单与操作步骤；已开通则说明无需申请。"
+                          }
+                        }
+                        ```
+
+                        ## 特殊规则
+
+                        - alreadyEnabled=true：直接说明已开通，不重复申请
+                        - intent=progress：引用进度查询 KB
+                        - intent=renew：说明续期流程
+                        - 明确标注当前无法自动代提，需客户手动提交
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163004"
+              - name: permissionType
+                input:
+                    value:
+                        path: permissionType
+                        ref_node: "163004"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163004"
+              - name: alreadyEnabled
+                input:
+                    value:
+                        path: alreadyEnabled
+                        ref_node: "163004"
+              - name: enabledProducts
+                input:
+                    value:
+                        path: enabledProducts
+                        ref_node: "163000"
+              - name: targetPscCodes
+                input:
+                    value:
+                        path: targetPscCodes
+                        ref_node: "163004"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163004"
+              - name: materialChecklist
+                input:
+                    value:
+                        path: materialChecklist
+                        ref_node: "163004"
+              - name: applySteps
+                input:
+                    value:
+                        path: applySteps
+                        ref_node: "163004"
+              - name: estimatedReviewTime
+                input:
+                    value:
+                        path: estimatedReviewTime
+                        ref_node: "163004"
+              - name: dataSource
+                input:
+                    value:
+                        path: dataSource
+                        ref_node: "163003"
+              - name: submitStatus
+                input:
+                    value:
+                        path: submitStatus
+                        ref_node: "163003"
+              - name: canAutoSubmit
+                input:
+                    value:
+                        path: canAutoSubmit
+                        ref_node: "163003"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163006"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw.trim() || "解析失败。" };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+
+                const structured = {
+                  ...coerced.structured,
+                  dataSource: "kb_only",
+                  permissionType: coerced.structured?.permissionType ?? params.permissionType ?? "",
+                  alreadyEnabled: coerced.structured?.alreadyEnabled ?? params.alreadyEnabled ?? false,
+                  canAutoSubmit: false,
+                  submitStatus: coerced.structured?.submitStatus ?? params.submitStatus ?? "api_not_available",
+                  materialChecklist: coerced.structured?.materialChecklist ?? params.materialChecklist ?? [],
+                  applySteps: coerced.structured?.applySteps ?? params.applySteps ?? [],
+                };
+
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "权限申请指引完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {expertId: "inbound-permission-apply",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "" },
+                  enrichedContext: {
+                      permissionType: structured.permissionType,
+                      alreadyEnabled: structured.alreadyEnabled,
+                      dataSource: structured.dataSource,
+                    },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163005"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+              - name: permissionType
+                input:
+                    value:
+                        path: permissionType
+                        ref_node: "163000"
+              - name: alreadyEnabled
+                input:
+                    value:
+                        path: alreadyEnabled
+                        ref_node: "163000"
+              - name: submitStatus
+                input:
+                    value:
+                        path: submitStatus
+                        ref_node: "163003"
+              - name: materialChecklist
+                input:
+                    value:
+                        path: materialChecklist
+                        ref_node: "163004"
+              - name: applySteps
+                input:
+                    value:
+                        path: applySteps
+                        ref_node: "163004"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "900001"

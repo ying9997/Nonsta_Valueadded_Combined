@@ -1,0 +1,59 @@
+{
+  "id": "tracking-no-scan",
+  "domain": "last-mile",
+  "name": "轨迹无上网信息处理",
+  "description": "处理承运商无 Ascan／无上网／无揽收场景，优先复用 delivery-status 的逐票扫描事实；按查件规则处理，并在达到规则核验时点时转 refund-standard，禁止直接承诺可赔。已有 Ascan 后停滞应转 tracking-stale。",
+  "capabilities": [
+    "轨迹分析",
+    "查件分支",
+    "异常识别"
+  ],
+  "version": "0.3.1",
+  "x_recaller_propagate_previous_enriched_context": true,
+  "x_recaller_enriched_context_preferred_source_experts": [
+    "delivery-status"
+  ],
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "出库单号"
+      },
+      "trajectoryText": {
+        "type": "string",
+        "description": "用户/客服粘贴的轨迹原文；无单号时也可作为事实来源之一",
+        "default": ""
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "可选覆盖层：与自拉结果合并。若已带可用 trajectories（有轨迹节点或 summary）或设 skipTrajectoryFetch/reuseUpstreamTrajectoryFacts=true，本专家将不重复请求 Winit；其余字段见 design.md §1",
+        "additionalProperties": true
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "含 branch、逐票 scanStates、trackingIds、outboundOrderNos、suggestedNextExperts、missingFacts；见 design.md §2.1"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "分析结论与建议话术"
+      }
+    }
+  }
+}

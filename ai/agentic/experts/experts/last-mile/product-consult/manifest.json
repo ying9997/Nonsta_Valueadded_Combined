@@ -1,0 +1,72 @@
+{
+  "id": "product-consult",
+  "domain": "last-mile",
+  "name": "尾程产品服务咨询",
+  "description": "根据客户需求（货型、时效、目的地、平台等）推荐最适合的尾程产品和服务方案。Use when 用户咨询尾程选品、服务推荐、方案报价等。",
+  "capabilities": ["产品推荐", "服务方案", "时效分析"],
+  "version": "2.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "country": {
+        "type": "string",
+        "description": "目的国 ISO2（如 US、DE、UK、AU、CA）。上游可选传入，未传时从 query 文本自动提取"
+      },
+      "destinationCountry": {
+        "type": "string",
+        "description": "同 country，便于上游字段命名对齐"
+      },
+      "goodsType": {
+        "type": "string",
+        "description": "商品类型/货型：大件、中小件、超大件/异型、托盘等"
+      },
+      "goodsWeight": {
+        "type": "string",
+        "description": "商品重量（如 30kg、5lb 等）"
+      },
+      "goodsDimensions": {
+        "type": "string",
+        "description": "商品尺寸（如 120×100×80 cm）"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "上游合并的上下文",
+        "additionalProperties": true
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "推荐结果结构化输出",
+        "properties": {
+          "countryResolved": { "type": "string" },
+          "recommendedProducts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "tier": { "type": "string" },
+                "reason": { "type": "string" },
+                "sellingPoints": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "missingInfo": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "推荐方案的自然语言解读"
+      }
+    }
+  }
+}

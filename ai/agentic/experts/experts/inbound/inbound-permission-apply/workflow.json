@@ -1,0 +1,231 @@
+{
+  "nodes": [
+    {
+      "id": "validate-permission-query",
+      "file": "nodes/validate-permission-query.ts",
+      "inputs": [
+        "intent",
+        "permissionType",
+        "warehouseCode",
+        "applicationId",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "intent",
+        "permissionType",
+        "warehouseCode",
+        "applicationId",
+        "customerIntent",
+        "inputContext",
+        "alreadyEnabled",
+        "enabledProducts",
+        "targetPscCodes"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": {
+            "type": "boolean"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "permissionType": {
+            "type": "string"
+          },
+          "warehouseCode": {
+            "type": "string"
+          },
+          "applicationId": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "alreadyEnabled": {
+            "type": "boolean"
+          },
+          "enabledProducts": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "targetPscCodes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "id": "evaluate-bitable-gap",
+      "file": "nodes/evaluate-bitable-gap.ts",
+      "inputs": [
+        "alreadyEnabled",
+        "intent"
+      ],
+      "outputs": [
+        "dataSource",
+        "bitableAvailable",
+        "canAutoSubmit",
+        "submitStatus",
+        "submitReason",
+        "missingFields"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "dataSource": {
+            "type": "string"
+          },
+          "bitableAvailable": {
+            "type": "boolean"
+          },
+          "canAutoSubmit": {
+            "type": "boolean"
+          },
+          "submitStatus": {
+            "type": "string"
+          },
+          "submitReason": {
+            "type": "string"
+          },
+          "missingFields": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "id": "load-permission-kb",
+      "file": "nodes/load-permission-kb.ts",
+      "inputs": [
+        "validationOk",
+        "intent",
+        "permissionType",
+        "warehouseCode",
+        "alreadyEnabled",
+        "targetPscCodes",
+        "kbPermissionApply",
+        "kbPermissionProgress"
+      ],
+      "outputs": [
+        "kbContent",
+        "kbScope",
+        "intent",
+        "permissionType",
+        "warehouseCode",
+        "materialChecklist",
+        "applySteps",
+        "estimatedReviewTime",
+        "alreadyEnabled",
+        "targetPscCodes"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "kbContent": {
+            "type": "string"
+          },
+          "kbScope": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "permissionType": {
+            "type": "string"
+          },
+          "warehouseCode": {
+            "type": "string"
+          },
+          "materialChecklist": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "applySteps": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "estimatedReviewTime": {
+            "type": "string"
+          },
+          "alreadyEnabled": {
+            "type": "boolean"
+          },
+          "targetPscCodes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "intent",
+        "permissionType",
+        "warehouseCode",
+        "alreadyEnabled",
+        "enabledProducts",
+        "targetPscCodes",
+        "kbContent",
+        "materialChecklist",
+        "applySteps",
+        "estimatedReviewTime",
+        "dataSource",
+        "submitStatus",
+        "canAutoSubmit",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext",
+        "permissionType",
+        "alreadyEnabled",
+        "submitStatus",
+        "materialChecklist",
+        "applySteps"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

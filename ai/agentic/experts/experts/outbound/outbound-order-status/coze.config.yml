@@ -1,0 +1,268 @@
+# 本地专家 → Coze 工作流导出（见根目录 COZE-WORKFLOW.md）
+yamlBasename: outbound_order_status-draft.yaml
+packageMainName: outbound_order_status
+packageDescription: 出库单状态解读（id/54 定位 → 按意图补时效、承运商和关联退货单事实）
+icon: plugin_icon/workflow.png
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+# 与 e_sample_batch 一致：单插件 `parameters.batch` + `actions` 列表；batchSize 须与 build 中 COZE_WINIT_PLUGIN_BATCH_MAX（默认 100）对齐
+winitOpenapiPlugins:
+  - insertBefore: merge-winit-outbound-plugin-batch
+    logicalId: winit_outbound_primary_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-outbound-primary-winit
+        path: actions
+  - insertBefore: merge-carrier-detail
+    logicalId: winit_outbound_carrier_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-carrier-detail-winit
+        path: actions
+  - insertBefore: merge-outbound-timing-detail
+    logicalId: winit_outbound_timing_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-outbound-timing-detail
+        path: actions
+  - insertBefore: merge-outbound-return-detail
+    logicalId: winit_outbound_return_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-outbound-return-detail
+        path: actions
+
+nodeIds:
+  resolve-outbound-lookup: "163010"
+  build-outbound-primary-winit: "163011"
+  merge-winit-outbound-plugin-batch: "163012"
+  winit_outbound_primary_batch: "163014"
+  build-outbound-timing-detail: "163013"
+  winit_outbound_timing_detail_batch: "163018"
+  merge-outbound-timing-detail: "163019"
+  build-outbound-return-detail: "163020"
+  winit_outbound_return_detail_batch: "163021"
+  merge-outbound-return-detail: "163022"
+  build-carrier-detail-winit: "163015"
+  winit_outbound_carrier_detail_batch: "163016"
+  merge-carrier-detail: "163017"
+  prune-outbound-json: "163025"
+  load-status-knowledge: "163026"
+  llm-analyze: "163027"
+  format-output: "163028"
+
+inputBindings:
+  build-outbound-primary-winit:
+    outboundOrderNos:
+      ref: resolve-outbound-lookup
+      path: outboundOrderNos
+  merge-winit-outbound-plugin-batch:
+    outboundOrderNos:
+      ref: resolve-outbound-lookup
+      path: outboundOrderNos
+    actionPlans:
+      ref: build-outbound-primary-winit
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_outbound_primary_batch
+      path: outputList
+    winitPluginBatchActionsCount:
+      ref: build-outbound-primary-winit
+      path: winitPluginBatchActionsCount
+  build-outbound-timing-detail:
+    rawOrderData:
+      ref: merge-winit-outbound-plugin-batch
+      path: rawOrderData
+    outboundOrderNos:
+      ref: resolve-outbound-lookup
+      path: outboundOrderNos
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: __start__
+      path: customerIntent
+  merge-outbound-timing-detail:
+    actionPlans:
+      ref: build-outbound-timing-detail
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_outbound_timing_detail_batch
+      path: outputList
+    requiresNarrowing:
+      ref: build-outbound-timing-detail
+      path: requiresNarrowing
+  build-outbound-return-detail:
+    rawOrderData:
+      ref: merge-winit-outbound-plugin-batch
+      path: rawOrderData
+    outboundOrderNos:
+      ref: resolve-outbound-lookup
+      path: outboundOrderNos
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: __start__
+      path: customerIntent
+  merge-outbound-return-detail:
+    actionPlans:
+      ref: build-outbound-return-detail
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_outbound_return_detail_batch
+      path: outputList
+    returnLookupMeta:
+      ref: build-outbound-return-detail
+      path: returnLookupMeta
+  build-carrier-detail-winit:
+    rawOrderData:
+      ref: merge-winit-outbound-plugin-batch
+      path: rawOrderData
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: __start__
+      path: customerIntent
+  merge-carrier-detail:
+    rawOrderData:
+      ref: merge-winit-outbound-plugin-batch
+      path: rawOrderData
+    actionPlans:
+      ref: build-carrier-detail-winit
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_outbound_carrier_detail_batch
+      path: outputList
+  llm-analyze:
+    outboundTimingFacts:
+      ref: merge-outbound-timing-detail
+      path: outboundTimingFacts
+    packageMeasurementFacts:
+      ref: merge-outbound-timing-detail
+      path: packageMeasurementFacts
+    timingRequiresNarrowing:
+      ref: merge-outbound-timing-detail
+      path: requiresNarrowing
+    returnOrderFacts:
+      ref: merge-outbound-return-detail
+      path: returnOrderFacts
+    returnLookupResults:
+      ref: merge-outbound-return-detail
+      path: returnLookupResults
+    returnLookupMeta:
+      ref: merge-outbound-return-detail
+      path: returnLookupMeta
+  format-output:
+    carrierFacts:
+      ref: merge-carrier-detail
+      path: carrierFacts
+    outboundTimingFacts:
+      ref: merge-outbound-timing-detail
+      path: outboundTimingFacts
+    packageMeasurementFacts:
+      ref: merge-outbound-timing-detail
+      path: packageMeasurementFacts
+    timingRequiresNarrowing:
+      ref: merge-outbound-timing-detail
+      path: requiresNarrowing
+    returnOrderFacts:
+      ref: merge-outbound-return-detail
+      path: returnOrderFacts
+    returnLookupResults:
+      ref: merge-outbound-return-detail
+      path: returnLookupResults
+    returnLookupMeta:
+      ref: merge-outbound-return-detail
+      path: returnLookupMeta
+    language:
+      ref: __start__
+      path: language
+    prunedOrderData:
+      ref: prune-outbound-json
+      path: prunedOrderData
+
+positions:
+  __start__:
+    x: -149.557913881682
+    y: 231.51531952084514
+  __end__:
+    x: 1053.3053365464475
+    y: 309.27940403343
+  resolve-outbound-lookup:
+    x: -40
+    y: 120
+  build-outbound-primary-winit:
+    x: 180
+    y: 120
+  winit_outbound_primary_batch:
+    x: 420
+    y: 120
+  merge-winit-outbound-plugin-batch:
+    x: 620
+    y: 120
+  build-outbound-timing-detail:
+    x: 800
+    y: 40
+  winit_outbound_timing_detail_batch:
+    x: 980
+    y: 40
+  merge-outbound-timing-detail:
+    x: 1160
+    y: 40
+  build-outbound-return-detail:
+    x: 800
+    y: 360
+  winit_outbound_return_detail_batch:
+    x: 980
+    y: 360
+  merge-outbound-return-detail:
+    x: 1160
+    y: 360
+  build-carrier-detail-winit:
+    x: 800
+    y: 200
+  winit_outbound_carrier_detail_batch:
+    x: 980
+    y: 200
+  merge-carrier-detail:
+    x: 1160
+    y: 200
+  prune-outbound-json:
+    x: 1340
+    y: 120
+  load-status-knowledge:
+    x: 360
+    y: 280
+  llm-analyze:
+    x: 1160
+    y: 280
+  format-output:
+    x: 1160
+    y: 520

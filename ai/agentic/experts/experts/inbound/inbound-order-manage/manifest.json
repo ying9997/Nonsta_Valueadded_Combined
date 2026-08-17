@@ -1,0 +1,50 @@
+{
+  "id": "inbound-order-manage",
+  "domain": "inbound",
+  "name": "入库单操作指引",
+  "description": "入库单创建/修改/关闭/取消操作指引：输出步骤、PSC 选型建议、可修改条件与关闭风险提示；不代客执行写操作。Use when 客户询问怎么新建入库单、该选哪个 PSC、怎么修改目的仓、怎么关闭或取消入库单。",
+  "capabilities": [
+    "新建入库单指引",
+    "修改条件说明",
+    "关闭/取消规则",
+    "PSC 选型建议",
+    "状态可操作性判断"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": ["intent"],
+    "properties": {
+      "intent": {
+        "type": "string",
+        "enum": ["create", "modify", "close", "cancel", "general"],
+        "description": "操作意图：create 新建 / modify 修改 / close 关闭 / cancel 取消 / general 通用"
+      },
+      "inboundOrderNo": {
+        "type": "string",
+        "description": "目标入库单号；modify/close/cancel 时建议提供"
+      },
+      "targetWarehouseCode": {
+        "type": "string",
+        "description": "目的仓编码（create 选型参考）"
+      },
+      "targetPsc": {
+        "type": "string",
+        "description": "目标 PSC 编码（create 时可选指定）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "操作指引结构化结果"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "操作步骤与风险提示"
+      }
+    }
+  }
+}

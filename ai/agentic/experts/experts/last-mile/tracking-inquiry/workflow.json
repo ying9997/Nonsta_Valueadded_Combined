@@ -1,0 +1,311 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "inquiryIds",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputs": [
+        "valid",
+        "branch",
+        "error",
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "inquiryIds",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inquiryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "outputs": {
+          "valid": {
+            "type": "boolean"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inquiryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "id": "derive-checking-type",
+      "file": "nodes/derive-checking-type.ts",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext"
+      ],
+      "outputs": [
+        "checkingTypeRecommendation"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "checkingTypeRecommendation": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-tail-trace-request",
+      "file": "nodes/build-tail-trace-request.ts",
+      "inputs": [
+        "branch",
+        "inquiryIds",
+        "trackingIds",
+        "outboundOrderNos"
+      ],
+      "outputs": [
+        "winitRequestData"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "branch": {
+            "type": "string"
+          },
+          "inquiryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "outputs": {
+          "winitRequestData": {
+            "type": "string",
+            "description": "JSON.stringify 后的 TailTrace.getList 网关 data（含 service、data.pageVo 等）"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-tail-trace-list",
+      "file": "nodes/fetch-tail-trace-list.ts",
+      "inputs": [
+        "branch",
+        "inquiryIds",
+        "trackingIds",
+        "outboundOrderNos",
+        "winitOpenapiData",
+        "winitRequestData",
+        "customerCode",
+        "customerName",
+        "username"
+      ],
+      "outputs": [
+        "tailTraceFacts"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "branch": {
+            "type": "string"
+          },
+          "inquiryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "winitOpenapiData": {
+            "type": "string",
+            "description": "插件响应 data"
+          },
+          "winitRequestData": {
+            "type": "string"
+          },
+          "customerCode": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "tailTraceFacts": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "inquiryIds",
+        "customerIntent",
+        "enrichedContext",
+        "inputContext",
+        "tailTraceFacts",
+        "checkingTypeRecommendation"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "tailTraceFacts",
+        "inputContext",
+        "checkingTypeRecommendation"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object"
+          },
+          "tailTraceFacts": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-result-alias",
+      "file": "nodes/build-result-alias.ts",
+      "inputs": [
+        "structured",
+        "analysis"
+      ],
+      "outputs": [
+        "result"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "id": "profile",
+  "domain": "sku",
+  "name": "SKU 档案事实",
+  "description": "按商品编码 skuCode 批量拉取 winit.item.page.list 档案（尺重、特殊属性、supervisorMode、itemPackaging、发布态、禁入/限直发），剪枝映射后写入 enrichedContext.sku/profile。可选 fetchProfile 切片。Gap 字段以 missingFacts 或 prohibitSource=unknown 降级。Use when 上游需要 SKU 件型、带电/液体等特殊属性、管理模式或禁止入库相关事实，且不需要注册/加急/解禁操作引导。",
+  "capabilities": [
+    "SKU档案查询",
+    "特殊属性",
+    "件型计算",
+    "管理模式",
+    "enrichedContext"
+  ],
+  "version": "0.2.0",
+  "x_recaller_propagate_previous_enriched_context": true,
+  "inputSchema": {
+    "type": "object",
+    "required": ["skuCodes"],
+    "properties": {
+      "skuCodes": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "商品编码列表（OpenAPI skuCode；若上游只有 productCode 请放入本数组，语义相同）。上限 20。"
+      },
+      "warehouseCode": {
+        "type": "string",
+        "description": "可选仓库编码，预留适用规则过滤。"
+      },
+      "importCountryCode": {
+        "type": "string",
+        "description": "可选进口国二字码，用于申报/属性按国别解析。"
+      },
+      "fetchProfile": {
+        "type": "string",
+        "description": "数据切片：facts_core（默认）/ audit_status / barcode_third / facts_compliance / minimal。"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "skus[] 档案列表与 missingFacts、fetchMeta"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "简短事实摘要，不对客长文 SOP"
+      }
+    }
+  }
+}

@@ -1,0 +1,92 @@
+yamlBasename: inbound_psc_eligibility-draft.yaml
+packageMainName: inbound_psc_eligibility
+packageDescription: 入库 PSC 开通查询（validate → build(getWinitProducts) → 批处理
+  cobra_winit_openapi_request → fetch/merge → load-kb → LLM）
+
+textNodes:
+  - logicalId: kb-psc-products-text
+    title: kb-psc-products
+    insertAfter: validate-psc-query
+    sourceFile: prompts/kb-psc-products.md
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-available-product
+    logicalId: winit_get_winit_products_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 10
+      concurrentSize: 5
+      actionsFrom:
+        logicalId: build-available-product-request
+        path: actions
+
+inputBindings:
+  build-available-product-request:
+    validationOk:
+      ref: validate-psc-query
+      path: validationOk
+    filterCodes:
+      ref: validate-psc-query
+      path: filterCodes
+    productLine:
+      ref: validate-psc-query
+      path: productLine
+  fetch-available-product:
+    skipApi:
+      ref: build-available-product-request
+      path: skipApi
+    actions:
+      ref: build-available-product-request
+      path: actions
+    actionPlans:
+      ref: build-available-product-request
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_get_winit_products_batch
+      path: outputList
+  merge-available-product:
+    skipApi:
+      ref: build-available-product-request
+      path: skipApi
+    rawPscData:
+      ref: fetch-available-product
+      path: rawPscData
+    filterCodes:
+      ref: validate-psc-query
+      path: filterCodes
+    productLine:
+      ref: validate-psc-query
+      path: productLine
+    warehouseCode:
+      ref: validate-psc-query
+      path: warehouseCode
+    country:
+      ref: validate-psc-query
+      path: country
+  load-psc-kb:
+    validationOk:
+      ref: validate-psc-query
+      path: validationOk
+    productLine:
+      ref: validate-psc-query
+      path: productLine
+    country:
+      ref: validate-psc-query
+      path: country
+    kbPscProducts:
+      ref: kb-psc-products-text
+      path: output
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext

@@ -1,0 +1,302 @@
+{
+  "nodes": [
+    {
+      "id": "validate-doc-intent",
+      "file": "nodes/validate-doc-intent.ts",
+      "inputs": [
+        "intent",
+        "country",
+        "inboundOrderNo",
+        "importerCode",
+        "transportOrderNo",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "error",
+        "intent",
+        "country",
+        "inboundOrderNo",
+        "transportOrderNo",
+        "importerCode",
+        "customerIntent",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "inboundOrderNo": {
+            "type": "string"
+          },
+          "importerCode": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "prepare-tms-doc-lookup",
+      "file": "nodes/prepare-tms-doc-lookup.ts",
+      "inputs": ["validationOk", "inboundOrderNo", "transportOrderNo"],
+      "outputs": ["skipApi", "skipTms", "wiOrderNos", "customerRefNos", "transportOrderNo", "lookupMeta"],
+      "cozeIo": {
+        "outputs": {
+          "skipApi": { "type": "boolean" },
+          "skipTms": { "type": "boolean" },
+          "wiOrderNos": { "type": "array", "items": { "type": "string" } },
+          "customerRefNos": { "type": "array", "items": { "type": "string" } },
+          "transportOrderNo": { "type": "string" },
+          "lookupMeta": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-tms-transport-query",
+      "file": "nodes/build-tms-transport-query.ts",
+      "inputs": ["skipApi", "skipTms", "wiOrderNos", "customerRefNos", "transportOrderNo"],
+      "outputs": ["actions", "tmsActionName", "skipTms"],
+      "cozeIo": {
+        "outputs": {
+          "actions": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "tmsActionName": { "type": "string" },
+          "skipTms": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "fetch-tms-transport-order",
+      "file": "nodes/fetch-tms-transport-order.ts",
+      "inputs": ["skipTms", "actions", "winitTmsPluginOutputList"],
+      "outputs": ["tmsRawList"],
+      "cozeIo": {
+        "outputs": {
+          "tmsRawList": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        }
+      }
+    },
+    {
+      "id": "summarize-tms-transport",
+      "file": "nodes/summarize-tms-transport.ts",
+      "inputs": ["skipTms", "tmsRawList"],
+      "outputs": ["tmsTransportSummary", "tmsTransportRecords"],
+      "cozeIo": {
+        "outputs": {
+          "tmsTransportSummary": { "type": "object", "additionalProperties": true },
+          "tmsTransportRecords": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        }
+      }
+    },
+    {
+      "id": "build-vendor-info-request",
+      "file": "nodes/build-vendor-info-request.ts",
+      "inputs": ["validationOk", "intent", "country"],
+      "outputs": ["actions", "umsActionName", "skipUmsApi", "vendorCountryCode", "vendorType"],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "umsActionName": { "type": "string" },
+          "skipUmsApi": { "type": "boolean" },
+          "vendorCountryCode": { "type": "string" },
+          "vendorType": { "type": "string" }
+        }
+      }
+    },
+    {
+      "id": "fetch-vendor-info",
+      "file": "nodes/fetch-vendor-info.ts",
+      "inputs": ["skipUmsApi", "actions", "winitUmsPluginOutputList"],
+      "outputs": ["rawVendorData"],
+      "cozeIo": {
+        "outputs": {
+          "rawVendorData": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "merge-vendor-info",
+      "file": "nodes/merge-vendor-info.ts",
+      "inputs": ["skipUmsApi", "rawVendorData", "importerCode", "intent", "vendorCountryCode"],
+      "outputs": ["umsDataAvailable", "vendorList", "matchedVendor", "vendorFacts", "gapNote", "registerGapNote"],
+      "cozeIo": {
+        "outputs": {
+          "umsDataAvailable": { "type": "boolean" },
+          "vendorList": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "matchedVendor": { "type": "object", "additionalProperties": true },
+          "vendorFacts": { "type": "object", "additionalProperties": true },
+          "gapNote": { "type": "string" },
+          "registerGapNote": { "type": "string" }
+        }
+      }
+    },
+    {
+      "id": "load-customs-doc-kb",
+      "file": "nodes/load-customs-doc-kb.ts",
+      "inputs": [
+        "validationOk",
+        "intent",
+        "country",
+        "inboundOrderNo",
+        "importerCode",
+        "registerGapNote",
+        "vendorFacts",
+        "umsDataAvailable",
+        "tmsTransportSummary",
+        "kbUploadGuide",
+        "kbImporterRegister",
+        "kbImporterQuery",
+        "kbGeneral"
+      ],
+      "outputs": [
+        "kbContent",
+        "kbScope",
+        "countrySpecificGuide",
+        "uploadAction",
+        "documentChecklist",
+        "operationSteps",
+        "umsGapNote",
+        "umsDataAvailable",
+        "vendorList",
+        "matchedVendor",
+        "apiAction"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "kbContent": {
+            "type": "string"
+          },
+          "kbScope": {
+            "type": "string"
+          },
+          "countrySpecificGuide": {
+            "type": "string"
+          },
+          "uploadAction": {
+            "type": "string"
+          },
+          "umsDataAvailable": {
+            "type": "boolean"
+          },
+          "vendorList": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "matchedVendor": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "apiAction": {
+            "type": "string"
+          },
+          "documentChecklist": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "operationSteps": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "umsGapNote": {
+            "type": "string"
+          },
+          "tmsDataAvailable": {
+            "type": "boolean"
+          },
+          "tmsTransportSummary": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "intent",
+        "country",
+        "inboundOrderNo",
+        "importerCode",
+        "kbContent",
+        "uploadAction",
+        "umsDataAvailable",
+        "tmsDataAvailable",
+        "tmsTransportSummary",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext",
+        "umsDataAvailable",
+        "vendorList"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

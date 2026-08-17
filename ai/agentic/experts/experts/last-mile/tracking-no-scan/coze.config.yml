@@ -1,0 +1,26 @@
+# validate-input → fetch-and-enrich → llm-analyze → format-output
+# 导出：npm run export:coze -- experts/last-mile/tracking-no-scan
+# LLM 模型切换说明：仓库根目录 COZE-WORKFLOW.md §7.1
+
+yamlBasename: tracking_no_scan-draft.yaml
+packageMainName: tracking_no_scan
+packageDescription: 轨迹无上网信息处理（Phase A）
+
+# 使用 DeepSeek V4 Pro（temperature 0.8）；其它专家默认豆包，切法见 COZE-WORKFLOW.md §7.1
+llmNode:
+  model: deepseek
+
+# format-output 的 outputContext 在顶层，非 result 子字段
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext

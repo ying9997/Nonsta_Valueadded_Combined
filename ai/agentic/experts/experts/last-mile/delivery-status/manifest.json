@@ -1,0 +1,114 @@
+{
+  "id": "delivery-status",
+  "domain": "last-mile",
+  "name": "尾程轨迹解读",
+  "description": "获取并解读物流轨迹：按时间线输出可核验状态与关键里程碑（Ascan/Dscan/RDscan、派送失败信号等，见 structured.scanFacts），关联单据与承运商；对客长文为事实叙述，不输出用户行动建议。Use when 用户查询物流状态、轨迹跟踪、配送结果、出库单、运单号、最后一公里。",
+  "capabilities": [
+    "物流追踪",
+    "轨迹分析",
+    "轨迹里程碑解析",
+    "异常识别",
+    "供应链关联"
+  ],
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "一个或多个轨迹单号/运单号，用于查询投递轨迹"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "一个或多个万邑通出库/订单号（含 WO…），与 trackingIds 一并写入 OpenAPI trackingnos 查询；非承运商跟踪号"
+      },
+      "trajectoryText": {
+        "type": "string",
+        "description": "客户通过文本提供的轨迹内容，如粘贴的物流信息，可直接用于分析"
+      }
+    },
+    "x_constraint": "至少提供 trackingIds、outboundOrderNos、trajectoryText 其一"
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "可解析的结构化数据，供下游系统链接、筛选、查询",
+        "properties": {
+          "orderIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "出库单号、订单号等"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "轨迹单号、运单号"
+          },
+          "documentRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "关联单据引用"
+          },
+          "carriers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "trackingNo": { "type": "string" },
+                "carrierCode": { "type": "string" },
+                "standardCarrier": { "type": "string" }
+              }
+            },
+            "description": "每运单一条承运商标识，与 format-output 合并自 carrierHints/轨迹摘要"
+          },
+          "scanFacts": {
+            "type": "array",
+            "description": "由 merge 节点从轨迹节点确定性抽取、经 format 写入；每单含 ascan/dscan/rdscan 事件、deliveryFailureLikely 等",
+            "items": {
+              "type": "object",
+              "properties": {
+                "trackingNo": { "type": "string" },
+                "ascanEvents": { "type": "array" },
+                "dscanEvents": { "type": "array" },
+                "rdscanEvents": { "type": "array" },
+                "deliveryFailureLikely": { "type": "boolean" },
+                "deliveryFailureEvidence": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "dataSourceNote": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客长文：按时间线事实叙述（全链路+关键里程碑+异常时依据），时区/账号兜底说明；不含对终端用户的行动建议"
+      }
+    }
+  }
+}

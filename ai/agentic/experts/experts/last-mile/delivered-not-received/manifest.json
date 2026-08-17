@@ -1,0 +1,104 @@
+{
+  "id": "delivered-not-received",
+  "domain": "last-mile",
+  "name": "妥投未收到处理",
+  "description": "仅处理系统或承运商已有 Dscan/明确妥投事实、但客户称买家未收到的场景。用户只说“未收到货”不代表妥投未收到；有 Ascan 但无 Dscan、轨迹停滞、派送异常或超时未妥投时不要调用本专家，应使用 tracking-stale 或 tracking-inquiry。编排闭环下须由 delivery-status 注入结构化扫描事实与解读结论。赔付条款请用 refund-standard；代客索赔入口/进度请用 substitute-claim。Use only when verified delivered/signed scan exists and buyer disputes receipt. NOT when merely not received without Dscan.",
+  "capabilities": [
+    "妥投争议",
+    "异常处理",
+    "理赔引导"
+  ],
+  "version": "0.3.2",
+  "x_framework_input_required": ["inputContext"],
+  "x_framework_require_previous_output": true,
+  "x_recaller_propagate_previous_enriched_context": true,
+  "inputSchema": {
+    "type": "object",
+    "x_constraint": "双层契约：① JSON Schema 不对 inputs 内字段使用 required，与 validate-input、降级调用（仅单号/诉求等）及 design.md 示例 2 一致。② 编排闭环语义以本块 x_invoke_contract 为准（同步至注册表 io 列）：须含完整轨迹与上游 analysis；正式分析前编排器须先跑 delivery-status 并 merge。",
+    "x_invoke_contract": "编排闭环时除 inputs 外，调用 JSON 顶层须包含 inputContext：\n- previousOutput：上游 result 对象，须含非空字符串 analysis（轨迹/妥投/状态解读）。\n- 建议 sourceExpertId=\"delivery-status\"、chainId 与前置 job 一致。\ninputs.enrichedContext 宜含 trajectories 键（数组，与 delivery-status merge 输出对齐；无节点时可为 []）。降级调用可无 enrichedContext，由 Prompt 走 need_info。",
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号（可与 enrichedContext 内反填并存）"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "出库单号"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "前置轨迹专家合并后的完整轨迹载荷；编排闭环宜含 trajectories；与 delivery-status §3 对齐（降级可不传本对象）",
+        "properties": {
+          "trajectories": {
+            "type": "array",
+            "description": "轨迹节点列表（编排推荐；可与上游 merge-enriched-context 一致；无数据时可为空数组）",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "fetchMeta": {
+            "type": "object",
+            "description": "拉取元数据、兜底说明等",
+            "additionalProperties": true
+          },
+          "analysisClock": {
+            "type": "object",
+            "description": "分析用时钟（与时区敏感推理）",
+            "additionalProperties": true
+          },
+          "trajectorySummary": {
+            "type": "string",
+            "description": "轨迹摘要（可选；不可替代 previousOutput.analysis）"
+          },
+          "deliveredEvent": {
+            "type": "object",
+            "description": "妥投事件提炼（可选）",
+            "additionalProperties": true
+          },
+          "orderDetails": {
+            "type": "array",
+            "description": "出库单摘要（可选）",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "podSignals": {
+            "type": "object",
+            "description": "POD 线索（可选）",
+            "additionalProperties": true
+          },
+          "customerStatedFacts": {
+            "type": "string",
+            "description": "客户已陈述事实（可选）"
+          }
+        },
+        "additionalProperties": true
+      },
+      "claimChannelKnown": {
+        "type": "boolean",
+        "description": "上游是否已确认存在可索赔渠道；未传则由模型结合上下文推断并标注不确定性"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "含 branch、trackingIds、outboundOrderNos、suggestedNextExperts、missingFacts；见 design.md §2.1"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "分析结论与建议话术"
+      }
+    }
+  }
+}

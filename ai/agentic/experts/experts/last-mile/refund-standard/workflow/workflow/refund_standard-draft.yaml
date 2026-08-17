@@ -1,0 +1,1504 @@
+schema_version: 1.0.0
+name: refund_standard
+id: 7736283597048195351
+description: 赔付标准理解（validate → load-refund-knowledge → Few-shot 文本 → LLM → format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.56
+          y: 231.52
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      scenario:
+                          type: string
+                          value: null
+                          description: 场景类型或内部场景码；可与 customerIntent 二选一或并用
+                      trackingIds:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 轨迹单号/运单号（可选，供链式调用）
+                      outboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 出库单号（可选，供与 delivery-status 等上游衔接）
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 上游合并的上下文：如产品/线路、目的国、服务级别、货值线索、轨迹摘要等，用于条款维度匹配
+                      country:
+                          type: string
+                          value: null
+                          description: 目的国 ISO2（如 US、DE、UK），用于指定产品国家分片；可与 enrichedContext.destinationCountry 择一
+                      destinationCountry:
+                          type: string
+                          value: null
+                          description: 同 country，便于上游字段命名对齐
+                      destinationRegion:
+                          type: string
+                          value: null
+                          description: 部分上游用 destinationRegion 传国家码，与 country 等价
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.31
+          y: 309.28
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163004"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163004"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163004"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163004"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: -13
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 校验入参并解析国家码（供 load-refund-knowledge 分片）
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 中本节点 `inputs` / `outputs` 完全一致。
+               *
+               * 【输入】`params` 字段（均为可选；但至少需满足下方「有效」条件之一）：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | scenario | string | 场景简述 |
+               * | customerIntent | string | 用户意图 / 原始问句 |
+               * | trackingIds | string[] | 运单号列表 |
+               * | outboundOrderNos | string[] | 出库单号列表 |
+               * | enrichedContext | Record<string, unknown> | 上游合并上下文（判空：非 null 且至少一个自有键） |
+               * | inputContext | unknown | 链式上下文（原样归入输出；无效时兜底为 {}） |
+               * | country | string | 目的国 / 分片国（支持 GB→UK、USA→US 等归一化） |
+               * | destinationCountry | string | 同 manifest「目的地国」语义，与 country 择一 |
+               * | destinationRegion | string | 部分上游用区域字段传国家码，参与解析 |
+               *
+               * 【输出】JSON 对象：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | valid | boolean | 是否通过校验 |
+               * | error | string | 仅当 valid===false：错误说明 |
+               * | scenario | string | 归一后场景（trim；无效时原样或 ""） |
+               * | customerIntent | string | 归一后意图 |
+               * | trackingIds | string[] | 非空字符串元素 |
+               * | outboundOrderNos | string[] | 非空字符串元素 |
+               * | enrichedContext | Record<string, unknown> | **输出前合并** `analysisClock`（当前 UTC）；默认 `{}` 也会带时钟 |
+               * | inputContext | Record<string, unknown> | 默认 {} |
+               * | countryResolved | string | ISO2 等归一码（如 US、DE、UK、DC）；无法解析时为 "" |
+               * | countrySource | string | `""` \| `"param"` \| `"enrichedContext"`：国家解析来源 |
+               */
+
+              interface AnalysisClock {
+                utcIso: string;
+                timezoneLabel: string;
+                note: string;
+              }
+
+              function buildAnalysisClock(): AnalysisClock {
+                return {
+                  utcIso: new Date().toISOString(),
+                  timezoneLabel: "UTC",
+                  note:
+                    "参考时钟为服务端 UTC（ISO8601）。轨迹节点时间多为事件发生地/承运商返回的本地时间或混用时区，与「当前时刻」比较时请显式区分二者，勿直接混算。",
+                };
+              }
+
+              function withAnalysisClock(ec: unknown): Record<string, unknown> {
+                const base =
+                  ec !== undefined && ec !== null && typeof ec === "object" && !Array.isArray(ec)
+                    ? { ...(ec as Record<string, unknown>) }
+                    : {};
+                base.analysisClock = buildAnalysisClock();
+                return base;
+              }
+
+              function isNonEmptyString(v: unknown): boolean {
+                return typeof v === "string" && v.trim().length > 0;
+              }
+
+              function normalizeCountryCode(s: string): string | undefined {
+                const u = s.trim().toUpperCase();
+                if (u === "GB" || u === "UNITED KINGDOM" || u === "GREAT BRITAIN") return "UK";
+                if (u === "USA" || u === "UNITED STATES") return "US";
+                if (u === "DEU" || u === "GERMANY") return "DE";
+                if (u === "CAN" || u === "CANADA") return "CA";
+                if (u === "BEL" || u === "BELGIUM") return "BE";
+                if (u === "DC") return "DC";
+                if (/^[A-Z]{2}$/.test(u)) return u;
+                return undefined;
+              }
+
+              function extractCountryForShard(params: Record<string, unknown>): { countryResolved: string; countrySource: string } {
+                const tryStr = (v: unknown): string | undefined =>
+                  typeof v === "string" && v.trim() ? normalizeCountryCode(v) : undefined;
+
+                let c =
+                  tryStr(params.countryResolved) ??
+                  tryStr(params.country) ??
+                  tryStr(params.destinationCountry) ??
+                  tryStr(params.destinationRegion);
+                if (c) {
+                  return { countryResolved: c, countrySource: "param" };
+                }
+                const ec = params.enrichedContext;
+                if (ec && typeof ec === "object" && !Array.isArray(ec)) {
+                  const o = ec as Record<string, unknown>;
+                  c =
+                    tryStr(o.country) ??
+                    tryStr(o.destinationCountry) ??
+                    tryStr(o.destinationRegion) ??
+                    tryStr(o.countryCode);
+                  if (c) {
+                    return { countryResolved: c, countrySource: "enrichedContext" };
+                  }
+                }
+                return { countryResolved: "", countrySource: "" };
+              }
+
+              function enrichedContextHasContent(v: unknown): boolean {
+                if (v == null || typeof v !== "object" || Array.isArray(v)) return false;
+                return Object.keys(v as object).length > 0;
+              }
+
+              type ScenarioApplicability = "applicable" | "inapplicable" | "not_checked";
+
+              interface RefundScenarioGuard {
+                scenarioApplicability: ScenarioApplicability;
+                isOrderSpecific: boolean;
+                isDnrRequest: boolean;
+                hasScanFacts: boolean;
+                hasDscan: boolean;
+                reason: string;
+              }
+
+              function asRecord(raw: unknown): Record<string, unknown> | null {
+                return raw && typeof raw === "object" && !Array.isArray(raw)
+                  ? (raw as Record<string, unknown>)
+                  : null;
+              }
+
+              function latestDomainEntry(raw: unknown, key: string): Record<string, unknown> | null {
+                const index = asRecord(raw);
+                const entries = index?.[key];
+                if (!Array.isArray(entries) || entries.length === 0) return null;
+                return asRecord(entries[entries.length - 1]);
+              }
+
+              function extractScanFacts(raw: unknown): unknown[] | null {
+                const direct = asRecord(raw);
+                const delivery = latestDomainEntry(raw, "last-mile/delivery-status") ?? direct;
+                return delivery && Array.isArray(delivery.computedScanFacts)
+                  ? delivery.computedScanFacts
+                  : null;
+              }
+
+              function buildScenarioGuard(
+                scenario: string,
+                customerIntent: string,
+                trackingIds: string[],
+                outboundOrderNos: string[],
+                enrichedContext: unknown
+              ): RefundScenarioGuard {
+                const isOrderSpecific = trackingIds.length > 0 || outboundOrderNos.length > 0;
+                const isDnrRequest = /(妥投未收到|签收.*未收到|已妥投.*未收到|\bDNR\b|delivered.*not\s+received)/i.test(
+                  `${scenario} ${customerIntent}`
+                );
+                const scanFacts = extractScanFacts(enrichedContext);
+                let hasDscan = false;
+                if (scanFacts) {
+                  for (const item of scanFacts) {
+                    const row = asRecord(item);
+                    if (row && Array.isArray(row.dscanEvents) && row.dscanEvents.length > 0) {
+                      hasDscan = true;
+                      break;
+                    }
+                  }
+                }
+
+                if (isOrderSpecific && isDnrRequest && scanFacts) {
+                  return hasDscan
+                    ? {
+                        scenarioApplicability: "applicable",
+                        isOrderSpecific,
+                        isDnrRequest,
+                        hasScanFacts: true,
+                        hasDscan: true,
+                        reason: "具体订单的结构化扫描事实包含 Dscan，可匹配妥投未收到条款",
+                      }
+                    : {
+                        scenarioApplicability: "inapplicable",
+                        isOrderSpecific,
+                        isDnrRequest,
+                        hasScanFacts: true,
+                        hasDscan: false,
+                        reason: "具体订单的结构化扫描事实明确无 Dscan，不适用妥投未收到条款",
+                      };
+                }
+
+                return {
+                  scenarioApplicability: "not_checked",
+                  isOrderSpecific,
+                  isDnrRequest,
+                  hasScanFacts: Boolean(scanFacts),
+                  hasDscan,
+                  reason: isOrderSpecific && isDnrRequest
+                    ? "缺少结构化扫描事实，不能判断具体订单是否适用妥投未收到条款"
+                    : "非具体订单 DNR 场景，不启用订单事实拦截",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const scenario = isNonEmptyString(params.scenario) ? String(params.scenario).trim() : "";
+                const customerIntent = isNonEmptyString(params.customerIntent) ? String(params.customerIntent).trim() : "";
+                const trackingIds = ((params.trackingIds as string[]) ?? []).filter((t) => typeof t === "string" && t.trim());
+                const outboundOrderNos = ((params.outboundOrderNos as string[]) ?? []).filter(
+                  (o) => typeof o === "string" && o.trim()
+                );
+                const enrichedContext = params.enrichedContext;
+                const inputContext = params.inputContext;
+                const { countryResolved, countrySource } = extractCountryForShard(params);
+                const scenarioGuard = buildScenarioGuard(
+                  scenario,
+                  customerIntent,
+                  trackingIds,
+                  outboundOrderNos,
+                  enrichedContext
+                );
+
+                const hasScenario = scenario.length > 0;
+                const hasIntent = customerIntent.length > 0;
+                const hasEnriched = enrichedContextHasContent(enrichedContext);
+                const hasTracking = trackingIds.length > 0;
+                const hasOrder = outboundOrderNos.length > 0;
+
+                const valid =
+                  hasScenario || hasIntent || hasEnriched || hasTracking || hasOrder;
+
+                const ret = valid
+                  ? {
+                      valid: true,
+                      scenario,
+                      customerIntent,
+                      trackingIds,
+                      outboundOrderNos,
+                      enrichedContext: withAnalysisClock(enrichedContext ?? {}),
+                      inputContext: inputContext ?? {},
+                      countryResolved,
+                      countrySource,
+                      scenarioGuard,
+                    }
+                  : {
+                      valid: false,
+                      error:
+                        "至少提供 scenario、customerIntent、enrichedContext（非空对象）、trackingIds 或 outboundOrderNos 之一",
+                      scenario: params.scenario ?? "",
+                      customerIntent: params.customerIntent ?? "",
+                      trackingIds: params.trackingIds ?? [],
+                      outboundOrderNos: params.outboundOrderNos ?? [],
+                      enrichedContext: withAnalysisClock(enrichedContext ?? {}),
+                      inputContext: inputContext ?? {},
+                      countryResolved,
+                      countrySource,
+                      scenarioGuard,
+                    };
+                return ret;
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: scenario
+                input:
+                    value:
+                        path: inputs.scenario
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: inputs.trackingIds
+                        ref_node: "100001"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: inputs.outboundOrderNos
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+              - name: country
+                input:
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: destinationCountry
+                input:
+                    value:
+                        path: inputs.destinationCountry
+                        ref_node: "100001"
+              - name: destinationRegion
+                input:
+                    value:
+                        path: inputs.destinationRegion
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              scenario:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              outboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+              countryResolved:
+                  type: string
+                  value: null
+              countrySource:
+                  type: string
+                  value: null
+              scenarioGuard:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: load-refund-knowledge
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 227
+      parameters:
+          code: |-
+              /**
+               * 节点：load-refund-knowledge — 组装赔付条款知识 Markdown（指定产品分片 + 组合表按国过滤）
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 中本节点 `inputs` / `outputs` 完全一致。
+               * 知识版本与维护说明见 prompts/expert.md。
+               *
+               * 【输入】`params` 字段（workflow 由上游合并上下文；country 类字段可来自初始入参）：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | countryResolved | string | 优先：若已由 validate-input 写入，则直接参与分片判定 |
+               * | country | string | 备选：顶层目的国 |
+               * | destinationCountry | string | 备选：与 country 等价语义 |
+               * | destinationRegion | string | 备选：区域字段承载的国家码 |
+               * | enrichedContext | Record<string, unknown> | 可含 destinationCountry / country / countryCode 等，用于补解析 |
+               *
+               * 【输出】JSON 对象：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | refundLexicon | string | Markdown：术语、易混淆、policyBranch 路由说明等 |
+               * | clauseMatrix | string | Markdown：WINIT SLA 摘要 + 指定产品指针 + **C 段组合表**（按国过滤或全表） |
+               * | designatedCountryShard | string | Markdown：《指定产品》该国分片，或 index/unsupported 提示 + 共性 |
+               * | calculationGuide | string | Markdown：analysis 结构与理算边界 |
+               * | countryResolved | string | 与分片逻辑一致的国家码；index 模式下为空字符串 "" |
+               * | countryShardMode | "hit" \| "index" \| "unsupported" | hit=内置分片国；index=未识别国走索引；unsupported=识别到国但无内置分片 |
+               */
+
+              function normalizeCountryCode(s: string): string | undefined {
+                const u = s.trim().toUpperCase();
+                if (u === "GB" || u === "UNITED KINGDOM" || u === "GREAT BRITAIN") return "UK";
+                if (u === "USA" || u === "UNITED STATES") return "US";
+                if (u === "DEU" || u === "GERMANY") return "DE";
+                if (u === "CAN" || u === "CANADA") return "CA";
+                if (u === "BEL" || u === "BELGIUM") return "BE";
+                if (u === "DC" || u === "*") return "DC";
+                if (/^[A-Z]{2}$/.test(u)) return u;
+                return undefined;
+              }
+
+              /** 指定产品 · 各国分片（运营侧同步摘录，维护见 prompts/expert.md） */
+              const DESIGNATED_SHARDS: Record<string, string> = {
+                DC: [
+                  "## 指定产品 · DC",
+                  "| 产品 | 赔偿 | 逆向 | 说明 |",
+                  "| ALL | 不支持理赔 | - | - |",
+                  "",
+                ].join("\n"),
+
+                BE: [
+                  "## 指定产品 · BE（比利时）",
+                  "| 产品 | 赔偿上限 | 逆向 | 丢失(未妥投) | 破损 | 妥投未收到 | 调查 |",
+                  "| UPS - Standard Single | 100EUR | 不支持 | 全部:A-scan后60天内；部分:A-scan后14天内 | 妥投后14天内(含当天) | 不支持 | 30 |",
+                  "| DPD - France Delivery / DPD - Domestic 24h | 均不支持理赔 | - | - | - | - | - |",
+                  "",
+                ].join("\n"),
+
+                DE: [
+                  "## 指定产品 · DE（德国）",
+                  "| 产品 | 赔偿上限 | 逆向 | 丢失 | 破损 | 妥投未收到 | 调查 | 备注 |",
+                  "| DE Post Untracked/Warenpost、DHL Warenpost Intl Eco/Premium | 不支持 | - | - | - | - | - |",
+                  "| DHL - Domestic Paket | 500EUR | 仅丢失 | A-scan后11-90天 | 妥投后7天内(含当天) | 不支持 | 56 | 破损常需买家向当地DHL报案 |",
+                  "| DHL - Domestic Paket-Return | 500EUR | 仅丢失 | A-scan后11-90天 | - | - | 56 |",
+                  "| DHL - International Paket | 500EUR | 仅丢失 | A-scan后16-90天 | 妥投后7天内 | 不支持 | 56 |",
+                  "| DHL Express Domestic/Worldwide | 本地500EUR；国际26USD/KG | 仅丢失 | A-scan后30天内 | A-scan后30天内 | 不支持 | 16 |",
+                  "| DPD Domestic Normal | 货值>25EUR可赔，最高520EUR | 仅丢失 | A-scan后7-30天 | 妥投后7天内 | 不支持 | 45 |",
+                  "| DPD International Parcel | 同上520EUR | 仅丢失 | A-scan后10-30天 | 妥投后7天内 | 不支持 | - |",
+                  "| UPS Domestic Standard/Multiple | 510EUR | 不支持 | 部分3-14天；全部Ascan后60天 | 妥投后14天内 | 不支持 | 30 |",
+                  "| UPS International Standard/Multiple | 510EUR | 不支持 | 部分7-14天；全部60天 | 妥投后14天内 | 不支持 | - |",
+                  "| DHL Freight 系列 | 按投保/未投保2500EUR/单等 | 不支持 | Ascan后120天 | 妥投后7天内 | Ascan后120天 | 30-60自然日 |",
+                  "| DB SCHENKER Standard | 按投保/未投保3500EUR/单( RO 上限1500EUR) | 不支持 | Ascan后120天 | 妥投后7天内 | Ascan后120天 | 30-60自然日 |",
+                  "**货值证明(国际德国)**：商业发票须含收发货人、VAT、币种等，否则易拒赔（详见本表备注与合同）。",
+                  "",
+                ].join("\n"),
+
+                UK: [
+                  "## 指定产品 · UK",
+                  "| 产品 | 赔偿上限 | 逆向 | 丢失 | 破损 | 妥投未收到 | 调查 | 备注 |",
+                  "| Royal Mail Untracked 系列 | 不支持 | - | - | - | - | - |",
+                  "| Royal Mail Tracked 24/48 Parcel | ≤46GBP(>500GBP货值不接) | 仅丢失 | A-scan后7-35天 | 同窗 | 同窗 | 56 |",
+                  "| Royal Mail Tracked Return 48 | ≤46GBP | 仅丢失 | A-scan后23-80天 | - | - | 56 |",
+                  "| XDP 1Man/2Man Multiple | ≤5GBP/KG | 仅丢失 | A-scan后8-30天 | 妥投7天内 | 不支持 | 30 | 破损需签收前验货 |",
+                  "| DPD Parcel / International | ≤100GBP | 仅丢失 | A-scan后5-14天 | 同窗 | 不支持 | 30 |",
+                  "| Fedex Economy Single/Multiple | 3.4EUR/KG，单笔≤10000EUR | 仅丢失 | Ascan后20-60天 | 妥投后21天内 | 不支持 | 30 |",
+                  "| DHL Domestic Next Day | ≤75GBP | 不支持 | A-scan后3-12天 | 妥投后10天内 | 不支持 | 30 |",
+                  "| EVRi UK Standard 24/48 | ≤20GBP | 不支持 | 下单当日起14-28天 | 不支持 | 同左 | 28 | 部分品类不支持；妥投未收可能需DOR文件 |",
+                  "| EVRi Light&Large Return | ≤20GBP | 不支持 | 14-28天 | - | - | 28 |",
+                  "",
+                ].join("\n"),
+
+                US: [
+                  "## 指定产品 · US",
+                  "| 产品 | 赔偿上限 | 逆向 | 丢失 | 破损 | 妥投未收到 | 调查 | 备注 |",
+                  "| UPS 3Day Select/Ground/Next Day Air Saver/Ground Hundredweight | 100USD | 仅丢失 | A-scan后7-60天 | 妥投后60天内 | D-scan后60天内 | 30 | UPS MY CHOICE/亚马逊D-scan4周/破损照片要求 |",
+                  "| UPS Ground Return | 100USD | 仅丢失 | 7-60天 | 妥投后60天内 | D-scan后60天内 | 30 |",
+                  "| UPS Surepost | 100USD | 不支持 | 移交邮局前7-60天；移交后不支持 | - | - | 30 | MY CHOICE免责 |",
+                  "| FedEx Ground/2Day/Overnight/Multiple | 100USD | 仅丢失 | 7-55天 | 妥投后55天内 | 同左 | 30 |",
+                  "| Fedex Ground Return | 100USD | 仅丢失 | 7-60天 | - | - | 30 |",
+                  "| FedEx Ground Economy(SmartPost) | 不支持 | - | - | - | - | - |",
+                  "| USPS 部分 Return/International | 不支持 | - | - | - | - | - |",
+                  "| USPS Ground Advantage/Priority 等 | 100USD | 仅丢失 | A-scan后15-55天 | 同左 | 不支持 | 56 | 破损需买家赴邮局报备 |",
+                  "| Ontrac Ground | 100USD | 仅丢失 | A-scan后7-15天 | 同左 | 不支持 | 50 | 外箱无损可能不受理破损 |",
+                  "| Amazon Logistics | 100USD | 仅丢失 | A-scan后15-55天 | A-scan后55天内 | 不支持 | 30 | 破损照片与PDF合并要求 |",
+                  "",
+                ].join("\n"),
+
+                CA: [
+                  "## 指定产品 · CA（加拿大）",
+                  "| 产品 | 赔偿上限 | 逆向 | 丢失 | 破损 | 妥投未收到 | 调查 | 备注 |",
+                  "| UPS Standard/Multiple | 100CAD/票 | 仅丢失 | A-scan后60天内且停更15工作日+ | 60天内 | D-scan后30天内 | 30 | 内件破损外箱完好可能不受理 |",
+                  "| UPS Standard Return | 100CAD/票 | 仅丢失 | 同上 | - | D-scan后30天 | 30 |",
+                  "| Canada Post Expedited | 100CAD/票 | 不支持 | 60天内且停更30天+ | 60天内 | 不支持 | 30 |",
+                  "| UNI Domestic | 20CAD/票 | 不支持 | 60天内停更10工作日+ | 60天内 | 不支持 | 30 |",
+                  "| Purolator Ground | 100CAD/票 | 仅丢失 | 60天内停更10工作日+ | 60天内 | 不支持 | 30 |",
+                  "| PDN Express | 40CAD/票 | 仅丢失 | 60天内停更21天+ | 60天内 | 不支持 | 30 |",
+                  "",
+                ].join("\n"),
+              };
+
+              const DESIGNATED_COMMON = [
+                "### 《指定产品》共性（其它说明摘要）",
+                "1. 供应商显示已妥投一般不接丢失（表内特别说明除外）。",
+                "2. 代客索赔须时效内最后工作日12:00前提交；丢失常需买家未收货证明。",
+                "3. 调查时间为参考；不承诺金额与时效；超3个月无结果视为失败。",
+                "4. 结果邮件通知后不再二次申诉；款到后3工作日内退卖家。",
+                "5. Amazon仓可能不配合；高货值建议追踪守护；不支持超时妥投代客索赔。",
+                "更完整的其它说明以本专家维护版《指定产品》与合同/价卡为准；对客话术勿提内部文档名。",
+                "",
+              ].join("\n");
+
+              const DESIGNATED_INDEX = [
+                "## 指定产品 · 国家分片索引（未解析到国家）",
+                "当前请求未带可被识别的 ISO2 国家（请在 `country` / `destinationCountry` 或 `enrichedContext.destinationCountry` 提供，如 US、DE、UK）。",
+                "本节点已内置 **指定产品** 分片：**DC, BE, DE, UK, US, CA**；其它国家当前无内置分片，请在 analysis 中说明信息不足并建议 `suggestedNextStep: escalate_human` 或请客户通过客服/商务核对价卡与条款，**勿**提及内部表或文档名。",
+                "匹配规则不变：**国家 + 产品名称** 必须与价卡/订单逐字一致。",
+                "",
+              ].join("\n");
+
+              const WINIT_SLA_SECTION = [
+                "## A. 《WINIT 赔付标准》winit_ops_sla（摘要）",
+                "诚意金：Winit 额外商业诚意金 = 丢失商品进口申报价 * 5%。大量场景单件不超过 100USD（或表内该国币种）；箱产品单包裹上限以表为准。",
+                "申报价不实：高于电商平台售价 40% 以上时，可按售价 40% 封顶（见表注意事项）。",
+                "- 头程/库内/上架后/尾程无上网/错发等：以本段摘要及合同/订单约定为准。",
+                "- 尾程超时无上网：带 Tracking；11-45 日；未退回可含货值+诚意金+退运费等（以本段与价卡为准）。",
+                "",
+              ].join("\n");
+
+              const COMBO_FULL_TABLE = [
+                "## C. 《组合产品》carrier_winit_combo（按国家分片）",
+                "总则：多数丢失须在有效 Ascan 后 11-45 天内提交代客索赔（以产品行为准）；货值以索赔提交页为准。",
+                "| 国家 | 产品 | 赔偿 | 丢失 | 破损 | 妥投未收到 | 调查 |",
+                "|------|------|------|------|------|------------|------|",
+                "| US | Fulfillment-7日达 | ≤100USD | Ascan11-45天 | 不支持 | 区域承运人 SPEEDX/GOFO/YANWEN/UNIUNI 可查件妥投未收 | 30 |",
+                "| US | Fulfillment-5日达 | ≤100USD | Ascan11-45天 | 不支持 | 按区域承运人规则 | 30 |",
+                "| US | Fulfillment-3日达 | ≤100USD | Ascan7-18天 | 妥投后15天内 | - | 30 |",
+                "| US | Fulfillment-2日达 | ≤100USD | Ascan11-45天 | 妥投后55天内 | 妥投后55天内 | 30 |",
+                "| DE | Fulfillment-Economy | 不支持 | - | - | - | - |",
+                "| DE | Fulfillment-Standard & Parcel-EU Shipping | 100EUR(YUN50) | A-scan16-30天 | 不支持 | 仅YUN查件后 | 56 |",
+                "| UK | Fulfillment-Standard/Express | 20GBP | A-scan14-28天 | 妥投后10天内 | 不支持 | 56 |",
+                "| AU | Fulfillment-Economy | - | - | - | - | - |",
+                "| AU | Fulfillment-Std/Express | 100CNY | 出库60天内追踪守护 | 同左 | 不支持 | 10 |",
+                "",
+              ].join("\n");
+
+              function resolveCountry(params: Record<string, unknown>): {
+                countryResolved: string;
+                countryShardMode: "hit" | "index" | "unsupported";
+              } {
+                const tryStr = (v: unknown): string | undefined =>
+                  typeof v === "string" && v.trim() ? normalizeCountryCode(v) : undefined;
+
+                const preMerged = tryStr(params.countryResolved);
+                if (preMerged) {
+                  const keys = Object.keys(DESIGNATED_SHARDS);
+                  if (keys.includes(preMerged)) {
+                    return { countryResolved: preMerged, countryShardMode: "hit" };
+                  }
+                  return { countryResolved: preMerged, countryShardMode: "unsupported" };
+                }
+
+                let c =
+                  tryStr(params.country) ??
+                  tryStr(params.destinationCountry) ??
+                  tryStr((params as Record<string, unknown>).destinationRegion);
+
+                if (!c && params.enrichedContext && typeof params.enrichedContext === "object" && !Array.isArray(params.enrichedContext)) {
+                  const o = params.enrichedContext as Record<string, unknown>;
+                  c =
+                    tryStr(o.country) ??
+                    tryStr(o.destinationCountry) ??
+                    tryStr(o.destinationRegion) ??
+                    tryStr(o.countryCode);
+                }
+
+                if (!c) {
+                  return { countryResolved: "", countryShardMode: "index" };
+                }
+                const keys = Object.keys(DESIGNATED_SHARDS);
+                if (keys.includes(c)) {
+                  return { countryResolved: c, countryShardMode: "hit" };
+                }
+                return { countryResolved: c, countryShardMode: "unsupported" };
+              }
+
+              function buildComboSection(countryResolved: string): string {
+                if (!countryResolved || countryResolved === "DC") {
+                  return COMBO_FULL_TABLE;
+                }
+                const rows: string[] = [
+                  "## C. 《组合产品》carrier_winit_combo（仅 " + countryResolved + "）",
+                  "| 国家 | 产品 | 赔偿 | 丢失 | 破损 | 妥投未收到 | 调查 |",
+                  "|------|------|------|------|------|------------|------|",
+                ];
+                const lines = COMBO_FULL_TABLE.split("\n");
+                const prefix = "| " + countryResolved + " |";
+                for (const line of lines) {
+                  if (line.startsWith(prefix)) {
+                    rows.push(line);
+                  }
+                }
+                if (rows.length <= 3) {
+                  rows.push("| （无该国组合产品行） | - | - | - | - | - | - |");
+                }
+                rows.push("");
+                rows.push("其它国家组合产品行已省略；需要全表时勿传 country 以展示全表，或请人工核对价卡。");
+                rows.push("");
+                return rows.join("\n");
+              }
+
+              function buildDesignatedShard(
+                mode: "hit" | "index" | "unsupported",
+                countryResolved: string
+              ): string {
+                if (mode === "index") {
+                  return DESIGNATED_INDEX + DESIGNATED_COMMON;
+                }
+                if (mode === "unsupported") {
+                  return [
+                    "## 指定产品 · 国家 " + countryResolved,
+                    "本节点**未内置**该国《指定产品》分片；下列仅为共性规则。请在 analysis 中说明内置数据未覆盖该目的国，建议 `escalate_human` 或客服核对价卡，**勿**向客户提及内部文档。",
+                    "",
+                    DESIGNATED_COMMON,
+                  ].join("\n");
+                }
+                const body = DESIGNATED_SHARDS[countryResolved] ?? "";
+                return body + DESIGNATED_COMMON;
+              }
+
+              const REFUND_LEXICON = [
+                "# 赔付标准知识库（节选·与 expert.md 同步）",
+                "",
+                "**knowledgeVersion**: `1.3.0`",
+                "**国家分片**: `designatedCountryShard` 仅含《指定产品》该国行（或索引/未收录提示）；`clauseMatrix` 内 **C 组合产品** 可按国过滤。",
+                "",
+                "## 术语速览（专业问答）",
+                "A-scan: 承运商揽收/接收扫描，常作代客索赔窗口起点。D-scan: 妥投类扫描。",
+                "WINIT标准索赔: 《WINIT赔付标准》下万邑通责任径；代客索赔: 向尾程商提起，结果以供应商为准，不承诺调查/金额。",
+                "自然日 vs 工作日: 理赔条件多为自然日，调查时间多为工作日，勿混算。诚意金: 常见为单件进口申报价*5%，与货值条款分列陈述。",
+                "",
+                "## 易混淆（排雷）",
+                "先分清责任主体再选表: 仓配/错发/万邑通定义尾程无上网 -> winit_ops_sla；出库后找承运商 -> carrier_*。",
+                "Fulfillment组合名必须与「组合产品表」逐行命中；与普通指定产品行规则可能完全不同。",
+                "已获供应商赔、表列除外、超时妥投代客不设索等与用户问题冲突时须主动说明。",
+                "",
+                "## 1. 免责",
+                "最终以**合同、价卡、订单生效政策**及**本专家当前内置条款摘要**为准；内置摘要随版本更新，具体争议以法务/商务约定为准。调查时间、历史成功率不代表承诺。代客索赔进度由 **substitute-claim** 专家处理。",
+                "输出须设置 structured.policyBranch: winit_ops_sla | carrier_designated | carrier_winit_combo | unknown。",
+                "",
+                "## 2. policyBranch 路由",
+                "| 分支 | 何时用 |",
+                "|------|--------|",
+                "| winit_ops_sla | 头程/库内/上架后丢失、尾程超时无上网(WINIT标准索赔)、错发漏发、贴标、退货丢失、调拨、出库延迟、未加包装等仓配履约 |",
+                "| carrier_designated | 出库后代客索赔，且为指定产品表中国家+产品（非 Winit Fulfillment 组合名片段） |",
+                "| carrier_winit_combo | 产品属 Winit Fulfillment 系列 / Winit Parcel-EU Shipping 等组合产品表 |",
+                "",
+                "## 3. 维度（缺则 confidence 降低）",
+                "country、lastMileProductName（与价卡一致）、incidentType、是否有 A-scan、是否妥投/D-scan、出库日、轨迹摘要、declaredValueKnown。",
+                "",
+                "规则 ID 前缀：WINIT-SLA-*、CARRIER-DES-*、CARRIER-COMBO-*。",
+                "",
+              ].join("\n");
+
+              const CALCULATION_GUIDE = [
+                "## analysis 结构（专业输出）",
+                "依次写: 结论(含 policyBranch) | 依据(表名/场景) | 时效(自然日或工作日+起算事件) | 除外互斥 | 举证与下一步 | 免责。",
+                "纯概念题可 matchedRuleIds=[]，policyBranch=unknown，仅定义时节流 confidence 可 high。",
+                "",
+                "## 理算与边界",
+                "1. carrier_designated：以 **designatedCountryShard** 为主；若 countryShardMode=index，须要求用户补国家。",
+                "2. 先定 policyBranch，禁止跨表混用条款。",
+                "3. 不得编造具体赔额；信息不足列出 missing。",
+                "4. 免赔与注意事项以本注入条款摘要及合同/价卡为准；勿编造未给出的细则。",
+                "5. analysis 收尾可提示以合同/价卡/订单约定为准；**禁止**在 analysis 中出现飞书、内部表、Wiki 或内部链接；suggestedNextStep: route_to_substitute_claim | need_order_details | escalate_human | none。",
+              ].join("\n");
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const { countryResolved, countryShardMode } = resolveCountry(params);
+
+                const designatedCountryShard = buildDesignatedShard(countryShardMode, countryResolved);
+                const clauseMatrix =
+                  WINIT_SLA_SECTION +
+                  [
+                    "## B. 《指定产品》carrier_designated",
+                    "本国全部产品行见下方注入块 **designatedCountryShard**（国家分片）。",
+                    "",
+                  ].join("\n") +
+                  buildComboSection(countryResolved);
+
+                const ret = {
+                  refundLexicon: REFUND_LEXICON,
+                  clauseMatrix,
+                  designatedCountryShard,
+                  calculationGuide: CALCULATION_GUIDE,
+                  countryResolved,
+                  countryShardMode,
+                };
+                return ret;
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-refund-knowledge")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: country
+                input:
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: destinationCountry
+                input:
+                    value:
+                        path: inputs.destinationCountry
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163000"
+              - name: countryResolved
+                input:
+                    value:
+                        path: countryResolved
+                        ref_node: "163000"
+          node_outputs:
+              refundLexicon:
+                  type: string
+                  value: null
+              clauseMatrix:
+                  type: string
+                  value: null
+              designatedCountryShard:
+                  type: string
+                  value: null
+              calculationGuide:
+                  type: string
+                  value: null
+              countryResolved:
+                  type: string
+                  value: null
+              countryShardMode:
+                  type: string
+                  value: null
+                  description: hit | index | unsupported
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: text
+      title: examples
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 467
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # refund-standard 专家 · Prompt 样例（评测 / Few-shot）
+
+                        与当前三类政策分支（`winit_ops_sla` / `carrier_designated` / `carrier_winit_combo`）及注入条款一致。
+
+                        ---
+
+                        ## 样例 A：组合产品 + 丢失窗口
+
+                        **输入要点**：`country=US`，`lastMileProductName=Winit Fulfillment-7日达`，`incidentType=丢失`，已有 A-scan。  
+                        **期望**：`policyBranch=carrier_winit_combo`；`matchedRuleIds` 含 `CARRIER-COMBO-US-FULF7`；`analysis` 写明 **Ascan 后 11–45 天**内代客索赔、破损不支持、特定区域承运人「妥投未收到」例外；`confidence` ≥ medium。
+
+                        ---
+
+                        ## 样例 B：指定产品 + 破损窗口
+
+                        **输入要点**：`country=DE`，`lastMileProductName=DHL - Domestic Paket`，`incidentType=破损`，已妥投。  
+                        **期望**：`policyBranch=carrier_designated`；提及 **妥投后 7 天内**（含当天）及买家向 **DHL 报案**；上限 **500 EUR**；`confidence` 随是否确为己任产品名而调整。
+
+                        ---
+
+                        ## 样例 C：万邑通 SLA 尾程无上网
+
+                        **输入要点**：带 Tracking，出库后 20 天仍无有效派送轨迹，买家确认未收货，问万邑通标准赔。  
+                        **期望**：`policyBranch=winit_ops_sla`；`matchedRuleIds` 含 `WINIT-SLA-LM-NOSCAN`（或等价）；说明 **11–45 日**申请窗及「已退回仓库仅退运费」等分支；排除无 Ascan 等 remark。
+
+                        ---
+
+                        ## 样例 D：缺维 + 拒算死金额
+
+                        **输入要点**：仅「德国 DHL 能赔多少」无单品/无妥投日。  
+                        **期望**：`confidence=low`；`missing` 含事件类型与起算节点；**不**给出满额承诺，引导补全维度或 `escalate_human` / 客服核对价卡（**勿**提内部表名）。
+
+                        ---
+
+                        ## 样例 E：纯概念（无订单）
+
+                        **问**：「A-scan 和代客索赔时效什么关系？」  
+                        **期望**：`policyBranch` 可为 `unknown`；`matchedRuleIds=[]`；`analysis` 用注入「术语表」解释 **A-scan 常作起算点**；`confidence=high`（定义性）；`suggestedNextStep=none`。
+
+                        ---
+
+                        ## 样例 F：流程混淆
+
+                        **问**：「赔款几天打到我账户？」  
+                        **期望**：`analysis` 区分 **供应商确认 → 邮件通知 → 财务退款** 由 **substitute-claim/个案** 跟进；若同时问条款可简带 policyBranch；`suggestedNextStep=route_to_substitute_claim`。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163003"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 707
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 赔付标准理解专家 - LLM Prompt
+
+                        将本内容复制到 Coze LLM 节点。上游应先执行 **validate-input**（可选）与 **load-refund-knowledge**，将下列占位符替换为节点输出或工作流变量。
+
+                        **条款体系与映射表**：见同目录 [expert.md](expert.md)（与 `load-refund-knowledge` 内嵌文本同步）。
+
+                        **对客输出**：`analysis` **禁止**出现飞书、内部多维表、内部 Wiki、winitlink 文档链接或「以某内部表为准」类表述；规则依据用 **合同、价卡、订单约定、本专家注入的条款摘要** 表述。见仓库 [REQUIREMENTS.md](../../../../REQUIREMENTS.md) §4。
+
+                        ---
+
+                        ## 角色
+
+                        你是 **赔付条款与理算解读专家**（refund-standard）。须能回答**与赔付条款有关的抽象概念**（如 A-scan、代客索赔与万邑通标准赔区别）及**具体订单场景**（在信息足够时精确到 **`policyBranch` + `matchedRuleIds` / 注入表中的对应行摘要**）。
+
+                        职责：
+
+                        1. **先选** `policyBranch`（`winit_ops_sla` =《WINIT 赔付标准》；`carrier_designated` = 指定产品表；`carrier_winit_combo` = 组合产品表），再在本分支内匹配 **国家 + 尾程产品名 + 事件类型 + 时效窗口**。拿不准时在 `analysis` 中做 **排雷**（见注入知识「易混淆场景」），宁可 `policyBranch=unknown` 也不要误绑表。
+                        2. 输出 `matchedRuleIds` 与**可复核的**条款摘要；**自然日与工作日**、**起算点**（如「有 A-scan 后」「妥投后」「出库后」「卸货 Day0」）必须写清楚。
+                        3. **不得编造**具体金额/必然赔；缺 `country` / `lastMileProductName` / 事件类型 / 扫描节点时列 `missing`。**substitute-claim**（代客索赔）负责进度/材料清单/到账；你可在 `analysis` 列「建议举证」但不冒充个案状态。
+                        4. **时效与「当前」**：若需判断是否在理赔/申请时效窗口内，**必须以 `enrichedContext.analysisClock.utcIso` 为「当前」基准（UTC）**；勿使用模型臆测的日期。轨迹/出库时间与 UTC 比较时须按注入知识区分自然日、工作日与起算点。
+                        5. **具体订单场景门禁**：`scenarioGuard` 由代码根据结构化扫描事实生成。若为 `inapplicable`，不得匹配妥投未收到条款、不得输出其申请窗口；最终结果会由代码强制改写。通用政策咨询不受此门禁影响。
+
+                        ---
+
+                        ## 输入
+
+                        - **query**（上游委托任务说明）：`{{query}}`
+                        - **scenario**：`{{scenario}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **trackingIds**：`{{trackingIds}}`
+                        - **outboundOrderNos**：`{{outboundOrderNos}}`
+                        - **enrichedContext**：`{{enrichedContext}}`（若有：产品/目的地/服务级别/事件线索等；**内含 `analysisClock`**：`utcIso` 等为当前请求的 UTC 参考，用于判断是否仍在理赔/申请时效窗口内）
+                        - **countryResolved**：`{{countryResolved}}`（ISO2，来自入参或 enrichedContext，用于国家分片）
+                        - **countryShardMode**：`{{countryShardMode}}`（`hit` = 命中内置分片；`index` = 未带国家，仅索引；`unsupported` = 国家未收录分片）
+                        - **上文**：`{{inputContext.previousOutput}}`（若有）
+                        - **scenarioGuard**：`{{scenarioGuard}}`（具体订单场景适用性代码门禁）
+                        - **免责与维度词典**：`{{refundLexicon}}`
+                        - **场景-条款映射表**：`{{clauseMatrix}}`（含 WINIT 摘要 + 组合产品**按国过滤**后的表）
+                        - **指定产品国家分片**：`{{designatedCountryShard}}`（《指定产品》该国行；`index` 模式下为索引+共性）
+                        - **计算与边界说明**：`{{calculationGuide}}`
+
+                        ### Few-shot（与 expert.md / 注入条款一致；可为空）
+
+                        {{examplesMd}}
+
+                        ---
+
+                        ## 工作步骤（思考链 · 体现在 analysis 中）
+
+                        建议 `analysis` 按以下**逻辑顺序**组织（可用小标题或编号，勿用代码围栏）：
+
+                        1. **结论**：适用 `policyBranch` + 一句话结论（赔/不赔/需补信息/以供应商为准等）。  
+                        2. **依据**：**carrier_designated** 必须优先引用 **designatedCountryShard**；若 `countryShardMode=index`，须请用户补充目的国。**carrier_winit_combo** 用 `clauseMatrix` 中 C 段。  
+                        3. **时效**：窗口用**原表表述**（自然日/工作日）；说明**起算事件**（如首次 A-scan、妥投日、出库日）。若涉及「是否仍在申请/理赔期内」，以 **`enrichedContext.analysisClock.utcIso`** 为当前时刻（UTC）。  
+                        4. **除外与互斥**：主动点出常见**不赔**及「已获供应商赔则不再适用万邑通某条」等互斥。  
+                        5. **举证/下一步**：列出利于客户准备材料的要点；若客户需代客索赔个案进度/材料/到款，流程性问题 `suggestedNextStep=route_to_substitute_claim`。  
+                        6. **免责收尾**：合同、价卡、订单约定及**本专家内置条款摘要**；代客索赔**结果以供应商为准**；拿不准则 `confidence=low` 并建议人工复核；**勿**提飞书或内部文档。
+
+                        辅助步骤：若 `enrichedContext` 含轨迹/出库节点，与 **A-scan、妥投** 对齐后再匹配；纯概念题可用「术语与轨迹节点」表直接答，无需 `matchedRuleIds` 亦可，`confidence` 可 `high`（仅定义性回答时）。
+
+                        ---
+
+                        ## 输出设计原则
+
+                        - **structured**：可解析字段，供下游路由与工单系统使用。
+                        - **analysis**：条款摘要、理算逻辑文字描述、缺失信息与建议，自然语言自由组织。
+
+                        ---
+
+                        ## 输出格式
+
+                        **硬性要求**：你只输出 **一个** JSON 对象，**顶层有且仅有** `structured` 与 `analysis` 两个键；**不要使用** Markdown 代码围栏包裹该 JSON；**禁止**把整份 JSON 再当作字符串写入 `analysis`。
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "policyBranch": "carrier_winit_combo",
+                              "matchedRuleIds": [
+                                "CARRIER-COMBO-US-FULF7"
+                              ],
+                              "scenarioSummary": "一句话概括客户场景",
+                              "dimensionsConsidered": {
+                                "adopted": {
+                                  "country": "US",
+                                  "lastMileProductName": "Winit Fulfillment-7日达",
+                                  "incidentType": "丢失未妥投"
+                                },
+                                "missing": []
+                              },
+                              "confidence": "high",
+                              "suggestedNextStep": "route_to_substitute_claim",
+                              "scenarioApplicability": "applicable"
+                            },
+                            "analysis": "匹配依据、条款要点、时效与举证、缺失项、免责。"
+                          }
+                        }
+                        ```
+
+                        ### structured 字段说明
+
+                        | 字段 | 说明 |
+                        |------|------|
+                        | `policyBranch` | `winit_ops_sla` / `carrier_designated` / `carrier_winit_combo` / `unknown` |
+                        | `matchedRuleIds` | 与 expert/clauseMatrix 前缀一致；**纯术语/概念题**可空数组；不确定时多个候选并降低 `confidence` |
+                        | `scenarioSummary` | 中立、简短的事实归纳 |
+                        | `dimensionsConsidered.adopted` | 从输入推断的维度键值 |
+                        | `dimensionsConsidered.missing` | 仍缺的关键维度 key 列表 |
+                        | `confidence` | `high` / `medium` / `low` |
+                        | `suggestedNextStep` | `route_to_substitute_claim` \| `need_order_details` \| `escalate_human` \| `none` |
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: scenario
+                input:
+                    value:
+                        path: scenario
+                        ref_node: "163000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "163000"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163000"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163000"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+              - name: countryResolved
+                input:
+                    value:
+                        path: countryResolved
+                        ref_node: "163001"
+              - name: countryShardMode
+                input:
+                    value:
+                        path: countryShardMode
+                        ref_node: "163001"
+              - name: refundLexicon
+                input:
+                    value:
+                        path: refundLexicon
+                        ref_node: "163001"
+              - name: clauseMatrix
+                input:
+                    value:
+                        path: clauseMatrix
+                        ref_node: "163001"
+              - name: designatedCountryShard
+                input:
+                    value:
+                        path: designatedCountryShard
+                        ref_node: "163001"
+              - name: calculationGuide
+                input:
+                    value:
+                        path: calculationGuide
+                        ref_node: "163001"
+              - name: examplesMd
+                input:
+                    value:
+                        path: output
+                        ref_node: "163002"
+              - name: scenarioGuard
+                input:
+                    value:
+                        path: scenarioGuard
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163004"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 947
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 的 analysisResult，生成下游 result / outputContext
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。与 `workflow.json` 中本节点 `inputs` / `outputs` 完全一致。
+               *
+               * 【输入】`params` 字段：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | analysisResult | object \| string \| null | LLM 输出：含 structured + analysis；若为 string 则尝试 JSON.parse；解析失败时整段作为 analysis |
+               * | inputContext | object（可选） | 链式上下文，见下方 RefundInputContext |
+               *
+               * RefundInputContext（inputContext 内字段，均为可选）：
+               * | 字段 | 类型 |
+               * |------|------|
+               * | sourceExpertId | string |
+               * | previousOutput | string \| object |
+               * | chainId | string |
+               *
+               * 【输出】JSON 对象：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | result | { structured: RefundStructuredOut; analysis: string } | structured 经 coerce：policyBranch 枚举外置为 undefined；缺省字段补默认 |
+               * | outputContext | { expertId: string; resultSummary: string; chainId?: string } | expertId 固定 `refund-standard`；resultSummary 为 analysis 前 200 字截断 |
+               *
+               * RefundStructuredOut（result.structured，字段均可选；coerce 后会补 matchedRuleIds/confidence/suggestedNextStep 等默认值）：
+               * | 字段 | 类型 |
+               * |------|------|
+               * | policyBranch | "winit_ops_sla" \| "carrier_designated" \| "carrier_winit_combo" \| "unknown" |
+               * | matchedRuleIds | string[] |
+               * | scenarioSummary | string |
+               * | dimensionsConsidered | { adopted?: Record<string,string>; missing?: string[] } |
+               * | confidence | "high" \| "medium" \| "low" |
+               * | suggestedNextStep | string（如 route_to_substitute_claim、need_order_details、escalate_human、none） |
+               */
+
+              /** 本文件内专用类型名，避免与仓库内其他专家同名 interface 全局合并 */
+              interface RefundDimensionsConsidered {
+                adopted?: Record<string, string>;
+                missing?: string[];
+              }
+
+              interface RefundStructuredOut {
+                policyBranch?: "winit_ops_sla" | "carrier_designated" | "carrier_winit_combo" | "unknown";
+                matchedRuleIds?: string[];
+                scenarioSummary?: string;
+                dimensionsConsidered?: RefundDimensionsConsidered;
+                confidence?: "high" | "medium" | "low";
+                suggestedNextStep?: string;
+                scenarioApplicability?: "applicable" | "inapplicable" | "not_checked";
+              }
+
+              interface RefundAnalysisResult {
+                structured?: RefundStructuredOut;
+                analysis?: string;
+              }
+
+              interface RefundInputContext {
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+                chainId?: string;
+              }
+
+              interface RefundOutputContext {
+                expertId: string;
+                resultSummary: string;
+                chainId?: string;
+              }
+
+              function buildOutputContext(resultSummary: string, chainId?: string): RefundOutputContext {
+                return {
+                  expertId: "refund-standard",
+                  resultSummary,
+                  chainId,
+                };
+              }
+
+              function coerceAnalysisResult(raw: unknown): RefundAnalysisResult {
+                if (raw == null) {
+                  return {
+                    structured: { matchedRuleIds: [], confidence: "low", suggestedNextStep: "need_order_details" },
+                    analysis: "未收到模型输出。",
+                  };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as RefundAnalysisResult;
+                    if (parsed && typeof parsed === "object" && ("structured" in parsed || "analysis" in parsed)) {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch {
+                    /* fall through */
+                  }
+                  return {
+                    structured: { matchedRuleIds: [], confidence: "low", suggestedNextStep: "escalate_human" },
+                    analysis: s || "解析失败，请人工查看原始模型输出。",
+                  };
+                }
+                const o = raw as { structured?: Record<string, unknown>; analysis?: string };
+                const structured = o.structured ?? {};
+                const analysis = typeof o.analysis === "string" ? o.analysis : "";
+                const pb = structured.policyBranch;
+                const policyBranch =
+                  pb === "winit_ops_sla" ||
+                  pb === "carrier_designated" ||
+                  pb === "carrier_winit_combo" ||
+                  pb === "unknown"
+                    ? pb
+                    : undefined;
+                const conf = structured.confidence;
+                const confidence =
+                  conf === "high" || conf === "medium" || conf === "low" ? conf : "medium";
+
+                return {
+                  structured: {
+                    policyBranch,
+                    matchedRuleIds: Array.isArray(structured.matchedRuleIds) ? (structured.matchedRuleIds as string[]) : [],
+                    scenarioSummary: typeof structured.scenarioSummary === "string" ? structured.scenarioSummary : undefined,
+                    dimensionsConsidered:
+                      structured.dimensionsConsidered && typeof structured.dimensionsConsidered === "object"
+                        ? (structured.dimensionsConsidered as RefundDimensionsConsidered)
+                        : undefined,
+                    confidence,
+                    suggestedNextStep: typeof structured.suggestedNextStep === "string" ? structured.suggestedNextStep : "none",
+                  },
+                  analysis: analysis || "（无 analysis 字段）",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                let analysisResult = coerceAnalysisResult(params.analysisResult);
+                const scenarioGuard =
+                  params.scenarioGuard && typeof params.scenarioGuard === "object"
+                    ? (params.scenarioGuard as Record<string, unknown>)
+                    : {};
+                const scenarioApplicability = String(scenarioGuard.scenarioApplicability ?? "not_checked");
+                if (scenarioApplicability === "inapplicable") {
+                  analysisResult = {
+                    structured: {
+                      policyBranch: "unknown",
+                      matchedRuleIds: [],
+                      scenarioSummary: "具体订单暂无妥投扫描，不适用妥投未收到赔付场景",
+                      dimensionsConsidered: {
+                        adopted: { incidentType: "未妥投" },
+                        missing: [],
+                      },
+                      confidence: "high",
+                      suggestedNextStep: "route_to_tracking_inquiry",
+                      scenarioApplicability: "inapplicable",
+                    },
+                    analysis: "当前订单的结构化轨迹没有妥投扫描（Dscan），因此不适用“妥投未收到”赔付条款，也不应按该场景计算申请窗口。请先按实际轨迹异常发起尾程查件；如已有上网轨迹但超时、停滞或派送异常，查件类型应选择“超时未妥投”。",
+                  };
+                } else {
+                  analysisResult.structured = {
+                    ...(analysisResult.structured ?? {}),
+                    scenarioApplicability:
+                      scenarioApplicability === "applicable" ? "applicable" : "not_checked",
+                  };
+                }
+                const inputContext = params.inputContext as RefundInputContext | undefined;
+                const summary = analysisResult.analysis?.slice(0, 200) || "赔付条款解读完成";
+                const outputContext = buildOutputContext(summary, inputContext?.chainId);
+
+                return {
+                  structured: analysisResult.structured ?? {},
+                  analysis: analysisResult.analysis ?? "",
+                  outputContext,
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163003"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+              - name: scenarioGuard
+                input:
+                    value:
+                        path: scenarioGuard
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "900001"

@@ -1,0 +1,456 @@
+{
+  "nodes": [
+    {
+      "id": "resolve-outbound-lookup",
+      "file": "nodes/resolve-outbound-lookup.ts",
+      "inputs": [
+        "outboundOrderNos"
+      ],
+      "outputs": [
+        "outboundOrderNos",
+        "lookupMeta"
+      ],
+      "outputSchema": {
+        "properties": {
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "解析后的万邑通出库主单号 WO…"
+          },
+          "lookupMeta": {
+            "type": "object",
+            "description": "各输入 token 的解析轨迹（trackingNo / sellerOrderNo 尝试顺序）"
+          }
+        }
+      }
+    },
+    {
+      "id": "build-outbound-primary-winit",
+      "file": "nodes/build-outbound-primary-winit.ts",
+      "inputs": [
+        "outboundOrderNos"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount"
+      ],
+      "outputSchema": {
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string"
+                },
+                "data": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "inputToken": {
+                  "type": "string"
+                },
+                "queryBy": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "winitPluginBatchActionsCount": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    {
+      "id": "merge-winit-outbound-plugin-batch",
+      "file": "nodes/merge-winit-outbound-plugin-batch.ts",
+      "inputs": [
+        "outboundOrderNos",
+        "actionPlans",
+        "winitPluginOutputList",
+        "winitPluginBatchActionsCount"
+      ],
+      "outputs": [
+        "rawOrderData"
+      ],
+      "outputSchema": {
+        "properties": {
+          "rawOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-outbound-timing-detail",
+      "file": "nodes/build-outbound-timing-detail.ts",
+      "inputs": [
+        "rawOrderData",
+        "outboundOrderNos",
+        "query",
+        "customerIntent"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "timingDetailActionsCount",
+        "detailActionsCount",
+        "timingIntentMatched",
+        "measurementIntentMatched",
+        "detailIntentMatched",
+        "requiresNarrowing",
+        "candidateActionsCount"
+      ],
+      "outputSchema": {
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "data": { "type": "string" }
+              }
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "inputTokens": { "type": "array", "items": { "type": "string" } },
+                "outboundOrderNum": { "type": "string" },
+                "shippingNo": { "type": "string" },
+                "trackingNos": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "timingDetailActionsCount": { "type": "integer" },
+          "detailActionsCount": { "type": "integer" },
+          "timingIntentMatched": { "type": "boolean" },
+          "measurementIntentMatched": { "type": "boolean" },
+          "detailIntentMatched": { "type": "boolean" },
+          "requiresNarrowing": { "type": "boolean" },
+          "candidateActionsCount": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "id": "merge-outbound-timing-detail",
+      "file": "nodes/merge-outbound-timing-detail.ts",
+      "inputs": [
+        "actionPlans",
+        "winitPluginOutputList",
+        "requiresNarrowing"
+      ],
+      "outputs": [
+        "outboundTimingFacts",
+        "packageMeasurementFacts",
+        "requiresNarrowing",
+        "timingDetailResolvedCount",
+        "timingDetailNoDataCount",
+        "timingDetailFailedCount",
+        "measurementResolvedCount",
+        "measurementNoDataCount",
+        "measurementFailedCount"
+      ],
+      "outputSchema": {
+        "properties": {
+          "outboundTimingFacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "packageMeasurementFacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "requiresNarrowing": { "type": "boolean" },
+          "timingDetailResolvedCount": { "type": "integer" },
+          "timingDetailNoDataCount": { "type": "integer" },
+          "timingDetailFailedCount": { "type": "integer" },
+          "measurementResolvedCount": { "type": "integer" },
+          "measurementNoDataCount": { "type": "integer" },
+          "measurementFailedCount": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "id": "build-carrier-detail-winit",
+      "file": "nodes/build-carrier-detail-winit.ts",
+      "inputs": [
+        "rawOrderData",
+        "query",
+        "customerIntent"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "carrierDetailActionsCount"
+      ],
+      "outputSchema": {
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "data": { "type": "string" }
+              }
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "outboundOrderNum": { "type": "string" }
+              }
+            }
+          },
+          "carrierDetailActionsCount": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "id": "build-outbound-return-detail",
+      "file": "nodes/build-outbound-return-detail.ts",
+      "inputs": [
+        "rawOrderData",
+        "outboundOrderNos",
+        "query",
+        "customerIntent"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "returnLookupMeta"
+      ],
+      "outputSchema": {
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "data": { "type": "string" }
+              }
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "outboundOrderNo": { "type": "string" }
+              }
+            }
+          },
+          "returnLookupMeta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "merge-outbound-return-detail",
+      "file": "nodes/merge-outbound-return-detail.ts",
+      "inputs": [
+        "actionPlans",
+        "winitPluginOutputList",
+        "returnLookupMeta"
+      ],
+      "outputs": [
+        "returnOrderFacts",
+        "returnLookupResults",
+        "returnLookupMeta",
+        "returnLookupResolvedCount",
+        "returnLookupNoDataCount",
+        "returnLookupFailedCount",
+        "returnLookupPartialCount"
+      ],
+      "outputSchema": {
+        "properties": {
+          "returnOrderFacts": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "returnLookupResults": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "returnLookupMeta": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "returnLookupResolvedCount": { "type": "integer" },
+          "returnLookupNoDataCount": { "type": "integer" },
+          "returnLookupFailedCount": { "type": "integer" },
+          "returnLookupPartialCount": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "id": "merge-carrier-detail",
+      "file": "nodes/merge-carrier-detail.ts",
+      "inputs": [
+        "rawOrderData",
+        "actionPlans",
+        "winitPluginOutputList"
+      ],
+      "outputs": [
+        "rawOrderData",
+        "carrierFacts"
+      ],
+      "outputSchema": {
+        "properties": {
+          "rawOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "carrierFacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "prune-outbound-json",
+      "file": "nodes/prune-outbound-json.ts",
+      "inputs": [
+        "rawOrderData",
+        "maxPackagesPerOrder",
+        "maxMerchandisePerPackage",
+        "includeItemList"
+      ],
+      "outputs": [
+        "prunedOrderData",
+        "_pruneMeta"
+      ],
+      "outputSchema": {
+        "properties": {
+          "prunedOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "_pruneMeta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-status-knowledge",
+      "file": "nodes/load-status-knowledge.ts",
+      "inputs": [],
+      "outputs": [
+        "statusLexicon",
+        "statusScenarios",
+        "jsonFieldGuide"
+      ],
+      "outputSchema": {
+        "properties": {
+          "statusLexicon": {
+            "type": "string"
+          },
+          "statusScenarios": {
+            "type": "string"
+          },
+          "jsonFieldGuide": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "outboundOrderNos",
+        "prunedOrderData",
+        "outboundTimingFacts",
+                   "packageMeasurementFacts",
+                   "timingRequiresNarrowing",
+                   "returnOrderFacts",
+                   "returnLookupResults",
+                   "returnLookupMeta",
+                   "customerIntent",
+        "statusLexicon",
+        "statusScenarios",
+        "jsonFieldGuide"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "carrierFacts",
+        "outboundTimingFacts",
+                   "packageMeasurementFacts",
+                   "timingRequiresNarrowing",
+                   "returnOrderFacts",
+                   "returnLookupResults",
+                   "returnLookupMeta",
+                   "language",
+                   "prunedOrderData",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

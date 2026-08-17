@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "generation-metadata.schema.json",
+  "title": "确定性生成元数据",
+  "description": "定义生成器使用的受控时间输入。生成时间必须由 epoch 确定性转换，不能读取当前时钟。",
+  "type": "object",
+  "required": [
+    "$schema",
+    "schema_version",
+    "validation_profile",
+    "business_content_status",
+    "generation_epoch",
+    "generated_at"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../schemas/generation-metadata.schema.json"
+    },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "validation_profile": {
+      "const": "phase0-skeleton"
+    },
+    "business_content_status": {
+      "const": "empty"
+    },
+    "generation_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 253402300799
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    }
+  },
+  "additionalProperties": false,
+  "$comment": "validator 还必须验证 generated_at 与 generation_epoch 表示同一 UTC 秒。"
+}

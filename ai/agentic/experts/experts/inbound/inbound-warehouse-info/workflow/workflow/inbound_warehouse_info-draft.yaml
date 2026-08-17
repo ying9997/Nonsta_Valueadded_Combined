@@ -1,0 +1,1510 @@
+schema_version: 1.0.0
+name: inbound_warehouse_info
+id: 7970178622986927365
+description: 仓库基础信息查询（validate → load-kb → extract → LLM → format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -150
+          y: 230
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      warehouseCode:
+                          type: string
+                          value: null
+                          description: Winit 仓库编码（如 USWC、UK、DE）；与 country 二选一，优先精确匹配
+                      country:
+                          type: string
+                          value: null
+                          description: 国家/地区（UK / US / DE / AU / CA / BE 等）；未知仓码时按国检索可用仓摘要
+                      topic:
+                          type: string
+                          value: null
+                          description: 聚焦主题：address / contact / hours / cutoff / type / capabilities / rules / all（默认 all）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1350
+          y: 310
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163005"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163005"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163005"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163005"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-warehouse-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 200
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-warehouse-query — 校验 warehouseCode 或 country 至少其一，规范化编码与 topic
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const VALID_TOPICS = new Set([
+                "address",
+                "contact",
+                "hours",
+                "cutoff",
+                "type",
+                "capabilities",
+                "rules",
+                "all",
+              ]);
+
+              const WAREHOUSE_ALIASES: Record<string, string> = {
+                US_LAX_01: "USWC",
+                USLAX01: "USWC",
+                UKLON01: "UK",
+                UK_LON_01: "UK",
+                UKLE: "UK",
+                DELON01: "DE",
+                DE_LON_01: "DE",
+                AUSYD01: "AU",
+                AU_SYD_01: "AU",
+                AUSY: "AU",
+              };
+
+              const COUNTRY_ALIASES: Record<string, string> = {
+                GB: "UK",
+                USA: "US",
+                UNITEDSTATES: "US",
+                UNITEDKINGDOM: "UK",
+                GERMANY: "DE",
+                DEU: "DE",
+                AUSTRALIA: "AU",
+                AUS: "AU",
+                CANADA: "CA",
+                CAN: "CA",
+                BELGIUM: "BE",
+                BEL: "BE",
+                英国: "UK",
+                美国: "US",
+                德国: "DE",
+                澳洲: "AU",
+                澳大利亚: "AU",
+                加拿大: "CA",
+                比利时: "BE",
+              };
+
+              const COUNTRY_WAREHOUSE_PREFIX: Record<string, string[]> = {
+                US: ["USTX", "USWC", "USWC2", "USWC5", "USKY3", "USKY5", "USNJ", "USNJ2", "USGA"],
+                UK: ["UK", "UKGF", "UKTW"],
+                DE: ["DE", "DEBR", "DEBR2"],
+                AU: ["AU", "AUSY", "AUME"],
+                CA: ["CATO"],
+                BE: ["BE"],
+              };
+
+              function normalizeWarehouseCode(raw: unknown): string {
+                if (typeof raw !== "string") return "";
+                const trimmed = raw.trim().toUpperCase().replace(/[\s_-]+/g, "");
+                if (!trimmed) return "";
+                if (WAREHOUSE_ALIASES[trimmed]) return WAREHOUSE_ALIASES[trimmed];
+                const withUnderscore = raw.trim().toUpperCase();
+                if (WAREHOUSE_ALIASES[withUnderscore]) return WAREHOUSE_ALIASES[withUnderscore];
+                return trimmed;
+              }
+
+              function normalizeCountry(raw: unknown): string {
+                if (typeof raw !== "string") return "";
+                const u = raw.trim().toUpperCase().replace(/\s+/g, "");
+                if (!u) return "";
+                if (COUNTRY_ALIASES[u]) return COUNTRY_ALIASES[u];
+                if (/^[A-Z]{2}$/.test(u)) return u;
+                return "";
+              }
+
+              function normalizeTopic(raw: unknown): string {
+                if (typeof raw !== "string" || !raw.trim()) return "all";
+                const t = raw.trim().toLowerCase();
+                return VALID_TOPICS.has(t) ? t : "all";
+              }
+
+              function inferCountryFromWarehouse(code: string): string {
+                for (const [country, codes] of Object.entries(COUNTRY_WAREHOUSE_PREFIX)) {
+                  if (codes.some((c) => code === c || code.startsWith(c))) return country;
+                }
+                if (code.startsWith("US")) return "US";
+                if (code.startsWith("UK")) return "UK";
+                if (code.startsWith("DE")) return "DE";
+                if (code.startsWith("AU")) return "AU";
+                if (code.startsWith("CA")) return "CA";
+                return "";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const warehouseCode = normalizeWarehouseCode(params.warehouseCode);
+                let country = normalizeCountry(params.country);
+                const topic = normalizeTopic(params.topic);
+                const customerIntent =
+                  typeof params.customerIntent === "string" ? params.customerIntent.trim() : "";
+                const inputContext = params.inputContext ?? {};
+
+                if (warehouseCode && !country) {
+                  country = inferCountryFromWarehouse(warehouseCode);
+                }
+
+                const validationOk = warehouseCode.length > 0 || country.length > 0;
+                const queryType = warehouseCode ? "exact" : country ? "country_search" : "invalid";
+
+                return validationOk
+                  ? {
+                      validationOk: true,
+                      queryType,
+                      warehouseCode,
+                      country,
+                      topic,
+                      customerIntent,
+                      inputContext,
+                    }
+                  : {
+                      validationOk: false,
+                      error: "至少提供 warehouseCode 或 country 之一",
+                      queryType,
+                      warehouseCode,
+                      country,
+                      topic,
+                      customerIntent,
+                      inputContext,
+                    };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-warehouse-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: warehouseCode
+                input:
+                    value:
+                        path: inputs.warehouseCode
+                        ref_node: "100001"
+              - name: country
+                input:
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: topic
+                input:
+                    value:
+                        path: inputs.topic
+                        ref_node: "100001"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              validationOk:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              queryType:
+                  type: string
+                  value: null
+              warehouseCode:
+                  type: string
+                  value: null
+              country:
+                  type: string
+                  value: null
+              topic:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: kb-warehouse
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 200
+          y: 520
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 海外仓仓库基础资料知识库
+
+                        > 来源摘要：
+                        > - `_kb/service-team/inbound-services-doc/海外仓的头程直发收货地址.md`（地址、面单、直发 FAQ）
+                        > - `_kb/product-team/winit/in-warehouse/storage-product-details.md`（仓型定位、可接商品类型、存放分区）
+
+                        ---
+
+                        ## 仓库编码索引
+
+                        | 仓库编码 | 国家 | 仓库定位 | 作业模式 | 可接商品摘要 | 备注 |
+                        |----------|------|----------|----------|--------------|------|
+                        | AU / AUSY | AU | 综合仓 | AUTO | 纯电、DG、普通化工、食品 | AUSY 为系统编码，AU 为直发地址常用简称；快递收件人须客户简称+编码 |
+                        | AUME | AU | 综合仓 | MANUAL | 仅普货 | 不支持纯电/DG/化工/食品 |
+                        | CATO | CA | 综合仓 | MANUAL | 纯电 | 2023.8.14 搬仓至 Brampton |
+                        | DEBR | DE | 大件仓 | MANUAL | 纯电、DG、普通化工 | 直发地址以运营通知为准；与 DE/DEBR2 同属德仓群 |
+                        | DEBR2 | DE | 综合仓 | AUTO | 普通化工 | 不支持纯电/DG/特殊化工/食品 |
+                        | DE | DE | 海外仓 | — | — | 老德国仓；Straße 可写 strasse |
+                        | UK | UK | 海外仓 | — | — | 建议面单备注 NOT FOR AMAZON |
+                        | UKGF | UK | 大件仓 | MANUAL | 纯电、DG、普通化工 | — |
+                        | UKTW | UK | 中小件仓 | AUTO | 普通化工 | DHL 搜不到 Tamworth 可选 Freasley |
+                        | USKY3 | US | 小件仓 | AUTO | 纯电、DG、普通化工、特殊化工、食品 | 全美可接类型最全的小件仓之一 |
+                        | USKY5 | US | 中小件仓 | AUTO | 纯电、普通化工 | 不支持 DG/特殊化工/食品 |
+                        | USWC | US | 综合仓 | AUTO | 纯电、DG、普通化工、特殊化工 | 2024.4.15 搬仓；不支持食品 |
+                        | USWC2 | US | 中小件仓 | AUTO | 普通化工、特殊化工、食品 | 不支持纯电/DG |
+                        | USWC5 | US | 大件仓 | MANUAL | 纯电、普通化工 | 不支持 DG/特殊化工/食品 |
+                        | USTX | US | 大件仓 | AUTO | 纯电、普通化工、特殊化工 | 2022.7.15 搬仓 Houston；小件仅 A 类包裹 |
+                        | USGA | US | 大件仓 | MANUAL | 普通化工 | 不支持纯电/DG/特殊化工/食品；Dock 264 check-in |
+                        | USNJ / USNJ2 | US | 大件仓 | MANUAL | USNJ2 支持纯电+普通化工 | USNJ2 含专用邮箱；小件仅 A 类包裹 |
+                        | BE | BE | 海外仓 | — | — | — |
+
+                        ---
+
+                        ## 各仓可接商品类型矩阵
+
+                        > 客户问「某仓能不能存 DG/纯电/食品/化工」时优先查本表。`YES`=支持，`NO`=不支持。
+
+                        | 国家 | 仓库 | 仓库定位 | 作业模式 | 纯电 | DG | 普通化工 | 特殊化工(US) | 食品 |
+                        |------|------|----------|----------|------|-----|----------|--------------|------|
+                        | AU | AUSY | 综合仓 | AUTO | YES | YES | YES | NO | YES |
+                        | AU | AUME | 综合仓 | MANUAL | NO | NO | NO | NO | NO |
+                        | CA | CATO | 综合仓 | MANUAL | YES | NO | NO | NO | NO |
+                        | DE | DEBR | 大件仓 | MANUAL | YES | YES | YES | NO | NO |
+                        | DE | DEBR2 | 综合仓 | AUTO | NO | NO | YES | NO | NO |
+                        | UK | UKGF | 大件仓 | MANUAL | YES | YES | YES | NO | NO |
+                        | UK | UKTW | 中小件仓 | AUTO | NO | NO | YES | NO | NO |
+                        | US | USKY3 | 小件仓 | AUTO | YES | YES | YES | YES | YES |
+                        | US | USKY5 | 中小件仓 | AUTO | YES | NO | YES | NO | NO |
+                        | US | USWC | 综合仓 | AUTO | YES | YES | YES | YES | NO |
+                        | US | USWC2 | 中小件仓 | AUTO | NO | NO | YES | YES | YES |
+                        | US | USWC5 | 大件仓 | MANUAL | YES | NO | YES | NO | NO |
+                        | US | USTX | 大件仓 | AUTO | YES | NO | YES | YES | NO |
+                        | US | USGA | 大件仓 | MANUAL | NO | NO | YES | NO | NO |
+                        | US | USNJ2 | 大件仓 | MANUAL | YES | NO | YES | NO | NO |
+
+                        ### 库存属性与存放分区（摘要）
+
+                        | 商品属性 | 存放分区 | 说明 |
+                        |----------|----------|------|
+                        | 普货_良品 | 普通库位 | 常规可售商品 |
+                        | 普货_不良品 | 不良品区域 | 有瑕疵、无法直接二次销售 |
+                        | 纯电 | 纯电区域 | 带电但非 DG；防火隔离 |
+                        | DG | DG 区域 | 陆运/空运 DG，各国标准不同 |
+                        | 特殊化工(US) | 化工区域 | 须满足 SDS 等条件，仅美国部分仓承接 |
+                        | 食品 | 食品区域 | 肉、蛋、奶类制品禁止入库 |
+
+                        ---
+
+                        ## 通用送货与面单规范
+
+                        - **海空运面单**：CNEE 填进口商/Buyer；须标明 IOR；地址加 C/O。
+                        - **快递面单**：收件人 `Online Seller C/O 3rd Pty Warehouse`；澳洲填**客户简称+编码**，不可填 Online Seller。
+                        - **C/O 不可省略**：表示 in care of（转交），标示货权非万邑通；可写 `in care of` 或 `C.O.`。
+                        - **货代不能填 Online Seller**：可用 ①客户 ID；②店铺名称+eBay+客户 ID。
+                        - **预约**：通过 booking.winit.com.cn 线上预约；电话非送仓必须条件。
+                        - **地址类型**：海外仓为商业地址，不产生住宅派送费。
+                        - **发票**：空运海运发票不能显示万邑通地址；快递可与面单一致但须标明 IOR。
+
+                        ---
+
+                        ## AU 区域仓库
+
+                        ### AU
+
+                        - **仓库名称**：澳洲海外仓（AU / AUSY）
+                        - **国家**：AU
+                        - **仓库定位**：综合仓
+                        - **作业模式**：AUTO
+                        - **可接商品**：纯电、DG、普通化工、食品（不支持特殊化工）
+                        - **地址**：C/O Warehouse 2, 54 Ferndell St, South Granville 2142 AU
+                        - **地址（快递）**：C/O Warehouse 2, 54 Ferndell St, South Granville 2142 AU（收件人：客户简称+客户编码；公司：客户全称）
+                        - **联系电话**：海空运 +02 8718 8708；快递 +0061-2-8718 8718
+                        - **仓型**：海外仓（直发/头程收货）
+                        - **特殊说明**
+                          - 快递收件人须**客户简称+编码**，不可填 Online Seller
+                          - 系统编码 AUSY 与直发简称 AU 指同一主仓
+
+                        ### AUME
+
+                        - **仓库名称**：澳洲 AUME 仓
+                        - **国家**：AU
+                        - **仓库定位**：综合仓
+                        - **作业模式**：MANUAL
+                        - **可接商品**：仅普货（不支持纯电、DG、化工、食品）
+                        - **地址**：C/O 1-5 Felstead Drive, Truganina, Victoria, 3029
+                        - **地址（快递）**：C/O 1-5 Felstead Drive, Truganina, Victoria, 3029（收件人：客户简称+客户编码）
+                        - **联系电话**：+0061-2-8718 8718
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - 快递收件人规范同 AU 主仓
+
+                        ---
+
+                        ## US 区域仓库
+
+                        ### USWC
+
+                        - **仓库名称**：美西海外仓（USWC）
+                        - **国家**：US
+                        - **仓库定位**：综合仓
+                        - **作业模式**：AUTO
+                        - **可接商品**：纯电、DG、普通化工、特殊化工（不支持食品）
+                        - **地址**：C/O 131 Marcellin Dr, City of Industry, CA 91789
+                        - **地址（快递）**：131 Marcellin Dr, City of Industry, CA 91789（收件人 Online Seller C/O 3rd Pty Warehouse）
+                        - **联系电话**：+001-626-606-0308
+                        - **仓型**：海外仓（直发/头程收货）
+                        - **特殊说明**
+                          - 2024.4.15 搬仓，须使用新地址
+                          - 货代导航报空地时建议用 Google Map（Apple Map 可能不准）
+                          - 与 USWC2/USWC5 多仓互转需关注运营公告
+
+                        ### USWC2
+
+                        - **仓库名称**：美西 2 仓（USWC2）
+                        - **国家**：US
+                        - **仓库定位**：中小件仓
+                        - **作业模式**：AUTO
+                        - **可接商品**：普通化工、特殊化工、食品（不支持纯电、DG）
+                        - **地址**：C/O 381 S Brea Canyon Road, Walnut, CA 91789
+                        - **地址（快递）**：381 S Brea Canyon Road, Walnut, CA 91789
+                        - **联系电话**：+001-6266060308-5704
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - 与 USWC 同属美西仓群，串仓场景见 arrival SOP
+
+                        ### USWC5
+
+                        - **仓库名称**：美西 5 仓（USWC5）
+                        - **国家**：US
+                        - **仓库定位**：大件仓
+                        - **作业模式**：MANUAL
+                        - **可接商品**：纯电、普通化工（不支持 DG、特殊化工、食品）
+                        - **地址**：C/O 151 Marcellin Dr, City of Industry, CA 91789
+                        - **地址（快递）**：151 Marcellin Dr, City of Industry, CA 91789
+                        - **联系电话**：626-606-0308
+                        - **仓型**：海外仓（大件）
+
+                        ### USTX
+
+                        - **仓库名称**：美南海外仓（USTX）
+                        - **国家**：US
+                        - **仓库定位**：大件仓
+                        - **作业模式**：AUTO
+                        - **可接商品**：纯电、普通化工、特殊化工（不支持 DG、食品）
+                        - **地址**：C/O 11142 Beltline Road, Houston, TX 77067
+                        - **地址（快递）**：11142 Beltline Road, Houston, TX 77067
+                        - **联系电话**：832-590-3532
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - 2022.7.15 起使用新地址
+                          - 小件包裹类型限制：USTX 小件仅 A 类包裹
+
+                        ### USKY3
+
+                        - **仓库名称**：美东 3 仓（USKY3）
+                        - **国家**：US
+                        - **仓库定位**：小件仓
+                        - **作业模式**： AUTO
+                        - **可接商品**：纯电、DG、普通化工、特殊化工、食品（类型最全）
+                        - **地址**：C/O 2125 Gateway Blvd, Hebron, KY 41048
+                        - **地址（快递）**：2125 Gateway Blvd, Hebron, KY 41048
+                        - **联系电话**：+001-8594850550-5601
+                        - **仓型**：海外仓（小件）
+
+                        ### USKY5
+
+                        - **仓库名称**：美东 5 仓（USKY5）
+                        - **国家**：US
+                        - **仓库定位**：中小件仓
+                        - **作业模式**：AUTO
+                        - **可接商品**：纯电、普通化工（不支持 DG、特殊化工、食品）
+                        - **地址**：C/O 7050 New Buffington Road, Florence, Kentucky 41042
+                        - **地址（快递）**：7050 New Buffington Road, Florence, Kentucky 41042
+                        - **联系电话**：+1(502)482-3736
+                        - **仓型**：海外仓
+
+                        ### USNJ
+
+                        - **仓库名称**：美东仓（USNJ）
+                        - **国家**：US
+                        - **仓库定位**：大件仓
+                        - **作业模式**：MANUAL
+                        - **可接商品**：以运营配置为准（矩阵未单列，建议确认目的仓）
+                        - **地址**：C/O 1120 Route 22 E, Bridgewater, NJ 08807
+                        - **地址（快递）**：C/O 1120 Route 22 E, Bridgewater, NJ 08807
+                        - **联系电话**：732-347-0593
+                        - **仓型**：海外仓
+
+                        ### USNJ2
+
+                        - **仓库名称**：美东新仓（USNJ2）
+                        - **国家**：US
+                        - **仓库定位**：大件仓
+                        - **作业模式**：MANUAL
+                        - **可接商品**：纯电、普通化工（不支持 DG、特殊化工、食品）
+                        - **地址**：700 Linden Logistics Wy, Linden, NJ 07036
+                        - **地址（快递）**：700 Linden Logistics Wy, Linden, NJ 07036
+                        - **联系人**：dongsheng.xue@winitamerica.com
+                        - **联系电话**：5307461932
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - 小件仅 A 类包裹
+
+                        ### USGA
+
+                        - **仓库名称**：美南佐治亚仓（USGA）
+                        - **国家**：US
+                        - **仓库定位**：大件仓
+                        - **作业模式**：MANUAL
+                        - **可接商品**：普通化工（不支持纯电、DG、特殊化工、食品）
+                        - **地址**：C/O 301 Cypress Mdw Dr #100, Pooler, GA 31322
+                        - **地址（快递）**：C/O 301 Cypress Mdw Dr #100, Pooler, GA 31322
+                        - **联系电话**：+1 912-207-7797
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - WINIT check-in 道口：Dock 264
+                          - Google Map 链接可查：maps.app.goo.gl/V35MbZMEwFiHkQnR7
+
+                        ---
+
+                        ## UK 区域仓库
+
+                        ### UK
+
+                        - **仓库名称**：英国海外仓（UK）
+                        - **国家**：UK
+                        - **地址**：C/O Unit 73 Interlink Way West, Bardon Business Park, Bardon, Leicestershire, LE67 1LD
+                        - **地址（快递）**：Unit 73 Interlink Way West, Bardon Business Park, Bardon, Leicestershire, LE67 1LD
+                        - **联系电话**：+44 1530 837046
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - 面单建议备注 **NOT FOR AMAZON（FBA）**，包裹贴 A4 纸标示
+                          - 快递收件人：Online Seller C/O 3rd Pty Warehouse
+
+                        ### UKGF
+
+                        - **仓库名称**：英国 UKGF 仓
+                        - **国家**：UK
+                        - **仓库定位**：大件仓
+                        - **作业模式**：MANUAL
+                        - **可接商品**：纯电、DG、普通化工
+                        - **地址**：C/O Warehouse 1, Mill Lane Industrial Estate, Kirby Road, Glenfield, Leicestershire, LE3 8DX
+                        - **地址（快递）**：Warehouse 1, Mill Lane Industrial Estate, Kirby Road, Glenfield, Leicestershire, LE3 8DX
+                        - **联系电话**：01162986177
+                        - **仓型**：海外仓（大件）
+
+                        ### UKTW
+
+                        - **仓库名称**：英国新仓（UKTW）
+                        - **国家**：UK
+                        - **仓库定位**：中小件仓
+                        - **作业模式**：AUTO
+                        - **可接商品**：普通化工（不支持纯电、DG、特殊化工、食品）
+                        - **地址**：C/O Unit 5, St Modwen Park Tamworth, Signet Way, Tamworth, England, B78 2FG
+                        - **地址（快递）**：Unit 5, St Modwen Park Tamworth, Signet Way, Staffordshire, B78 2FG
+                        - **联系电话**：+0044 1827816199
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - DHL 搜不到 Tamworth/Staffordshire 时可选城市 Freasley
+
+                        ---
+
+                        ## DE 区域仓库
+
+                        ### DE
+
+                        - **仓库名称**：德国海外仓（DE）
+                        - **国家**：DE
+                        - **地址**：C/O Ludwig-Erhard-Str.2, 28197 Bremen
+                        - **地址（快递）**：Ludwig-Erhard-Str.2, 28197 Bremen
+                        - **联系电话**：+0049 1727287134
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - Straße 打不出可改为 strasse
+                          - 与 DEBR/DEBR2 同属德仓群
+
+                        ### DEBR
+
+                        - **仓库名称**：德国 DEBR 大件仓
+                        - **国家**：DE
+                        - **仓库定位**：大件仓
+                        - **作业模式**：MANUAL
+                        - **可接商品**：纯电、DG、普通化工
+                        - **地址**：直发收货地址未在地址 KB 单列，下单目的仓为 DEBR 时以万邑联/运营通知为准
+                        - **仓型**：海外仓（大件）
+                        - **特殊说明**
+                          - 与 DE、DEBR2 组合为德仓群，修改目的仓时须注意仓群规则
+
+                        ### DEBR2
+
+                        - **仓库名称**：德国新仓（DEBR2）
+                        - **国家**：DE
+                        - **仓库定位**：综合仓
+                        - **作业模式**：AUTO
+                        - **可接商品**：普通化工（不支持纯电、DG、特殊化工、食品）
+                        - **地址**：C/O Senator-Blase-Straße 13, 28197, Bremen
+                        - **地址（快递）**：Senator-Blase-Straße 13, 28197, Bremen
+                        - **联系电话**：+0049 1727287134
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - 有箱单自验 B/C 包小件子包裹体积限制 0.04CBM
+
+                        ---
+
+                        ## CA 区域仓库
+
+                        ### CATO
+
+                        - **仓库名称**：加拿大海外仓（CATO）
+                        - **国家**：CA
+                        - **仓库定位**：综合仓
+                        - **作业模式**：MANUAL
+                        - **可接商品**：纯电（不支持 DG、化工、食品）
+                        - **地址**：C/O 108 Summerlea Rd, Brampton, ON L6T 4X3
+                        - **地址（快递）**：108 Summerlea Rd, Brampton, ON L6T 4X3
+                        - **联系电话**：905-319-3885
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - 2023.8.14 搬仓，须使用 Brampton 新地址
+
+                        ---
+
+                        ## BE 区域仓库
+
+                        ### BE
+
+                        - **仓库名称**：比利时海外仓（BE）
+                        - **国家**：BE
+                        - **地址**：C/O Boulevard de l'Eurozone 35, B-7700 Mouscron, Belgium
+                        - **地址（快递）**：Boulevard de l'Eurozone 35, B-7700 Mouscron, Belgium
+                        - **联系电话**：+32 56 85 76 52
+                        - **仓型**：海外仓
+                        - **特殊说明**
+                          - 商业地址，按预约送仓
+
+                        ---
+
+                        ## 无匹配时的处理
+
+                        - KB 无该 `warehouseCode` 或 `country` 无匹配仓：明确告知「暂无该仓库资料，建议联系客服确认」。
+                        - 可接商品类型以矩阵为准；若商品属性边界不清（如是否属 DG/特殊化工），建议客户查价卡或联系客服。
+                        - 不输出库容/Slots 实时信息（→ inbound-capacity-availability）。
+                        - 仓租计费、组织库存、库内箱转单等存储增值服务（→ inbound-process-guide 或对应增值专家）。
+                        - 不引用飞书或内部系统 URL。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: code
+      title: load-warehouse-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 500
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：load-warehouse-kb — 按 queryType / warehouseCode / country / topic 过滤 KB 语料
+               * FaaS 单文件闭环，无外部 import。kbWarehouse 由 coze.config.yml textNode 注入。
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function extractSection(kb: string, heading: string): string {
+                const pattern = new RegExp(`##\\s+${heading}[\\s\\S]*?(?=\\n##\\s+|$)`, "i");
+                const m = kb.match(pattern);
+                return m ? m[0].trim() : "";
+              }
+
+              function filterWarehouseSections(
+                kb: string,
+                warehouseCode: string,
+                country: string,
+                queryType: string,
+                topic: string
+              ): string {
+                const parts: string[] = [];
+
+                const index = extractSection(kb, "仓库编码索引");
+                if (index) parts.push(index);
+
+                if (topic === "capabilities" || topic === "type" || topic === "all") {
+                  const matrix = extractSection(kb, "各仓可接商品类型矩阵");
+                  if (matrix) parts.push(matrix);
+                  if (topic === "capabilities" || topic === "all") {
+                    const zones = kb.match(/### 库存属性与存放分区[\s\S]*?(?=\n---|\n##\s+|$)/);
+                    if (zones) parts.push(zones[0].trim());
+                  }
+                }
+
+                const rules = extractSection(kb, "通用送货与面单规范");
+                if (rules && topic !== "capabilities") parts.push(rules);
+
+                if (queryType === "exact" && warehouseCode) {
+                  const profilePattern = new RegExp(
+                    `###\\s+${warehouseCode}[\\s\\S]*?(?=\\n###\\s+|\\n##\\s+|$)`,
+                    "i"
+                  );
+                  const profile = kb.match(profilePattern);
+                  if (profile) parts.push(profile[0].trim());
+                } else if (queryType === "country_search" && country) {
+                  const countryPattern = new RegExp(
+                    `##\\s+${country}\\s+区域仓库[\\s\\S]*?(?=\\n##\\s+|$)`,
+                    "i"
+                  );
+                  const block = kb.match(countryPattern);
+                  if (block) parts.push(block[0].trim());
+                }
+
+                if (parts.length === 0) return kb;
+                return parts.join("\n\n---\n\n");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validationOk = params.validationOk === true;
+                const queryType = str(params.queryType);
+                const warehouseCode = str(params.warehouseCode);
+                const country = str(params.country);
+                const topic = str(params.topic) || "all";
+                const kbWarehouse = str(params.kbWarehouse);
+
+                if (!validationOk || !kbWarehouse) {
+                  return {
+                    kbChunks: kbWarehouse || "",
+                    kbScope: "empty",
+                    warehouseCode,
+                    country,
+                    topic,
+                  };
+                }
+
+                const filtered = filterWarehouseSections(kbWarehouse, warehouseCode, country, queryType, topic);
+                const kbScope =
+                  queryType === "exact"
+                    ? `warehouse:${warehouseCode}`
+                    : queryType === "country_search"
+                      ? `country:${country}`
+                      : "full";
+
+                return {
+                  kbChunks: filtered,
+                  kbScope,
+                  warehouseCode,
+                  country,
+                  topic,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-warehouse-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: queryType
+                input:
+                    value:
+                        path: queryType
+                        ref_node: "163000"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: topic
+                input:
+                    value:
+                        path: topic
+                        ref_node: "163000"
+              - name: kbWarehouse
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+          node_outputs:
+              kbChunks:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              warehouseCode:
+                  type: string
+                  value: null
+              country:
+                  type: string
+                  value: null
+              topic:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163003"
+      type: code
+      title: extract-warehouse-profile
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 750
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：extract-warehouse-profile — 从 kbChunks 结构化提取仓库资料
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              interface WarehouseCapabilities {
+                pureElectric: boolean | null;
+                dg: boolean | null;
+                chemical: boolean | null;
+                specialChemical: boolean | null;
+                food: boolean | null;
+              }
+
+              interface WarehouseProfile {
+                warehouseCode: string;
+                warehouseName: string;
+                country: string;
+                address: string;
+                addressExpress: string;
+                contactPerson: string;
+                contactPhone: string;
+                businessHours: string;
+                cutoffTime: string;
+                warehouseType: string;
+                warehousePosition: string;
+                operationMode: string;
+                supportedProducts: string;
+                capabilities: WarehouseCapabilities;
+                specialNotes: string[];
+              }
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function parseField(block: string, label: string): string {
+                const pattern = new RegExp(`[-*]\\s*\\*\\*${label}\\*\\*[:：]\\s*(.+)$`, "im");
+                const m = block.match(pattern);
+                return m ? m[1].trim() : "";
+              }
+
+              function parseNotes(block: string): string[] {
+                const notes: string[] = [];
+                const section = block.match(/\*\*特殊说明\*\*[\s\S]*?(?=\n\*\*|\n###|\n##|$)/i);
+                if (!section) return notes;
+                const lines = section[0].split("\n");
+                for (const line of lines) {
+                  const m = line.match(/^\s*[-*]\s+(.+)$/);
+                  if (m) notes.push(m[1].trim());
+                }
+                return notes;
+              }
+
+              function extractProfileBlock(kb: string, code: string): string | null {
+                const pattern = new RegExp(`###\\s+${code}[\\s\\S]*?(?=\\n###\\s+|\\n##\\s+|$)`, "i");
+                const m = kb.match(pattern);
+                return m ? m[0] : null;
+              }
+
+              function listCountryWarehouses(kb: string, country: string): WarehouseProfile[] {
+                const countryPattern = new RegExp(
+                  `##\\s+${country}\\s+区域仓库([\\s\\S]*?)(?=\\n##\\s+|$)`,
+                  "i"
+                );
+                const block = kb.match(countryPattern);
+                if (!block) return [];
+
+                const profiles: WarehouseProfile[] = [];
+                const sections = block[0].split(/\n###\s+/).slice(1);
+                for (const sec of sections) {
+                  const codeLine = sec.match(/^([A-Z0-9]+)/i);
+                  if (!codeLine) continue;
+                  const code = codeLine[1].toUpperCase();
+                  profiles.push(buildProfile(sec, code, country));
+                }
+                return profiles;
+              }
+
+              function parseCapabilities(text: string): WarehouseCapabilities {
+                const products = text;
+                const has = (kw: string) =>
+                  products.includes(kw) && !new RegExp(`不支持[^\\n]*${kw}|${kw}[^\\n]*不支持`).test(products);
+
+                return {
+                  pureElectric: has("纯电") ? true : products.includes("不支持纯电") ? false : null,
+                  dg: has("DG") ? true : products.includes("不支持 DG") || products.includes("不支持DG") ? false : null,
+                  chemical: has("普通化工") || has("化工") ? true : null,
+                  specialChemical: has("特殊化工") ? true : products.includes("不支持特殊化工") ? false : null,
+                  food: has("食品") ? true : products.includes("不支持食品") ? false : null,
+                };
+              }
+
+              function buildProfile(block: string, code: string, country: string): WarehouseProfile {
+                const supportedProducts = parseField(block, "可接商品");
+                return {
+                  warehouseCode: code,
+                  warehouseName: parseField(block, "仓库名称") || code,
+                  country: parseField(block, "国家") || country,
+                  address: parseField(block, "地址"),
+                  addressExpress: parseField(block, "地址（快递）"),
+                  contactPerson: parseField(block, "联系人"),
+                  contactPhone: parseField(block, "联系电话"),
+                  businessHours: parseField(block, "营业时间"),
+                  cutoffTime: parseField(block, "截单时间"),
+                  warehouseType: parseField(block, "仓型"),
+                  warehousePosition: parseField(block, "仓库定位"),
+                  operationMode: parseField(block, "作业模式"),
+                  supportedProducts,
+                  capabilities: parseCapabilities(supportedProducts || block),
+                  specialNotes: parseNotes(block),
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const kbChunks = str(params.kbChunks);
+                const warehouseCode = str(params.warehouseCode);
+                const country = str(params.country);
+                const queryType = str(params.queryType);
+
+                let warehouseProfile: WarehouseProfile | Record<string, unknown> = {
+                  warehouseCode: "",
+                  warehouseName: "",
+                  country: "",
+                  address: "",
+                  addressExpress: "",
+                  contactPerson: "",
+                  contactPhone: "",
+                  businessHours: "",
+                  cutoffTime: "",
+                  warehouseType: "",
+                  warehousePosition: "",
+                  operationMode: "",
+                  supportedProducts: "",
+                  capabilities: {
+                    pureElectric: null,
+                    dg: null,
+                    chemical: null,
+                    specialChemical: null,
+                    food: null,
+                  },
+                  specialNotes: [] as string[],
+                };
+                let matched = false;
+
+                if (queryType === "exact" && warehouseCode) {
+                  const block = extractProfileBlock(kbChunks, warehouseCode);
+                  if (block) {
+                    warehouseProfile = buildProfile(block, warehouseCode, country);
+                    matched = true;
+                  }
+                } else if (queryType === "country_search" && country) {
+                  const list = listCountryWarehouses(kbChunks, country);
+                  if (list.length > 0) {
+                    warehouseProfile = {
+                      country,
+                      warehouseCount: list.length,
+                      warehouses: list,
+                    };
+                    matched = true;
+                  }
+                }
+
+                return {
+                  warehouseProfile,
+                  matched,
+                  queryType,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("extract-warehouse-profile")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: kbChunks
+                input:
+                    value:
+                        path: kbChunks
+                        ref_node: "163002"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163002"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163002"
+              - name: topic
+                input:
+                    value:
+                        path: topic
+                        ref_node: "163002"
+              - name: queryType
+                input:
+                    value:
+                        path: queryType
+                        ref_node: "163000"
+          node_outputs:
+              warehouseProfile:
+                  type: object
+                  value: null
+              matched:
+                  type: boolean
+                  value: null
+              queryType:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163004"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 1000
+          y: 310
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 仓库基础信息查询专家 - LLM Prompt
+
+                        将本内容复制到 Coze LLM 节点。上游应先执行 **validate-warehouse-query**、**load-warehouse-kb**、**extract-warehouse-profile**。
+
+                        **对客输出**：`analysis` **禁止**出现飞书、内部多维表、内部 Wiki 链接；联系方式仅引用 KB 中维护的公开信息。
+
+                        ---
+
+                        ## 角色
+
+                        你是 **仓库基础信息查询专家**（inbound-warehouse-info）。根据注入的仓库 KB 与结构化 `warehouseProfile`，回答客户关于海外仓地址、联系人、营业时间、截单规则、仓型定位、可接商品类型与送货规范的问题。
+
+                        职责：
+
+                        1. 按 `topic` 聚焦展示，不堆砌无关信息。
+                        2. `queryType=exact` 时聚焦单仓；`country_search` 时列出该国可用仓摘要。
+                        3. `warehouseProfile.matched=false` 时明确说明暂无资料，建议联系客服。
+                        4. 不得编造 KB 中不存在的信息。
+                        5. 仓租计费、组织库存、库内箱转单等存储增值服务超出本专家范围，引导至流程/增值相关咨询。
+
+                        ---
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **warehouseCode**：`{{warehouseCode}}`
+                        - **country**：`{{country}}`
+                        - **topic**：`{{topic}}`（address / contact / hours / cutoff / type / capabilities / rules / all）
+                        - **queryType**：`{{queryType}}`（exact / country_search）
+                        - **warehouseProfile**：
+
+                        ```json
+                        {{warehouseProfile}}
+                        ```
+
+                        - **kbChunks**（过滤后的 KB 语料）：
+
+                        ```
+                        {{kbChunks}}
+                        ```
+
+                        ---
+
+                        ## 工作步骤（体现在 analysis 中）
+
+                        1. **结论**：一句话概括（如「USWC 支持纯电与 DG，不支持食品入库」）。
+                        2. **按 topic 聚焦**：
+                           - `address`：海空运 vs 快递地址差异、C/O 要求
+                           - `contact`：电话、邮箱
+                           - `hours` / `cutoff`：营业与截单（KB 无则说明以预约时段为准）
+                           - `type`：仓库定位（大件/中小件/小件/综合）、作业模式（AUTO/MANUAL）
+                           - `capabilities`：可接商品类型（纯电、DG、普通化工、特殊化工、食品），明确不支持项
+                           - `rules`：面单、预约、NOT FOR AMAZON 等特殊规范
+                           - `all`：以上摘要，优先客户意图相关字段
+                        3. **商品类型边界**：DG/特殊化工/食品等若 KB 标注不支持或条件复杂，建议客户核对价卡或联系客服确认商品属性归类。
+                        4. **无资料兜底**：matched=false 时说明暂无该仓资料。
+
+                        ---
+
+                        ## 输出格式
+
+                        **硬性要求**：只输出 **一个** JSON 对象，顶层 **仅有** `analysisResult`（与 workflow LLM 节点 outputs 一致），其内包含 `structured` 与 `analysis`；不要用 Markdown 代码围栏包裹。
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "warehouseCode": "USWC",
+                              "warehouseName": "美西海外仓",
+                              "country": "US",
+                              "address": "海空运 C/O 地址",
+                              "addressExpress": "快递面单地址",
+                              "contactPerson": "",
+                              "contactPhone": "+001-626-606-0308",
+                              "businessHours": "",
+                              "cutoffTime": "",
+                              "warehouseType": "海外仓",
+                              "warehousePosition": "综合仓",
+                              "operationMode": "AUTO",
+                              "supportedProducts": "纯电、DG、普通化工、特殊化工",
+                              "capabilities": {
+                                "pureElectric": true,
+                                "dg": true,
+                                "chemical": true,
+                                "specialChemical": true,
+                                "food": false
+                              },
+                              "specialNotes": [
+                                "2024.4.15 搬仓须用新地址"
+                              ]
+                            },
+                            "analysis": "按 topic 聚焦的对客说明。"
+                          }
+                        }
+                        ```
+
+                        `country_search` 时 structured 可含 `warehouses` 数组摘要；单仓查询时填充单仓字段。
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: warehouseCode
+                input:
+                    value:
+                        path: warehouseCode
+                        ref_node: "163002"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163002"
+              - name: topic
+                input:
+                    value:
+                        path: topic
+                        ref_node: "163002"
+              - name: queryType
+                input:
+                    value:
+                        path: queryType
+                        ref_node: "163003"
+              - name: warehouseProfile
+                input:
+                    value:
+                        path: warehouseProfile
+                        ref_node: "163003"
+              - name: kbChunks
+                input:
+                    value:
+                        path: kbChunks
+                        ref_node: "163002"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163005"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1200
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) {
+                  return { structured: {}, analysis: "未收到模型输出。" };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    /* fall through */
+                  }
+                  return { structured: {}, analysis: s || "解析失败。" };
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const summary = coerced.analysis?.slice(0, 200) || "仓库信息查询完成";
+
+                return {
+                  structured: coerced.structured,
+                  analysis: coerced.analysis || "（无 analysis 字段）",
+                  outputContext: {
+                    expertId: "inbound-warehouse-info",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "",
+                  },
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "163004"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "900001"

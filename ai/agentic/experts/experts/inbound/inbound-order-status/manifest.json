@@ -1,0 +1,72 @@
+{
+  "id": "inbound-order-status",
+  "domain": "inbound",
+  "name": "入库单状态解读",
+  "description": "根据入库单号拉取 OMS 基础详情、补充订单时间详情（wh.inboundOrder.getOrderDetail）与专用轨迹（queryOrderTracking），归纳当前状态、轨迹和订单级时间；确定性区分实际、预计、目标、当地时间及异常未核实状态。状态事实可作为下游 enrichedContext，但本专家不推荐 VASC、不查询异常单、不处理催促。支持无单号时仅凭 errorCode 走 KB 解读。",
+  "capabilities": [
+    "入库单状态",
+    "轨迹里程碑",
+    "时间字段证据分级",
+    "预计送仓与预计到仓",
+    "预计、目标与实际上架时间",
+    "异常核实边界提示",
+    "字段解读",
+    "报错码解读",
+    "多标识解析（WI 单号 / 客户参考号）"
+  ],
+  "version": "0.2.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "inboundOrderNos": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "入库单号（WI 前缀）或客户自有参考号列表；工作流内自动区分查询字段。"
+      },
+      "errorCode": {
+        "type": "string",
+        "description": "系统报错码；无 inboundOrderNos 时走纯 KB 路径解读。"
+      },
+      "includePackageDetails": {
+        "type": "boolean",
+        "description": "兼容参数：true 时升级为 package_detail；默认 false → header / isIncludePackage=N",
+        "default": false
+      },
+      "detailLevel": {
+        "type": "string",
+        "description": "getOrderDetail 详情分层：默认 header（N，无 merchandiseList）",
+        "default": "header"
+      },
+      "includeTracking": {
+        "type": "boolean",
+        "description": "是否调用 queryOrderTracking 拉取轨迹；默认 true",
+        "default": true
+      },
+      "includeOrderTimeDetails": {
+        "type": "boolean",
+        "description": "是否调用 wh.inboundOrder.getOrderDetail 补充订单级预计、目标与实际时间；默认 true",
+        "default": true
+      },
+      "maxTrajectoryNodes": {
+        "type": "integer",
+        "description": "剪枝：trajectoryList 保留条数上限；默认 20",
+        "default": 20,
+        "minimum": 1
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化状态数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "状态与字段解读说明"
+      }
+    }
+  }
+}

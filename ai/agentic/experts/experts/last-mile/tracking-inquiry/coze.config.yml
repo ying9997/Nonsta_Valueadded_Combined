@@ -1,0 +1,164 @@
+# 查件代查件 — Coze 工作流包导出
+# 导出：npm run export:coze -- experts/last-mile/tracking-inquiry
+
+yamlBasename: tracking_inquiry-draft.yaml
+packageMainName: tracking_inquiry
+packageDescription: 查件（validate 分流 → TailTrace.getList 网关插件 → fetch → LLM → format）
+
+winitOpenapiPlugin:
+  enabled: true
+  insertBefore: fetch-tail-trace-list
+  logicalId: winit_openapi_plugin
+  openapiAction: tail.claim.ai.v1.gateway
+
+nodeIds:
+  validate-input: "167000"
+  route-by-branch: "167001"
+  build-tail-trace-request: "167002"
+  winit_openapi_plugin: "167282"
+  fetch-tail-trace-list: "167003"
+  llm-analyze: "167004"
+  format-output: "167005"
+
+inputBindings:
+  build-tail-trace-request:
+    branch:
+      ref: validate-input
+      path: branch
+    inquiryIds:
+      ref: validate-input
+      path: inquiryIds
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+  fetch-tail-trace-list:
+    branch:
+      ref: validate-input
+      path: branch
+    inquiryIds:
+      ref: validate-input
+      path: inquiryIds
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    analysisClock:
+      ref: validate-input
+      path: enrichedContext.analysisClock
+    customerCode:
+      ref: __start__
+      path: customerCode
+    customerName:
+      ref: __start__
+      path: customerName
+    username:
+      ref: __start__
+      path: username
+    winitRequestData:
+      ref: build-tail-trace-request
+      path: winitRequestData
+    winitOpenapiData:
+      ref: winit_openapi_plugin
+      path: data
+  llm-analyze:
+    query:
+      ref: __start__
+      path: query
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    inquiryIds:
+      ref: validate-input
+      path: inquiryIds
+    customerIntent:
+      ref: __start__
+      path: customerIntent
+    enrichedContext:
+      ref: validate-input
+      path: enrichedContext
+    inputContext:
+      ref: __start__
+      path: inputContext
+    tailTraceFacts:
+      ref: fetch-tail-trace-list
+      path: tailTraceFacts
+  format-output:
+    analysisResult:
+      ref: llm-analyze
+      path: analysisResult
+    tailTraceFacts:
+      ref: fetch-tail-trace-list
+      path: tailTraceFacts
+    inputContext:
+      ref: __start__
+      path: inputContext
+
+branching:
+  after: derive-checking-type
+  refNode: validate-input
+  logicalId: route-by-branch
+  title: 按 branch 分流
+  routes:
+    - port: "true"
+      target: build-tail-trace-request
+      whenEquals:
+        path: branch
+        value: "query"
+    - port: "true_1"
+      target: fetch-tail-trace-list
+      whenEquals:
+        path: branch
+        value: "guidance"
+    - port: "false"
+      target: fetch-tail-trace-list
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: 0
+    y: 200
+  __end__:
+    x: 900
+    y: 200
+  validate-input:
+    x: 120
+    y: 120
+  route-by-branch:
+    x: 120
+    y: 240
+  build-tail-trace-request:
+    x: 360
+    y: 80
+  winit_openapi_plugin:
+    x: 520
+    y: 80
+  fetch-tail-trace-list:
+    x: 680
+    y: 120
+  llm-analyze:
+    x: 840
+    y: 120
+  format-output:
+    x: 840
+    y: 280

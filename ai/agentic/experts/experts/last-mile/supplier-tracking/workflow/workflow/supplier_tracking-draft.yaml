@@ -1,0 +1,1095 @@
+schema_version: 1.0.0
+name: supplier_tracking
+id: 7937524873492627743
+description: 尾程承运商官网轨迹查询入口（KB + LLM，阶段一回退链接）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      trackingIds:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 跟踪号
+                      country:
+                          type: string
+                          value: null
+                          description: 国家/地区（与 SOP 表国家列对齐，如 AU、DE、US）
+                      lastMileProductName:
+                          type: string
+                          value: null
+                          description: 尾程产品或供应商名称（与 SOP 表供应商/承运商列对齐）
+                      carrierCode:
+                          type: string
+                          value: null
+                          description: 可选承运商编码，辅助匹配
+                      region:
+                          type: string
+                          value: null
+                          description: 区域描述，可与 country 同用
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 上游上下文（推荐 delivery-status 的 carrierHints、trajectories 等）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163003"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163003"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163003"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163003"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 校验启动「承运商官网轨迹查询入口」分析的最小事实（阶段一：仅 KB + LLM）
+               * FaaS 单文件闭环，无外部 import。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输入】params：query, trackingIds, country, lastMileProductName, carrierCode, region, customerIntent, enrichedContext, inputContext
+               * 【输出】透传；valid 表示至少有一种定位线索；enrichedContext 合并 analysisClock（UTC）。
+               * enrichedContext 可为编排侧「域索引」，本节点取 `last-mile/delivery-status` 最新一条并展开；亦可为旧版扁平对象。
+               */
+
+              const EC_IDX_KEY_DS_SUP = "last-mile/delivery-status";
+
+              function extractDomainEntrySup(ecIndex: unknown, domainKey: string): Record<string, unknown> {
+                if (!ecIndex || typeof ecIndex !== "object" || Array.isArray(ecIndex)) return {};
+                const entries = (ecIndex as Record<string, unknown>)[domainKey];
+                if (!Array.isArray(entries) || entries.length === 0) return {};
+                const last = entries[entries.length - 1];
+                if (!last || typeof last !== "object" || Array.isArray(last)) return {};
+                const { _meta: _m, ...rest } = last as Record<string, unknown>;
+                return rest;
+              }
+
+              function resolveFlatEnrichedContextSup(raw: unknown): Record<string, unknown> {
+                const fromDomain = extractDomainEntrySup(raw, EC_IDX_KEY_DS_SUP);
+                if (Object.keys(fromDomain).length > 0) return fromDomain;
+                if (raw !== undefined && raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+                  const o = raw as Record<string, unknown>;
+                  const looksLikeDomainIndex = Object.keys(o).some((k) => k.includes("/") && Array.isArray(o[k]));
+                  if (looksLikeDomainIndex) return {};
+                  return { ...o };
+                }
+                return {};
+              }
+
+              interface AnalysisClock {
+                utcIso: string;
+                timezoneLabel: string;
+                note: string;
+              }
+
+              function buildAnalysisClock(): AnalysisClock {
+                return {
+                  utcIso: new Date().toISOString(),
+                  timezoneLabel: "UTC",
+                  note: "参考时钟为服务端 UTC（ISO8601）。",
+                };
+              }
+
+              function withAnalysisClock(ec: unknown): Record<string, unknown> {
+                const base =
+                  ec !== undefined && ec !== null && typeof ec === "object" && !Array.isArray(ec)
+                    ? { ...(ec as Record<string, unknown>) }
+                    : {};
+                base.analysisClock = buildAnalysisClock();
+                return base;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const country = String(params.country ?? "").trim();
+                const lastMileProductName = String(params.lastMileProductName ?? "").trim();
+                const carrierCode = String(params.carrierCode ?? "").trim();
+                const region = String(params.region ?? "").trim();
+                const ci = String(params.customerIntent ?? "").trim();
+                const q = String(params.query ?? "").trim();
+                const flatEc = resolveFlatEnrichedContextSup(params.enrichedContext);
+                const hasEnriched = Object.keys(flatEc).length > 0;
+
+                const hasIds = trackingIds.length > 0;
+                const hasCountryProduct = country.length > 0 && lastMileProductName.length > 0;
+                const hasProductName = lastMileProductName.length > 0;
+                const hasCarrier = carrierCode.length > 0;
+                const hasRegion = region.length > 0;
+                const hasText = ci.length > 0 || q.length > 0;
+
+                const valid =
+                  hasIds ||
+                  hasCountryProduct ||
+                  hasProductName ||
+                  hasCarrier ||
+                  hasRegion ||
+                  hasEnriched ||
+                  hasText;
+                const errMsg =
+                  "请至少提供 trackingIds、country+lastMileProductName、lastMileProductName、carrierCode、region、enrichedContext、customerIntent 或 query 之一";
+                const customerIntentOut = valid ? ci : `[输入校验] ${errMsg}`.trim();
+
+                const ret = {
+                  valid,
+                  error: valid ? "" : errMsg,
+                  query: q,
+                  trackingIds,
+                  country,
+                  lastMileProductName,
+                  carrierCode,
+                  region,
+                  customerIntent: customerIntentOut,
+                  enrichedContext: withAnalysisClock(hasEnriched ? flatEc : {}),
+                  inputContext:
+                    params.inputContext && typeof params.inputContext === "object" && !Array.isArray(params.inputContext)
+                      ? params.inputContext
+                      : {},
+                };
+                return ret;
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: inputs.trackingIds
+                        ref_node: "100001"
+              - name: country
+                input:
+                    type: string
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: lastMileProductName
+                input:
+                    type: string
+                    value:
+                        path: inputs.lastMileProductName
+                        ref_node: "100001"
+              - name: carrierCode
+                input:
+                    type: string
+                    value:
+                        path: inputs.carrierCode
+                        ref_node: "100001"
+              - name: region
+                input:
+                    type: string
+                    value:
+                        path: inputs.region
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              country:
+                  type: string
+                  value: null
+              lastMileProductName:
+                  type: string
+                  value: null
+              carrierCode:
+                  type: string
+                  value: null
+              region:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: load-supplier-tracking-knowledge
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 节点：load-supplier-tracking-knowledge — 组装注入 LLM 的 kbMd（与 prompts/kb.md 正文一致，须同步维护）
+               * FaaS 单文件闭环，无外部 import。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输出】kbMd：解析侧重前缀 + SUPPLIER_TRACKING_KB_MARKDOWN；并透传 validate 产出供 llm 使用。
+               */
+              const SUPPLIER_TRACKING_KB_MARKDOWN: string = "# 尾程承运商官网轨迹查询入口 — 内置知识库（KB）\n\n> **溯源**：飞书 SOP [（海外仓）尾程各供应商的物流查询网址](https://winitlink.feishu.cn/wiki/wikcnlRkIVeYTuFSCxLFfP1EJ6d)；仓库完整副本（含配图文件名）见 `docs/experts/last-mile/supplier-tracking/carrier-portals.md`。本文件为 LLM 注入版，**不配图片**以控制 token；分步截图请查阅上述路径。  \n> **阶段一**：仅输出 KB 中出现的 URL 与步骤；**禁止**臆造链接。客服电话类请以 **carrier-contact** 为准，本 KB 仅保留与「物流查询网址」直接相关的入口说明。\n\n---\n\n## 国家 / 承运商 / 物流网址\n\n| 国家 | 供应商/承运商 | 物流网址 |\n| --- | --- | --- |\n| 澳洲 | AU TOLL - IPEC Freight | [https://www.myteamge.com/](https://www.myteamge.com/) |\n|  | AU TOLL - Priority Parcel | [https://www.myteamge.com/](https://www.myteamge.com/) |\n|  | MCS | 转 fastway 网址 [https://www.aramex.com.au/tools/track/](https://www.aramex.com.au/tools/track/) |\n|  |  | 转 PFL 网址：[http://www.pflogistics.com.au/tracking](http://www.pflogistics.com.au/tracking) |\n|  | AU Post | [https://auspost.com.au/mypost/track/#/search](https://auspost.com.au/mypost/track/#/search) |\n|  | Direct Freight | [https://www.directfreight.com.au/](https://www.directfreight.com.au/) |\n|  | TNT | [https://www.tnt.com/express/en_au/site/home.html](https://www.tnt.com/express/en_au/site/home.html) |\n|  | AU Mix Shipping Economy（组合渠道） | AU CP：[https://www.couriersplease.com.au/](https://www.couriersplease.com.au/) |\n|  |  | 转 fastway 网址 [https://www.aramex.com.au/tools/track/](https://www.aramex.com.au/tools/track/) |\n|  | Allied Express | [https://www.alliedexpress.com.au/](https://www.alliedexpress.com.au/) |\n| 比利时 | BEMO B2C Europe | [https://www.trackyourparcel.eu/](https://www.trackyourparcel.eu/) |\n|  | BEMO DE Post | [https://www.deutschepost.de/sendung/simpleQuery.html?locale=en_GB](https://www.deutschepost.de/sendung/simpleQuery.html?locale=en_GB) |\n|  | DPD-France Delivery | [https://trace.dpd.fr/trace](https://trace.dpd.fr/trace) |\n|  | DPD - Domestic | [https://tracking.dpd.de/status/en_US/404](https://tracking.dpd.de/status/en_US/404) |\n|  | Colissimo FR Delivery | [https://wndirect.com/tracking.php?type=TR&ref=9L25782669757&submit=#](https://wndirect.com/tracking.php?type=TR&ref=9L25782669757&submit=#)（示例 query，请替换为实际单号） |\n|  | BEMO UPS | [https://www.ups.com/track?loc=en_BE&requester=ST/](https://www.ups.com/track?loc=en_BE&requester=ST/) |\n| 德国 | DE DHL Freight | [https://activetracing.dhl.com/DatPublic/datSelection.do](https://activetracing.dhl.com/DatPublic/datSelection.do) |\n|  | DE DHL | [https://www.dhl.com/global-en/home.html](https://www.dhl.com/global-en/home.html) |\n|  | DE DE Post | [https://www.postdirekt.de/plzserver/PlzSearchServlet](https://www.postdirekt.de/plzserver/PlzSearchServlet) |\n|  | GLS | [https://gls-group.com/GROUP/en/parcel-tracking](https://gls-group.com/GROUP/en/parcel-tracking) |\n|  | DE DB Schenker | [https://www.dbschenker.com/app/tracking-public/schenker-search?language_region=de-DE_DE](https://www.dbschenker.com/app/tracking-public/schenker-search?language_region=de-DE_DE) |\n|  | KUEHNE NAGEL - Road Delivery | [https://mykn.kuehne-nagel.com/public-tracking/](https://mykn.kuehne-nagel.com/public-tracking/) |\n|  | DE DPD | [https://tracking.dpd.de/status/en_US/404](https://tracking.dpd.de/status/en_US/404) |\n| 英国 | UK XDP | [https://www.xdp.co.uk/track.php?c=&code=](https://www.xdp.co.uk/track.php?c=&code=) |\n|  | UK Yodel | [https://www.yodel.co.uk/](https://www.yodel.co.uk/) |\n|  | Hermes (Evri) | [https://www.evri.com/track-a-parcel](https://www.evri.com/track-a-parcel) |\n|  | UK P2P | 无（表中无独立查询网址） |\n|  | UK Royal Mail | [https://www.royalmail.com/](https://www.royalmail.com/) |\n|  | UK DPD | [https://www.dpd.co.uk/](https://www.dpd.co.uk/) |\n|  | UK UPS | [https://www.ups.com/us/en/Home.page](https://www.ups.com/us/en/Home.page) |\n|  | UK DHL | [https://track.dhlparcel.co.uk/?con=](https://track.dhlparcel.co.uk/?con=) |\n|  | P4D（线下发货物流） | [https://app.p4d.co.uk/tracking](https://app.p4d.co.uk/tracking) |\n| 美国 | US DHL - Express Worldwide | [https://www.dhl.com/cn-zh/home.html?locale=true](https://www.dhl.com/cn-zh/home.html?locale=true) |\n|  | US DHL - Global Forwarding | [https://www.dhl.com/cn-zh/home.html?locale=true](https://www.dhl.com/cn-zh/home.html?locale=true) |\n|  | US DGM | [https://www.dhl.com/cn-zh/home.html?locale=true](https://www.dhl.com/cn-zh/home.html?locale=true) 、 [https://www.usps.com/](https://www.usps.com/) |\n|  | US UPS - Mail Innovations | [https://www.ups.com/us/en/Home.page](https://www.ups.com/us/en/Home.page) 、[https://www.usps.com/](https://www.usps.com/) |\n|  | US UPS | [https://www.ups.com/us/en/Home.page](https://www.ups.com/us/en/Home.page) |\n|  | US USPS | [https://www.usps.com/](https://www.usps.com/) |\n|  | US FEDEX | [https://www.fedex.com/en-us/home.html](https://www.fedex.com/en-us/home.html) |\n|  | Amazon Logistics - Shipping with Amazon | [https://track.amazon.com/](https://track.amazon.com/) |\n|  | SpeedX | [https://speedx.io/](https://speedx.io/) |\n|  | OnTrac - Ground | [https://www.ontrac.com/tracking/](https://www.ontrac.com/tracking/) |\n|  | US Western Post | [http://tracking.westernpost.group/](http://tracking.westernpost.group/) |\n|  | YANWEN | [https://www.yanwenexpress.com/](https://www.yanwenexpress.com/) |\n|  | DHLe | [https://webtrack.dhlglobalmail.com/home](https://webtrack.dhlglobalmail.com/home) |\n|  | GOFO | [https://gofoexpress.com/](https://gofoexpress.com/) |\n| 加拿大 | Uni- Domestic Delivery | [https://www.uniuni.com/tracking/](https://www.uniuni.com/tracking/) |\n|  | Canada Post - Expedited Parcels | [https://www.canadapost-postescanada.ca/track-reperage/en#/home](https://www.canadapost-postescanada.ca/track-reperage/en#/home) |\n|  | CA UPS | [https://www.ups.com/ca/en/Home.page](https://www.ups.com/ca/en/Home.page) |\n|  | GLS | [https://gls-group.com/IT/en/online-services/track-trace?match=E7220236150&type=NAT](https://gls-group.com/IT/en/online-services/track-trace?match=E7220236150&type=NAT)（示例 match，请替换为实际单号） |\n|  | IT POST | [https://www.poste.it/chiamaci.html](https://www.poste.it/chiamaci.html) |\n|  | Purolator Ground | [https://www.purolator.com/en#](https://www.purolator.com/en#) |\n|  | PDN - Express | [https://pdn.express/en/](https://pdn.express/en/) |\n\n> **维护提示**：Colissimo（wndirect）、部分 GLS 等链接若带示例单号或示例 query，对客须替换为实际跟踪号；UK P2P 无独立官网查询 URL，应如实说明并建议万邑通轨迹，若需发起包裹调查请转 **尾程查件**（`tracking-inquiry`）。\n\n---\n\n## 德国 DHL - International Paket — 目的国本地查询（文字步骤）\n\n1. DHL International Paket 可在 DHL 站点通过 **「shipment tracking in foreign countries」** 跳转至目的国本地查询页。  \n2. 轨迹中可能同时存在德国段单号与目的国邮政单号；需在目的国页面使用对应单号。  \n3. 示例（法国 La Poste）：`https://www.laposte.fr/outils/suivre-vos-envois?code=` + 实际单号（勿照抄历史示例单号）。  \n4. 详细点击路径见仓库 `docs/experts/last-mile/supplier-tracking/carrier-portals/` 配图。\n\n---\n\n## 德国 DHL - International — 目的国站点轨迹查询入口（摘录）\n\n- 示例形态：`https://clientesparcel.dhl.es/LiveTracking/ModifyMyShipment/` + 订单片段（以实际为准）；帮助中心入口见 [DHL Parcel ES Customer Service](https://www.dhlparcel.es/en/private-customers/customer-service.html)。  \n- **热线电话**不在本专家展开，请路由 **carrier-contact** 或内部 SOP。\n\n---\n\n## 美国 DHL - Express Worldwide\n\n- 轨迹查询主入口见上表 **US DHL - Express Worldwide** 链接。帮助中心路径见飞书 SOP 截图（仓库 `docs/experts/last-mile/supplier-tracking/carrier-portals/` 配图目录）。\n\n---\n\n## Shipping with Amazon（Amazon Logistics）— 多源对照\n\n- **官网（实时）**：https://track.amazon.com/  \n- **万邑通轨迹平台**（异步，约一日 4 次抓取，可能延迟）：https://track.winit.com.cn/tracking/index.php?s=/Index/result  \n- **17TRACK**：https://www.17track.net/zh-cn — 承运商选择 **「Amazon Shipping + Amazon MCF」**。\n\n---\n\n## 输出约束（给模型）\n\n- **仅可使用**上文已出现的 URL 与域名；组合渠道须按表中顺序说明（如 AU Mix：先 CP 再 Fastway）。  \n- **勿**编造未在 KB 出现的链接；**勿**向客户口述内部飞书文档名。  \n- UK P2P 为「无」时不得在 `trackingPortalUrls` 中虚构 URL。\n";
+
+              function pickHints(
+                ec: unknown,
+                country: string,
+                lastMileProductName: string,
+                carrierCode: string,
+                region: string
+              ): { lines: string[]; tags: string[] } {
+                const lines: string[] = [];
+                const tags: string[] = [];
+                const r = (country + " " + region + " " + carrierCode + " " + lastMileProductName).toUpperCase();
+                if (/\bUS\b|UNITED STATES|USA|CALIFORNIA|LAX|\bNY\b/.test(r)) tags.push("US");
+                if (/\bAU\b|AUSTRALIA|SYDNEY|MELBOURNE/.test(r)) tags.push("AU");
+                if (/\bDE\b|GERMANY|DEUTSCH/.test(r)) tags.push("DE");
+                if (/\bUK\b|\bGB\b|UNITED KINGDOM|LONDON/.test(r)) tags.push("UK");
+                if (/\bBE\b|BELGIUM/.test(r)) tags.push("BE");
+                if (/\bCA\b|CANADA/.test(r)) tags.push("CA");
+                if (ec && typeof ec === "object" && !Array.isArray(ec)) {
+                  const o = ec as Record<string, unknown>;
+                  const ch = o.carrierHints;
+                  if (ch && typeof ch === "object") {
+                    lines.push("- enrichedContext.carrierHints: " + JSON.stringify(ch).slice(0, 1200));
+                  }
+                  const tr = o.trajectories;
+                  if (Array.isArray(tr) && tr[0] && typeof tr[0] === "object") {
+                    const s = (tr[0] as { summary?: unknown }).summary;
+                    if (s && typeof s === "object") {
+                      lines.push("- trajectories[0].summary: " + JSON.stringify(s).slice(0, 800));
+                    }
+                  }
+                }
+                if (country) lines.push("- 入参 country: " + country);
+                if (lastMileProductName) lines.push("- 入参 lastMileProductName: " + lastMileProductName);
+                if (carrierCode) lines.push("- 入参 carrierCode: " + carrierCode);
+                if (region) lines.push("- 入参 region: " + region);
+                return { lines, tags };
+              }
+
+              function buildFocusBlock(
+                country: string,
+                lastMileProductName: string,
+                carrierCode: string,
+                region: string,
+                ec: unknown
+              ): string {
+                const { lines, tags } = pickHints(ec, country, lastMileProductName, carrierCode, region);
+                return [
+                  "## 本次解析侧重（系统生成，非客户原文）",
+                  tags.length ? "- 关键词命中区域标签: " + tags.join(", ") : "- 未从 country/region/carrierCode 解析到国家标签（仍输出全量 KB 表供核对）",
+                  ...lines,
+                  "",
+                ].join("\n");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const query = String(params.query ?? "");
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const country = String(params.country ?? "").trim();
+                const lastMileProductName = String(params.lastMileProductName ?? "").trim();
+                const carrierCode = String(params.carrierCode ?? "").trim();
+                const region = String(params.region ?? "").trim();
+                const customerIntent = String(params.customerIntent ?? "").trim();
+                const enrichedContext =
+                  params.enrichedContext && typeof params.enrichedContext === "object" && !Array.isArray(params.enrichedContext)
+                    ? params.enrichedContext
+                    : {};
+                const inputContext =
+                  params.inputContext && typeof params.inputContext === "object" && !Array.isArray(params.inputContext)
+                    ? params.inputContext
+                    : {};
+                const valid = params.valid === true;
+                const error = String(params.error ?? "");
+
+                const focus = buildFocusBlock(country, lastMileProductName, carrierCode, region, enrichedContext);
+                const kbMd = focus + "\n---\n\n" + SUPPLIER_TRACKING_KB_MARKDOWN;
+
+                return {
+                  kbMd,
+                  valid,
+                  error,
+                  query,
+                  trackingIds,
+                  country,
+                  lastMileProductName,
+                  carrierCode,
+                  region,
+                  customerIntent,
+                  enrichedContext,
+                  inputContext,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-supplier-tracking-knowledge")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: valid
+                input:
+                    type: boolean
+                    value:
+                        path: valid
+                        ref_node: "163000"
+              - name: error
+                input:
+                    type: string
+                    value:
+                        path: error
+                        ref_node: "163000"
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "163000"
+              - name: trackingIds
+                input:
+                    type: list
+                    items:
+                        type: string
+                        value: null
+                    value:
+                        path: trackingIds
+                        ref_node: "163000"
+              - name: country
+                input:
+                    type: string
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: lastMileProductName
+                input:
+                    type: string
+                    value:
+                        path: lastMileProductName
+                        ref_node: "163000"
+              - name: carrierCode
+                input:
+                    type: string
+                    value:
+                        path: carrierCode
+                        ref_node: "163000"
+              - name: region
+                input:
+                    type: string
+                    value:
+                        path: region
+                        ref_node: "163000"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163000"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              kbMd:
+                  type: string
+                  value: null
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              country:
+                  type: string
+                  value: null
+              lastMileProductName:
+                  type: string
+                  value: null
+              carrierCode:
+                  type: string
+                  value: null
+              region:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 947
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 承运商官网轨迹查询入口专家 — LLM Prompt（KB 轨迹查询链接模式）
+
+                        ## 角色
+
+                        你是**海外仓尾程承运商官网轨迹查询入口**专家。根据 **KB（`kbMd`）** 与 **`enrichedContext`**（若有），输出经 SOP 核验的**官方物流查询网址**与**自助查轨迹步骤**；**不得**声称已从承运商官网自动拉取轨迹正文（本链路不执行官网 HTTP 抓取；轨迹以 **`delivery-status`** 与系统侧能力为准）。
+
+                        - **禁止编造 URL**：`trackingPortalUrls` 中每条须能在 **kbMd** 中逐字找到或为 KB 明示的根 URL + 占位说明。  
+                        - **`structured.fetchStatus`**：必须恒为 **`fallback_links`**（与下游 `format-output` 规范化一致）。  
+                        - **`events`**：保持 **`[]`**；勿从臆测填充轨迹事件。  
+                        - **电话**：索要承运商电话时，在 `suggestedNextExperts` 中建议 **`carrier-contact`**。  
+                        - **尾程查件**：意图为查件进度 / 提交查件 / TA 查件单时，在 `suggestedNextExperts` 中建议 **`tracking-inquiry`**，**不得**在本专家内处理查件单业务。
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **trackingIds**：`{{trackingIds}}`
+                        - **country**：`{{country}}`
+                        - **lastMileProductName**：`{{lastMileProductName}}`
+                        - **carrierCode**：`{{carrierCode}}`
+                        - **region**：`{{region}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **enrichedContext**：`{{enrichedContext}}`
+                        - **inputContext**：`{{inputContext}}`
+                        - **kbMd**：
+
+                        # 尾程承运商官网轨迹查询入口 — 内置知识库（KB）
+
+                        > **溯源**：飞书 SOP [（海外仓）尾程各供应商的物流查询网址](https://winitlink.feishu.cn/wiki/wikcnlRkIVeYTuFSCxLFfP1EJ6d)；仓库完整副本（含配图文件名）见 `docs/experts/last-mile/supplier-tracking/carrier-portals.md`。本文件为 LLM 注入版，**不配图片**以控制 token；分步截图请查阅上述路径。  
+                        > **阶段一**：仅输出 KB 中出现的 URL 与步骤；**禁止**臆造链接。客服电话类请以 **carrier-contact** 为准，本 KB 仅保留与「物流查询网址」直接相关的入口说明。
+
+                        ---
+
+                        ## 国家 / 承运商 / 物流网址
+
+                        | 国家 | 供应商/承运商 | 物流网址 |
+                        | --- | --- | --- |
+                        | 澳洲 | AU TOLL - IPEC Freight | [https://www.myteamge.com/](https://www.myteamge.com/) |
+                        |  | AU TOLL - Priority Parcel | [https://www.myteamge.com/](https://www.myteamge.com/) |
+                        |  | MCS | 转 fastway 网址 [https://www.aramex.com.au/tools/track/](https://www.aramex.com.au/tools/track/) |
+                        |  |  | 转 PFL 网址：[http://www.pflogistics.com.au/tracking](http://www.pflogistics.com.au/tracking) |
+                        |  | AU Post | [https://auspost.com.au/mypost/track/#/search](https://auspost.com.au/mypost/track/#/search) |
+                        |  | Direct Freight | [https://www.directfreight.com.au/](https://www.directfreight.com.au/) |
+                        |  | TNT | [https://www.tnt.com/express/en_au/site/home.html](https://www.tnt.com/express/en_au/site/home.html) |
+                        |  | AU Mix Shipping Economy（组合渠道） | AU CP：[https://www.couriersplease.com.au/](https://www.couriersplease.com.au/) |
+                        |  |  | 转 fastway 网址 [https://www.aramex.com.au/tools/track/](https://www.aramex.com.au/tools/track/) |
+                        |  | Allied Express | [https://www.alliedexpress.com.au/](https://www.alliedexpress.com.au/) |
+                        | 比利时 | BEMO B2C Europe | [https://www.trackyourparcel.eu/](https://www.trackyourparcel.eu/) |
+                        |  | BEMO DE Post | [https://www.deutschepost.de/sendung/simpleQuery.html?locale=en_GB](https://www.deutschepost.de/sendung/simpleQuery.html?locale=en_GB) |
+                        |  | DPD-France Delivery | [https://trace.dpd.fr/trace](https://trace.dpd.fr/trace) |
+                        |  | DPD - Domestic | [https://tracking.dpd.de/status/en_US/404](https://tracking.dpd.de/status/en_US/404) |
+                        |  | Colissimo FR Delivery | [https://wndirect.com/tracking.php?type=TR&ref=9L25782669757&submit=#](https://wndirect.com/tracking.php?type=TR&ref=9L25782669757&submit=#)（示例 query，请替换为实际单号） |
+                        |  | BEMO UPS | [https://www.ups.com/track?loc=en_BE&requester=ST/](https://www.ups.com/track?loc=en_BE&requester=ST/) |
+                        | 德国 | DE DHL Freight | [https://activetracing.dhl.com/DatPublic/datSelection.do](https://activetracing.dhl.com/DatPublic/datSelection.do) |
+                        |  | DE DHL | [https://www.dhl.com/global-en/home.html](https://www.dhl.com/global-en/home.html) |
+                        |  | DE DE Post | [https://www.postdirekt.de/plzserver/PlzSearchServlet](https://www.postdirekt.de/plzserver/PlzSearchServlet) |
+                        |  | GLS | [https://gls-group.com/GROUP/en/parcel-tracking](https://gls-group.com/GROUP/en/parcel-tracking) |
+                        |  | DE DB Schenker | [https://www.dbschenker.com/app/tracking-public/schenker-search?language_region=de-DE_DE](https://www.dbschenker.com/app/tracking-public/schenker-search?language_region=de-DE_DE) |
+                        |  | KUEHNE NAGEL - Road Delivery | [https://mykn.kuehne-nagel.com/public-tracking/](https://mykn.kuehne-nagel.com/public-tracking/) |
+                        |  | DE DPD | [https://tracking.dpd.de/status/en_US/404](https://tracking.dpd.de/status/en_US/404) |
+                        | 英国 | UK XDP | [https://www.xdp.co.uk/track.php?c=&code=](https://www.xdp.co.uk/track.php?c=&code=) |
+                        |  | UK Yodel | [https://www.yodel.co.uk/](https://www.yodel.co.uk/) |
+                        |  | Hermes (Evri) | [https://www.evri.com/track-a-parcel](https://www.evri.com/track-a-parcel) |
+                        |  | UK P2P | 无（表中无独立查询网址） |
+                        |  | UK Royal Mail | [https://www.royalmail.com/](https://www.royalmail.com/) |
+                        |  | UK DPD | [https://www.dpd.co.uk/](https://www.dpd.co.uk/) |
+                        |  | UK UPS | [https://www.ups.com/us/en/Home.page](https://www.ups.com/us/en/Home.page) |
+                        |  | UK DHL | [https://track.dhlparcel.co.uk/?con=](https://track.dhlparcel.co.uk/?con=) |
+                        |  | P4D（线下发货物流） | [https://app.p4d.co.uk/tracking](https://app.p4d.co.uk/tracking) |
+                        | 美国 | US DHL - Express Worldwide | [https://www.dhl.com/cn-zh/home.html?locale=true](https://www.dhl.com/cn-zh/home.html?locale=true) |
+                        |  | US DHL - Global Forwarding | [https://www.dhl.com/cn-zh/home.html?locale=true](https://www.dhl.com/cn-zh/home.html?locale=true) |
+                        |  | US DGM | [https://www.dhl.com/cn-zh/home.html?locale=true](https://www.dhl.com/cn-zh/home.html?locale=true) 、 [https://www.usps.com/](https://www.usps.com/) |
+                        |  | US UPS - Mail Innovations | [https://www.ups.com/us/en/Home.page](https://www.ups.com/us/en/Home.page) 、[https://www.usps.com/](https://www.usps.com/) |
+                        |  | US UPS | [https://www.ups.com/us/en/Home.page](https://www.ups.com/us/en/Home.page) |
+                        |  | US USPS | [https://www.usps.com/](https://www.usps.com/) |
+                        |  | US FEDEX | [https://www.fedex.com/en-us/home.html](https://www.fedex.com/en-us/home.html) |
+                        |  | Amazon Logistics - Shipping with Amazon | [https://track.amazon.com/](https://track.amazon.com/) |
+                        |  | SpeedX | [https://speedx.io/](https://speedx.io/) |
+                        |  | OnTrac - Ground | [https://www.ontrac.com/tracking/](https://www.ontrac.com/tracking/) |
+                        |  | US Western Post | [http://tracking.westernpost.group/](http://tracking.westernpost.group/) |
+                        |  | YANWEN | [https://www.yanwenexpress.com/](https://www.yanwenexpress.com/) |
+                        |  | DHLe | [https://webtrack.dhlglobalmail.com/home](https://webtrack.dhlglobalmail.com/home) |
+                        |  | GOFO | [https://gofoexpress.com/](https://gofoexpress.com/) |
+                        | 加拿大 | Uni- Domestic Delivery | [https://www.uniuni.com/tracking/](https://www.uniuni.com/tracking/) |
+                        |  | Canada Post - Expedited Parcels | [https://www.canadapost-postescanada.ca/track-reperage/en#/home](https://www.canadapost-postescanada.ca/track-reperage/en#/home) |
+                        |  | CA UPS | [https://www.ups.com/ca/en/Home.page](https://www.ups.com/ca/en/Home.page) |
+                        |  | GLS | [https://gls-group.com/IT/en/online-services/track-trace?match=E7220236150&type=NAT](https://gls-group.com/IT/en/online-services/track-trace?match=E7220236150&type=NAT)（示例 match，请替换为实际单号） |
+                        |  | IT POST | [https://www.poste.it/chiamaci.html](https://www.poste.it/chiamaci.html) |
+                        |  | Purolator Ground | [https://www.purolator.com/en#](https://www.purolator.com/en#) |
+                        |  | PDN - Express | [https://pdn.express/en/](https://pdn.express/en/) |
+
+                        > **维护提示**：Colissimo（wndirect）、部分 GLS 等链接若带示例单号或示例 query，对客须替换为实际跟踪号；UK P2P 无独立官网查询 URL，应如实说明并建议万邑通轨迹，若需发起包裹调查请转 **尾程查件**（`tracking-inquiry`）。
+
+                        ---
+
+                        ## 德国 DHL - International Paket — 目的国本地查询（文字步骤）
+
+                        1. DHL International Paket 可在 DHL 站点通过 **「shipment tracking in foreign countries」** 跳转至目的国本地查询页。  
+                        2. 轨迹中可能同时存在德国段单号与目的国邮政单号；需在目的国页面使用对应单号。  
+                        3. 示例（法国 La Poste）：`https://www.laposte.fr/outils/suivre-vos-envois?code=` + 实际单号（勿照抄历史示例单号）。  
+                        4. 详细点击路径见仓库 `docs/experts/last-mile/supplier-tracking/carrier-portals/` 配图。
+
+                        ---
+
+                        ## 德国 DHL - International — 目的国站点轨迹查询入口（摘录）
+
+                        - 示例形态：`https://clientesparcel.dhl.es/LiveTracking/ModifyMyShipment/` + 订单片段（以实际为准）；帮助中心入口见 [DHL Parcel ES Customer Service](https://www.dhlparcel.es/en/private-customers/customer-service.html)。  
+                        - **热线电话**不在本专家展开，请路由 **carrier-contact** 或内部 SOP。
+
+                        ---
+
+                        ## 美国 DHL - Express Worldwide
+
+                        - 轨迹查询主入口见上表 **US DHL - Express Worldwide** 链接。帮助中心路径见飞书 SOP 截图（仓库 `docs/experts/last-mile/supplier-tracking/carrier-portals/` 配图目录）。
+
+                        ---
+
+                        ## Shipping with Amazon（Amazon Logistics）— 多源对照
+
+                        - **官网（实时）**：https://track.amazon.com/  
+                        - **万邑通轨迹平台**（异步，约一日 4 次抓取，可能延迟）：https://track.winit.com.cn/tracking/index.php?s=/Index/result  
+                        - **17TRACK**：https://www.17track.net/zh-cn — 承运商选择 **「Amazon Shipping + Amazon MCF」**。
+
+                        ---
+
+                        ## 输出约束（给模型）
+
+                        - **仅可使用**上文已出现的 URL 与域名；组合渠道须按表中顺序说明（如 AU Mix：先 CP 再 Fastway）。  
+                        - **勿**编造未在 KB 出现的链接；**勿**向客户口述内部飞书文档名。  
+                        - UK P2P 为「无」时不得在 `trackingPortalUrls` 中虚构 URL。
+
+
+                        ## 分支与 `structured.branch`
+
+                        1. **缺定位线索** → `need_info`；`missingFacts` 列出需补充字段；可建议 **`delivery-status`**。  
+                        2. **KB 唯一匹配** → `has_portals`；`trackingPortalUrls` 使用 KB 中 URL。  
+                        3. **多行可能命中** → `ambiguous`。  
+                        4. **冲突或 KB 未覆盖** → `need_human`。
+
+                        ## 输出格式（仅输出一个 JSON 对象，无围栏外文字）
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "fetchStatus": "fallback_links",
+                              "branch": "has_portals | need_info | ambiguous | need_human",
+                              "country": "",
+                              "matchedProductKey": "",
+                              "trackingPortalUrls": [],
+                              "selfServiceSteps": "",
+                              "suggestedNextExperts": [],
+                              "missingFacts": [],
+                              "events": [],
+                              "parseConfidence": "high | medium | low"
+                            },
+                            "analysis": "对客完整回复"
+                          }
+                        }
+                        ```
+
+                        ## 自检
+
+                        - `structured.branch` 与 `analysis` 一致。  
+                        - `structured.fetchStatus` 为 **`fallback_links`**。  
+                        - `trackingPortalUrls` 每条可在 **kbMd** 溯源。  
+                        - `events` 为 **`[]`**。  
+                        - 若意图为查件进度/提交查件，`suggestedNextExperts` 含 `tracking-inquiry`，`analysis` 中引导而非代为处理。
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "163001"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163001"
+              - name: lastMileProductName
+                input:
+                    value:
+                        path: lastMileProductName
+                        ref_node: "163001"
+              - name: carrierCode
+                input:
+                    value:
+                        path: carrierCode
+                        ref_node: "163001"
+              - name: region
+                input:
+                    value:
+                        path: region
+                        ref_node: "163001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163001"
+              - name: kbMd
+                input:
+                    value:
+                        path: kbMd
+                        ref_node: "163001"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163003"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 的 analysisResult，生成 result / outputContext
+               * FaaS 单文件闭环，无 external import。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【模式】仅 KB 官方物流查询网址与步骤：本专家不在节点内抓取承运商官网；`structured.fetchStatus` 恒为 `fallback_links`，`events` 置空。
+               * 【输入】analysisResult、inputContext
+               */
+
+              const TRACKING_BRANCHES = new Set(["has_portals", "need_info", "ambiguous", "need_human"]);
+
+              interface StStructured {
+                fetchStatus?: string;
+                branch?: string;
+                country?: string;
+                matchedProductKey?: string;
+                trackingPortalUrls?: string[];
+                selfServiceSteps?: string;
+                suggestedNextExperts?: string[];
+                missingFacts?: string[];
+                events?: unknown[];
+                parseConfidence?: string;
+              }
+
+              interface StAnalysisResult {
+                structured?: StStructured;
+                analysis?: string;
+              }
+
+              interface StInputContext {
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+                chainId?: string;
+              }
+
+              function asStringArray(v: unknown): string[] {
+                if (!Array.isArray(v)) return [];
+                return v.map((x) => String(x).trim()).filter(Boolean);
+              }
+
+              function coerceAnalysisResult(raw: unknown): { structured: StStructured; analysis: string } {
+                const fallbackStructured: StStructured = {
+                  fetchStatus: "fallback_links",
+                  branch: "need_human",
+                  country: "",
+                  matchedProductKey: "",
+                  trackingPortalUrls: [],
+                  selfServiceSteps: "",
+                  suggestedNextExperts: [],
+                  missingFacts: [],
+                  events: [],
+                };
+
+                if (raw == null) {
+                  return {
+                    structured: { ...fallbackStructured },
+                    analysis: "未收到模型输出。",
+                  };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as StAnalysisResult;
+                    if (parsed && typeof parsed === "object" && ("structured" in parsed || "analysis" in parsed)) {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch {
+                    /* fall through */
+                  }
+                  return {
+                    structured: { ...fallbackStructured },
+                    analysis: s || "解析失败，请人工查看原始模型输出。",
+                  };
+                }
+                const o = raw as StAnalysisResult;
+                const st = o.structured ?? {};
+                const branchRaw = typeof st.branch === "string" ? st.branch.trim() : "";
+                const branch = TRACKING_BRANCHES.has(branchRaw) ? branchRaw : "need_human";
+
+                return {
+                  structured: {
+                    fetchStatus: "fallback_links",
+                    branch,
+                    country: typeof st.country === "string" ? st.country.trim() : "",
+                    matchedProductKey: typeof st.matchedProductKey === "string" ? st.matchedProductKey.trim() : "",
+                    trackingPortalUrls: asStringArray(st.trackingPortalUrls),
+                    selfServiceSteps: typeof st.selfServiceSteps === "string" ? st.selfServiceSteps.trim() : "",
+                    suggestedNextExperts: asStringArray(st.suggestedNextExperts),
+                    missingFacts: asStringArray(st.missingFacts),
+                    events: [],
+                    parseConfidence:
+                      typeof st.parseConfidence === "string" ? st.parseConfidence.trim() : undefined,
+                  },
+                  analysis: typeof o.analysis === "string" ? o.analysis : "（无 analysis 字段）",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as StInputContext | undefined;
+                const summary = coerced.analysis.slice(0, 200) || "承运商轨迹查询入口分析完成";
+                const outputContext = {
+                  expertId: "supplier-tracking",
+                  resultSummary: summary,
+                  chainId: inputContext?.chainId ?? "",
+                };
+                return {
+                  structured: coerced.structured,
+                  analysis: coerced.analysis,
+                  outputContext,
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "163002"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "163001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "900001"

@@ -1,0 +1,113 @@
+{
+  "id": "refund-standard",
+  "domain": "last-mile",
+  "name": "赔付标准理解",
+  "description": "根据 WINIT 综合赔付标准、标准尾程（指定产品）与 Winit Fulfillment 组合尾程条款匹配适用规则（不含索赔单进度）。Use when 用户咨询赔付标准、赔偿上限、理赔窗口、丢件/破损/妥投未收到/仓内丢失等应适用哪条政策。",
+  "capabilities": [
+    "赔付标准",
+    "赔偿规则",
+    "条款匹配",
+    "理算说明"
+  ],
+  "version": "1.0.2",
+  "x_recaller_propagate_previous_enriched_context": true,
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "scenario": {
+        "type": "string",
+        "description": "场景类型或内部场景码；可与 customerIntent 二选一或并用",
+        "default": ""
+      },
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号/运单号（可选，供链式调用）"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "出库单号（可选，供与 delivery-status 等上游衔接）"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "上游合并的上下文：如产品/线路、目的国、服务级别、货值线索、轨迹摘要等，用于条款维度匹配"
+      },
+      "country": {
+        "type": "string",
+        "description": "目的国 ISO2（如 US、DE、UK），用于指定产品国家分片；可与 enrichedContext.destinationCountry 择一"
+      },
+      "destinationCountry": {
+        "type": "string",
+        "description": "同 country，便于上游字段命名对齐"
+      },
+      "destinationRegion": {
+        "type": "string",
+        "description": "部分上游用 destinationRegion 传国家码，与 country 等价"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "条款匹配结构化结果",
+        "properties": {
+          "policyBranch": {
+            "type": "string",
+            "enum": [
+              "winit_ops_sla",
+              "carrier_designated",
+              "carrier_winit_combo",
+              "unknown"
+            ],
+            "description": "赔付政策分支：WINIT综合SLA / 标准尾程指定产品 / Winit Fulfillment组合产品 / 未知"
+          },
+          "matchedRuleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "与知识库一致的规则/条款 ID 列表"
+          },
+          "scenarioSummary": {
+            "type": "string",
+            "description": "标准化场景一句话概括"
+          },
+          "dimensionsConsidered": {
+            "type": "object",
+            "description": "已采纳维度与 missing 缺失项列表"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "description": "匹配置信度"
+          },
+          "suggestedNextStep": {
+            "type": "string",
+            "description": "建议下游动作：route_to_substitute_claim（转代客索赔专家 substitute-claim）、need_order_details、escalate_human 等"
+          },
+          "scenarioApplicability": {
+            "type": "string",
+            "enum": ["applicable", "inapplicable", "not_checked"],
+            "description": "具体订单与所请求赔付场景的适用性；通用政策咨询为 not_checked"
+          }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "条款摘要、理算说明、免责与冲突处理说明（自然语言）"
+      }
+    }
+  }
+}

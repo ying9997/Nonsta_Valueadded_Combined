@@ -1,0 +1,2169 @@
+schema_version: 1.0.0
+name: e_template
+id: 7621923795871957002
+description: 专家模板（含选择器分支 + 代码/LLM/format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      expression:
+                          type: string
+                          value: null
+                          description: 待计算的算式；推荐使用 SKU_QTY(wh=仓库编码, sku=商品编码) 在式内声明仓与 SKU。无括号 SKU_QTY 时可选传 merchandiseCode 供与前置拉数结果对齐；库存数量由工作流内 fetch 节点/插件注入，不作为专家对外字段。不支持幂、函数及其它变量名
+                      merchandiseCode:
+                          type: string
+                          value: null
+                          description: 可选。无括号 SKU_QTY 时用于与 fetch 产出的 skuResolutions 按商品编码匹配（括号式在算式内已含 sku）
+                      warehouseCodes:
+                          type: string
+                          value: null
+                          description: 可选。无括号 SKU_QTY 时作为 id/58 的 warehouseCode；与 build-winit-inventory-data / fetch-sku-inventory 一致
+                      inventoryType:
+                          type: string
+                          value: null
+                          description: 可选，万邑通 queryProductInventoryList4Page（id/58）：Country / Warehouse，默认 Warehouse
+                      isActive:
+                          type: string
+                          value: null
+                          description: 可选，id/58 商品是否有效 Y/N，默认 Y
+                      pageNo:
+                          type: integer
+                          value: null
+                          description: 可选，id/58 分页页码 pageNum，默认 1
+                      pageSize:
+                          type: integer
+                          value: null
+                          description: 可选，id/58 每页条数 pageSize，默认 100
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "168002"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "168002"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "168002"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "168002"
+          terminatePlan: returnVariables
+    - id: "163201"
+      type: code
+      title: build-winit-inventory-data
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 165
+          y: -13
+      parameters:
+          code: |-
+              /**
+               * 节点：为万邑通 **queryProductInventoryList4Page**（id/58）拼装 OpenAPI 请求体 JSON 字符串，供前置 Coze 插件 **`data`** 入参使用。
+               * 单文件闭环，无外部 import。置于 **`fetch-sku-inventory` 与 openapi 插件上游**；**不作为**专家调用边界字段。
+               *
+               * 【输入】`main({ params })` → `params`（与 `fetch-sku-inventory` 对齐，来自 `inputs.*` 扁平）：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | expression | string | 检测 SKU_QTY / SKU_QTY(wh=,sku=) |
+               * | merchandiseCode / warehouseCodes | string（可选） | 无括号 SKU_QTY 时使用 |
+               * | inventoryType / isActive / pageNo / pageSize | 可选 | id/58；默认 Warehouse / Y / 1 / 100 |
+               *
+               * 【输出】：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | winitRequestData | string | `JSON.stringify` 后的 id/58 请求体；无需拉库存时为 `""` |
+               */
+
+              const SKU_QTY_BARE = "SKU_QTY";
+              const SKU_QTY_CALL_RE = /SKU_QTY\s*\(\s*wh\s*=\s*([^,)]+)\s*,\s*sku\s*=\s*([^)]+?)\s*\)/gi;
+
+              function buildQueryProductInventoryData(args: {
+                warehouseCode: string;
+                sku: string;
+                inventoryType: string;
+                isActive: string;
+                pageNum: number;
+                pageSize: number;
+                swapNameAndProductCode: boolean;
+              }): Record<string, unknown> {
+                const t = args.sku.trim();
+                let productCode = "";
+                let name = "";
+                const spaced = /\s/.test(t);
+                if (!args.swapNameAndProductCode) {
+                  if (spaced) name = t;
+                  else productCode = t;
+                } else {
+                  if (spaced) productCode = t;
+                  else name = t;
+                }
+                return {
+                  inventoryType: args.inventoryType.trim() || "Warehouse",
+                  warehouseCode: args.warehouseCode.trim(),
+                  isActive: args.isActive.trim() || "Y",
+                  productCode,
+                  name,
+                  DOITier: "",
+                  categoryID: "",
+                  specification: "",
+                  pageNum: String(args.pageNum),
+                  pageSize: String(args.pageSize),
+                };
+              }
+
+              function coerceFiniteNumber(v: unknown): number | null {
+                if (typeof v === "number" && Number.isFinite(v)) return v;
+                if (typeof v === "string" && v.trim() !== "") {
+                  const n = Number(v.trim());
+                  if (Number.isFinite(n)) return n;
+                }
+                return null;
+              }
+
+              function trimSkuArg(raw: string): string {
+                let t = raw.trim();
+                if (t.length >= 2) {
+                  const q = t[0];
+                  if ((q === '"' || q === "'") && t[t.length - 1] === q) {
+                    t = t.slice(1, -1).trim();
+                  }
+                }
+                return t;
+              }
+
+              type SkuCallMatch = { full: string; wh: string; sku: string; index: number };
+
+              function findSkuQtyCalls(expression: string): SkuCallMatch[] {
+                const re = new RegExp(SKU_QTY_CALL_RE.source, "gi");
+                const out: SkuCallMatch[] = [];
+                let m: RegExpExecArray | null;
+                while ((m = re.exec(expression)) !== null) {
+                  out.push({
+                    full: m[0],
+                    wh: trimSkuArg(m[1]),
+                    sku: trimSkuArg(m[2]),
+                    index: m.index,
+                  });
+                }
+                return out;
+              }
+
+              function remainderAfterCalls(expression: string, calls: SkuCallMatch[]): string {
+                let s = expression;
+                const sorted = [...calls].sort((a, b) => b.index - a.index);
+                for (const c of sorted) {
+                  s = s.slice(0, c.index) + s.slice(c.index + c.full.length);
+                }
+                return s;
+              }
+
+              function expressionNeedsInventoryFetch(expr: string): boolean {
+                return expr.includes(SKU_QTY_BARE);
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const expression = typeof params.expression === "string" ? params.expression : "";
+
+                if (!expressionNeedsInventoryFetch(expression)) {
+                  return { winitRequestData: "" };
+                }
+
+                const calls = findSkuQtyCalls(expression);
+                const remainder = remainderAfterCalls(expression, calls);
+
+                if (calls.length > 0 && remainder.includes(SKU_QTY_BARE)) {
+                  return { winitRequestData: "" };
+                }
+
+                if (/SKU_QTY\s*\(/i.test(remainder)) {
+                  return { winitRequestData: "" };
+                }
+
+                const pageNum = coerceFiniteNumber(params.pageNo) ?? 1;
+                const pageSize = coerceFiniteNumber(params.pageSize) ?? 100;
+                const inventoryType =
+                  typeof params.inventoryType === "string" && params.inventoryType.trim()
+                    ? params.inventoryType.trim()
+                    : "Warehouse";
+                const isActive =
+                  typeof params.isActive === "string" && params.isActive.trim() ? params.isActive.trim() : "Y";
+
+                if (calls.length > 0) {
+                  const first = calls[0];
+                  if (!first.wh || !first.sku) {
+                    return { winitRequestData: "" };
+                  }
+                  const dataObj = buildQueryProductInventoryData({
+                    warehouseCode: first.wh,
+                    sku: first.sku,
+                    inventoryType,
+                    isActive,
+                    pageNum,
+                    pageSize,
+                    swapNameAndProductCode: false,
+                  });
+                  return { winitRequestData: JSON.stringify(dataObj) };
+                }
+
+                if (remainder.includes(SKU_QTY_BARE)) {
+                  const warehouseCodes = typeof params.warehouseCodes === "string" ? params.warehouseCodes : "";
+                  const merchandiseCode = typeof params.merchandiseCode === "string" ? params.merchandiseCode : "";
+                  if (!warehouseCodes.trim() || !merchandiseCode.trim()) {
+                    return { winitRequestData: "" };
+                  }
+                  const dataObj = buildQueryProductInventoryData({
+                    warehouseCode: warehouseCodes,
+                    sku: merchandiseCode,
+                    inventoryType,
+                    isActive,
+                    pageNum,
+                    pageSize,
+                    swapNameAndProductCode: false,
+                  });
+                  return { winitRequestData: JSON.stringify(dataObj) };
+                }
+
+                return { winitRequestData: "" };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-winit-inventory-data")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: expression
+                input:
+                    type: string
+                    value:
+                        path: inputs.expression
+                        ref_node: "100001"
+              - name: merchandiseCode
+                input:
+                    type: string
+                    value:
+                        path: inputs.merchandiseCode
+                        ref_node: "100001"
+              - name: warehouseCodes
+                input:
+                    type: string
+                    value:
+                        path: inputs.warehouseCodes
+                        ref_node: "100001"
+              - name: inventoryType
+                input:
+                    type: string
+                    value:
+                        path: inputs.inventoryType
+                        ref_node: "100001"
+              - name: isActive
+                input:
+                    type: string
+                    value:
+                        path: inputs.isActive
+                        ref_node: "100001"
+              - name: pageNo
+                input:
+                    type: integer
+                    value:
+                        path: inputs.pageNo
+                        ref_node: "100001"
+              - name: pageSize
+                input:
+                    type: integer
+                    value:
+                        path: inputs.pageSize
+                        ref_node: "100001"
+          node_outputs:
+              winitRequestData:
+                  type: string
+                  value: null
+                  description: JSON 字符串，插件 data
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "115282"
+      type: plugin
+      title: winit_openapi_plugin
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 210
+          y: -13
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value: queryProductInventoryList4Page
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    value:
+                        path: winitRequestData
+                        ref_node: "163201"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              code:
+                  type: integer
+                  required: true
+                  value: null
+              data:
+                  type: string
+                  required: true
+                  value: null
+              msg:
+                  type: string
+                  required: true
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163203"
+      type: code
+      title: fetch-sku-inventory
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 300
+          y: -13
+      parameters:
+          code: |-
+              /**
+               * 节点：按算式中的 SKU_QTY / SKU_QTY(wh=,sku=) 拉取万邑通 **queryProductInventoryList4Page**（[文档 id/58](https://developer.winit.com.cn/document/detail/id/58.html)）可用库存 **qtyAvailable**，经 Coze workflow/run 代理。
+               * 单文件闭环，无外部 import。置于 `evaluate-expression` **之前**；产出 `skuResolutions` 供求值节点替换占位符。
+               * **`action`**（OpenAPI 方法名）为本节点与 Coze 插件侧**内置默认**（见 `nodes/winit-openapi-plugin.ts`），**不作为**专家调用边界顶层字段。
+               * Coze：前置 **`build-winit-inventory-data`** 拼装插件请求体；openapi 插件将**响应**绑定到 `skuUsableQty`。请求体 **`data`** 不由开始节点传入。
+               *
+               * 【输入】`main({ params })` → `params`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | expression | string | 用于检测占位符；来自 `inputs.expression` |
+               * | skuUsableQty | number \| string（可选） | 插件预取时传入 |
+               * | warehouseCodes / merchandiseCode | string（可选） | 无括号 SKU_QTY 时使用 |
+               * | inventoryType / isActive / pageNo / pageSize | 可选 | 见 id/58；默认 Warehouse / Y / 1 / 100 |
+               * | winitRequestData | string（可选） | 前置 `build-winit-inventory-data` 产出；**首轮**（swap=false）`workflow/run` 优先用此字符串作 `parameters.data`，否则本地拼装 |
+               *
+               * 【输出】`return ret`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | skuResolutions | { warehouse, sku, usableQty }[] | usableQty 对应接口 **qtyAvailable** |
+               * | inventoryFetchOk | boolean | false 时求值节点应短路失败 |
+               * | inventoryFetchError | null \| { code: string; message: string } | 失败原因 |
+               * | inventoryBranch | string | `inventory_skip` / `inventory_ready` / `inventory_failed`（勿与求值节点 `branch` 混用） |
+               */
+
+              const SKU_QTY_BARE = "SKU_QTY";
+              /** 万邑通 OpenAPI 接口名（id/58）；与旧 pageInv 不同，部分 Coze 代理需 `winit.inventory.type.*` 形态，可用环境变量覆盖 */
+              const QUERY_PRODUCT_INVENTORY_ACTION = "queryProductInventoryList4Page";
+
+              function resolveInventoryOpenapiAction(): string {
+                if (typeof process !== "undefined" && process.env?.COZE_WINIT_INVENTORY_ACTION?.trim()) {
+                  return process.env.COZE_WINIT_INVENTORY_ACTION.trim();
+                }
+                return QUERY_PRODUCT_INVENTORY_ACTION;
+              }
+              const SKU_QTY_CALL_RE = /SKU_QTY\s*\(\s*wh\s*=\s*([^,)]+)\s*,\s*sku\s*=\s*([^)]+?)\s*\)/gi;
+
+              type OpenapiProxyWorkflowParameters = {
+                action: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                data: string;
+              };
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              async function runCozeOpenapiProxyWorkflow(options: {
+                apiToken: string;
+                workflowId: string;
+                baseUrl?: string;
+                parameters: OpenapiProxyWorkflowParameters;
+              }): Promise<unknown> {
+                const baseFromEnv = typeof process !== "undefined" ? process.env?.COZE_API_BASE_URL : undefined;
+                const baseUrl = (options.baseUrl ?? baseFromEnv ?? "https://api.coze.cn").replace(/\/$/, "");
+                const url = `${baseUrl}/v1/workflow/run`;
+
+                const res = await fetch(url, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${options.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: String(options.workflowId),
+                    parameters: options.parameters,
+                  }),
+                });
+
+                const text = await res.text();
+                let body: unknown;
+                try {
+                  body = JSON.parse(text) as unknown;
+                } catch {
+                  throw new Error(`Coze workflow/run 响应非 JSON（HTTP ${res.status}）: ${text.slice(0, 500)}`);
+                }
+
+                const obj = body as Record<string, unknown>;
+
+                if (!res.ok) {
+                  const msg = String(obj.msg ?? obj.message ?? text);
+                  throw new Error(`Coze workflow/run HTTP ${res.status}: ${msg.slice(0, 500)}`);
+                }
+
+                const code = obj.code;
+                if (code !== 0 && code !== "0") {
+                  const msg = String(obj.msg ?? obj.message ?? "unknown");
+                  const debug = obj.debug_url != null ? ` debug_url=${String(obj.debug_url)}` : "";
+                  throw new Error(`Coze workflow 失败 code=${String(code)} msg=${msg}${debug}`);
+                }
+
+                return parseCozeWorkflowDataField(obj.data);
+              }
+
+              function getCozeOpenapiProxyEnv(): {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                baseUrl?: string;
+              } | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId = process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  baseUrl: process.env.COZE_API_BASE_URL,
+                };
+              }
+
+              /** id/58 请求体 data；含空格的商品串走 name，否则走 productCode；swap 时对调二者尝试 */
+              function buildQueryProductInventoryData(args: {
+                warehouseCode: string;
+                sku: string;
+                inventoryType: string;
+                isActive: string;
+                pageNum: number;
+                pageSize: number;
+                swapNameAndProductCode: boolean;
+              }): Record<string, unknown> {
+                const t = args.sku.trim();
+                let productCode = "";
+                let name = "";
+                const spaced = /\s/.test(t);
+                if (!args.swapNameAndProductCode) {
+                  if (spaced) name = t;
+                  else productCode = t;
+                } else {
+                  if (spaced) productCode = t;
+                  else name = t;
+                }
+                return {
+                  inventoryType: args.inventoryType.trim() || "Warehouse",
+                  warehouseCode: args.warehouseCode.trim(),
+                  isActive: args.isActive.trim() || "Y",
+                  productCode,
+                  name,
+                  DOITier: "",
+                  categoryID: "",
+                  specification: "",
+                  pageNum: String(args.pageNum),
+                  pageSize: String(args.pageSize),
+                };
+              }
+
+              function coerceFiniteNumber(v: unknown): number | null {
+                if (typeof v === "number" && Number.isFinite(v)) return v;
+                if (typeof v === "string" && v.trim() !== "") {
+                  const n = Number(v.trim());
+                  if (Number.isFinite(n)) return n;
+                }
+                return null;
+              }
+
+              function trimSkuArg(raw: string): string {
+                let t = raw.trim();
+                if (t.length >= 2) {
+                  const q = t[0];
+                  if ((q === '"' || q === "'") && t[t.length - 1] === q) {
+                    t = t.slice(1, -1).trim();
+                  }
+                }
+                return t;
+              }
+
+              type SkuCallMatch = { full: string; wh: string; sku: string; index: number };
+
+              function findSkuQtyCalls(expression: string): SkuCallMatch[] {
+                const re = new RegExp(SKU_QTY_CALL_RE.source, "gi");
+                const out: SkuCallMatch[] = [];
+                let m: RegExpExecArray | null;
+                while ((m = re.exec(expression)) !== null) {
+                  out.push({
+                    full: m[0],
+                    wh: trimSkuArg(m[1]),
+                    sku: trimSkuArg(m[2]),
+                    index: m.index,
+                  });
+                }
+                return out;
+              }
+
+              function remainderAfterCalls(expression: string, calls: SkuCallMatch[]): string {
+                let s = expression;
+                const sorted = [...calls].sort((a, b) => b.index - a.index);
+                for (const c of sorted) {
+                  s = s.slice(0, c.index) + s.slice(c.index + c.full.length);
+                }
+                return s;
+              }
+
+              function unwrapDataField(o: Record<string, unknown>): Record<string, unknown> {
+                let d: unknown = o.data;
+                if (typeof d === "string") {
+                  try {
+                    d = JSON.parse(d) as unknown;
+                  } catch {
+                    return o;
+                  }
+                }
+                if (d && typeof d === "object") return d as Record<string, unknown>;
+                return o;
+              }
+
+              /** 解析万邑通 OpenAPI 风格或仅 data 片段；返回 list 与业务 code */
+              function parseWinitInventoryListPayload(parsed: unknown): {
+                ok: boolean;
+                list: unknown[];
+                msg: string;
+              } {
+                let cur: unknown = parsed;
+                if (typeof cur === "string") {
+                  try {
+                    cur = JSON.parse(cur) as unknown;
+                  } catch {
+                    return { ok: false, list: [], msg: "响应非 JSON" };
+                  }
+                }
+                if (cur == null || typeof cur !== "object") {
+                  return { ok: false, list: [], msg: "空响应" };
+                }
+
+                const root = cur as Record<string, unknown>;
+                const c = root.code;
+                /** 万邑通部分响应在成功时 code 为空串，仅带 msg「操作成功」；空串不得按失败处理 */
+                const bizFailed =
+                  c !== undefined && c !== null && c !== "" && c !== 0 && c !== "0";
+                if (bizFailed) {
+                  let msg = String(root.msg ?? "接口业务失败");
+                  const innerData = root.data;
+                  if (typeof innerData === "string" && innerData.includes("No handler found")) {
+                    msg = `${msg}（代理未注册该 action 对应路由：${innerData.slice(0, 200)}）`;
+                  }
+                  return { ok: false, list: [], msg };
+                }
+
+                const inner = unwrapDataField(root);
+                const list = inner.list;
+                if (!Array.isArray(list)) {
+                  return { ok: true, list: [], msg: "" };
+                }
+                return { ok: true, list, msg: "" };
+              }
+
+              function findMatchingInventoryRow(
+                list: unknown[],
+                warehouseCode: string,
+                sku: string
+              ): Record<string, unknown> | null {
+                const whU = warehouseCode.trim().toUpperCase();
+                const skuT = sku.trim();
+                for (const item of list) {
+                  if (!item || typeof item !== "object") continue;
+                  const r = item as Record<string, unknown>;
+                  const wc = String(r.warehouseCode ?? "").trim().toUpperCase();
+                  if (wc !== whU) continue;
+                  const pc = String(r.productCode ?? "").trim();
+                  const nm = String(r.name ?? "").trim();
+                  const en = String(r.eName ?? "").trim();
+                  if (pc === skuT || nm === skuT || en === skuT) {
+                    return r;
+                  }
+                }
+                return null;
+              }
+
+              function pairKey(wh: string, sku: string): string {
+                return `${wh}\0${sku}`;
+              }
+
+              async function fetchUsableQtyForWhSku(
+                env: NonNullable<ReturnType<typeof getCozeOpenapiProxyEnv>>,
+                params: Record<string, unknown>,
+                warehouseCode: string,
+                sku: string
+              ): Promise<
+                | { ok: true; qty: number }
+                | { ok: false; errorCode: string; message: string }
+              > {
+                const pageNum = coerceFiniteNumber(params.pageNo) ?? 1;
+                const pageSize = coerceFiniteNumber(params.pageSize) ?? 100;
+                const inventoryType =
+                  typeof params.inventoryType === "string" && params.inventoryType.trim()
+                    ? params.inventoryType.trim()
+                    : "Warehouse";
+                const isActive =
+                  typeof params.isActive === "string" && params.isActive.trim() ? params.isActive.trim() : "Y";
+
+                if (!warehouseCode.trim() || !sku.trim()) {
+                  return {
+                    ok: false,
+                    errorCode: "inventory_missing_params",
+                    message: "拉取 queryProductInventoryList4Page 需 warehouseCode 与商品（sku/merchandiseCode）。",
+                  };
+                }
+
+                const attempts: boolean[] = [false, true];
+
+                for (const swap of attempts) {
+                  const winitRequestDataRaw = params.winitRequestData;
+                  const prebuilt =
+                    !swap &&
+                    typeof winitRequestDataRaw === "string" &&
+                    winitRequestDataRaw.trim() !== "";
+                  const dataStr = prebuilt
+                    ? winitRequestDataRaw.trim()
+                    : JSON.stringify(
+                        buildQueryProductInventoryData({
+                          warehouseCode,
+                          sku,
+                          inventoryType,
+                          isActive,
+                          pageNum,
+                          pageSize,
+                          swapNameAndProductCode: swap,
+                        })
+                      );
+
+                  let raw: unknown;
+                  try {
+                    raw = await runCozeOpenapiProxyWorkflow({
+                      apiToken: env.apiToken,
+                      workflowId: env.workflowId,
+                      baseUrl: env.baseUrl,
+                      parameters: {
+                        action: resolveInventoryOpenapiAction(),
+                        customerCode: env.customerCode,
+                        customerName: env.customerName,
+                        username: env.username,
+                        data: dataStr,
+                      },
+                    });
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    return { ok: false, errorCode: "inventory_remote", message: msg.slice(0, 500) };
+                  }
+
+                  const parsed = parseWinitInventoryListPayload(raw);
+                  if (!parsed.ok) {
+                    return { ok: false, errorCode: "inventory_remote", message: parsed.msg.slice(0, 500) };
+                  }
+
+                  const row = findMatchingInventoryRow(parsed.list, warehouseCode, sku);
+                  if (row) {
+                    const qty = coerceFiniteNumber(row.qtyAvailable);
+                    if (qty == null) {
+                      return {
+                        ok: false,
+                        errorCode: "inventory_empty",
+                        message: "库存接口已匹配行但未解析到 qtyAvailable。",
+                      };
+                    }
+                    return { ok: true, qty };
+                  }
+                }
+
+                return {
+                  ok: false,
+                  errorCode: "inventory_empty",
+                  message:
+                    "queryProductInventoryList4Page 未在 list 中匹配到指定仓库与商品（请核对 warehouseCode、productCode/商品名称与 id/58 入参）。",
+                };
+              }
+
+              function expressionNeedsInventoryFetch(expr: string): boolean {
+                return expr.includes(SKU_QTY_BARE);
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const expression = typeof params.expression === "string" ? params.expression : "";
+
+                const okSkip = {
+                  skuResolutions: [] as { warehouse: string; sku: string; usableQty: number }[],
+                  inventoryFetchOk: true,
+                  inventoryFetchError: null as { code: string; message: string } | null,
+                  inventoryBranch: "inventory_skip" as const,
+                };
+
+                if (!expressionNeedsInventoryFetch(expression)) {
+                  return okSkip;
+                }
+
+                const calls = findSkuQtyCalls(expression);
+                const remainder = remainderAfterCalls(expression, calls);
+
+                if (calls.length > 0 && remainder.includes(SKU_QTY_BARE)) {
+                  return {
+                    skuResolutions: [],
+                    inventoryFetchOk: false,
+                    inventoryFetchError: {
+                      code: "inventory_ambiguous",
+                      message: "请勿在同一算式中混用 SKU_QTY(wh=,sku=) 与无括号的 SKU_QTY。",
+                    },
+                    inventoryBranch: "inventory_failed" as const,
+                  };
+                }
+
+                if (/SKU_QTY\s*\(/i.test(remainder)) {
+                  return {
+                    skuResolutions: [],
+                    inventoryFetchOk: false,
+                    inventoryFetchError: {
+                      code: "inventory_placeholder_malformed",
+                      message:
+                        "存在无法解析的 SKU_QTY(…)；请使用 SKU_QTY(wh=仓库编码, sku=商品编码)，注意逗号与括号配对。",
+                    },
+                    inventoryBranch: "inventory_failed" as const,
+                  };
+                }
+
+                const directOverride = coerceFiniteNumber(params.skuUsableQty);
+                const uniquePairs = new Map<string, { wh: string; sku: string }>();
+                for (const c of calls) {
+                  if (!c.wh || !c.sku) {
+                    return {
+                      skuResolutions: [],
+                      inventoryFetchOk: false,
+                      inventoryFetchError: {
+                        code: "inventory_missing_params",
+                        message: "SKU_QTY(wh=, sku=) 中 wh 与 sku 均不能为空。",
+                      },
+                      inventoryBranch: "inventory_failed" as const,
+                    };
+                  }
+                  uniquePairs.set(pairKey(c.wh, c.sku), { wh: c.wh, sku: c.sku });
+                }
+
+                if (calls.length > 0 && directOverride != null && uniquePairs.size > 1) {
+                  return {
+                    skuResolutions: [],
+                    inventoryFetchOk: false,
+                    inventoryFetchError: {
+                      code: "inventory_ambiguous",
+                      message:
+                        "算式含多个不同 SKU_QTY(wh=,sku=) 时不能使用单一 skuUsableQty；请分别拉取或拆分工作流。",
+                    },
+                    inventoryBranch: "inventory_failed" as const,
+                  };
+                }
+
+                const skuResolutions: { warehouse: string; sku: string; usableQty: number }[] = [];
+
+                if (calls.length > 0) {
+                  if (directOverride != null) {
+                    for (const { wh, sku } of uniquePairs.values()) {
+                      skuResolutions.push({ warehouse: wh, sku, usableQty: directOverride });
+                    }
+                  } else {
+                    const env = getCozeOpenapiProxyEnv();
+                    if (!env) {
+                      return {
+                        skuResolutions: [],
+                        inventoryFetchOk: false,
+                        inventoryFetchError: {
+                          code: "inventory_unconfigured",
+                          message:
+                            "算式含 SKU_QTY(wh=,sku=) 但未提供 skuUsableQty，且未配置 COZE_API_TOKEN + COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID + COZE_WINIT_CUSTOMER_CODE + COZE_WINIT_CUSTOMER_NAME + COZE_WINIT_USERNAME。",
+                        },
+                        inventoryBranch: "inventory_failed" as const,
+                      };
+                    }
+                    const seen = new Set<string>();
+                    for (const { wh, sku } of uniquePairs.values()) {
+                      const k = pairKey(wh, sku);
+                      if (seen.has(k)) continue;
+                      seen.add(k);
+                      const r = await fetchUsableQtyForWhSku(env, params, wh, sku);
+                      if (!r.ok) {
+                        return {
+                          skuResolutions: [],
+                          inventoryFetchOk: false,
+                          inventoryFetchError: { code: r.errorCode, message: r.message },
+                          inventoryBranch: "inventory_failed" as const,
+                        };
+                      }
+                      skuResolutions.push({ warehouse: wh, sku, usableQty: r.qty });
+                    }
+                  }
+                }
+
+                if (remainder.includes(SKU_QTY_BARE)) {
+                  if (directOverride != null && calls.length === 0) {
+                    const wc = typeof params.warehouseCodes === "string" ? params.warehouseCodes : "";
+                    const mc = typeof params.merchandiseCode === "string" ? params.merchandiseCode : "";
+                    return {
+                      skuResolutions: [{ warehouse: wc, sku: mc, usableQty: directOverride }],
+                      inventoryFetchOk: true,
+                      inventoryFetchError: null,
+                      inventoryBranch: "inventory_ready" as const,
+                    };
+                  }
+                  const env = getCozeOpenapiProxyEnv();
+                  if (!env) {
+                    return {
+                      skuResolutions: [],
+                      inventoryFetchOk: false,
+                      inventoryFetchError: {
+                        code: "inventory_unconfigured",
+                        message:
+                          "算式含无括号 SKU_QTY 但未配置代理环境变量，或未传 skuUsableQty（可由前置插件写入）。",
+                      },
+                      inventoryBranch: "inventory_failed" as const,
+                    };
+                  }
+                  const warehouseCodes = typeof params.warehouseCodes === "string" ? params.warehouseCodes : "";
+                  const merchandiseCode = typeof params.merchandiseCode === "string" ? params.merchandiseCode : "";
+                  const r = await fetchUsableQtyForWhSku(env, params, warehouseCodes, merchandiseCode);
+                  if (!r.ok) {
+                    return {
+                      skuResolutions: [],
+                      inventoryFetchOk: false,
+                      inventoryFetchError: { code: r.errorCode, message: r.message },
+                      inventoryBranch: "inventory_failed" as const,
+                    };
+                  }
+                  skuResolutions.push({
+                    warehouse: warehouseCodes.trim(),
+                    sku: merchandiseCode.trim(),
+                    usableQty: r.qty,
+                  });
+                }
+
+                return {
+                  skuResolutions,
+                  inventoryFetchOk: true,
+                  inventoryFetchError: null,
+                  inventoryBranch: "inventory_ready" as const,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-sku-inventory")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: expression
+                input:
+                    type: string
+                    value:
+                        path: inputs.expression
+                        ref_node: "100001"
+              - name: skuUsableQty
+                input:
+                    type: string
+                    description: 插件响应 data，可为 JSON 字符串
+                    value:
+                        path: data
+                        ref_node: "115282"
+              - name: merchandiseCode
+                input:
+                    type: string
+                    value:
+                        path: inputs.merchandiseCode
+                        ref_node: "100001"
+              - name: inventoryType
+                input:
+                    type: string
+                    value:
+                        path: inputs.inventoryType
+                        ref_node: "100001"
+              - name: isActive
+                input:
+                    type: string
+                    value:
+                        path: inputs.isActive
+                        ref_node: "100001"
+              - name: pageNo
+                input:
+                    type: integer
+                    value:
+                        path: inputs.pageNo
+                        ref_node: "100001"
+              - name: pageSize
+                input:
+                    type: integer
+                    value:
+                        path: inputs.pageSize
+                        ref_node: "100001"
+              - name: winitRequestData
+                input:
+                    type: string
+                    value:
+                        path: winitRequestData
+                        ref_node: "163201"
+          node_outputs:
+              skuResolutions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          warehouse:
+                              type: string
+                              value: null
+                          sku:
+                              type: string
+                              value: null
+                          usableQty:
+                              type: float
+                              value: null
+                  value: null
+              inventoryFetchOk:
+                  type: boolean
+                  value: null
+              inventoryFetchError:
+                  type: object
+                  value: null
+                  properties:
+                      code:
+                          type: string
+                          value: null
+                      message:
+                          type: string
+                          value: null
+              inventoryBranch:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163198"
+      type: code
+      title: evaluate-expression
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: -13
+      parameters:
+          code: |-
+              /**
+               * 四则运算求值（模板示例节点）
+               * 单文件闭环，无外部 import —— 可直接复制到 Coze 代码节点。
+               * 与 `workflow.json` 中本节点 `inputs` / `outputs` 一致。
+               *
+               * **库存占位符替换**依赖前置节点 **`fetch-sku-inventory`** 的 `skuResolutions` / `inventoryFetchOk`（本地 Runner 顺序在 `workflow.json` 中已固定）。
+               * 不在本节点内调用 OpenAPI 或 `workflow/run`。Coze：将插件输出绑定到 **`fetch-sku-inventory`** 的节点入参（非开始节点对外字段）。
+               *
+               * 【输入】`main({ params })` → `params`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | query | string | 上游 Agent 委托任务说明 |
+               * | customerIntent | string | 客户问题/诉求摘要 |
+               * | expression | string | 待求值算式；可含 SKU_QTY(wh=,sku=) 或 bare SKU_QTY |
+               * | inputContext | object（可选） | 链式上下文 |
+               * | skuResolutions | array（可选） | 前置 `fetch-sku-inventory` 产出 |
+               * | inventoryFetchOk | boolean（可选） | 为 false 且算式含库存占位符时失败 |
+               * | inventoryFetchError | object（可选） | `{ code, message }` |
+               * | merchandiseCode | string（可选） | 无括号 SKU_QTY 时与 skuResolutions 中 sku 匹配（专家入参，见 manifest） |
+               *
+               * 【输出】`return ret`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | result | { structured: object; analysis: string } | structured 可含 skuResolutions、skuUsableQtyUsed |
+               * | outputContext | { expertId, resultSummary, chainId? } | expertId=`arithmetic-formula` |
+               * | branch | string | `with_review` / `skip_review` |
+               */
+
+              const EXPERT_ID = "arithmetic-formula";
+              const SKU_QTY_BARE = "SKU_QTY";
+              const SKU_QTY_CALL_RE = /SKU_QTY\s*\(\s*wh\s*=\s*([^,)]+)\s*,\s*sku\s*=\s*([^)]+?)\s*\)/gi;
+
+              const SAFE_EXPR = /^[\d\s+\-*/().]+$/;
+
+              type SkuResolution = { warehouse: string; sku: string; usableQty: number };
+
+              function trimSkuArg(raw: string): string {
+                let t = raw.trim();
+                if (t.length >= 2) {
+                  const q = t[0];
+                  if ((q === '"' || q === "'") && t[t.length - 1] === q) {
+                    t = t.slice(1, -1).trim();
+                  }
+                }
+                return t;
+              }
+
+              type SkuCallMatch = { full: string; wh: string; sku: string; index: number };
+
+              function findSkuQtyCalls(expression: string): SkuCallMatch[] {
+                const re = new RegExp(SKU_QTY_CALL_RE.source, "gi");
+                const out: SkuCallMatch[] = [];
+                let m: RegExpExecArray | null;
+                while ((m = re.exec(expression)) !== null) {
+                  out.push({
+                    full: m[0],
+                    wh: trimSkuArg(m[1]),
+                    sku: trimSkuArg(m[2]),
+                    index: m.index,
+                  });
+                }
+                return out;
+              }
+
+              function remainderAfterCalls(expression: string, calls: SkuCallMatch[]): string {
+                let s = expression;
+                const sorted = [...calls].sort((a, b) => b.index - a.index);
+                for (const c of sorted) {
+                  s = s.slice(0, c.index) + s.slice(c.index + c.full.length);
+                }
+                return s;
+              }
+
+              function pairKey(wh: string, sku: string): string {
+                return `${wh}\0${sku}`;
+              }
+
+              function normalizeSkuResolutions(raw: unknown): SkuResolution[] {
+                if (!Array.isArray(raw)) return [];
+                const out: SkuResolution[] = [];
+                for (const item of raw) {
+                  if (!item || typeof item !== "object") continue;
+                  const o = item as Record<string, unknown>;
+                  const warehouse = typeof o.warehouse === "string" ? o.warehouse : "";
+                  const sku = typeof o.sku === "string" ? o.sku : "";
+                  const q = o.usableQty;
+                  const usableQty =
+                    typeof q === "number" && Number.isFinite(q)
+                      ? q
+                      : typeof q === "string" && q.trim() !== ""
+                        ? Number(q.trim())
+                        : NaN;
+                  if (!Number.isFinite(usableQty)) continue;
+                  out.push({ warehouse, sku, usableQty });
+                }
+                return out;
+              }
+
+              type InvErr = {
+                ok: false;
+                errorCode: string;
+                message: string;
+              };
+
+              type SubstituteOk = {
+                ok: true;
+                expression: string;
+                skuResolutions: SkuResolution[];
+                bareOverrideQty?: number;
+              };
+
+              function resolutionMapFromList(list: SkuResolution[]): Map<string, number> {
+                const m = new Map<string, number>();
+                for (const r of list) {
+                  m.set(pairKey(r.warehouse.trim(), r.sku.trim()), r.usableQty);
+                }
+                return m;
+              }
+
+              function substituteSkuPlaceholders(expression: string, params: Record<string, unknown>): SubstituteOk | InvErr {
+                const fetchFailed = params.inventoryFetchOk === false;
+                const fetchErrRaw = params.inventoryFetchError;
+                const fetchErr =
+                  fetchErrRaw && typeof fetchErrRaw === "object" && fetchErrRaw !== null && !Array.isArray(fetchErrRaw)
+                    ? (fetchErrRaw as Record<string, unknown>)
+                    : null;
+
+                const calls = findSkuQtyCalls(expression);
+                const remainder = remainderAfterCalls(expression, calls);
+
+                if (calls.length > 0 && remainder.includes(SKU_QTY_BARE)) {
+                  return {
+                    ok: false,
+                    errorCode: "inventory_ambiguous",
+                    message: "请勿在同一算式中混用 SKU_QTY(wh=,sku=) 与无括号的 SKU_QTY。",
+                  };
+                }
+
+                if (/SKU_QTY\s*\(/i.test(remainder)) {
+                  return {
+                    ok: false,
+                    errorCode: "inventory_placeholder_malformed",
+                    message:
+                      "存在无法解析的 SKU_QTY(…)；请使用 SKU_QTY(wh=仓库编码, sku=商品编码)，注意逗号与括号配对。",
+                  };
+                }
+
+                if (!expression.includes(SKU_QTY_BARE)) {
+                  return { ok: true, expression, skuResolutions: [] };
+                }
+
+                if (fetchFailed && fetchErr) {
+                  const code = String(fetchErr.code ?? "inventory_failed");
+                  const message = String(fetchErr.message ?? "前置库存节点失败");
+                  return { ok: false, errorCode: code, message };
+                }
+
+                const skuResolutions = normalizeSkuResolutions(params.skuResolutions);
+                const qtyMap = resolutionMapFromList(skuResolutions);
+
+                for (const c of calls) {
+                  if (!c.wh || !c.sku) {
+                    return {
+                      ok: false,
+                      errorCode: "inventory_missing_params",
+                      message: "SKU_QTY(wh=, sku=) 中 wh 与 sku 均不能为空。",
+                    };
+                  }
+                }
+
+                const qtyByPair = new Map<string, number>();
+                for (const c of calls) {
+                  const k = pairKey(c.wh, c.sku);
+                  let q = qtyMap.get(k);
+                  if (q === undefined) {
+                    q = qtyMap.get(pairKey(c.wh.trim(), c.sku.trim()));
+                  }
+                  if (q === undefined) {
+                    return {
+                      ok: false,
+                      errorCode: "inventory_missing_upstream",
+                      message: `缺少仓库「${c.wh}」SKU「${c.sku}」的可用库存；请确认前置 fetch-sku-inventory 已执行且 skuResolutions 已绑定。`,
+                    };
+                  }
+                  qtyByPair.set(k, q);
+                }
+
+                let work = expression;
+                const sortedCalls = [...calls].sort((a, b) => b.index - a.index);
+                for (const c of sortedCalls) {
+                  const k = pairKey(c.wh, c.sku);
+                  const q = qtyByPair.get(k);
+                  if (q === undefined) {
+                    return { ok: false, errorCode: "inventory_missing_upstream", message: "内部错误：未匹配到库存数量。" };
+                  }
+                  work = work.slice(0, c.index) + String(q) + work.slice(c.index + c.full.length);
+                }
+
+                let outResolutions: SkuResolution[] = [];
+                let bareOverrideQty: number | undefined;
+
+                if (remainder.includes(SKU_QTY_BARE)) {
+                  const mc = typeof params.merchandiseCode === "string" ? params.merchandiseCode.trim() : "";
+                  let bareQty: number | undefined;
+                  if (skuResolutions.length === 1) {
+                    bareQty = skuResolutions[0].usableQty;
+                  } else if (mc && skuResolutions.length > 0) {
+                    const hits = skuResolutions.filter((r) => r.sku.trim() === mc);
+                    if (hits.length === 1) bareQty = hits[0].usableQty;
+                  }
+                  if (bareQty === undefined) {
+                    return {
+                      ok: false,
+                      errorCode: "inventory_missing_upstream",
+                      message:
+                        "无括号 SKU_QTY 需要前置 fetch 提供 skuResolutions：仅一条记录，或与专家入参 merchandiseCode 能唯一匹配一条。",
+                    };
+                  }
+                  work = work.split(SKU_QTY_BARE).join(String(bareQty));
+                  if (calls.length === 0) {
+                    if (skuResolutions.length === 1) {
+                      outResolutions = [...skuResolutions];
+                      const r0 = outResolutions[0];
+                      if (r0.warehouse === "" && r0.sku === "") {
+                        bareOverrideQty = bareQty;
+                        outResolutions = [];
+                      }
+                    } else {
+                      const hit =
+                        mc && skuResolutions.length > 0
+                          ? skuResolutions.find((r) => r.sku.trim() === mc)
+                          : undefined;
+                      outResolutions = [
+                        {
+                          warehouse: hit?.warehouse ?? "",
+                          sku: hit?.sku ?? mc,
+                          usableQty: bareQty,
+                        },
+                      ];
+                    }
+                  }
+                } else if (calls.length > 0) {
+                  outResolutions = [...skuResolutions];
+                }
+
+                return { ok: true, expression: work, skuResolutions: outResolutions, bareOverrideQty };
+              }
+
+              function expressionNeedsInventoryPass(expr: string): boolean {
+                return expr.includes(SKU_QTY_BARE);
+              }
+
+              function getChainId(params: Record<string, unknown>): string | undefined {
+                const ic = params.inputContext;
+                if (ic && typeof ic === "object" && "chainId" in ic) {
+                  const c = (ic as Record<string, unknown>).chainId;
+                  return typeof c === "string" ? c : undefined;
+                }
+                return undefined;
+              }
+
+              function evaluateArithmetic(raw: string): {
+                valid: boolean;
+                value?: number;
+                expressionNormalized: string;
+                errorCode?: string;
+              } {
+                const expressionNormalized = raw.replace(/\s+/g, "");
+                if (!expressionNormalized) {
+                  return { valid: false, expressionNormalized: "", errorCode: "empty" };
+                }
+                if (!SAFE_EXPR.test(raw)) {
+                  return { valid: false, expressionNormalized, errorCode: "invalid_chars" };
+                }
+                if (raw.includes("**") || raw.includes("//")) {
+                  return { valid: false, expressionNormalized, errorCode: "invalid_chars" };
+                }
+                try {
+                  const fn = new Function(`"use strict"; return (${expressionNormalized});`);
+                  const v = fn();
+                  if (typeof v !== "number" || !Number.isFinite(v)) {
+                    return { valid: false, expressionNormalized, errorCode: "non_finite" };
+                  }
+                  return { valid: true, value: v, expressionNormalized };
+                } catch {
+                  return { valid: false, expressionNormalized, errorCode: "syntax" };
+                }
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const query = typeof params.query === "string" ? params.query : "";
+                const customerIntent = typeof params.customerIntent === "string" ? params.customerIntent : "";
+                const expression = typeof params.expression === "string" ? params.expression : "";
+
+                const chainId = getChainId(params);
+
+                let substitutedExpression = expression;
+                let skuResolutions: SkuResolution[] = [];
+                let bareOverrideQty: number | undefined;
+
+                if (expressionNeedsInventoryPass(expression)) {
+                  const sub = substituteSkuPlaceholders(expression, params);
+                  if (!sub.ok) {
+                    let analysis = sub.message;
+                    if (customerIntent) analysis += ` 客户诉求摘要：${customerIntent}`;
+                    const structured = {
+                      valid: false,
+                      expressionNormalized: expression.replace(/\s+/g, ""),
+                      errorCode: sub.errorCode,
+                    };
+                    return {
+                      result: { structured, analysis },
+                      outputContext: {
+                        expertId: EXPERT_ID,
+                        resultSummary: `失败:${sub.errorCode}`,
+                        chainId,
+                      },
+                      branch: "skip_review" as const,
+                    };
+                  }
+                  substitutedExpression = sub.expression;
+                  skuResolutions = sub.skuResolutions;
+                  bareOverrideQty = sub.bareOverrideQty;
+                }
+
+                const ev = evaluateArithmetic(substitutedExpression);
+
+                let analysis: string;
+                if (ev.valid && ev.value !== undefined) {
+                  analysis = `算式 ${ev.expressionNormalized} = ${ev.value}`;
+                  if (skuResolutions.length > 0) {
+                    const parts = skuResolutions.map((r) => `${r.warehouse}/${r.sku}→${r.usableQty}`);
+                    analysis += `（库存替换：${parts.join("；")}）`;
+                  }
+                  if (customerIntent) analysis += `。客户侧诉求：${customerIntent}`;
+                  if (query) analysis += `。上游任务：${query}`;
+                } else {
+                  const hint =
+                    ev.errorCode === "empty"
+                      ? "请提供非空 expression（算式字符串）。"
+                      : ev.errorCode === "invalid_chars"
+                        ? "算式仅支持数字与 + - * / 括号（请先完成库存占位符替换）。"
+                        : ev.errorCode === "syntax"
+                          ? "算式语法无效，请检查括号与运算符。"
+                          : "无法得到有限数值（如除零或未定义运算）。";
+                  analysis = hint;
+                  if (customerIntent) analysis += ` 客户诉求摘要：${customerIntent}`;
+                }
+
+                const skuUsableQtyUsed =
+                  skuResolutions.length === 1 ? skuResolutions[0].usableQty : bareOverrideQty != null ? bareOverrideQty : undefined;
+
+                const structured: Record<string, unknown> = {
+                  valid: ev.valid,
+                  ...(ev.valid && ev.value !== undefined ? { value: ev.value } : {}),
+                  expressionNormalized: ev.expressionNormalized,
+                  ...(ev.errorCode ? { errorCode: ev.errorCode } : {}),
+                  ...(skuUsableQtyUsed != null ? { skuUsableQtyUsed } : {}),
+                  ...(skuResolutions.length > 0 ? { skuResolutions } : {}),
+                };
+
+                const resultSummary = ev.valid ? `=${ev.value}` : `失败:${ev.errorCode ?? "unknown"}`;
+
+                const branch = ev.valid ? "with_review" : "skip_review";
+
+                return {
+                  result: {
+                    structured,
+                    analysis,
+                  },
+                  outputContext: {
+                    expertId: EXPERT_ID,
+                    resultSummary,
+                    chainId,
+                  },
+                  branch,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("evaluate-expression")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: expression
+                input:
+                    type: string
+                    value:
+                        path: inputs.expression
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+              - name: merchandiseCode
+                input:
+                    type: string
+                    value:
+                        path: inputs.merchandiseCode
+                        ref_node: "100001"
+              - name: skuResolutions
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                        properties:
+                            warehouse:
+                                type: string
+                                value: null
+                            sku:
+                                type: string
+                                value: null
+                            usableQty:
+                                type: float
+                                value: null
+                    value:
+                        path: skuResolutions
+                        ref_node: "163203"
+              - name: inventoryFetchOk
+                input:
+                    type: boolean
+                    value:
+                        path: inventoryFetchOk
+                        ref_node: "163203"
+              - name: inventoryFetchError
+                input:
+                    type: object
+                    value:
+                        path: inventoryFetchError
+                        ref_node: "163203"
+          node_outputs:
+              result:
+                  type: object
+                  value: null
+                  description: 求值结果 { structured, analysis }
+                  properties:
+                      structured:
+                          type: object
+                          value: null
+                      analysis:
+                          type: string
+                          value: null
+              outputContext:
+                  type: object
+                  value: null
+              branch:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163199"
+      type: condition
+      title: 是否走 LLM 点评
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: 连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支
+      position:
+          x: 480
+          y: 120
+      parameters:
+          branches:
+              - condition:
+                    conditions:
+                        - left:
+                              input:
+                                  value:
+                                      path: branch
+                                      ref_node: "163198"
+                          operator: 7
+                          right:
+                              input:
+                                  type: string
+                                  value: with_review
+                    logic: 2
+    - id: "163200"
+      type: code
+      title: load-examples-text
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 240
+      parameters:
+          code: |-
+              /**
+               * Few-shot 字符串，与 prompts/examples.md 同步。
+               */
+
+              const EXAMPLES_MD = "# Few-shot 示例（供 Coze **引用**，勿依赖 LLM 读盘）\r\n\r\n> **部署到 Coze**：请把**本文件全文**作为知识库条目、上传文档或工作流变量内容，在 **`llm-comment`** LLM 节点的 **「引用」** 中挂载；主 Prompt 使用 `prompts/main.md`，其中 **Few-shot** 一节说明见 `main.md` 的「Coze 引用」段落。\r\n>\r\n> 仓库内保留本文件是为 Git 维护与复制方便，**线上模型看不到文件名**。\r\n\r\n## 1. 话术 → expression（可选前置 LLM）\r\n\r\n代码节点只接受 `expression` 字符串。\r\n\r\n| 用户/客户侧表述 | 建议 expression |\r\n|----------------|-----------------|\r\n| 十二加三再乘四 | `(12+3)*4` |\r\n| 100 除以 5 减 2 | `100/5-2` |\r\n| 一点五乘二 | `1.5*2` |\r\n\r\n**不要**输出：变量名、`**` 幂运算、函数调用、中文数字未转换等。\r\n\r\n---\r\n\r\n## 2. 计算结果 → 点评（主链路 `llm-comment`）\r\n\r\n**输入片段示例**（注入到 `computationResult`）：\r\n\r\n```json\r\n{\r\n  \"structured\": { \"valid\": true, \"value\": 9, \"expressionNormalized\": \"(1+2)*3\" },\r\n  \"analysis\": \"算式 (1+2)*3 = 9。客户侧诉求：试算。\"\r\n}\r\n```\r\n\r\n**期望模型输出**（JSON）：\r\n\r\n```json\r\n{\r\n  \"structured\": {\r\n    \"highlights\": [\"括号保证先算 1+2，再乘 3\"],\r\n    \"caveats\": [],\r\n    \"confidence\": \"high\"\r\n  },\r\n  \"analysis\": \"数值与运算顺序一致；若业务场景强调「拆分步骤展示」，可在对客话术中单列每一步。\"\r\n}\r\n```\r\n\r\n**失败场景**：当 `valid: false` 且 `errorCode: \"invalid_chars\"` 时，点评应说明「仅支持四则与括号」，并建议改写算式。\r\n";
+
+              async function main({ params: _params }: { params: Record<string, unknown> }) {
+                return { examplesMd: EXAMPLES_MD };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-examples-text")) {
+                main({ params: {} })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => { console.error(e); process.exit(1); });
+              }
+          language: 5
+          node_inputs: []
+          node_outputs:
+              examplesMd:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "175211"
+      type: llm
+      title: llm-comment
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 380
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # LLM 节点：对计算结果做点评
+
+                        本文件供工作流中的 **`llm-comment`** 节点使用（在 `evaluate-expression` 代码节点之后）。上游已通过代码完成求值，你的任务是**阅读计算结果**并给出简短、专业的**点评**（不重新手算篡改数值）。
+
+                        ---
+
+                        ## 角色
+
+                        你是**结果审阅助手**：针对一次四则运算的**代码执行结果**做点评——可包含合理性、易错点（如运算顺序）、对客户诉求的呼应等。数值以 `computationResult` 为准。
+
+                        ---
+
+                        ## 输入（占位符由 Runner / Coze 注入）
+
+                        - **query**（上游委托任务）：`{{query}}`
+                        - **customerIntent**（客户问题摘要）：`{{customerIntent}}`
+                        - **expression**（原始算式字符串，可含 `SKU_QTY(wh=,sku=)` 或无括号 `SKU_QTY`；替换后的式子见 `computationResult.structured.expressionNormalized`）：`{{expression}}`
+                        - **computationResult**（代码节点输出的完整 `result` JSON）：  
+                          `{{computationResult}}`
+                        - **上文**：`{{inputContext.previousOutput}}`（若有链式调用）
+
+                        ---
+
+                        ## 输出要求
+
+                        必须输出**一个 JSON 对象**（不要 Markdown 代码块外的多余文字）。顶层 **仅有** `analysisResult`（与 `workflow.json` 中本 LLM 节点 `outputs[0]` 一致），其内包含：
+
+                        | 字段 | 说明 |
+                        |------|------|
+                        | `structured` | 结构化点评，建议含：`highlights`（string[]，亮点或确认点）、`caveats`（string[]，需注意的坑，无则 `[]`）、`confidence`（string，如 `high` / `medium` / `low`，表示你对「结果与客户诉求匹配度」的主观置信） |
+                        | `analysis` | 1～3 段自然语言点评，语气简洁；**不要**与代码给出的数值矛盾 |
+
+                        若计算失败（`computationResult.structured.valid === false`），点评应说明失败原因类别，并建议用户如何修正算式。若 `errorCode` 为 `inventory_unconfigured` / `inventory_missing_params` / `inventory_empty` / `inventory_remote` / `inventory_ambiguous` / `inventory_placeholder_malformed`，应说明与库存、占位符写法或环境配置相关，而非纯语法错误。
+
+                        ---
+
+                        ## 输出格式示例
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "highlights": ["先算括号再乘法，与常规运算顺序一致"],
+                              "caveats": [],
+                              "confidence": "high"
+                            },
+                            "analysis": "结果为 9，符合 (1+2)×3 的预期。若客户关注「是否先加后乘」，可简要说明括号已保证加法优先。"
+                          }
+                        }
+                        ```
+
+                        ---
+
+                        ## Few-shot（Coze 引用，非本地文件）
+
+                        线上 LLM **无法**读取本仓库文件系统，因此 **不要**依赖 Prompt 正文里写 `examples.md` 路径。
+
+                        请在本 LLM 节点中通过 **Coze「引用」能力**挂载与仓库 **`prompts/examples.md` 全文等价** 的材料，任选其一：
+
+                        1. **知识库**：新建或选用一条知识，标题建议 **`arithmetic-formula-few-shot`**；正文 **完整复制** 仓库中 `examples.md` 的 Markdown（含「话术→expression」与「计算结果→点评」两节）。在本节点右侧 **引用** 中勾选该知识库条目。
+                        2. **上传文档 / 片段**：将 `examples.md` 导出为 txt/doc 上传至 Coze 文档区，在同一 LLM 节点 **引用** 中选择该文档。
+                        3. **工作流变量**（可选）：若上游有「文本」节点或插件已把 few-shot 全文写入变量（例如 `{{examples_few_shot}}`），可在本 Prompt **靠前位置**单独增加一节「Few-shot 附录」并插入该占位符（变量名以你方画布为准）。
+
+                        本地：`workflow.json` 中本 LLM 节点已声明 **`examplesMd`**；`run-expert` / `runLlmNode` 在未从上下文注入时会读取 `prompts/examples.md` 填入下方占位符。COZE：**节点变量名不能含英文句点 `.`**，Prompt 里请只使用下方 **`{{examplesMd}}`**（与入参同名）；勿使用带点后缀的旧写法。上游文本节点输出请绑定到 **`examplesMd`**。
+
+                        以下为 Few-shot 拼接变量（与仓库文件 `prompts/examples.md` 内容对应）
+
+                        {{examplesMd}}
+
+                        ---
+
+                        ## 领域背景：四则运算规则（已内嵌，供点评时对齐常识）
+
+                        以下内容原独立为 `expert.md`，因线上无法读盘，**直接写入本 Prompt**，与代码求值假设一致（**以 `computationResult` 数值为准**，本节仅作背景）：
+
+                        - **优先级**：先 `*` `/`，后 `+` `-`；括号内先算。
+                        - **允许**：非负/正数、小数、空格。
+                        - **不允许**：除占位符 **`SKU_QTY(wh=,sku=)`** 与（单独使用时）**`SKU_QTY`**（由代码节点替换为万邑通 **可用库存 `qtyAvailable`（id/58）**）外的变量、函数、`**` 幂、`//`、百分号未转换等。
+
+                        代码节点 **`evaluate-expression`** 使用与 JavaScript 相同的运算顺序（括号 → 乘除 → 加减）；库存数字由前置 **`fetch-sku-inventory`** 写入 **`skuResolutions`** 后再替换占位符。**数值以 `computationResult` 为准**；解析成功后 **`expressionNormalized`** 为纯数字算式。
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    type: string
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    type: string
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: expression
+                input:
+                    type: string
+                    value:
+                        path: inputs.expression
+                        ref_node: "100001"
+              - name: computationResult
+                input:
+                    type: object
+                    value:
+                        path: result
+                        ref_node: "163198"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163198"
+              - name: examplesMd
+                input:
+                    type: string
+                    value:
+                        path: examplesMd
+                        ref_node: "163200"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163196"
+      type: code
+      title: resolve-analysis-result
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 450
+      parameters:
+          code: |-
+              /**
+               * 分支汇合：true 路径取 llm-comment 的 analysisResult，false 路径取 stub-llm-placeholder。
+               * 供 format-output 单一 analysisResult 入参，满足 Coze「入参须引用上游 node_outputs 显式键」。
+               */
+
+              interface AnalysisResult {
+                structured: Record<string, unknown>;
+                analysis: string;
+              }
+
+              function pickAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
+                  const o = raw as AnalysisResult;
+                  return {
+                    structured: o.structured ?? {},
+                    analysis: typeof o.analysis === "string" ? o.analysis : "",
+                  };
+                }
+                return { structured: {}, analysis: "" };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const fromLlm = pickAnalysisResult(params.llmAnalysisResult);
+                const fromStub = pickAnalysisResult(params.stubAnalysisResult);
+                const analysisResult =
+                  fromLlm.analysis.trim().length > 0 || Object.keys(fromLlm.structured).length > 0
+                    ? fromLlm
+                    : fromStub;
+                return { analysisResult };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-analysis-result")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: llmAnalysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "175211"
+              - name: stubAnalysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "163197"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  value: null
+                  properties:
+                      structured:
+                          type: object
+                          value: null
+                      analysis:
+                          type: string
+                          value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "168002"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 520
+      parameters:
+          code: |-
+              /**
+               * 合并代码求值结果与 LLM 点评，产出专家最终 result / outputContext。
+               * 与 `workflow.json` 中本节点 `inputs` / `outputs` 一致。
+               *
+               * 【输入】`main({ params })` → `params`：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | result | { structured?: Record<string, unknown>; analysis?: string } | 前置节点 `evaluate-expression` 的产出 |
+               * | analysisResult | { structured?: Record<string, unknown>; analysis?: string } | 前置 LLM 节点 `llm-comment` 的产出（即 `runLlmNode` 返回的 analysisResult） |
+               * | inputContext | object（可选） | `sourceExpertId?: string; previousOutput?: string \| object; chainId?: string` |
+               *
+               * 【输出】`return` 根级四字段（与 call-expert.ts / design-spec §7 一致）：
+               * | structured | object | 业务结构化结果 |
+               * | analysis | string | 对客长文 |
+               * | outputContext | object | expertId、resultSummary、chainId |
+               * | enrichedContext | object | 编排手交事实；无则 `{}` |
+               */
+
+              const EXPERT_ID = "arithmetic-formula";
+
+              interface ComputationResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+                chainId?: string;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const computation = (params.result ?? {}) as ComputationResult;
+                const llm = (params.analysisResult ?? {}) as AnalysisResult;
+                const inputContext = params.inputContext as InputContext | undefined;
+
+                const mergedStructured = {
+                  computation: computation.structured ?? {},
+                  review: llm.structured ?? {},
+                };
+
+                const compLine = computation.analysis?.trim() ?? "";
+                const reviewLine = llm.analysis?.trim() ?? "";
+                let analysis: string;
+                if (reviewLine && compLine) {
+                  analysis = `【计算结论】\n${compLine}\n\n【模型点评】\n${reviewLine}`;
+                } else if (reviewLine) {
+                  analysis = reviewLine;
+                } else {
+                  analysis = compLine || "（无点评与计算说明）";
+                }
+
+                const resultSummary = (reviewLine || compLine).slice(0, 200) || "四则运算与点评完成";
+
+                return {
+                  structured: mergedStructured,
+                  analysis,
+                  outputContext: {
+                    expertId: EXPERT_ID,
+                    resultSummary,
+                    chainId: inputContext?.chainId ?? "",
+                  },
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: result
+                input:
+                    type: object
+                    value:
+                        path: result
+                        ref_node: "163198"
+              - name: analysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "163196"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163198"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163197"
+      type: code
+      title: stub-llm-placeholder
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 120
+          y: -13
+      parameters:
+          code: |-
+              ﻿/**
+               * 桩节点：在「跳过 LLM」分支上为 format-output 提供空的 analysisResult。
+               * 与 workflow.json 中本节点 inputs / outputs 一致。
+               */
+              async function main({ params: _params }: { params: Record<string, unknown> }) {
+                return {
+                  analysisResult: {
+                    structured: {},
+                    analysis: "",
+                  },
+                };
+              }
+              if (typeof process !== "undefined" && process.argv[1]?.includes("stub-llm-placeholder")) {
+                main({ params: {} })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => { console.error(e); process.exit(1); });
+              }
+          language: 5
+          node_inputs: []
+          node_outputs:
+              analysisResult:
+                  type: object
+                  value: null
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163201"
+    - source_node: "163201"
+      target_node: "115282"
+    - source_node: "115282"
+      target_node: "163203"
+    - source_node: "163203"
+      target_node: "163198"
+    - source_node: "163198"
+      target_node: "163199"
+    - source_node: "163199"
+      target_node: "163200"
+      source_port: "true"
+    - source_node: "163199"
+      target_node: "163197"
+      source_port: "false"
+    - source_node: "163197"
+      target_node: "163196"
+    - source_node: "163200"
+      target_node: "175211"
+    - source_node: "175211"
+      target_node: "163196"
+    - source_node: "163196"
+      target_node: "168002"
+    - source_node: "168002"
+      target_node: "900001"

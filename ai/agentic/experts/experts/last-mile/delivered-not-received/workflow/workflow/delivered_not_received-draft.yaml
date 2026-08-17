@@ -1,0 +1,909 @@
+schema_version: 1.0.0
+name: delivered_not_received
+id: 7449278321993809844
+description: 妥投未收到处理（Phase A）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。 对本专家为必填时：inputContext 须含 previousOutput，且为上游专家（如 delivery-status）的 result 等价物，并含非空字符串 analysis（轨迹/状态解读）。
+                  required: true
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      trackingIds:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 轨迹单号（可与 enrichedContext 内反填并存）
+                      outboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 出库单号
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 前置轨迹专家合并后的完整轨迹载荷；编排闭环宜含 trajectories；与 delivery-status §3 对齐（降级可不传本对象）
+                          properties:
+                              trajectories:
+                                  type: list
+                                  items:
+                                      type: object
+                                      value: null
+                                  value: null
+                                  description: 轨迹节点列表（编排推荐；可与上游 merge-enriched-context 一致；无数据时可为空数组）
+                              fetchMeta:
+                                  type: object
+                                  value: null
+                                  description: 拉取元数据、兜底说明等
+                              analysisClock:
+                                  type: object
+                                  value: null
+                                  description: 分析用时钟（与时区敏感推理）
+                              trajectorySummary:
+                                  type: string
+                                  value: null
+                                  description: 轨迹摘要（可选；不可替代 previousOutput.analysis）
+                              deliveredEvent:
+                                  type: object
+                                  value: null
+                                  description: 妥投事件提炼（可选）
+                              orderDetails:
+                                  type: list
+                                  items:
+                                      type: object
+                                      value: null
+                                  value: null
+                                  description: 出库单摘要（可选）
+                              podSignals:
+                                  type: object
+                                  value: null
+                                  description: POD 线索（可选）
+                              customerStatedFacts:
+                                  type: string
+                                  value: null
+                                  description: 客户已陈述事实（可选）
+                      claimChannelKnown:
+                          type: boolean
+                          value: null
+                          description: 上游是否已确认存在可索赔渠道；未传则由模型结合上下文推断并标注不确定性
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163002"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163002"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163002"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163002"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 校验妥投未收到专家入参是否足以启动分析
+               * FaaS 单文件闭环，无外部 import。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输入】params：query, trackingIds, outboundOrderNos, customerIntent, enrichedContext, claimChannelKnown, inputContext
+               * 【输出】原字段透传；valid 表示至少有一种事实来源；error 为校验失败说明。`enrichedContext` **始终**合并 **analysisClock**（当前 UTC，覆盖上游旧值）。
+               * enrichedContext 可为编排侧「域索引」，本节点取 `last-mile/delivery-status` 最新一条并展开；亦可为旧版扁平对象。
+               */
+
+              const EC_IDX_KEY_DS_DNR = "last-mile/delivery-status";
+
+              function extractDomainEntryDnr(ecIndex: unknown, domainKey: string): Record<string, unknown> {
+                if (!ecIndex || typeof ecIndex !== "object" || Array.isArray(ecIndex)) return {};
+                const entries = (ecIndex as Record<string, unknown>)[domainKey];
+                if (!Array.isArray(entries) || entries.length === 0) return {};
+                const last = entries[entries.length - 1];
+                if (!last || typeof last !== "object" || Array.isArray(last)) return {};
+                const { _meta: _m, ...rest } = last as Record<string, unknown>;
+                return rest;
+              }
+
+              function resolveFlatEnrichedContextDnr(raw: unknown): Record<string, unknown> {
+                const fromDomain = extractDomainEntryDnr(raw, EC_IDX_KEY_DS_DNR);
+                if (Object.keys(fromDomain).length > 0) return fromDomain;
+                if (raw !== undefined && raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+                  const o = raw as Record<string, unknown>;
+                  const looksLikeDomainIndex = Object.keys(o).some((k) => k.includes("/") && Array.isArray(o[k]));
+                  if (looksLikeDomainIndex) return {};
+                  return { ...o };
+                }
+                return {};
+              }
+
+              interface AnalysisClock {
+                utcIso: string;
+                timezoneLabel: string;
+                note: string;
+              }
+
+              function buildAnalysisClock(): AnalysisClock {
+                return {
+                  utcIso: new Date().toISOString(),
+                  timezoneLabel: "UTC",
+                  note:
+                    "参考时钟为服务端 UTC（ISO8601）。轨迹节点时间多为事件发生地/承运商返回的本地时间或混用时区，与「当前时刻」比较时请显式区分二者，勿直接混算。",
+                };
+              }
+
+              /** 每次调用写入当前 UTC 参考时钟，供 LLM 冷静期等与「此刻」比较 */
+              function withAnalysisClock(ec: unknown): Record<string, unknown> {
+                const base =
+                  ec !== undefined && ec !== null && typeof ec === "object" && !Array.isArray(ec)
+                    ? { ...(ec as Record<string, unknown>) }
+                    : {};
+                base.analysisClock = buildAnalysisClock();
+                return base;
+              }
+
+              type DnrEligibility = "eligible" | "ineligible" | "unknown";
+
+              interface DnrGuardResult {
+                eligibility: DnrEligibility;
+                hasScanFacts: boolean;
+                hasAscan: boolean;
+                hasDscan: boolean;
+                hasRdscan: boolean;
+                evidenceSource: string;
+                reason: string;
+              }
+
+              function asRecord(raw: unknown): Record<string, unknown> | null {
+                return raw && typeof raw === "object" && !Array.isArray(raw)
+                  ? (raw as Record<string, unknown>)
+                  : null;
+              }
+
+              function parseMaybeJson(raw: unknown): unknown {
+                if (typeof raw !== "string") return raw;
+                const text = raw.trim();
+                if (!text.startsWith("{") && !text.startsWith("[")) return raw;
+                try {
+                  return JSON.parse(text) as unknown;
+                } catch {
+                  return raw;
+                }
+              }
+
+              function previousOutputScanFacts(inputContext: unknown): unknown[] | null {
+                const context = asRecord(inputContext);
+                if (!context) return null;
+                const previous = asRecord(parseMaybeJson(context.previousOutput));
+                if (!previous) return null;
+                const result = asRecord(previous.result);
+                const structured = asRecord(previous.structured) ?? asRecord(result?.structured);
+                return structured && Array.isArray(structured.scanFacts) ? structured.scanFacts : null;
+              }
+
+              function eventCount(row: Record<string, unknown>, key: string): number {
+                return Array.isArray(row[key]) ? (row[key] as unknown[]).length : 0;
+              }
+
+              function buildDnrGuard(enrichedContext: Record<string, unknown>, inputContext: unknown): DnrGuardResult {
+                const computed = Array.isArray(enrichedContext.computedScanFacts)
+                  ? enrichedContext.computedScanFacts
+                  : null;
+                const previous = previousOutputScanFacts(inputContext);
+                const scanFacts = computed ?? previous;
+                const source = computed ? "enrichedContext.computedScanFacts" : previous ? "inputContext.previousOutput.structured.scanFacts" : "";
+
+                if (scanFacts && scanFacts.length > 0) {
+                  let hasAscan = false;
+                  let hasDscan = false;
+                  let hasRdscan = false;
+                  for (const item of scanFacts) {
+                    const row = asRecord(item);
+                    if (!row) continue;
+                    hasAscan = hasAscan || eventCount(row, "ascanEvents") > 0;
+                    hasDscan = hasDscan || eventCount(row, "dscanEvents") > 0;
+                    hasRdscan = hasRdscan || eventCount(row, "rdscanEvents") > 0;
+                  }
+                  if (hasDscan) {
+                    return {
+                      eligibility: "eligible",
+                      hasScanFacts: true,
+                      hasAscan,
+                      hasDscan,
+                      hasRdscan,
+                      evidenceSource: source,
+                      reason: "结构化扫描事实包含 Dscan，可进入妥投未收到判断",
+                    };
+                  }
+                  return {
+                    eligibility: "ineligible",
+                    hasScanFacts: true,
+                    hasAscan,
+                    hasDscan: false,
+                    hasRdscan,
+                    evidenceSource: source,
+                    reason: hasRdscan
+                      ? "结构化扫描事实仅包含 RDscan（退回妥投），不代表买家已妥投"
+                      : "结构化扫描事实明确无 Dscan，不属于妥投未收到",
+                  };
+                }
+
+                const deliveredEvent = asRecord(enrichedContext.deliveredEvent);
+                if (deliveredEvent && Object.keys(deliveredEvent).length > 0) {
+                  return {
+                    eligibility: "eligible",
+                    hasScanFacts: false,
+                    hasAscan: false,
+                    hasDscan: true,
+                    hasRdscan: false,
+                    evidenceSource: "enrichedContext.deliveredEvent",
+                    reason: "上游提供了明确的结构化妥投事件",
+                  };
+                }
+
+                return {
+                  eligibility: "unknown",
+                  hasScanFacts: false,
+                  hasAscan: false,
+                  hasDscan: false,
+                  hasRdscan: false,
+                  evidenceSource: "",
+                  reason: "缺少可核验的 Dscan 或结构化妥投事件，不能仅凭用户表述认定妥投",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const trackingIds = Array.isArray(params.trackingIds)
+                  ? (params.trackingIds as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(params.outboundOrderNos)
+                  ? (params.outboundOrderNos as unknown[]).map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const flatEc = resolveFlatEnrichedContextDnr(params.enrichedContext);
+                const hasEnriched = Object.keys(flatEc).length > 0;
+                const hasIds = trackingIds.length > 0 || outboundOrderNos.length > 0;
+                const ci = String(params.customerIntent ?? "").trim();
+                const q = String(params.query ?? "").trim();
+                const valid = hasIds || hasEnriched || ci.length > 0 || q.length > 0;
+                const errMsg = "请至少提供 trackingIds、outboundOrderNos、enrichedContext、customerIntent 或 query 之一";
+                const customerIntentOut = valid ? ci : `[输入校验] ${errMsg}`.trim();
+                const enrichedContext = withAnalysisClock(hasEnriched ? flatEc : {});
+                const dnrGuard = buildDnrGuard(enrichedContext, params.inputContext);
+
+                const ret = {
+                  valid,
+                  error: valid ? "" : errMsg,
+                  query: q,
+                  trackingIds,
+                  outboundOrderNos,
+                  customerIntent: customerIntentOut,
+                  enrichedContext,
+                  claimChannelKnown: params.claimChannelKnown,
+                  inputContext: params.inputContext && typeof params.inputContext === "object" ? params.inputContext : {},
+                  dnrGuard,
+                };
+                return ret;
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: trackingIds
+                input:
+                    value:
+                        path: inputs.trackingIds
+                        ref_node: "100001"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: inputs.outboundOrderNos
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: claimChannelKnown
+                input:
+                    value:
+                        path: inputs.claimChannelKnown
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              query:
+                  type: string
+                  value: null
+              trackingIds:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              outboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              claimChannelKnown:
+                  type: boolean
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+              dnrGuard:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 707
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 妥投未收到处理专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是**妥投未收到（DNR）**流程专家。在系统或承运商显示**已妥投/已签收**的前提下，客户（卖家）声称买家（收货人）**未收到包裹**。你的任务是：根据给定事实，**严格按下方分支顺序**给出客服（回复给卖家）可用的话术与下一步；**不得编造**索赔链接、工单 URL、具体赔付金额或合同未给出的承诺。
+
+                        - **上游轨迹与分析**：若提供了 `inputContext.previousOutput`（或模板中的等价字段），其中 **`analysis` 为前置专家（如 delivery-status）的轨迹与状态结论**，你必须 **优先采信**；`enrichedContext.trajectories` 等仅用于**核对细节**。不得在无轨迹、无 `previousOutput.analysis`（且无 `trajectorySummary`/`deliveredEvent` 等可核验妥投摘要）时**臆造**妥投时间、地点或签收方式。
+                        - **确定性入口门禁**：`dnrGuard` 由代码根据结构化扫描事实生成，优先级高于用户措辞和模型判断。只有 `eligibility=eligible` 才能进入 DNR 流程；`ineligible/unknown` 的最终输出会由代码强制改写，禁止尝试绕过。
+
+                        - **赔付条款解读**：若用户需要适用条款、时效窗口、举证要点，在 `suggestedNextExperts` 中建议 `refund-standard`，本回复只做流程引导。
+                        - **代客索赔提交与进度**：在 `suggestedNextExperts` 中可建议 `substitute-claim`；**除非输入中明确提供了官方链接文本**，否则不要在 `analysis` 中写出具体 URL。
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **trackingIds**：`{{trackingIds}}`
+                        - **outboundOrderNos**：`{{outboundOrderNos}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **enrichedContext**：`{{enrichedContext}}`（JSON 对象或空；轨迹正文，前置专家合并）
+                        - **claimChannelKnown**：`{{claimChannelKnown}}`（true / false / 空；空表示未知）
+                        - **inputContext**：`{{inputContext}}`（JSON 对象或空；宜含 `previousOutput`，即上游 `result`：`analysis` + 可选 `structured`）
+                        - **dnrGuard**：`{{dnrGuard}}`（代码生成的 DNR 适用性门禁）
+
+                        若工作流另以独立变量注入 `previousOutput`，与 `inputContext.previousOutput` 视为同一事实源。
+
+                        ## 分支判定顺序（必须遵守）
+
+                        按顺序执行，**命中即停**（后续步骤不重复矛盾表述）：
+
+                        1. **缺关键信息**：无跟踪号/出库单号且 `enrichedContext` 为空或无法识别妥投事实，**且**无可用 `previousOutput.analysis`（或等价上游分析）→ `branch: need_info`（或事实冲突需复核时 `need_human`）。`suggestedNextExperts` 中应包含 **`delivery-status`**（除非用户仅缺单号、仅需补号）。只要求补全单号/轨迹或先跑轨迹专家，不做索赔承诺。
+                        2. **异常/常见场景早退出**：根据 **`previousOutput.analysis`（优先）** 与 `enrichedContext.deliveredEvent`、`trajectorySummary`、`customerStatedFacts`，若明显符合代收、快递柜、前台、安全位置、邻居代收等可解释场景 → `branch: early_exit`。给出简明解释与自查清单（物业、收件箱、APP 通知等）。
+                        3. **冷静期**：若存在妥投时间 `deliveredEvent.at`，且距今在 **48 小时内**（若无法解析时间则跳过本步），优先 → `branch: cooling_wait`。建议客户自查并说明可在一段时间后再联系；**若业务上应使用其他阈值而输入未给，仍用 48h 作为默认占位并可在 `missingFacts` 中注明「需确认业务冷静期」**。
+                        4. **索赔渠道**：若 `claimChannelKnown === false`，或上下文明确无索赔/调查入口 → `branch: no_claim_channel` 或 `need_human`（视是否需人工核实渠道而定）。
+                        5. **国内/国际路径**：有渠道且需进入索赔话术时，根据 `orderDetails` / 目的国等判断 → `claim_path_domestic` 或 `claim_path_international`。信息不足 → `need_human` 并在 `missingFacts` 列出。
+                        6. **是否满足受理标准**：材料、时效、场景明显不满足 → `not_eligible` 并说明原因（不做具体金额结论）。
+                        7. **客户已明确要发起索赔**：且前置步骤已支持进入流程 → `branch: handoff_claim`；引导通过**官方渠道或客服工单**发起，并建议下游 `substitute-claim`。
+
+                        **注意**：若 POD/ eligibility 数据缺失，不要断言「一定可以赔」；使用 `need_human` 并写清需复核项。
+
+                        ## 输出格式（仅输出一个 JSON，无 Markdown 围栏外文字）
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "branch": "need_info | early_exit | cooling_wait | claim_path_domestic | claim_path_international | not_eligible | not_dnr | no_claim_channel | need_human | handoff_claim",
+                              "trackingIds": [],
+                              "outboundOrderNos": [],
+                              "suggestedNextExperts": [],
+                              "missingFacts": []
+                            },
+                            "analysis": "面向客服或最终用户的完整回复，与 structured.branch 一致。"
+                          }
+                        }
+                        ```
+
+                        ## 自检
+
+                        - `structured.branch` 与 `analysis` 结论一致。
+                        - 无伪造 URL、无具体赔付金额、无法务结论。
+                        - `suggestedNextExperts` 仅使用合理 id：`refund-standard`、`substitute-claim`、`delivery-status` 等，可为空数组。
+
+                        ## 分支说明附录（Coze 内嵌，勿依赖读取 expert.md 文件）
+
+                        | branch | 典型动作 | suggestedNextExperts |
+                        |--------|----------|----------------------|
+                        | `need_info` | 请客户提供运单号/出库单号或轨迹截图；缺上游分析时先建议跑轨迹专家 | 常含 `delivery-status` |
+                        | `early_exit` | 解释代收/柜/前台等场景 + 自查步骤 | 通常 `[]` |
+                        | `cooling_wait` | 妥投后短时内建议等待与自查 | 通常 `[]` |
+                        | `no_claim_channel` | 说明当前无可用线上索赔入口 | `need_human` 时可并列说明 |
+                        | `claim_path_domestic` | 国内件索赔话术骨架（不写条款原文） | `refund-standard`、`substitute-claim` |
+                        | `claim_path_international` | 国际件索赔话术骨架 | `refund-standard`、`substitute-claim` |
+                        | `not_eligible` | 不满足受理条件的原因说明 | 视情况 `refund-standard` |
+                        | `need_human` | POD、渠道、国别、时效等需人工/系统复核 | `substitute-claim` |
+                        | `handoff_claim` | 客户确认发起索赔 | `substitute-claim`（必填倾向） |
+
+                        **与其他专家**：本专家入口 **`validate-input`** 会为 **`enrichedContext` 注入或刷新 `analysisClock`（服务端 UTC）**，与是否先调 `delivery-status` 无关；与上游并存时以**本次调用**刷新为准。`delivery-status` 另提供 **`enrichedContext`（轨迹）+ `result.analysis`（解读）**，编排器应将后者放入 `inputContext.previousOutput`；条款找 `refund-standard`；入口/材料找 `substitute-claim`，**不编造 URL**。冷静期默认 **48h**（见 `enrichedContext.analysisClock` 做相对时间判断时须区分轨迹点时区与 UTC 参考时钟）。
+
+                        完整维护版说明仍见同目录 `expert.md`（仅供本地/文档，Coze LLM 节点不会自动加载该文件）。
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163000"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "163000"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163000"
+              - name: claimChannelKnown
+                input:
+                    value:
+                        path: claimChannelKnown
+                        ref_node: "163000"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+              - name: dnrGuard
+                input:
+                    value:
+                        path: dnrGuard
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163002"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 947
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 的 analysisResult，生成 result / outputContext
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。与 workflow.json 中本节点 inputs/outputs 一致。
+               *
+               * 【输入】analysisResult（object|string）、inputContext（可选）
+               * 【输出】result: { structured, analysis }；outputContext: expertId delivered-not-received
+               */
+
+              const BRANCHES = new Set([
+                "need_info",
+                "early_exit",
+                "cooling_wait",
+                "claim_path_domestic",
+                "claim_path_international",
+                "not_eligible",
+                "not_dnr",
+                "no_claim_channel",
+                "need_human",
+                "handoff_claim",
+              ]);
+
+              interface DnrStructured {
+                branch?: string;
+                trackingIds?: string[];
+                outboundOrderNos?: string[];
+                suggestedNextExperts?: string[];
+                missingFacts?: string[];
+              }
+
+              interface DnrAnalysisResult {
+                structured?: DnrStructured;
+                analysis?: string;
+              }
+
+              interface DnrInputContext {
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+                chainId?: string;
+              }
+
+              interface DnrGuardResult {
+                eligibility?: "eligible" | "ineligible" | "unknown";
+                hasAscan?: boolean;
+                hasDscan?: boolean;
+                hasRdscan?: boolean;
+                reason?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): { structured: DnrStructured; analysis: string } {
+                if (raw == null) {
+                  return {
+                    structured: { branch: "need_human", trackingIds: [], outboundOrderNos: [], suggestedNextExperts: [], missingFacts: [] },
+                    analysis: "未收到模型输出。",
+                  };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as DnrAnalysisResult;
+                    if (parsed && typeof parsed === "object" && ("structured" in parsed || "analysis" in parsed)) {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch {
+                    /* fall through */
+                  }
+                  return {
+                    structured: { branch: "need_human", trackingIds: [], outboundOrderNos: [], suggestedNextExperts: [], missingFacts: [] },
+                    analysis: s || "解析失败，请人工查看原始模型输出。",
+                  };
+                }
+                const o = raw as DnrAnalysisResult;
+                const st = o.structured ?? {};
+                const branchRaw = typeof st.branch === "string" ? st.branch.trim() : "";
+                const branch = BRANCHES.has(branchRaw) ? branchRaw : "need_human";
+
+                const trackingIds = Array.isArray(st.trackingIds)
+                  ? st.trackingIds.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const outboundOrderNos = Array.isArray(st.outboundOrderNos)
+                  ? st.outboundOrderNos.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const suggestedNextExperts = Array.isArray(st.suggestedNextExperts)
+                  ? st.suggestedNextExperts.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+                const missingFacts = Array.isArray(st.missingFacts)
+                  ? st.missingFacts.map((x) => String(x).trim()).filter(Boolean)
+                  : [];
+
+                return {
+                  structured: {
+                    branch,
+                    trackingIds,
+                    outboundOrderNos,
+                    suggestedNextExperts,
+                    missingFacts,
+                  },
+                  analysis: typeof o.analysis === "string" ? o.analysis : "（无 analysis 字段）",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                let coerced = coerceAnalysisResult(params.analysisResult);
+                const guard = (params.dnrGuard ?? {}) as DnrGuardResult;
+                if (guard.eligibility === "ineligible") {
+                  coerced = {
+                    structured: {
+                      branch: "not_dnr",
+                      trackingIds: Array.isArray(params.trackingIds) ? params.trackingIds.map(String) : [],
+                      outboundOrderNos: Array.isArray(params.outboundOrderNos) ? params.outboundOrderNos.map(String) : [],
+                      suggestedNextExperts: ["tracking-inquiry"],
+                      missingFacts: [],
+                    },
+                    analysis: guard.hasRdscan
+                      ? "当前结构化轨迹仅显示退回妥投（RDscan），没有买家妥投扫描（Dscan），不属于妥投未收到。请按实际运输或退回状态处理；如需调查包裹去向，可通过尾程查件继续核实。"
+                      : "当前结构化轨迹没有妥投扫描（Dscan），不属于妥投未收到。若包裹已有上网轨迹但超时、停滞或派送异常，请按“超时未妥投”发起尾程查件。",
+                  };
+                } else if (guard.eligibility !== "eligible") {
+                  coerced = {
+                    structured: {
+                      branch: "need_info",
+                      trackingIds: Array.isArray(params.trackingIds) ? params.trackingIds.map(String) : [],
+                      outboundOrderNos: Array.isArray(params.outboundOrderNos) ? params.outboundOrderNos.map(String) : [],
+                      suggestedNextExperts: ["delivery-status"],
+                      missingFacts: ["可核验的 Dscan 或结构化妥投事件"],
+                    },
+                    analysis: "目前缺少可核验的妥投扫描（Dscan）或结构化妥投事件，不能仅凭“买家未收到”认定为妥投未收到。请先查询完整尾程轨迹并确认是否已经妥投。",
+                  };
+                }
+                const inputContext = params.inputContext as DnrInputContext | undefined;
+                const summary = coerced.analysis.slice(0, 200) || "妥投未收到分析完成";
+                const outputContext = {
+                  expertId: "delivered-not-received",
+                  resultSummary: summary,
+                  chainId: inputContext?.chainId ?? "",
+                };
+                return {
+                  structured: coerced.structured,
+                  analysis: coerced.analysis,
+                  outputContext,
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+              - name: dnrGuard
+                input:
+                    value:
+                        path: dnrGuard
+                        ref_node: "163000"
+              - name: trackingIds
+                input:
+                    value:
+                        path: trackingIds
+                        ref_node: "163000"
+              - name: outboundOrderNos
+                input:
+                    value:
+                        path: outboundOrderNos
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "900001"

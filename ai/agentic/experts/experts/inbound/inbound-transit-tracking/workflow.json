@@ -1,0 +1,321 @@
+{
+  "nodes": [
+    {
+      "id": "resolve-inbound-lookup",
+      "file": "nodes/resolve-inbound-lookup.ts",
+      "inputs": [
+        "inboundOrderNos"
+      ],
+      "outputs": [
+        "wiOrderNos",
+        "customerRefNos",
+        "inboundOrderNos",
+        "skipApi",
+        "lookupMeta"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "wiOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerRefNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "skipApi": {
+            "type": "boolean"
+          },
+          "lookupMeta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "build-tms-transport-query",
+      "file": "nodes/build-tms-transport-query.ts",
+      "inputs": ["skipApi", "wiOrderNos", "customerRefNos", "transportOrderNo", "containerNo"],
+      "outputs": ["actions", "tmsActionName", "skipTms"],
+      "cozeIo": {
+        "outputs": {
+          "actions": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "tmsActionName": { "type": "string" },
+          "skipTms": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "fetch-tms-transport-order",
+      "file": "nodes/fetch-tms-transport-order.ts",
+      "inputs": ["skipTms", "actions", "winitTmsPluginOutputList"],
+      "outputs": ["tmsRawList"],
+      "cozeIo": {
+        "outputs": {
+          "tmsRawList": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        }
+      }
+    },
+    {
+      "id": "summarize-tms-transport",
+      "file": "nodes/summarize-tms-transport.ts",
+      "inputs": ["skipTms", "tmsRawList"],
+      "outputs": ["tmsTransportSummary", "tmsTransportRecords"],
+      "cozeIo": {
+        "outputs": {
+          "tmsTransportSummary": { "type": "object", "additionalProperties": true },
+          "tmsTransportRecords": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+        }
+      }
+    },
+    {
+      "id": "build-winit-inbound-detail",
+      "file": "nodes/build-winit-inbound-detail.ts",
+      "inputs": [
+        "wiOrderNos",
+        "customerRefNos",
+        "skipApi"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount",
+        "actionName",
+        "skipApi"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "winitPluginBatchActionsCount": {
+            "type": "integer"
+          },
+          "actionName": {
+            "type": "string"
+          },
+          "skipApi": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-inbound-order",
+      "file": "nodes/fetch-inbound-order.ts",
+      "inputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginOutputList",
+        "skipApi"
+      ],
+      "outputs": [
+        "rawOrderData"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "prune-inbound-json",
+      "file": "nodes/prune-inbound-json.ts",
+      "inputs": [
+        "rawOrderData",
+        "maxTrajectoryNodes"
+      ],
+      "outputs": [
+        "prunedOrderData",
+        "_pruneMeta"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "prunedOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "_pruneMeta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "extract-ts-facts",
+      "file": "nodes/extract-ts-facts.ts",
+      "inputs": [
+        "prunedOrderData",
+        "tmsTransportSummary"
+      ],
+      "outputs": [
+        "tsFacts"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "tsFacts": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "check-tms-gap",
+      "file": "nodes/check-tms-gap.ts",
+      "inputs": ["tmsTransportSummary"],
+      "outputs": [
+        "tmsAvailable",
+        "tmsDataAvailable",
+        "gapNote",
+        "phaseScope",
+        "tmsTransportSummary",
+        "departureTime",
+        "arrivalPortTime"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "tmsAvailable": {
+            "type": "boolean"
+          },
+          "tmsDataAvailable": {
+            "type": "boolean"
+          },
+          "gapNote": {
+            "type": "string"
+          },
+          "phaseScope": {
+            "type": "string"
+          },
+          "tmsTransportSummary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "departureTime": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "arrivalPortTime": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "load-transit-kb",
+      "file": "nodes/load-transit-kb.ts",
+      "inputs": [
+        "kbTransitMilestones",
+        "tmsGapNotice",
+        "queryFocus"
+      ],
+      "outputs": [
+        "transitGuide",
+        "tmsGapNotice",
+        "queryFocus",
+        "focusHint"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "transitGuide": {
+            "type": "string"
+          },
+          "tmsGapNotice": {
+            "type": "string"
+          },
+          "queryFocus": {
+            "type": "string"
+          },
+          "focusHint": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "inboundOrderNos",
+        "queryFocus",
+        "tsFacts",
+        "tmsTransportSummary",
+        "tmsAvailable",
+        "tmsDataAvailable",
+        "gapNote",
+        "phaseScope",
+        "transitGuide",
+        "tmsGapNotice",
+        "focusHint",
+        "prunedOrderData",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext",
+        "tmsDataAvailable"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

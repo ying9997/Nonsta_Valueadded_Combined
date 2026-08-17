@@ -1,0 +1,51 @@
+{
+  "id": "inbound-capacity-availability",
+  "domain": "inbound",
+  "name": "库容与承接能力",
+  "description": "查询客户 CBM/SKU 额度剩余，基于 MKS 数据输出额度温度与能否承接建议。卖家中心 InboundSkuLimitAggChart 为主路径，失败时 KB 降级。Slots 可约时间请转预约送仓指引，不提供仓级内部信号。Use when 客户询问还剩多少 CBM 额度、SKU 额度、能不能收这批货。",
+  "capabilities": [
+    "CBM 额度查询",
+    "SKU 额度查询",
+    "库容温度判断",
+    "换仓/拆批建议"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": ["warehouseCode"],
+    "properties": {
+      "warehouseCode": {
+        "type": "string",
+        "description": "目标仓库编码"
+      },
+      "checkType": {
+        "type": "string",
+        "enum": ["cbm", "sku", "slots", "overall"],
+        "description": "查询维度：cbm / sku / overall 综合；slots 仅返回预约指引（不提供仓级 Slots 数据）",
+        "default": "overall"
+      },
+      "cargoProfile": {
+        "type": "object",
+        "description": "货物属性（综合评估时使用）",
+        "properties": {
+          "cbmVolume": { "type": "number" },
+          "skuCount": { "type": "number" },
+          "deliveryWayType": { "type": "string" }
+        }
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "额度与温度结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "额度摘要与建议动作"
+      }
+    }
+  }
+}

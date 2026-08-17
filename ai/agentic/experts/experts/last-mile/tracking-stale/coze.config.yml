@@ -1,0 +1,103 @@
+# 轨迹长时间未更新 — Coze 工作流包导出
+# 导出：npm run export:coze -- experts/last-mile/tracking-stale
+
+workflowId: "7898260983502385237"
+yamlBasename: tracking_stale-draft.yaml
+packageMainName: tracking_stale
+packageDescription: 轨迹长时间未更新
+
+nodeIds:
+  validate-input: "163000"
+  derive-stale-facts: "163001"
+  llm-analyze: "163002"
+  format-output: "163003"
+
+inputBindings:
+  derive-stale-facts:
+    valid:
+      ref: validate-input
+      path: valid
+    error:
+      ref: validate-input
+      path: error
+    query:
+      ref: validate-input
+      path: query
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    customerIntent:
+      ref: validate-input
+      path: customerIntent
+    enrichedContext:
+      ref: validate-input
+      path: enrichedContext
+    inputContext:
+      ref: validate-input
+      path: inputContext
+  llm-analyze:
+    query:
+      ref: derive-stale-facts
+      path: query
+    trackingIds:
+      ref: derive-stale-facts
+      path: trackingIds
+    outboundOrderNos:
+      ref: derive-stale-facts
+      path: outboundOrderNos
+    customerIntent:
+      ref: derive-stale-facts
+      path: customerIntent
+    enrichedContext:
+      ref: derive-stale-facts
+      path: enrichedContext
+    inputContext:
+      ref: derive-stale-facts
+      path: inputContext
+  format-output:
+    analysisResult:
+      ref: llm-analyze
+      path: analysisResult
+    enrichedContext:
+      ref: derive-stale-facts
+      path: enrichedContext
+    inputContext:
+      ref: derive-stale-facts
+      path: inputContext
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: -149.557913881682
+    y: 231.51531952084514
+  __end__:
+    x: 1053.3053365464475
+    y: 309.27940455803343
+  validate-input:
+    x: 480
+    y: 467
+  derive-stale-facts:
+    x: 480
+    y: 707
+  llm-analyze:
+    x: 480
+    y: 947
+  format-output:
+    x: 480
+    y: 1187

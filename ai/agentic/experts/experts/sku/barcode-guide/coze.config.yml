@@ -1,0 +1,212 @@
+yamlBasename: sku_barcode_guide-draft.yaml
+packageMainName: sku_barcode_guide
+packageDescription: SKU 条码与三方编码引导（validate → resolve barcode fetch → page.list → snapshot → KB → LLM → format）
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-barcode-snapshot
+    logicalId: winit_item_page_list_barcode
+    pluginBatch:
+      enabled: true
+      batchSize: 5
+      concurrentSize: 3
+      actionsFrom:
+        logicalId: build-barcode-page-list
+        path: actions
+
+textNodes:
+  - logicalId: kb-print-text
+    title: kb-print
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-print.md
+  - logicalId: kb-third-party-add-text
+    title: kb-third-party-add
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-third-party-add.md
+  - logicalId: kb-third-party-delete-text
+    title: kb-third-party-delete
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-third-party-delete.md
+  - logicalId: kb-third-party-query-text
+    title: kb-third-party-query
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-third-party-query.md
+  - logicalId: kb-scan-fail-text
+    title: kb-scan-fail
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-scan-fail.md
+
+inputBindings:
+  validate-intent:
+    topic:
+      ref: __start__
+      path: inputs.topic
+    intentType:
+      ref: __start__
+      path: inputs.intentType
+    skuCode:
+      ref: __start__
+      path: inputs.skuCode
+    skuCodeThird:
+      ref: __start__
+      path: inputs.skuCodeThird
+    supervisorMode:
+      ref: __start__
+      path: inputs.supervisorMode
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: __start__
+      path: customerIntent
+    inputContext:
+      ref: __start__
+      path: inputContext
+  resolve-barcode-fetch:
+    intentType:
+      ref: validate-intent
+      path: intentType
+    skuCode:
+      ref: validate-intent
+      path: skuCode
+    skuCodeThird:
+      ref: validate-intent
+      path: skuCodeThird
+    normalizedTopic:
+      ref: validate-intent
+      path: normalizedTopic
+    customerIntent:
+      ref: validate-intent
+      path: customerIntent
+  build-barcode-page-list:
+    shouldFetch:
+      ref: resolve-barcode-fetch
+      path: shouldFetch
+    skipApi:
+      ref: resolve-barcode-fetch
+      path: skipApi
+    skuCode:
+      ref: resolve-barcode-fetch
+      path: skuCode
+    skuCodeThird:
+      ref: resolve-barcode-fetch
+      path: skuCodeThird
+    fetchProfile:
+      ref: resolve-barcode-fetch
+      path: fetchProfile
+  fetch-barcode-snapshot:
+    skuCode:
+      ref: resolve-barcode-fetch
+      path: skuCode
+    fetchProfile:
+      ref: build-barcode-page-list
+      path: fetchProfile
+    skipApi:
+      ref: build-barcode-page-list
+      path: skipApi
+    winitPluginOutputList:
+      ref: winit_item_page_list_barcode
+      path: outputList
+  load-barcode-kb:
+    validationOk:
+      ref: validate-intent
+      path: validationOk
+    intentType:
+      ref: validate-intent
+      path: intentType
+    normalizedTopic:
+      ref: validate-intent
+      path: normalizedTopic
+    needInfoHint:
+      ref: validate-intent
+      path: needInfoHint
+    kbPrint:
+      ref: kb-print-text
+      path: output
+    kbThirdPartyAdd:
+      ref: kb-third-party-add-text
+      path: output
+    kbThirdPartyDelete:
+      ref: kb-third-party-delete-text
+      path: output
+    kbThirdPartyQuery:
+      ref: kb-third-party-query-text
+      path: output
+    kbScanFail:
+      ref: kb-scan-fail-text
+      path: output
+  llm-analyze:
+    query:
+      ref: __start__
+      path: query
+    customerIntent:
+      ref: validate-intent
+      path: customerIntent
+    intentType:
+      ref: validate-intent
+      path: intentType
+    normalizedTopic:
+      ref: validate-intent
+      path: normalizedTopic
+    skuCode:
+      ref: validate-intent
+      path: skuCode
+    skuCodeThird:
+      ref: validate-intent
+      path: skuCodeThird
+    supervisorMode:
+      ref: validate-intent
+      path: supervisorMode
+    needInfoHint:
+      ref: validate-intent
+      path: needInfoHint
+    kbContent:
+      ref: load-barcode-kb
+      path: kbContent
+    barcodeSnapshotText:
+      ref: fetch-barcode-snapshot
+      path: barcodeSnapshotText
+    inputContext:
+      ref: validate-intent
+      path: inputContext
+  format-output:
+    analysisResult:
+      ref: llm-analyze
+      path: analysisResult
+    intentType:
+      ref: validate-intent
+      path: intentType
+    intentSource:
+      ref: validate-intent
+      path: intentSource
+    normalizedTopic:
+      ref: validate-intent
+      path: normalizedTopic
+    customerIntent:
+      ref: validate-intent
+      path: customerIntent
+    needInfoHint:
+      ref: validate-intent
+      path: needInfoHint
+    barcodeSnapshot:
+      ref: fetch-barcode-snapshot
+      path: barcodeSnapshot
+    barcodeSnapshotText:
+      ref: fetch-barcode-snapshot
+      path: barcodeSnapshotText
+    inputContext:
+      ref: validate-intent
+      path: inputContext
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext

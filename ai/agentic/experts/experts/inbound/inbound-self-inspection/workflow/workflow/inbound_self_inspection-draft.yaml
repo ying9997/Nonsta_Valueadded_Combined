@@ -1,0 +1,2557 @@
+schema_version: 1.0.0
+name: inbound_self_inspection
+id: 7575208030967331072
+description: 自验操作与进度（validate → route → KB 或 OMS 链 → LLM）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      intent:
+                          type: string
+                          value: null
+                          description: 咨询意图：submit_guide（提交指引）/ status（验货状态）/ progress（抽验进度与结果）
+                      subTopic:
+                          type: string
+                          value: null
+                          description: 子场景：submit_guide / modify_guide / sampling_result / exemption_check
+                      inboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 入库单号（WI 前缀）；status/progress 场景必填
+                      inboundOrderNo:
+                          type: string
+                          value: null
+                          description: 单个入库单号（与 inboundOrderNos 等价）
+                      phase:
+                          type: string
+                          value: null
+                          description: 可选阶段：pre_ship / post_arrival；缺省由订单状态推断
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163015"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163015"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163015"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163015"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-intent
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-intent — 校验 intent / subTopic / inboundOrderNos
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const VALID_INTENTS = new Set(["submit_guide", "status", "progress"]);
+              const OMS_REQUIRED_INTENTS = new Set(["status", "progress"]);
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function coerceOrderNos(params: Record<string, unknown>): string[] {
+                const fromArray = Array.isArray(params.inboundOrderNos)
+                  ? (params.inboundOrderNos as string[]).map((o) => String(o).trim()).filter(Boolean)
+                  : [];
+                const single = str(params.inboundOrderNo);
+                if (single && !fromArray.includes(single)) fromArray.unshift(single);
+                return fromArray;
+              }
+
+              function detectIntent(rawIntent: string, subTopic: string): string {
+                if (VALID_INTENTS.has(rawIntent)) return rawIntent;
+                if (/提交|怎么验|PDA|API|Excel/i.test(subTopic)) return "submit_guide";
+                if (/抽验|费用|结果/i.test(subTopic)) return "progress";
+                if (/状态|进度/i.test(subTopic)) return "status";
+                return "submit_guide";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const subTopic = str(params.subTopic);
+                const intent = detectIntent(str(params.intent), subTopic);
+                const phase = str(params.phase);
+                const inboundOrderNos = coerceOrderNos(params);
+                const customerIntent = str(params.customerIntent);
+                const query = str(params.query);
+                const inputContext = params.inputContext ?? {};
+
+                const needsOrders = OMS_REQUIRED_INTENTS.has(intent);
+                const validationOk = !needsOrders || inboundOrderNos.length > 0;
+
+                return validationOk
+                  ? {
+                      validationOk: true,
+                      intent,
+                      subTopic,
+                      phase,
+                      inboundOrderNos,
+                      query,
+                      customerIntent,
+                      inputContext,
+                    }
+                  : {
+                      validationOk: false,
+                      error: "status/progress 场景需提供 inboundOrderNos 或 inboundOrderNo",
+                      intent,
+                      subTopic,
+                      phase,
+                      inboundOrderNos,
+                      query,
+                      customerIntent,
+                      inputContext,
+                    };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-intent")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intent
+                input:
+                    value:
+                        path: inputs.intent
+                        ref_node: "100001"
+              - name: subTopic
+                input:
+                    value:
+                        path: inputs.subTopic
+                        ref_node: "100001"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inputs.inboundOrderNos
+                        ref_node: "100001"
+              - name: inboundOrderNo
+                input:
+                    value:
+                        path: inputs.inboundOrderNo
+                        ref_node: "100001"
+              - name: phase
+                input:
+                    value:
+                        path: inputs.phase
+                        ref_node: "100001"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              validationOk:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              intent:
+                  type: string
+                  value: null
+              subTopic:
+                  type: string
+                  value: null
+              phase:
+                  type: string
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              query:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: kb-submit-guide
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 707
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 自验提交操作指引（SI / QSI）
+
+                        ## OW01021 经典自验（SI）
+
+                        1. 在万邑联平台创建入库单并选择自验产品
+                        2. 上传箱单（须与验货数据一一匹配）
+                        3. 选择提交方式：
+                           - **PDA App**：现场扫描，须更新至最新版
+                           - **API 对接**：批量推送验货数据
+                           - **Excel 模板**：下载模板填写后上传
+                        4. 验货完成后方可创建预约单（自验直发）
+
+                        ## OW01022 快速自验（QSI）
+
+                        1. 下单仅需 SKU + 数量（SelfInspectionPlanSKU 模式）
+                        2. 支持「重验」更新验货数据
+                        3. 无需预先完整箱单
+                        4. 提交路径同 PDA / API / Excel
+
+                        ## 修改与重验
+
+                        - 新自验（QSI）：在万邑联点击「重验」更新数据
+                        - 旧自验（SI）：按平台修改流程操作，超过时间窗需联系客服
+
+                        ## 对客原则
+
+                        - 明确「您需要在万邑联平台自行操作」
+                        - 不代客提交；写接口 selfinspection.submit 仅作 SOP 入口说明
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: text
+      title: kb-sampling-rules
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 947
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 抽验规则与费用
+
+                        ## 抽验背景
+
+                        货物到海外仓（`PEWC`）后，Winit 对自验入库单执行**随机抽验**，核对客户发货前自验数据的准确性。自验链路无国内仓复检环节。
+
+                        ## 抽验类型（OW01V1266-68 系列）
+
+                        | 增值编码 | 类型 | 说明 |
+                        |----------|------|------|
+                        | OW01V1266 | 错装抽验 | 核对装箱商品是否与验货商品一致 |
+                        | OW01V1267 | 尺重抽验 | 核对实物尺重是否与验货尺重吻合 |
+                        | OW01V1268 | 数量抽验 | 核对包裹内实物数量是否与验货数量一致 |
+
+                        > 符合免验条件时可能跳过物理开箱核对（见 `exemption-conditions.md`）。
+
+                        ## 数据源
+
+                        - OMS：`getOrderDetail.inspectionStatus`、`status`
+                        - 异常单：`wh.inboundOrder.queryExceptionList` → `exceptionName`、`exceptionDesc`、`exceptionDetailList.merchandiseSerno`
+                        - 抽验费**无独立字段依据**，从 `exceptionType` 或 `exceptionReason` 文本推断
+
+                        ## 费用说明
+
+                        - 客观说明费用金额与计费依据，**不承诺退费**
+                        - 尺重差异尤其容易触发异常处理费
+                        - 费用争议且无明确字段时建议联系客服
+
+                        ## 权限回收预警
+
+                        - Winit 每月 review 抽验准确率；持续偏低会**回收自验权限**，转为标准海外验
+                        - 说明规则但不承诺审批结果
+
+                        ## 超容差差异
+
+                        - 抽验数据与自验数据差异超出容差时，建议转 `inbound-exception-check` 聚合完整差异报告
+                        - `status=EWC` 且客户非咨询抽验结果 → 引导至 `inbound-putaway-status` 查上架进度
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163003"
+      type: text
+      title: kb-exemption-conditions
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 免验条件
+
+                        ## 经典免验规则
+
+                        - `isAutoInspection=Y` 时可能符合免验条件（以 `getOrderDetail` 实际字段为准）
+                        - 部分 OW01021 客户满足 Winit 白名单要求（历史验货准确率高）可申请免验
+                        - 免验以 Excel 箱单形式上传，Winit 不进行物理开箱核对
+                        - 新自验模式（QSI）有独立免验规则
+                        - 免验申请需特殊审批时升级人工
+
+                        ## 判断要点（OMS 链）
+
+                        1. 查看 `getOrderDetail` 中 `isAutoInspection`、`inspectionType`、`winitProductCode`
+                        2. 确认客户是否已完成必要验货数据提交
+                        3. 不符合免验时说明需完成自验后方可发运/预约
+
+                        ## 对客原则
+
+                        - 不承诺免验审批结果
+                        - 说明条件与申请路径（万邑联平台操作）
+                        - 纯 FAQ 场景可走 `kb_only`，不引用订单字段
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163004"
+      type: text
+      title: kb-qsi-guide
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 快速自验（QSI / OW01022）操作指引
+
+                        > 适用 PSC：`OW01022*`（卖家直发自验）。下单模式：SelfInspectionPlanSKU。
+
+                        ## 与经典自验（SI）的差异
+
+                        | 维度 | SI（OW01021 经典） | QSI（OW01022 快速） |
+                        |------|-------------------|---------------------|
+                        | 下单箱单 | 须先上传完整装箱明细 | 仅需 SKU + 数量 |
+                        | 箱单生成 | 客户预先维护 | PDA 扫描后系统自动生成 |
+                        | 重验 | 按平台修改流程；超时间窗联系客服 | 万邑联点击「重验」更新数据 |
+                        | 预约前提 | 验货完成后方可创建预约单 | 同左 |
+
+                        ## 操作步骤
+
+                        1. 在万邑联创建入库单，选择 OW01022 自验产品
+                        2. 填写 SKU 与数量（无需预先完整箱单）
+                        3. 选择提交方式完成验货：
+                           - **PDA App**：扫描商品条码，系统自动记录 SKU × 箱 × 数量；App 须更新至最新版
+                           - **API 对接**：自有系统批量推送验货数据
+                           - **Excel 模板**：下载模板填写后上传
+                        4. 验货完成后确认发货（OD→TS），方可创建预约单（散货/整柜）
+
+                        ## 常见问题
+
+                        | 问题 | 对客要点 |
+                        |------|----------|
+                        | 扫描查不到单 | 更新 PDA App 至最新版后重试 |
+                        | 验货填错 | 使用「重验」功能重新扫描修正 |
+                        | 验货未完成不能预约 | 自验直发须完成验货才能创建预约单 |
+
+                        ## 对客原则
+
+                        - 明确「您需要在万邑联平台自行操作」
+                        - 不代客提交；写接口 `selfinspection.submit` 仅作 SOP 入口说明
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163005"
+      type: code
+      title: route-intent
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          code: |-
+              /**
+               * 节点：route-intent — submit_guide=KB only；status/progress=OMS 链
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const PRE_SHIP_STATUSES = new Set(["OD", "TS"]);
+              const POST_ARRIVAL_STATUSES = new Set(["PEWC", "EWC"]);
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function normalizeSubTopic(intent: string, subTopic: string): string {
+                if (subTopic) return subTopic;
+                if (intent === "submit_guide") return "submit_guide";
+                if (intent === "progress") return "sampling_result";
+                return "status";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.validationOk !== true) {
+                  return {
+                    routePath: "invalid",
+                    skipOms: true,
+                    fetchExceptions: false,
+                    normalizedSubTopic: "",
+                    normalizedPhase: "",
+                  };
+                }
+
+                const intent = str(params.intent) || "submit_guide";
+                const subTopic = str(params.subTopic);
+                const phaseInput = str(params.phase);
+                const normalizedSubTopic = normalizeSubTopic(intent, subTopic);
+
+                if (intent === "submit_guide") {
+                  return {
+                    routePath: "kb_only",
+                    skipOms: true,
+                    fetchExceptions: false,
+                    normalizedSubTopic,
+                    normalizedPhase: phaseInput || "pre_ship",
+                  };
+                }
+
+                const normalizedPhase =
+                  phaseInput || (intent === "progress" ? "post_arrival" : intent === "status" ? "pre_ship" : "pre_ship");
+
+                const fetchExceptions = intent === "progress" || normalizedSubTopic === "sampling_result";
+
+                return {
+                  routePath: "oms_chain",
+                  skipOms: false,
+                  fetchExceptions,
+                  normalizedSubTopic,
+                  normalizedPhase,
+                  _statusHints: {
+                    preShipStatuses: Array.from(PRE_SHIP_STATUSES),
+                    postArrivalStatuses: Array.from(POST_ARRIVAL_STATUSES),
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("route-intent")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: subTopic
+                input:
+                    value:
+                        path: subTopic
+                        ref_node: "163000"
+              - name: phase
+                input:
+                    value:
+                        path: phase
+                        ref_node: "163000"
+          node_outputs:
+              routePath:
+                  type: string
+                  value: null
+              skipOms:
+                  type: boolean
+                  value: null
+              fetchExceptions:
+                  type: boolean
+                  value: null
+              normalizedSubTopic:
+                  type: string
+                  value: null
+              normalizedPhase:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163006"
+      type: code
+      title: resolve-inbound-lookup
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化入库单查询标识
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function isWiOrderToken(raw: string): boolean {
+                return /^WI/i.test(raw.trim());
+              }
+
+              function normalizeWiOrderNum(raw: string): string {
+                return raw.trim().toUpperCase();
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipOms === true) {
+                  return {
+                    wiOrderNos: [],
+                    customerRefNos: [],
+                    inboundOrderNos: [],
+                    lookupMeta: { skipped: true },
+                  };
+                }
+
+                const raw = ((params.inboundOrderNos as string[]) ?? [])
+                  .map((o) => String(o ?? "").trim())
+                  .filter(Boolean);
+
+                const wiSeen = new Set<string>();
+                const refSeen = new Set<string>();
+                const wiOrderNos: string[] = [];
+                const customerRefNos: string[] = [];
+
+                for (const token of raw) {
+                  if (isWiOrderToken(token)) {
+                    const normalized = normalizeWiOrderNum(token);
+                    if (!wiSeen.has(normalized)) {
+                      wiSeen.add(normalized);
+                      wiOrderNos.push(normalized);
+                    }
+                  } else {
+                    const normalized = token.trim();
+                    if (!refSeen.has(normalized)) {
+                      refSeen.add(normalized);
+                      customerRefNos.push(normalized);
+                    }
+                  }
+                }
+
+                return {
+                  wiOrderNos,
+                  customerRefNos,
+                  inboundOrderNos: [...wiOrderNos, ...customerRefNos],
+                  lookupMeta: { hasOrders: wiOrderNos.length > 0 || customerRefNos.length > 0 },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-inbound-lookup")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipOms
+                input:
+                    value:
+                        path: skipOms
+                        ref_node: "163005"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163000"
+          node_outputs:
+              wiOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerRefNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              lookupMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163007"
+      type: code
+      title: build-winit-inbound-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          code: |-
+              /**
+               * 节点：为 winit.wh.inbound.getOrderDetail 组装插件批处理动作
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              type ActionPlan = { inputToken: string; queryBy: "orderNo" | "customerOrderNo" };
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipOms = params.skipOms === true;
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const customerRefNos = ((params.customerRefNos as string[]) ?? []).filter((o) => o?.trim());
+
+                if (skipOms || (wiOrderNos.length === 0 && customerRefNos.length === 0)) {
+                  return {
+                    actions: [],
+                    actionPlans: [],
+                    winitPluginBatchActionsCount: 0,
+                    actionName: INBOUND_DETAIL_ACTION,
+                    skipOms: true,
+                  };
+                }
+
+                const actionPlans: ActionPlan[] = [];
+                for (const no of wiOrderNos) actionPlans.push({ inputToken: no, queryBy: "orderNo" });
+                for (const ref of customerRefNos) actionPlans.push({ inputToken: ref, queryBy: "customerOrderNo" });
+
+                const actions = actionPlans.map((p) => {
+                  const data: Record<string, string> = {};
+                  if (p.queryBy === "orderNo") data.orderNo = p.inputToken;
+                  else data.customerOrderNo = p.inputToken;
+                  return { action: INBOUND_DETAIL_ACTION, data: JSON.stringify(data) };
+                });
+
+                return {
+                  actions,
+                  actionPlans,
+                  winitPluginBatchActionsCount: actions.length,
+                  actionName: INBOUND_DETAIL_ACTION,
+                  skipOms: false,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-winit-inbound-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipOms
+                input:
+                    value:
+                        path: skipOms
+                        ref_node: "163005"
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163006"
+              - name: customerRefNos
+                input:
+                    value:
+                        path: customerRefNos
+                        ref_node: "163006"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              winitPluginBatchActionsCount:
+                  type: integer
+                  value: null
+              actionName:
+                  type: string
+                  value: null
+              skipOms:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163008"
+      type: plugin
+      title: winit_inbound_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163007"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163008"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163008"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163009"
+      type: code
+      title: fetch-inbound-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2627
+      parameters:
+          code: |-
+              /**
+               * 节点：本地 Runner 补拉入库单详情
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceDetailPayload(parsed: unknown): Record<string, unknown> | null {
+                if (parsed == null || typeof parsed !== "object") return null;
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null && typeof o.output === "object") return coerceDetailPayload(o.output);
+                if (o.code === "0" || o.code === 0) {
+                  const inner = o.data;
+                  if (typeof inner === "string") {
+                    try {
+                      return coerceDetailPayload(JSON.parse(inner));
+                    } catch {
+                      return null;
+                    }
+                  }
+                  if (inner != null && typeof inner === "object") return coerceDetailPayload(inner);
+                  return null;
+                }
+                if (o.orderNo != null || o.inboundOrderNum != null) return o;
+                return null;
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipOms === true) {
+                  return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "kb-only" } } };
+                }
+
+                const pluginList = params.winitPluginOutputList;
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  const list: Record<string, unknown>[] = [];
+                  for (const item of pluginList as Array<{ data?: unknown }>) {
+                    const row = coerceDetailPayload(parseCozeWorkflowDataField(item?.data));
+                    if (row) list.push(row);
+                  }
+                  return { rawOrderData: { list, total: list.length, _fetchMeta: { strategy: "plugin-batch" } } };
+                }
+
+                const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{ action: string; data: string }>;
+                const env = getCozeWinitEnv();
+                const list: Record<string, unknown>[] = [];
+                if (!env) {
+                  return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "skipped" } } };
+                }
+
+                for (const act of actions) {
+                  try {
+                    const data = JSON.parse(act.data) as Record<string, unknown>;
+                    const parsed = await runCozeWinitWorkflow(env, act.action || INBOUND_DETAIL_ACTION, data);
+                    const row = coerceDetailPayload(parsed);
+                    if (row) list.push(row);
+                  } catch {
+                    /* continue */
+                  }
+                }
+
+                return { rawOrderData: { list, total: list.length, _fetchMeta: { strategy: "local-proxy" } } };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-inbound-order")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipOms
+                input:
+                    value:
+                        path: skipOms
+                        ref_node: "163005"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163007"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163007"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163008"
+          node_outputs:
+              rawOrderData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163010"
+      type: code
+      title: build-exception-list-request
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2867
+      parameters:
+          code: |-
+              /**
+               * 节点：抽验相关异常单查询（wh.inboundOrder.queryExceptionList）
+               * FaaS 单文件闭环，无 external import。
+               */
+
+              const ORDER_EXCEPTION_DETAIL_ACTION = "wh.inboundOrder.queryExceptionList";
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipOms = params.skipOms === true;
+                const fetchExceptions = params.fetchExceptions === true;
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const skipExceptionApi = skipOms || !fetchExceptions || wiOrderNos.length === 0;
+
+                const actions = skipExceptionApi
+                  ? []
+                  : wiOrderNos.map((orderNo) => ({
+                      action: ORDER_EXCEPTION_DETAIL_ACTION,
+                      data: JSON.stringify({ orderNo }),
+                    }));
+
+                return { actions, skipExceptionApi };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-exception-list-request")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipOms
+                input:
+                    value:
+                        path: skipOms
+                        ref_node: "163005"
+              - name: fetchExceptions
+                input:
+                    value:
+                        path: fetchExceptions
+                        ref_node: "163005"
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163006"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              skipExceptionApi:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163011"
+      type: plugin
+      title: winit_exception_list_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 3107
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 10
+              concurrentSize: 5
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163010"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163011"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163011"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163012"
+      type: code
+      title: fetch-exception-list
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3347
+      parameters:
+          code: |-
+              /* coze-inline: shared/fms-token-url.ts */
+              type FmsRegion = "CN" | "US" | "EU" | "AU" | "DEFAULT";
+
+              type FmsCredential = {
+                fmsUrl: string;
+                clientId: string;
+                clientSecret: string;
+                edsUser: string;
+                edsToken: string;
+              };
+
+              type FmsRuntimeConfig = Partial<Record<FmsRegion, FmsCredential>>;
+
+              type FmsTokenUrlResult = {
+                rawUrl: string;
+                signedUrl: string;
+                region: FmsRegion | "";
+                status: "ok" | "not_fms" | "missing_config" | "invalid_url";
+              };
+
+              const FMS_REGIONS: FmsRegion[] = ["CN", "US", "EU", "AU"];
+
+              function fmsEnv(name: string, fallback: string): string {
+                if (typeof process !== "undefined" && process.env?.[name]) {
+                  return String(process.env[name]).trim();
+                }
+                return fallback;
+              }
+
+              function fmsPlaceholder(region: FmsRegion, name: "CLIENT_KEY" | "CLIENT_SECRET" | "USER_KEY" | "USER_SECRET"): string {
+                const placeholders: Record<FmsRegion, Record<"CLIENT_KEY" | "CLIENT_SECRET" | "USER_KEY" | "USER_SECRET", string>> = {
+                  CN: {
+                    CLIENT_KEY: "__FMS_CN_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_CN_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_CN_USER_KEY__",
+                    USER_SECRET: "__FMS_CN_USER_SECRET__",
+                  },
+                  US: {
+                    CLIENT_KEY: "__FMS_US_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_US_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_US_USER_KEY__",
+                    USER_SECRET: "__FMS_US_USER_SECRET__",
+                  },
+                  AU: {
+                    CLIENT_KEY: "__FMS_AU_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_AU_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_AU_USER_KEY__",
+                    USER_SECRET: "__FMS_AU_USER_SECRET__",
+                  },
+                  EU: {
+                    CLIENT_KEY: "__FMS_EU_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_EU_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_EU_USER_KEY__",
+                    USER_SECRET: "__FMS_EU_USER_SECRET__",
+                  },
+                  DEFAULT: {
+                    CLIENT_KEY: "__FMS_US_CLIENT_KEY__",
+                    CLIENT_SECRET: "__FMS_US_CLIENT_SECRET__",
+                    USER_KEY: "__FMS_US_USER_KEY__",
+                    USER_SECRET: "__FMS_US_USER_SECRET__",
+                  },
+                };
+                return placeholders[region][name];
+              }
+
+              function fmsCredentialFromEnv(region: FmsRegion, defaultUrl: string): FmsCredential {
+                return {
+                  fmsUrl: fmsEnv(`FMS_${region}_URL`, defaultUrl).replace(/\/+$/, ""),
+                  clientId: fmsEnv(`FMS_${region}_CLIENT_KEY`, fmsPlaceholder(region, "CLIENT_KEY")),
+                  clientSecret: fmsEnv(`FMS_${region}_CLIENT_SECRET`, fmsPlaceholder(region, "CLIENT_SECRET")),
+                  edsUser: fmsEnv(`FMS_${region}_USER_KEY`, fmsPlaceholder(region, "USER_KEY")),
+                  edsToken: fmsEnv(`FMS_${region}_USER_SECRET`, fmsPlaceholder(region, "USER_SECRET")),
+                };
+              }
+
+              function defaultFmsRuntimeConfig(): FmsRuntimeConfig {
+                const us = fmsCredentialFromEnv("US", "https://usfmsstream.winit.com.cn");
+                return {
+                  CN: fmsCredentialFromEnv("CN", "https://cnfmsstream.winit.com.cn"),
+                  US: us,
+                  AU: fmsCredentialFromEnv("AU", "https://aufmsstream.winit.com.cn"),
+                  EU: fmsCredentialFromEnv("EU", "https://eufmsstream.winit.com.cn"),
+                  DEFAULT: us,
+                };
+              }
+
+              function fmsIsConfigured(value: string): boolean {
+                const s = value.trim();
+                return Boolean(s) && !/^__FMS_[A-Z]+_[A-Z_]+__$/.test(s);
+              }
+
+              function fmsHasCredential(credential: FmsCredential | undefined): credential is FmsCredential {
+                return Boolean(
+                  credential &&
+                    fmsIsConfigured(credential.fmsUrl) &&
+                    fmsIsConfigured(credential.clientId) &&
+                    fmsIsConfigured(credential.clientSecret) &&
+                    fmsIsConfigured(credential.edsUser) &&
+                    fmsIsConfigured(credential.edsToken)
+                );
+              }
+
+              function fmsParseUrl(rawUrl: string): { isAbsolute: boolean; host: string; path: string } | null {
+                const trimmed = rawUrl.trim();
+                if (!trimmed) return null;
+                if (/^https?:\/\//i.test(trimmed)) {
+                  const match = trimmed.match(/^https?:\/\/([^/?#]+)([^?#]*)/i);
+                  if (!match) return null;
+                  return {
+                    isAbsolute: true,
+                    host: match[1] ?? "",
+                    path: match[2] || "/",
+                  };
+                }
+                const pathOnly = trimmed.split(/[?#]/)[0] ?? "";
+                return { isAbsolute: false, host: "", path: pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}` };
+              }
+
+              function fmsRegionByUrl(rawUrl: string, config: FmsRuntimeConfig): FmsRegion | "" {
+                const trimmed = rawUrl.trim();
+                for (const region of FMS_REGIONS) {
+                  const cfgUrl = config[region]?.fmsUrl?.replace(/\/+$/, "");
+                  if (cfgUrl && trimmed.startsWith(cfgUrl)) return region;
+                }
+
+                const parsed = fmsParseUrl(trimmed);
+                if (parsed?.isAbsolute) {
+                  const match = parsed.host.match(/^([a-z]+)fmsstream\.winit\.com/i);
+                  const region = match?.[1]?.toUpperCase() as FmsRegion | undefined;
+                  if (region && FMS_REGIONS.includes(region)) return region;
+                  return "";
+                }
+
+                return config.DEFAULT ? "DEFAULT" : "";
+              }
+
+              function isFmsUrl(rawUrl: unknown, config: FmsRuntimeConfig = defaultFmsRuntimeConfig()): rawUrl is string {
+                return typeof rawUrl === "string" && fmsRegionByUrl(rawUrl, config) !== "";
+              }
+
+              function fmsUrlForSigning(rawUrl: string, credential: FmsCredential): string {
+                const parsed = fmsParseUrl(rawUrl);
+                const path = parsed?.path || "/";
+                const base = credential.fmsUrl.replace(/\/+$/, "");
+                return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+              }
+
+              function fmsObjectUri(fileUrl: string): string {
+                return fmsParseUrl(fileUrl)?.path || "/";
+              }
+
+              function fmsUtf8Bytes(input: string): number[] {
+                const bytes: number[] = [];
+                for (let i = 0; i < input.length; i++) {
+                  let code = input.charCodeAt(i);
+                  if (code < 0x80) {
+                    bytes.push(code);
+                  } else if (code < 0x800) {
+                    bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+                  } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < input.length) {
+                    const next = input.charCodeAt(++i);
+                    code = 0x10000 + ((code & 0x3ff) << 10) + (next & 0x3ff);
+                    bytes.push(
+                      0xf0 | (code >> 18),
+                      0x80 | ((code >> 12) & 0x3f),
+                      0x80 | ((code >> 6) & 0x3f),
+                      0x80 | (code & 0x3f)
+                    );
+                  } else {
+                    bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+                  }
+                }
+                return bytes;
+              }
+
+              function fmsLeftRotate(value: number, bits: number): number {
+                return ((value << bits) | (value >>> (32 - bits))) >>> 0;
+              }
+
+              function fmsSha1(bytes: number[]): number[] {
+                const message = bytes.slice();
+                const bitLength = message.length * 8;
+                message.push(0x80);
+                while ((message.length % 64) !== 56) message.push(0);
+                for (let i = 7; i >= 0; i--) message.push((bitLength / Math.pow(2, i * 8)) & 0xff);
+
+                let h0 = 0x67452301;
+                let h1 = 0xefcdab89;
+                let h2 = 0x98badcfe;
+                let h3 = 0x10325476;
+                let h4 = 0xc3d2e1f0;
+
+                for (let offset = 0; offset < message.length; offset += 64) {
+                  const w = new Array<number>(80);
+                  for (let i = 0; i < 16; i++) {
+                    const j = offset + i * 4;
+                    w[i] = ((message[j]! << 24) | (message[j + 1]! << 16) | (message[j + 2]! << 8) | message[j + 3]!) >>> 0;
+                  }
+                  for (let i = 16; i < 80; i++) {
+                    w[i] = fmsLeftRotate((w[i - 3]! ^ w[i - 8]! ^ w[i - 14]! ^ w[i - 16]!) >>> 0, 1);
+                  }
+
+                  let a = h0;
+                  let b = h1;
+                  let c = h2;
+                  let d = h3;
+                  let e = h4;
+
+                  for (let i = 0; i < 80; i++) {
+                    let f = 0;
+                    let k = 0;
+                    if (i < 20) {
+                      f = (b & c) | (~b & d);
+                      k = 0x5a827999;
+                    } else if (i < 40) {
+                      f = b ^ c ^ d;
+                      k = 0x6ed9eba1;
+                    } else if (i < 60) {
+                      f = (b & c) | (b & d) | (c & d);
+                      k = 0x8f1bbcdc;
+                    } else {
+                      f = b ^ c ^ d;
+                      k = 0xca62c1d6;
+                    }
+                    const temp = (fmsLeftRotate(a, 5) + f + e + k + w[i]!) >>> 0;
+                    e = d;
+                    d = c;
+                    c = fmsLeftRotate(b, 30);
+                    b = a;
+                    a = temp;
+                  }
+
+                  h0 = (h0 + a) >>> 0;
+                  h1 = (h1 + b) >>> 0;
+                  h2 = (h2 + c) >>> 0;
+                  h3 = (h3 + d) >>> 0;
+                  h4 = (h4 + e) >>> 0;
+                }
+
+                const out: number[] = [];
+                for (const h of [h0, h1, h2, h3, h4]) {
+                  out.push((h >>> 24) & 0xff, (h >>> 16) & 0xff, (h >>> 8) & 0xff, h & 0xff);
+                }
+                return out;
+              }
+
+              function fmsHmacSha1Hex(key: string, message: string): string {
+                let keyBytes = fmsUtf8Bytes(key);
+                if (keyBytes.length > 64) keyBytes = fmsSha1(keyBytes);
+                while (keyBytes.length < 64) keyBytes.push(0);
+
+                const outer = keyBytes.map((b) => b ^ 0x5c);
+                const inner = keyBytes.map((b) => b ^ 0x36);
+                const digest = fmsSha1(inner.concat(fmsUtf8Bytes(message)));
+                return fmsSha1(outer.concat(digest))
+                  .map((b) => b.toString(16).padStart(2, "0"))
+                  .join("")
+                  .toUpperCase();
+              }
+
+              function fmsBase64Utf8(input: string): string {
+                const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+                const bytes = fmsUtf8Bytes(input);
+                let out = "";
+                for (let i = 0; i < bytes.length; i += 3) {
+                  const a = bytes[i]!;
+                  const b = bytes[i + 1];
+                  const c = bytes[i + 2];
+                  out += alphabet[a >> 2];
+                  out += alphabet[((a & 3) << 4) | ((b ?? 0) >> 4)];
+                  out += b === undefined ? "=" : alphabet[((b & 15) << 2) | ((c ?? 0) >> 6)];
+                  out += c === undefined ? "=" : alphabet[c & 63];
+                }
+                return out;
+              }
+
+              function buildFmsTokenUrl(
+                rawUrl: string,
+                config: FmsRuntimeConfig = defaultFmsRuntimeConfig(),
+                nowMs = Date.now()
+              ): FmsTokenUrlResult {
+                const parsed = fmsParseUrl(rawUrl);
+                if (!parsed) return { rawUrl, signedUrl: rawUrl, region: "", status: "invalid_url" };
+
+                const region = fmsRegionByUrl(rawUrl, config);
+                if (!region) return { rawUrl, signedUrl: rawUrl, region: "", status: "not_fms" };
+
+                const credential = config[region] ?? config.DEFAULT;
+                if (!fmsHasCredential(credential)) {
+                  return { rawUrl, signedUrl: rawUrl, region, status: "missing_config" };
+                }
+
+                const fileUrl = fmsUrlForSigning(rawUrl, credential);
+                const objectUri = fmsObjectUri(fileUrl);
+                const date = Math.floor(nowMs);
+                const canonical = `GET\n${objectUri}?clientId=${credential.clientId}&date=${date}&user=${credential.edsUser}`;
+                const clientSign = fmsHmacSha1Hex(credential.clientSecret, canonical);
+                const userSign = fmsHmacSha1Hex(credential.edsToken, canonical);
+                const tokenContent =
+                  `${objectUri}?clientSign=${clientSign}` +
+                  `&userSign=${userSign}` +
+                  `&version=V1.0` +
+                  `&date=${date}` +
+                  `&user=${credential.edsUser}` +
+                  `&clientId=${credential.clientId}`;
+                return {
+                  rawUrl,
+                  signedUrl: `${fileUrl}?token=${fmsBase64Utf8(tokenContent)}`,
+                  region,
+                  status: "ok",
+                };
+              }
+
+              function fmsSignedKey(key: string): string {
+                if (key === "fileUrl") return "signedFileUrl";
+                if (key === "url") return "signedUrl";
+                return `signed${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+              }
+
+              function fmsSignStatusKey(key: string): string {
+                if (key === "fileUrl") return "fileUrlSignStatus";
+                if (key === "url") return "urlSignStatus";
+                return `${key}SignStatus`;
+              }
+
+              function fmsShouldSignScalarKey(key: string): boolean {
+                return key === "fileUrl" || key === "url" || /url$/i.test(key);
+              }
+
+              function signFmsUrlDeep(
+                value: unknown,
+                config: FmsRuntimeConfig = defaultFmsRuntimeConfig(),
+                nowMs = Date.now()
+              ): unknown {
+                if (Array.isArray(value)) return value.map((item) => signFmsUrlDeep(item, config, nowMs));
+                if (!value || typeof value !== "object") return value;
+
+                const source = value as Record<string, unknown>;
+                const out: Record<string, unknown> = {};
+
+                for (const [key, raw] of Object.entries(source)) {
+                  out[key] = signFmsUrlDeep(raw, config, nowMs);
+                  if (fmsShouldSignScalarKey(key) && typeof raw === "string") {
+                    const signed = buildFmsTokenUrl(raw, config, nowMs);
+                    if (signed.status === "ok") {
+                      out[fmsSignedKey(key)] = signed.signedUrl;
+                    } else if (signed.status === "missing_config") {
+                      out[fmsSignStatusKey(key)] = signed.status;
+                    }
+                  }
+                }
+
+                if (Array.isArray(source.unusualFiles)) {
+                  const signedUnusualFiles: string[] = [];
+                  const statuses: string[] = [];
+                  for (const raw of source.unusualFiles) {
+                    if (typeof raw !== "string") continue;
+                    const signed = buildFmsTokenUrl(raw, config, nowMs);
+                    if (signed.status === "ok") signedUnusualFiles.push(signed.signedUrl);
+                    else if (signed.status === "missing_config") statuses.push(signed.status);
+                  }
+                  if (signedUnusualFiles.length > 0) out.signedUnusualFiles = signedUnusualFiles;
+                  if (statuses.length > 0) out.unusualFilesSignStatus = Array.from(new Set(statuses)).join(",");
+                }
+
+                return out;
+              }
+
+              /* coze-inline: node */
+              /**
+               * 节点：拉取抽验相关异常单（wh.inboundOrder.queryExceptionList）
+               * FaaS 单文件闭环，无 external import。
+               */
+
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const ORDER_EXCEPTION_DETAIL_ACTION = "wh.inboundOrder.queryExceptionList";
+              const SAMPLING_TYPES = /SAMPL|抽验|OW01V126/i;
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  return JSON.parse(data) as unknown;
+                } catch {
+                  return data;
+                }
+              }
+
+              function flattenOrderExceptionDetails(orderNo: string, items: unknown[]): unknown[] {
+                const rows: unknown[] = [];
+                for (const item of items) {
+                  if (!item || typeof item !== "object") continue;
+                  const o = item as Record<string, unknown>;
+                  const exceptionName = str(o.exceptionName);
+                  const exceptionDesc = str(o.exceptionDesc);
+                  const details = Array.isArray(o.exceptionDetailList) ? o.exceptionDetailList : [];
+                  if (details.length === 0) {
+                    rows.push({
+                      orderNo,
+                      exceptionType: exceptionName,
+                      type: exceptionName,
+                      exceptionReason: exceptionDesc,
+                      errormsg: exceptionDesc,
+                    });
+                    continue;
+                  }
+                  for (const d of details) {
+                    if (!d || typeof d !== "object") continue;
+                    const detail = d as Record<string, unknown>;
+                    rows.push({
+                      orderNo,
+                      exceptionType: exceptionName,
+                      type: exceptionName,
+                      exceptionReason: exceptionDesc,
+                      errormsg: exceptionDesc,
+                      merchandiseCode: str(detail.merchandiseSerno),
+                      packageNo: str(detail.packageSerno),
+                    });
+                  }
+                }
+                return rows;
+              }
+
+              function coerceList(parsed: unknown, orderNoHint?: string): unknown[] {
+                if (parsed == null) return [];
+                if (Array.isArray(parsed)) {
+                  return orderNoHint ? flattenOrderExceptionDetails(orderNoHint, parsed) : parsed;
+                }
+                if (typeof parsed !== "object") return [];
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coerceList(o.output, orderNoHint);
+                if (o.code === "0" || o.code === 0) return coerceList(o.data, orderNoHint);
+                return Array.isArray(o.list) ? o.list : [];
+              }
+
+              function isSamplingRecord(raw: unknown): boolean {
+                if (!raw || typeof raw !== "object") return false;
+                const o = raw as Record<string, unknown>;
+                const type = String(o.exceptionType ?? o.type ?? o.exceptionName ?? "");
+                const reason = String(o.exceptionReason ?? o.errormsg ?? o.exceptionDesc ?? "");
+                return SAMPLING_TYPES.test(type) || SAMPLING_TYPES.test(reason);
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipExceptionApi === true) {
+                  return { samplingExceptions: [] };
+                }
+
+                const pluginList = params.winitExceptionPluginOutputList;
+                let list: unknown[] = [];
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                    data: string;
+                  }>;
+                  for (let i = 0; i < pluginList.length; i++) {
+                    const item = pluginList[i] as { data?: unknown };
+                    let orderNoHint = "";
+                    try {
+                      orderNoHint = str(JSON.parse(actions[i]?.data ?? "{}").orderNo);
+                    } catch {
+                      /* ignore */
+                    }
+                    list.push(...coerceList(parseCozeWorkflowDataField(item?.data), orderNoHint || undefined));
+                  }
+                } else {
+                  const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                    action: string;
+                    data: string;
+                  }>;
+                  const env = getCozeWinitEnv();
+                  if (env && actions.length > 0) {
+                    for (const act of actions) {
+                      try {
+                        const data = JSON.parse(act.data) as Record<string, unknown>;
+                        const orderNoHint = str(data.orderNo);
+                        const parsed = await runCozeWinitWorkflow(
+                          env,
+                          act.action || ORDER_EXCEPTION_DETAIL_ACTION,
+                          data
+                        );
+                        list.push(...coerceList(parsed, orderNoHint || undefined));
+                      } catch {
+                        /* continue */
+                      }
+                    }
+                  }
+                }
+
+                const samplingExceptions = list.filter(isSamplingRecord);
+                const selected = samplingExceptions.length > 0 ? samplingExceptions : list.slice(0, 20);
+                return { samplingExceptions: signFmsUrlDeep(selected) };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-exception-list")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipExceptionApi
+                input:
+                    value:
+                        path: skipExceptionApi
+                        ref_node: "163010"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163010"
+              - name: winitExceptionPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163011"
+          node_outputs:
+              samplingExceptions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163013"
+      type: code
+      title: load-self-inspection-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3587
+      parameters:
+          code: |-
+              /**
+               * 节点：load-self-inspection-kb — 按 intent/subTopic/phase + SI/QSI 拼接 KB
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type InspectionProduct = "SI" | "QSI" | "unknown";
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function firstOrderRow(rawOrderData: unknown): Record<string, unknown> | null {
+                if (rawOrderData == null || typeof rawOrderData !== "object") return null;
+                const list = (rawOrderData as { list?: unknown[] }).list;
+                if (!Array.isArray(list) || list.length === 0) return null;
+                const row = list[0];
+                return row != null && typeof row === "object" ? (row as Record<string, unknown>) : null;
+              }
+
+              function resolveInspectionProduct(rawOrderData: unknown, routePath: string): InspectionProduct {
+                if (routePath === "kb_only") return "unknown";
+
+                const row = firstOrderRow(rawOrderData);
+                if (!row) return "unknown";
+
+                const psc = str(row.winitProductCode) || str(row.productCode);
+                const inspectionType = str(row.inspectionType);
+
+                if (/OW01022/i.test(psc)) return "QSI";
+                if (/OW01021/i.test(psc)) return "SI";
+                if (/QSI|quick|快速|SelfInspectionPlanSKU/i.test(inspectionType)) return "QSI";
+                if (/SI|classic|经典|旧自验/i.test(inspectionType)) return "SI";
+
+                return "unknown";
+              }
+
+              function pickSubmitGuideKb(
+                product: InspectionProduct,
+                kbSubmitGuide: string,
+                kbQsiGuide: string
+              ): string {
+                if (product === "QSI") return kbQsiGuide || kbSubmitGuide;
+                if (product === "SI") return kbSubmitGuide;
+                const parts = [kbSubmitGuide, kbQsiGuide].filter(Boolean);
+                return parts.join("\n\n---\n\n");
+              }
+
+              function pickKbParts(
+                intent: string,
+                subTopic: string,
+                phase: string,
+                submitGuide: string,
+                kbSamplingRules: string,
+                kbExemptionConditions: string,
+                product: InspectionProduct
+              ): { parts: string[]; scope: string } {
+                const productTag = product === "unknown" ? "" : `:${product}`;
+
+                if (intent === "submit_guide" || subTopic === "submit_guide" || subTopic === "modify_guide") {
+                  return { parts: [submitGuide], scope: `pre_ship:submit${productTag}` };
+                }
+                if (subTopic === "exemption_check") {
+                  return { parts: [kbExemptionConditions, submitGuide], scope: `pre_ship:exemption${productTag}` };
+                }
+                if (intent === "progress" || phase === "post_arrival" || subTopic === "sampling_result") {
+                  return { parts: [kbSamplingRules, submitGuide], scope: `post_arrival:sampling${productTag}` };
+                }
+                if (intent === "status") {
+                  return { parts: [submitGuide, kbExemptionConditions], scope: `status${productTag}` };
+                }
+                return { parts: [submitGuide, kbSamplingRules, kbExemptionConditions], scope: `full${productTag}` };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intent = str(params.intent) || "submit_guide";
+                const subTopic = str(params.normalizedSubTopic) || str(params.subTopic);
+                const phase = str(params.normalizedPhase);
+                const routePath = str(params.routePath);
+
+                const kbSubmitGuide = str(params.kbSubmitGuide);
+                const kbQsiGuide = str(params.kbQsiGuide);
+                const kbSamplingRules = str(params.kbSamplingRules);
+                const kbExemptionConditions = str(params.kbExemptionConditions);
+
+                const inspectionProduct = resolveInspectionProduct(params.rawOrderData, routePath);
+                const submitGuide = pickSubmitGuideKb(inspectionProduct, kbSubmitGuide, kbQsiGuide);
+
+                const { parts, scope } = pickKbParts(
+                  intent,
+                  subTopic,
+                  phase,
+                  submitGuide,
+                  kbSamplingRules,
+                  kbExemptionConditions,
+                  inspectionProduct
+                );
+
+                return {
+                  kbContent: parts.filter(Boolean).join("\n\n---\n\n"),
+                  kbScope: `${scope}:${routePath || "default"}`,
+                  inspectionProduct,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-self-inspection-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: subTopic
+                input:
+                    value:
+                        path: subTopic
+                        ref_node: "163000"
+              - name: normalizedSubTopic
+                input:
+                    value:
+                        path: normalizedSubTopic
+                        ref_node: "163005"
+              - name: normalizedPhase
+                input:
+                    value:
+                        path: normalizedPhase
+                        ref_node: "163005"
+              - name: routePath
+                input:
+                    value:
+                        path: routePath
+                        ref_node: "163005"
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163009"
+              - name: kbSubmitGuide
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+              - name: kbQsiGuide
+                input:
+                    value:
+                        path: output
+                        ref_node: "163004"
+              - name: kbSamplingRules
+                input:
+                    value:
+                        path: output
+                        ref_node: "163002"
+              - name: kbExemptionConditions
+                input:
+                    value:
+                        path: output
+                        ref_node: "163003"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              inspectionProduct:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163014"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 3827
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 自验操作与进度专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是自验操作与进度专家，服务 OW01021（SI 经典自验）与 OW01022（QSI 快速自验）链路。根据 `routePath` 提供发货前操作指引或到仓后抽验结果说明。
+
+                        ## 禁止项
+
+                        - 不代客提交验货数据（写操作由客户在万邑联平台自行完成）
+                        - 不承诺抽验费退款
+                        - 不引用飞书或内部系统 URL
+                        - 只引用 JSON 中出现的字段
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **intent**：`{{intent}}`
+                        - **subTopic**：`{{subTopic}}`
+                        - **normalizedPhase**：`{{normalizedPhase}}`
+                        - **routePath**：`{{routePath}}`（kb_only / oms_chain）
+                        - **inboundOrderNos**：`{{inboundOrderNos}}`
+                        - **rawOrderData**：
+
+                        ```json
+                        {{rawOrderData}}
+                        ```
+
+                        - **samplingExceptions**：
+
+                        ```json
+                        {{samplingExceptions}}
+                        ```
+
+                        - **kbContent**：`{{kbContent}}`（已按 SI/QSI 硬分流拼接）
+                        - **kbScope**：`{{kbScope}}`（含 `inspectionProduct` 标签）
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "orderNo": "",
+                              "phase": "",
+                              "inspectionType": "",
+                              "inspectionStatus": "",
+                              "exemptionEligible": false,
+                              "submitGuideSteps": [],
+                              "samplingResult": {},
+                              "actionRequired": ""
+                            },
+                            "analysis": "按 SI/QSI 分流给出步骤；post_arrival 客观说明抽验类型、结果与费用。"
+                          }
+                        }
+                        ```
+
+                        ## 特殊规则
+
+                        - `routePath=kb_only`：基于 kbContent 输出 PDA/API/Excel 提交步骤，不引用订单字段
+                        - `routePath=oms_chain`：结合 rawOrderData 的 status、inspectionType、inspectionStatus
+                        - status=EWC 且非 sampling_result：引导至 inbound-putaway-status 查上架进度
+                        - 抽验差异超容差时建议联系客服或转 inbound-exception-check
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "163000"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: intent
+                input:
+                    value:
+                        path: intent
+                        ref_node: "163000"
+              - name: subTopic
+                input:
+                    value:
+                        path: subTopic
+                        ref_node: "163000"
+              - name: normalizedPhase
+                input:
+                    value:
+                        path: normalizedPhase
+                        ref_node: "163005"
+              - name: routePath
+                input:
+                    value:
+                        path: routePath
+                        ref_node: "163005"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163006"
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163009"
+              - name: samplingExceptions
+                input:
+                    value:
+                        path: samplingExceptions
+                        ref_node: "163012"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163013"
+              - name: kbScope
+                input:
+                    value:
+                        path: kbScope
+                        ref_node: "163013"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163015"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 4067
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const structured = coerced.structured ?? {};
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "自验操作与进度查询完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {
+                    expertId: "inbound-self-inspection",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "",
+                  },
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163014"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "163014"
+    - source_node: "163014"
+      target_node: "163015"
+    - source_node: "163015"
+      target_node: "900001"

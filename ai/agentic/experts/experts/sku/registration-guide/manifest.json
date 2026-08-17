@@ -1,0 +1,55 @@
+{
+  "id": "registration-guide",
+  "domain": "sku",
+  "name": "SKU 注册与操作引导",
+  "description": "引导海外仓商品注册、审核加急、新品能否承运/入库（浅层）、退回重提、限直发解法、特殊属性解除、禁限解禁浅层，以及「商品不存在/未发布/禁止入库」报错处理。KB+LLM 为主，不代客写入。Use when 客户问 SKU 加急、审核要多久、怎么注册、批量注册、退回怎么改、链接能否发某国仓、限直发怎么办、取消带电等属性、禁止入库怎么解、或下入库单提示商品信息不存在。",
+  "capabilities": [
+    "注册加急",
+    "新品承运浅层",
+    "注册引导",
+    "退回重提",
+    "限直发解法",
+    "属性解除",
+    "解禁浅层"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "topic": {
+        "type": "string",
+        "description": "咨询主题关键词（与 intentType 至少填一个）"
+      },
+      "intentType": {
+        "type": "string",
+        "description": "expedite / carriability / register / audit_status / resubmit / modify / inactive / blocked_inbound / direct_shipment / attribute_change / unban / general"
+      },
+      "skuCode": {
+        "type": "string",
+        "description": "商品编码（可选；有则可用于审核/退回/限直发语境）"
+      },
+      "importCountryCode": {
+        "type": "string",
+        "description": "进口国二字码（可选）"
+      },
+      "productLink": {
+        "type": "string",
+        "description": "商品链接（新品承运场景建议提供）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "branch、sopSteps、confidence 等"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客分步说明"
+      }
+    }
+  }
+}

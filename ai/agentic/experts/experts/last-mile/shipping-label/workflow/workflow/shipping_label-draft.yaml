@@ -1,0 +1,1254 @@
+schema_version: 1.0.0
+name: shipping_label
+id: 7543775157879962076
+description: 尾程面单查询（订单标识定位 → 脱敏面单批量查询 → 确定性输出）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -160
+          y: 260
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      orderIdentifiers:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 1～10 个订单标识，可为 WO 主单号、WO...A 包裹号、trackingNo 或卖家订单号
+                          required: true
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1840
+          y: 260
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "176017"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "176017"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "176017"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "176017"
+          terminatePlan: returnVariables
+    - id: "176010"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 40
+          y: 260
+      parameters:
+          code: |-
+              /** 校验并规范化尾程面单查询输入。 */
+
+              const SHIPPING_LABEL_MAX_INPUTS = 10;
+
+              function shippingLabelStringList(raw: unknown): string[] {
+                const values = Array.isArray(raw) ? raw : raw == null ? [] : [raw];
+                const seen = new Set<string>();
+                const out: string[] = [];
+                for (const value of values) {
+                  const normalized = String(value ?? "").trim();
+                  if (!normalized || seen.has(normalized)) continue;
+                  seen.add(normalized);
+                  out.push(normalized);
+                }
+                return out;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawIdentifierValues = Array.isArray(params.orderIdentifiers)
+                  ? params.orderIdentifiers as unknown[]
+                  : params.orderIdentifiers == null
+                    ? []
+                    : [params.orderIdentifiers];
+                const rawIdentifierCount = rawIdentifierValues.filter((value) => String(value ?? "").trim()).length;
+                const orderIdentifiers = shippingLabelStringList(params.orderIdentifiers);
+                const customerCode = String(params.customerCode ?? "").trim();
+                const username = String(params.username ?? "").trim();
+
+                let valid = true;
+                let errorCode = "";
+                let errorMessage = "";
+
+                if (orderIdentifiers.length === 0) {
+                  valid = false;
+                  errorCode = "need_input";
+                  errorMessage = "请提供出库单号、包裹号、trackingNo 或卖家订单号。";
+                } else if (rawIdentifierCount > SHIPPING_LABEL_MAX_INPUTS) {
+                  valid = false;
+                  errorCode = "too_many_inputs";
+                  errorMessage = `单次最多查询 ${SHIPPING_LABEL_MAX_INPUTS} 个标识，请分批提交。`;
+                } else if (!customerCode || !username) {
+                  valid = false;
+                  errorCode = "missing_account_context";
+                  errorMessage = "当前登录信息不完整，无法确认订单归属；请重新登录后再查询。";
+                }
+
+                return {
+                  valid,
+                  errorCode,
+                  errorMessage,
+                  orderIdentifiers,
+                  requestedIdentifiers: orderIdentifiers,
+                  customerCode,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: orderIdentifiers
+                input:
+                    value:
+                        path: inputs.orderIdentifiers
+                        ref_node: "100001"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              errorCode:
+                  type: string
+                  value: null
+              errorMessage:
+                  type: string
+                  value: null
+              orderIdentifiers:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              requestedIdentifiers:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerCode:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "176011"
+      type: code
+      title: build-order-resolution-actions
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 260
+          y: 180
+      parameters:
+          code: |-
+              /** 为非 WO 标识生成 trackingNo + sellerOrderNo 批处理查询。 */
+
+              type ResolutionPlan = {
+                inputIdentifier: string;
+                queryBy: "trackingNo" | "sellerOrderNo";
+              };
+
+              function shippingLabelNormalizeWo(raw: string): string {
+                const value = raw.trim();
+                const match = /^WO(\d+)[A-Za-z]*$/i.exec(value);
+                return match ? `WO${match[1]}` : "";
+              }
+
+              function shippingLabelDateRange(): { start: string; end: string } {
+                const end = new Date();
+                const start = new Date(end);
+                start.setUTCFullYear(start.getUTCFullYear() - 1);
+                return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+              }
+
+              function shippingLabelResolutionData(plan: ResolutionPlan): Record<string, string> {
+                const range = shippingLabelDateRange();
+                const data: Record<string, string> = {
+                  dateOrderedStartDate: range.start,
+                  dateOrderedEndDate: range.end,
+                  pageSize: "50",
+                  pageNum: "1",
+                };
+                data[plan.queryBy] = plan.inputIdentifier;
+                return data;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const valid = params.valid === true;
+                const requestedIdentifiers = Array.isArray(params.orderIdentifiers)
+                  ? (params.orderIdentifiers as unknown[]).map((value) => String(value).trim()).filter(Boolean)
+                  : [];
+
+                const directOrders: Array<{ inputIdentifier: string; orderNo: string }> = [];
+                const actionPlans: ResolutionPlan[] = [];
+
+                if (valid) {
+                  for (const inputIdentifier of requestedIdentifiers) {
+                    const orderNo = shippingLabelNormalizeWo(inputIdentifier);
+                    if (orderNo) {
+                      directOrders.push({ inputIdentifier, orderNo });
+                      continue;
+                    }
+                    actionPlans.push({ inputIdentifier, queryBy: "trackingNo" });
+                    actionPlans.push({ inputIdentifier, queryBy: "sellerOrderNo" });
+                  }
+                }
+
+                const actions = actionPlans.map((plan) => ({
+                  action: "queryOutboundOrderList",
+                  data: JSON.stringify(shippingLabelResolutionData(plan)),
+                }));
+
+                return {
+                  requestedIdentifiers,
+                  directOrders,
+                  actions,
+                  actionPlans,
+                  resolutionPluginBatchActionsCount: actions.length,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-order-resolution-actions")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: valid
+                input:
+                    value:
+                        path: valid
+                        ref_node: "176010"
+              - name: orderIdentifiers
+                input:
+                    value:
+                        path: orderIdentifiers
+                        ref_node: "176010"
+          node_outputs:
+              requestedIdentifiers:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              directOrders:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+                  description: 输入标识及查询字段映射
+              resolutionPluginBatchActionsCount:
+                  type: integer
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "176012"
+      type: plugin
+      title: winit_shipping_label_resolution_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 500
+          y: 180
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 20
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "176011"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "176012"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "176012"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "176013"
+      type: code
+      title: merge-order-resolution
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 740
+          y: 180
+      parameters:
+          code: |-
+              /** 合并订单定位结果，并保留原始输入到 WO 主单的映射。 */
+
+              const SHIPPING_LABEL_MAX_RESOLVED_ORDERS = 20;
+
+              type ResolutionPlan = {
+                inputIdentifier: string;
+                queryBy: "trackingNo" | "sellerOrderNo";
+              };
+
+              function shippingLabelMergeParse(raw: unknown): unknown {
+                if (typeof raw !== "string") return raw;
+                const value = raw.trim();
+                if (!value) return "";
+                try {
+                  const once = JSON.parse(value) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return raw;
+                }
+              }
+
+              function shippingLabelMergeNormalizeWo(raw: unknown): string {
+                const value = String(raw ?? "").trim();
+                const match = /^WO(\d+)[A-Za-z]*$/i.exec(value);
+                return match ? `WO${match[1]}` : "";
+              }
+
+              function shippingLabelMergeRows(raw: unknown): Array<Record<string, unknown>> {
+                const parsed = shippingLabelMergeParse(raw);
+                if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+                const object = parsed as Record<string, unknown>;
+                if (object.output != null) return shippingLabelMergeRows(object.output);
+                if (String(object.code ?? "") === "0" && object.data != null) {
+                  return shippingLabelMergeRows(object.data);
+                }
+                if (Array.isArray(object.list)) {
+                  return object.list.filter((row) => row && typeof row === "object") as Array<Record<string, unknown>>;
+                }
+                if (object.outboundOrderNum != null || object.outboundOrderNo != null || object.documentNo != null) {
+                  return [object];
+                }
+                return [];
+              }
+
+              function shippingLabelMergeOutputList(raw: unknown): Array<Record<string, unknown>> {
+                return Array.isArray(raw)
+                  ? raw.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>>
+                  : [];
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const requestedIdentifiers = Array.isArray(params.requestedIdentifiers)
+                  ? (params.requestedIdentifiers as unknown[]).map((value) => String(value).trim()).filter(Boolean)
+                  : [];
+                const directOrders = Array.isArray(params.directOrders)
+                  ? params.directOrders as Array<Record<string, unknown>>
+                  : [];
+                const actionPlans = Array.isArray(params.actionPlans)
+                  ? params.actionPlans as ResolutionPlan[]
+                  : [];
+                const outputList = shippingLabelMergeOutputList(params.resolutionPluginOutputList);
+
+                const byIdentifier = new Map<string, { trackingNo: string[]; sellerOrderNo: string[] }>();
+                for (const identifier of requestedIdentifiers) {
+                  byIdentifier.set(identifier, { trackingNo: [], sellerOrderNo: [] });
+                }
+
+                for (let index = 0; index < actionPlans.length; index++) {
+                  const plan = actionPlans[index];
+                  if (!plan) continue;
+                  const item = outputList[index] ?? {};
+                  if (String(item.code ?? "0") !== "0") continue;
+                  const rows = shippingLabelMergeRows(item.data ?? item);
+                  const holder = byIdentifier.get(plan.inputIdentifier) ?? { trackingNo: [], sellerOrderNo: [] };
+                  const target = holder[plan.queryBy];
+                  for (const row of rows) {
+                    const orderNo = shippingLabelMergeNormalizeWo(
+                      row.outboundOrderNum ?? row.outboundOrderNo ?? row.documentNo
+                    );
+                    if (orderNo && !target.includes(orderNo)) target.push(orderNo);
+                  }
+                  byIdentifier.set(plan.inputIdentifier, holder);
+                }
+
+                const directByIdentifier = new Map<string, string[]>();
+                for (const item of directOrders) {
+                  const inputIdentifier = String(item.inputIdentifier ?? "").trim();
+                  const orderNo = shippingLabelMergeNormalizeWo(item.orderNo);
+                  if (!inputIdentifier || !orderNo) continue;
+                  const list = directByIdentifier.get(inputIdentifier) ?? [];
+                  if (!list.includes(orderNo)) list.push(orderNo);
+                  directByIdentifier.set(inputIdentifier, list);
+                }
+
+                const orderMap = new Map<string, { orderNo: string; matchedFrom: string[] }>();
+                const unresolvedIdentifiers: Array<{ identifier: string; reason: string }> = [];
+                for (const identifier of requestedIdentifiers) {
+                  const direct = directByIdentifier.get(identifier) ?? [];
+                  const matches = byIdentifier.get(identifier);
+                  const selected = direct.length > 0
+                    ? direct
+                    : (matches?.trackingNo.length ?? 0) > 0
+                      ? matches!.trackingNo
+                      : matches?.sellerOrderNo ?? [];
+                  if (selected.length === 0) {
+                    unresolvedIdentifiers.push({ identifier, reason: "未匹配到出库订单" });
+                    continue;
+                  }
+                  for (const orderNo of selected) {
+                    const existing = orderMap.get(orderNo);
+                    if (existing) {
+                      if (!existing.matchedFrom.includes(identifier)) existing.matchedFrom.push(identifier);
+                    } else {
+                      orderMap.set(orderNo, { orderNo, matchedFrom: [identifier] });
+                    }
+                  }
+                }
+
+                const orders = [...orderMap.values()];
+                return {
+                  resolution: {
+                    requestedIdentifiers,
+                    orders,
+                    unresolvedIdentifiers,
+                    resolvedOrderCount: orders.length,
+                    tooManyMatches: orders.length > SHIPPING_LABEL_MAX_RESOLVED_ORDERS,
+                    maxResolvedOrders: SHIPPING_LABEL_MAX_RESOLVED_ORDERS,
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("merge-order-resolution")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: requestedIdentifiers
+                input:
+                    value:
+                        path: requestedIdentifiers
+                        ref_node: "176011"
+              - name: directOrders
+                input:
+                    value:
+                        path: directOrders
+                        ref_node: "176011"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "176011"
+              - name: resolutionPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "176012"
+          node_outputs:
+              resolution:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "176014"
+      type: code
+      title: build-label-actions
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 960
+          y: 180
+      parameters:
+          code: |-
+              /** 为已解析的 WO 主单构建尾程面单批处理动作。 */
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const valid = params.valid === true;
+                const customerCode = String(params.customerCode ?? "").trim();
+                const resolution = params.resolution && typeof params.resolution === "object"
+                  ? params.resolution as Record<string, unknown>
+                  : {};
+                const tooManyMatches = resolution.tooManyMatches === true;
+                const orders = Array.isArray(resolution.orders)
+                  ? resolution.orders as Array<Record<string, unknown>>
+                  : [];
+
+                const actionPlans: Array<{ orderNo: string; matchedFrom: string[] }> = [];
+                if (valid && customerCode && !tooManyMatches) {
+                  for (const order of orders) {
+                    const orderNo = String(order.orderNo ?? "").trim();
+                    if (!orderNo) continue;
+                    const matchedFrom = Array.isArray(order.matchedFrom)
+                      ? (order.matchedFrom as unknown[]).map((value) => String(value).trim()).filter(Boolean)
+                      : [];
+                    actionPlans.push({ orderNo, matchedFrom });
+                  }
+                }
+
+                const actions = actionPlans.map((plan) => ({
+                  action: "wh.outbound.getMaskedLabelUrl",
+                  data: JSON.stringify({ orderNo: plan.orderNo, customerCode }),
+                }));
+
+                return {
+                  actions,
+                  actionPlans,
+                  labelPluginBatchActionsCount: actions.length,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-label-actions")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: valid
+                input:
+                    value:
+                        path: valid
+                        ref_node: "176010"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "176010"
+              - name: resolution
+                input:
+                    value:
+                        path: resolution
+                        ref_node: "176013"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+                  description: WO 与原始输入映射
+              labelPluginBatchActionsCount:
+                  type: integer
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "176015"
+      type: plugin
+      title: winit_shipping_label_fetch_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 1180
+          y: 180
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 20
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "176014"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "176015"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "176015"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "176016"
+      type: code
+      title: merge-label-results
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1400
+          y: 180
+      parameters:
+          code: |-
+              /** 将面单接口逐单响应规范化为稳定业务结果。 */
+
+              type LabelResult = "success" | "no_label" | "not_found" | "not_supported" | "forbidden" | "service_error";
+
+              function shippingLabelResultParse(raw: unknown): unknown {
+                if (typeof raw !== "string") return raw;
+                const value = raw.trim();
+                if (!value) return "";
+                try {
+                  const once = JSON.parse(value) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return raw;
+                }
+              }
+
+              function shippingLabelBusinessCode(raw: unknown): string {
+                const value = String(raw ?? "-1").trim() || "-1";
+                if (/^\d{10}$/.test(value)) {
+                  return value.padStart(11, "0");
+                }
+                return value;
+              }
+
+              function shippingLabelResponse(raw: unknown): { code: string; msg: string; data: unknown } {
+                if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+                  return { code: "-1", msg: "", data: "" };
+                }
+                let object = raw as Record<string, unknown>;
+                if (object.output && typeof object.output === "object" && !Array.isArray(object.output)) {
+                  object = object.output as Record<string, unknown>;
+                }
+                if (object.code == null && object.data != null) {
+                  const nested = shippingLabelResultParse(object.data);
+                  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+                    const nestedObject = nested as Record<string, unknown>;
+                    if (nestedObject.code != null) object = nestedObject;
+                  }
+                }
+                return {
+                  code: shippingLabelBusinessCode(object.code),
+                  msg: String(object.msg ?? object.message ?? "").trim(),
+                  data: object.data ?? "",
+                };
+              }
+
+              function shippingLabelClassify(code: string, msg: string): LabelResult {
+                const compact = code.trim();
+                if (compact === "02020249100" || /订单不存在|未找到.*订单/.test(msg)) return "not_found";
+                if (
+                  compact === "02020249908" ||
+                  compact === "02020249909" ||
+                  /不支持查询|尚未出库|超过可查询时限/.test(msg)
+                ) return "not_supported";
+                if (compact === "03010250007" || /无权限|身份校验|订单归属/.test(msg)) return "forbidden";
+                return "service_error";
+              }
+
+              function shippingLabelSafeMessage(result: LabelResult, rawMessage: string, businessCode: string): string {
+                if (result === "not_found") {
+                  return "当前账号下未找到对应的出库订单，请核对订单标识和订单归属。";
+                }
+                if (
+                  result === "not_supported" &&
+                  (businessCode === "02020249908" || /尚未出库/.test(rawMessage))
+                ) {
+                  return "订单尚未完成出库，因此暂时无法获取尾程面单。请待订单完成出库后再自助查询。";
+                }
+                if (
+                  result === "not_supported" &&
+                  (businessCode === "02020249909" || /超过可查询时限/.test(rawMessage))
+                ) {
+                  return "尾程面单已支持自助查询，但该订单已超过可查询时限（出库后 30 天内可查）。";
+                }
+                if (result === "not_supported") {
+                  return "接口返回该订单当前不支持查询，但未提供更具体的业务原因。";
+                }
+                if (result === "forbidden") {
+                  return "账号权限或订单归属校验未通过，因此无法查询该订单。请确认使用该订单所属账号登录。";
+                }
+                if (result === "no_label") return "查询已完成，但当前没有返回可下载的尾程面单文件。";
+                if (result === "success") return rawMessage || "操作成功";
+                if (businessCode === "-1") {
+                  return "面单查询未返回有效结果，暂时无法确认具体原因。请稍后重新查询。";
+                }
+                return "本次查询未返回可确认的业务原因，暂时无法获取尾程面单。";
+              }
+
+              function shippingLabelGroups(raw: unknown): Array<{ trackingNo: string; labelUrls: string[] }> {
+                const parsed = shippingLabelResultParse(raw);
+                if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+                const object = parsed as Record<string, unknown>;
+                if (object.data != null && object.maskedLabelUrlList == null) return shippingLabelGroups(object.data);
+                const list = Array.isArray(object.maskedLabelUrlList) ? object.maskedLabelUrlList : [];
+                const groups: Array<{ trackingNo: string; labelUrls: string[] }> = [];
+                for (const item of list) {
+                  if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+                  const record = item as Record<string, unknown>;
+                  const trackingNo = String(record.trackingNo ?? "").trim();
+                  const labelUrls = Array.isArray(record.labelUrls)
+                    ? (record.labelUrls as unknown[])
+                        .map((value) => String(value).trim())
+                        .filter((value) => /^https?:\/\//i.test(value))
+                    : [];
+                  if (labelUrls.length > 0) groups.push({ trackingNo, labelUrls: [...new Set(labelUrls)] });
+                }
+                return groups;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const resolution = params.resolution && typeof params.resolution === "object"
+                  ? params.resolution as Record<string, unknown>
+                  : {};
+                const unresolvedIdentifiers = Array.isArray(resolution.unresolvedIdentifiers)
+                  ? resolution.unresolvedIdentifiers
+                  : [];
+                const actionPlans = Array.isArray(params.actionPlans)
+                  ? params.actionPlans as Array<Record<string, unknown>>
+                  : [];
+                const outputList = Array.isArray(params.labelPluginOutputList)
+                  ? params.labelPluginOutputList as unknown[]
+                  : [];
+
+                const orderResults = actionPlans.map((plan, index) => {
+                  const response = shippingLabelResponse(outputList[index]);
+                  let result: LabelResult;
+                  let labels: Array<{ trackingNo: string; labelUrls: string[] }> = [];
+                  if (response.code === "0") {
+                    labels = shippingLabelGroups(response.data);
+                    result = labels.length > 0 ? "success" : "no_label";
+                  } else {
+                    result = shippingLabelClassify(response.code, response.msg);
+                  }
+                  return {
+                    orderNo: String(plan.orderNo ?? "").trim(),
+                    matchedFrom: Array.isArray(plan.matchedFrom) ? plan.matchedFrom : [],
+                    result,
+                    businessCode: response.code,
+                    message: shippingLabelSafeMessage(result, response.msg, response.code),
+                    labels,
+                  };
+                });
+
+                return { orderResults, unresolvedIdentifiers };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("merge-label-results")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: resolution
+                input:
+                    value:
+                        path: resolution
+                        ref_node: "176013"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "176014"
+              - name: labelPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "176015"
+          node_outputs:
+              orderResults:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              unresolvedIdentifiers:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "176017"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1620
+          y: 260
+      parameters:
+          code: |-
+              /** 生成稳定的结构化结果与对客面单下载说明。 */
+
+              type OrderResult = {
+                orderNo?: string;
+                matchedFrom?: string[];
+                result?: string;
+                businessCode?: string;
+                message?: string;
+                labels?: Array<{ trackingNo?: string; labelUrls?: string[] }>;
+              };
+
+              function shippingLabelOutputArray(raw: unknown): unknown[] {
+                return Array.isArray(raw) ? raw : [];
+              }
+
+              function shippingLabelFailureLine(order: OrderResult): string {
+                const orderNo = String(order.orderNo ?? "订单").trim() || "订单";
+                const message = String(order.message ?? "未获取到尾程面单").trim();
+                return `- ${orderNo}：${message}`;
+              }
+
+              function shippingLabelSuccessLines(order: OrderResult): string[] {
+                const orderNo = String(order.orderNo ?? "").trim();
+                const lines = [`- 出库单 ${orderNo}`];
+                for (const group of order.labels ?? []) {
+                  const trackingNo = String(group.trackingNo ?? "").trim();
+                  if (trackingNo) lines.push(`  - trackingNo：${trackingNo}`);
+                  for (const [index, url] of (group.labelUrls ?? []).entries()) {
+                    lines.push(`  - [下载面单 PDF ${index + 1}](${url})`);
+                  }
+                }
+                return lines;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const valid = params.valid === true;
+                const errorCode = String(params.errorCode ?? "").trim();
+                const errorMessage = String(params.errorMessage ?? "").trim();
+                const requestedIdentifiers = shippingLabelOutputArray(params.requestedIdentifiers).map(String);
+                const resolution = params.resolution && typeof params.resolution === "object"
+                  ? params.resolution as Record<string, unknown>
+                  : {};
+                const orderResults = shippingLabelOutputArray(params.orderResults) as OrderResult[];
+                const unresolvedIdentifiers = shippingLabelOutputArray(params.unresolvedIdentifiers) as Array<Record<string, unknown>>;
+                const tooManyMatches = resolution.tooManyMatches === true;
+
+                const successOrders = orderResults.filter((order) => order.result === "success");
+                const failedOrders = orderResults.filter((order) => order.result !== "success");
+                const labelFileCount = successOrders.reduce(
+                  (sum, order) => sum + (order.labels ?? []).reduce((inner, group) => inner + (group.labelUrls?.length ?? 0), 0),
+                  0
+                );
+
+                let status: "success" | "partial_success" | "failed" | "need_input" | "too_many_matches";
+                if (!valid && errorCode === "need_input") status = "need_input";
+                else if (tooManyMatches) status = "too_many_matches";
+                else if (!valid) status = "failed";
+                else if (successOrders.length > 0 && failedOrders.length + unresolvedIdentifiers.length === 0) status = "success";
+                else if (successOrders.length > 0) status = "partial_success";
+                else status = "failed";
+
+                const structured = {
+                  status,
+                  requestedIdentifiers,
+                  orders: orderResults,
+                  unresolvedIdentifiers,
+                  summary: {
+                    requestedCount: requestedIdentifiers.length,
+                    resolvedOrderCount: Number(resolution.resolvedOrderCount ?? orderResults.length),
+                    successOrderCount: successOrders.length,
+                    failedOrderCount: failedOrders.length + unresolvedIdentifiers.length,
+                    labelFileCount,
+                  },
+                };
+
+                const sections: string[] = [];
+                if (!valid) {
+                  sections.push(errorMessage || "当前无法查询尾程面单，请稍后重试。");
+                } else if (tooManyMatches) {
+                  sections.push("匹配到的出库订单超过 20 个，请缩小查询范围后重试。");
+                } else {
+                  if (successOrders.length > 0) {
+                    sections.push("已获取以下尾程面单：");
+                    for (const order of successOrders) sections.push(...shippingLabelSuccessLines(order));
+                    sections.push("链接通常约 60 分钟有效，请尽快下载。面单仅供查询、留档或申诉，不可用于实际发货打印。");
+                  }
+                  if (failedOrders.length > 0 || unresolvedIdentifiers.length > 0) {
+                    sections.push("以下订单或标识未获取到面单：");
+                    for (const order of failedOrders) sections.push(shippingLabelFailureLine(order));
+                    for (const item of unresolvedIdentifiers) {
+                      const identifier = String(item.identifier ?? "标识").trim() || "标识";
+                      const reason = String(item.reason ?? "未匹配到出库订单").trim();
+                      sections.push(`- ${identifier}：${reason}`);
+                    }
+                  }
+                }
+                const analysis = sections.join("\n");
+
+                const inputContext = params.inputContext && typeof params.inputContext === "object"
+                  ? params.inputContext as Record<string, unknown>
+                  : {};
+                const successOrderNos = successOrders.map((order) => String(order.orderNo ?? "").trim()).filter(Boolean);
+                const failedOrderNos = failedOrders.map((order) => String(order.orderNo ?? "").trim()).filter(Boolean);
+                const resultSummary = `尾程面单查询：成功 ${successOrders.length} 单，未获取 ${failedOrders.length + unresolvedIdentifiers.length} 项。`;
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {
+                    expertId: "shipping-label",
+                    resultSummary,
+                    chainId: String(inputContext.chainId ?? ""),
+                  },
+                  enrichedContext: {
+                    shippingLabelQuery: {
+                      queriedAtUtc: new Date().toISOString(),
+                      orderNos: orderResults.map((order) => String(order.orderNo ?? "").trim()).filter(Boolean),
+                      successOrderNos,
+                      failedOrderNos,
+                      unresolvedIdentifiers: unresolvedIdentifiers.map((item) => String(item.identifier ?? "").trim()).filter(Boolean),
+                    },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((result) => process.stdout.write(JSON.stringify(result)));
+              }
+          language: 5
+          node_inputs:
+              - name: valid
+                input:
+                    value:
+                        path: valid
+                        ref_node: "176010"
+              - name: errorCode
+                input:
+                    value:
+                        path: errorCode
+                        ref_node: "176010"
+              - name: errorMessage
+                input:
+                    value:
+                        path: errorMessage
+                        ref_node: "176010"
+              - name: requestedIdentifiers
+                input:
+                    value:
+                        path: requestedIdentifiers
+                        ref_node: "176010"
+              - name: resolution
+                input:
+                    value:
+                        path: resolution
+                        ref_node: "176013"
+              - name: orderResults
+                input:
+                    value:
+                        path: orderResults
+                        ref_node: "176016"
+              - name: unresolvedIdentifiers
+                input:
+                    value:
+                        path: unresolvedIdentifiers
+                        ref_node: "176016"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "176010"
+    - source_node: "176010"
+      target_node: "176011"
+    - source_node: "176011"
+      target_node: "176012"
+    - source_node: "176012"
+      target_node: "176013"
+    - source_node: "176013"
+      target_node: "176014"
+    - source_node: "176014"
+      target_node: "176015"
+    - source_node: "176015"
+      target_node: "176016"
+    - source_node: "176016"
+      target_node: "176017"
+    - source_node: "176017"
+      target_node: "900001"

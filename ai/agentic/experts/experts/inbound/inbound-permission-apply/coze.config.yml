@@ -1,0 +1,78 @@
+yamlBasename: inbound_permission_apply-draft.yaml
+packageMainName: inbound_permission_apply
+packageDescription: 权限申请指引（validate → evaluate-bitable-gap → load-kb → LLM →
+  format，当前 Sprint kb_only）
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+textNodes:
+  - logicalId: kb-permission-apply-text
+    title: kb-permission-apply
+    insertAfter: validate-permission-query
+    sourceFile: prompts/kb-permission-apply.md
+  - logicalId: kb-permission-progress-text
+    title: kb-permission-progress
+    insertAfter: validate-permission-query
+    sourceFile: prompts/kb-permission-progress.md
+
+inputBindings:
+  load-permission-kb:
+    validationOk:
+      ref: validate-permission-query
+      path: validationOk
+    intent:
+      ref: validate-permission-query
+      path: intent
+    permissionType:
+      ref: validate-permission-query
+      path: permissionType
+    warehouseCode:
+      ref: validate-permission-query
+      path: warehouseCode
+    alreadyEnabled:
+      ref: validate-permission-query
+      path: alreadyEnabled
+    targetPscCodes:
+      ref: validate-permission-query
+      path: targetPscCodes
+    kbPermissionApply:
+      ref: kb-permission-apply-text
+      path: output
+    kbPermissionProgress:
+      ref: kb-permission-progress-text
+      path: output
+  evaluate-bitable-gap:
+    alreadyEnabled:
+      ref: validate-permission-query
+      path: alreadyEnabled
+    intent:
+      ref: validate-permission-query
+      path: intent
+  format-output:
+    permissionType:
+      ref: validate-permission-query
+      path: permissionType
+    alreadyEnabled:
+      ref: validate-permission-query
+      path: alreadyEnabled
+    submitStatus:
+      ref: evaluate-bitable-gap
+      path: submitStatus
+    materialChecklist:
+      ref: load-permission-kb
+      path: materialChecklist
+    applySteps:
+      ref: load-permission-kb
+      path: applySteps

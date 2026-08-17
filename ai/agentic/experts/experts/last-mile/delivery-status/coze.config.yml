@@ -1,0 +1,143 @@
+# 尾程轨迹解读 — Coze 工作流包导出
+# 导出：npm run export:coze -- experts/last-mile/delivery-status
+
+workflowId: "7833797368169498621"
+yamlBasename: delivery_status-draft.yaml
+packageMainName: delivery_status
+packageDescription: 尾程轨迹解读（validate → id/56 插件 → fetch 兜底 → merge → LLM → format）
+
+winitOpenapiPlugin:
+  enabled: true
+  insertBefore: fetch-trajectories
+  logicalId: winit_openapi_plugin
+  openapiAction: tracking.getOrderVerdorTracking
+
+nodeIds:
+  validate-input: "163000"
+  route-by-branch: "163002"
+  build-winit-tracking-data: "163001"
+  winit_openapi_plugin: "115282"
+  fetch-trajectories: "163006"
+  merge-enriched-context: "163005"
+  llm-analyze: "163004"
+  format-output: "163007"
+
+inputBindings:
+  build-winit-tracking-data:
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    language:
+      ref: __start__
+      path: language
+  fetch-trajectories:
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    trajectoryText:
+      ref: validate-input
+      path: trajectoryText
+    language:
+      ref: __start__
+      path: language
+    customerCode:
+      ref: __start__
+      path: customerCode
+    customerName:
+      ref: __start__
+      path: customerName
+    username:
+      ref: __start__
+      path: username
+    winitRequestData:
+      ref: build-winit-tracking-data
+      path: winitRequestData
+    winitOpenapiData:
+      ref: winit_openapi_plugin
+      path: data
+  merge-enriched-context:
+    trajectories:
+      ref: fetch-trajectories
+      path: trajectories
+    fetchMeta:
+      ref: fetch-trajectories
+      path: fetchMeta
+    outTrackingIds:
+      ref: fetch-trajectories
+      path: outTrackingIds
+    outOutboundOrderNos:
+      ref: fetch-trajectories
+      path: outOutboundOrderNos
+    outTrajectoryText:
+      ref: fetch-trajectories
+      path: outTrajectoryText
+
+branching:
+  after: validate-input
+  logicalId: route-by-branch
+  title: 按 branch 分流
+  routes:
+    - port: "true"
+      target: build-winit-tracking-data
+      whenEquals:
+        path: branch
+        value: "identifiers"
+    - port: "true_1"
+      target: fetch-trajectories
+      whenEquals:
+        path: branch
+        value: "text"
+    - port: "false"
+      target: fetch-trajectories
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: -149.557913881682
+    y: 231.51531952084514
+  __end__:
+    x: 1053.3053365464475
+    y: 309.27940455803343
+  validate-input:
+    x: 120
+    y: 120
+  route-by-branch:
+    x: 120
+    y: 240
+  build-winit-tracking-data:
+    x: 360
+    y: 120
+  winit_openapi_plugin:
+    x: 520
+    y: 120
+  fetch-trajectories:
+    x: 680
+    y: 120
+  merge-enriched-context:
+    x: 840
+    y: 120
+  llm-analyze:
+    x: 840
+    y: 280
+  format-output:
+    x: 840
+    y: 440

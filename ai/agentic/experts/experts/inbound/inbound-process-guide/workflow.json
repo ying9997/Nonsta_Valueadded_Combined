@@ -1,0 +1,164 @@
+{
+  "nodes": [
+    {
+      "id": "validate-guide-query",
+      "file": "nodes/validate-guide-query.ts",
+      "inputs": [
+        "topic",
+        "country",
+        "productLine",
+        "subTopic",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "error",
+        "intentType",
+        "normalizedTopic",
+        "country",
+        "productLine",
+        "subTopic",
+        "customerIntent",
+        "inputContext",
+        "enabledProducts"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "intentType": {
+            "type": "string"
+          },
+          "normalizedTopic": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "productLine": {
+            "type": "string"
+          },
+          "subTopic": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enabledProducts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "load-process-kb",
+      "file": "nodes/load-process-kb.ts",
+      "inputs": [
+        "validationOk",
+        "intentType",
+        "normalizedTopic",
+        "country",
+        "productLine",
+        "subTopic",
+        "kbProcess",
+        "kbFees",
+        "kbRestrictions"
+      ],
+      "outputs": [
+        "kbContent",
+        "kbScope",
+        "intentType",
+        "normalizedTopic"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "kbContent": {
+            "type": "string"
+          },
+          "kbScope": {
+            "type": "string"
+          },
+          "intentType": {
+            "type": "string"
+          },
+          "normalizedTopic": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "intentType",
+        "normalizedTopic",
+        "country",
+        "productLine",
+        "subTopic",
+        "kbContent",
+        "enabledProducts",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "analysisResult": {
+            "type": "object"
+          },
+          "inputContext": {
+            "type": "object"
+          }
+        },
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

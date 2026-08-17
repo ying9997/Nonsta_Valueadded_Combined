@@ -1,0 +1,1392 @@
+schema_version: 1.0.0
+name: inbound_process_guide
+id: 7598877153689616645
+description: 入库流程与规则指引（validate → load-kb → LLM → format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -150
+          y: 230
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      topic:
+                          type: string
+                          value: null
+                          description: 咨询主题关键词（如「标准海外仓入库流程」「CBM 限制」「入库费用」）
+                          required: true
+                      country:
+                          type: string
+                          value: null
+                          description: 目的国/地区（UK / US / DE 等），用于匹配国别差异化规则
+                      productLine:
+                          type: string
+                          value: null
+                          description: 产品线或 PSC 编码提示（如 OW01011、OW01021），用于差异化规则匹配
+                      subTopic:
+                          type: string
+                          value: null
+                          description: 子主题细化（如「自验流程」「件型限制」「逾期账单」）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1200
+          y: 310
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163006"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163006"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163006"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163006"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-guide-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 200
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-guide-query — 规范化 topic，识别 intentType
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type IntentType = "process" | "rule" | "fee" | "prohibition" | "psc_select" | "general";
+
+              const INTENT_PATTERNS: Array<{ type: IntentType; patterns: RegExp[] }> = [
+                {
+                  type: "process",
+                  patterns: [
+                    /流程|步骤|怎么操作|如何入库|怎么走|SOP|下单|新建|下入库单/i,
+                    /头程|直发|自验|海外验|状态机|状态码|DR|OD|RE|TS|PEWC|SHD/i,
+                    /上架时效|SLA|混装|转运|双轨|送仓方式|预约/i,
+                  ],
+                },
+                {
+                  type: "fee",
+                  patterns: [/费用|收费|冻结|扣费|运费|入库费|关税|增值税|账单/i],
+                },
+                {
+                  type: "prohibition",
+                  patterns: [/禁运|限运|危险品|带电|液体|易碎|不能入/i],
+                },
+                {
+                  type: "psc_select",
+                  patterns: [/PSC|产品选型|选型|区别|对比|OW01|标准头程|三种链路/i],
+                },
+                {
+                  type: "rule",
+                  patterns: [/规则|限制|CBM|件型|包裹类型|逾期|箱号|SKU|权限|入口|报错|申报/i],
+                },
+              ];
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function detectIntentType(topic: string, subTopic: string): IntentType {
+                const combined = `${topic} ${subTopic}`;
+                for (const { type, patterns } of INTENT_PATTERNS) {
+                  if (patterns.some((p) => p.test(combined))) return type;
+                }
+                return "general";
+              }
+
+              function extractEnabledProducts(inputContext: unknown): string[] {
+                if (!inputContext || typeof inputContext !== "object" || Array.isArray(inputContext)) return [];
+                const ctx = inputContext as Record<string, unknown>;
+                const prev = ctx.previousOutput;
+                if (!prev || typeof prev !== "object" || Array.isArray(prev)) return [];
+                const structured = (prev as Record<string, unknown>).structured;
+                if (!structured || typeof structured !== "object" || Array.isArray(structured)) return [];
+                const products = (structured as Record<string, unknown>).enabledProducts;
+                return Array.isArray(products) ? products.map((p) => String(p)) : [];
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const topic = str(params.topic);
+                const subTopic = str(params.subTopic);
+                const country = str(params.country).toUpperCase();
+                const productLine = str(params.productLine) || str(params.pscCode);
+                const customerIntent = str(params.customerIntent);
+                const inputContext = params.inputContext ?? {};
+                const enabledProducts = extractEnabledProducts(inputContext);
+
+                const validationOk = topic.length > 0;
+                const normalizedTopic = subTopic ? `${topic} — ${subTopic}` : topic;
+                const intentType = detectIntentType(topic, subTopic);
+
+                return validationOk
+                  ? {
+                      validationOk: true,
+                      intentType,
+                      normalizedTopic,
+                      country,
+                      productLine,
+                      subTopic,
+                      customerIntent,
+                      inputContext,
+                      enabledProducts,
+                    }
+                  : {
+                      validationOk: false,
+                      error: "topic 为必填项",
+                      intentType,
+                      normalizedTopic,
+                      country,
+                      productLine,
+                      subTopic,
+                      customerIntent,
+                      inputContext,
+                      enabledProducts,
+                    };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-guide-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: topic
+                input:
+                    value:
+                        path: inputs.topic
+                        ref_node: "100001"
+              - name: country
+                input:
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: productLine
+                input:
+                    value:
+                        path: inputs.productLine
+                        ref_node: "100001"
+              - name: subTopic
+                input:
+                    value:
+                        path: inputs.subTopic
+                        ref_node: "100001"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              validationOk:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              intentType:
+                  type: string
+                  value: null
+              normalizedTopic:
+                  type: string
+                  value: null
+              country:
+                  type: string
+                  value: null
+              productLine:
+                  type: string
+                  value: null
+              subTopic:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+              enabledProducts:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: kb-process
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 200
+          y: 480
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 入库流程与产品选型知识库
+
+                        > 来源摘要：`docs/inbound/playbook.md`、flows/01–03、新增海外仓入库单 FAQ、流程起始话术。
+
+                        ---
+
+                        ## 三种入库链路（产品 Taxonomy）
+
+                        | 产品线 | 验货发生地 | 头程承运方 | 国内仓节点 | 典型 PSC |
+                        |--------|------------|------------|------------|----------|
+                        | **标准海外仓入库** | Winit 国内仓 | Winit（揽收或自送国内仓） | 必须经过 | OW01011* |
+                        | **直发 + 自验** | 客户侧，发货前完成 | 客户自选物流，或 Winit 承运 | Winit 承运时经过 | OW01022*（直发自验）/ OW01021*（Winit 承运自验） |
+                        | **直发 + 海外验** | Winit 海外仓 | 客户自选，或 Winit 头程到海外 | 仅 Winit 承运时经过 | OW01031*（Winit 承运海外验）/ OW01032*（直发海外验） |
+
+                        **对客要点**：三种链路在下单入口、验货节点、费用扣费节点上均有差异；选型前建议确认已开通 PSC（→ inbound-psc-eligibility）。具体操作步骤见 inbound-order-manage。
+
+                        ### 服务优势对比（摘要）
+
+                        | 维度 | 标准头程 | 直发自验 | 直发海外验 |
+                        |------|----------|----------|------------|
+                        | 上架速度（美国，空运） | 1 工作日 | 1 工作日（空卡） | 2 工作日（空卡） |
+                        | 客户操作复杂度 | 最低（全托管） | 中（需自验数据） | 低（无需客户验货） |
+                        | 适用客户 | 中小客户 | 品牌/工厂型 | 高值货/紧急补货 |
+                        | 国内仓质检 | 有 | 仅 Winit 承运时有 | 仅 Winit 承运时有 |
+
+                        ---
+
+                        ## 产品选择决策树
+
+                        ```
+                        客户有新的货物要入库 Winit 海外仓
+                        │
+                        ├── 是否使用 Winit 头程？
+                        │   ├── YES → 标准头程 (OW01011*)
+                        │   └── NO（客户自发）→ 选择验货方式
+                        │       ├── 客户在发货前自验 → 直发自验
+                        │       │   ├── Winit 承运 (OW01021*) → 须先完成验货才能创建预约单
+                        │       │   └── 完全直发 (OW01022*)
+                        │       └── 在 Winit 海外仓验货 → 直发海外验
+                        │           ├── Winit 承运到海外 (OW01031*)
+                        │           └── 完全直发 (OW01032*)
+                        │
+                        └── 送仓方式（影响预约要求）
+                            ├── 快递面单逐件派送 → 免预约
+                            ├── 散货 LCL → 必须预约
+                            └── 整柜 FCL（DROP/LIVE）→ 必须预约
+                        ```
+
+                        美森渠道已于 2025 年 12 月下线，推荐以星渠道。
+
+                        ---
+
+                        ## 双轨模型（信息流 × 实物流）
+
+                        同一入库单上，信息流操作与实物流动作**相互交织但时序可不同步**。例如：自验单在货物出库后才完成信息录入；海外验单可在 TS 状态后仍尚无完整箱单。
+
+                        **信息流**：SKU 注册发布 → 创建入库单（选 PSC/目的仓）→ 上传箱单/验货数据 → 提交预约（散货/整柜）→ 状态追踪（DR→OD→…→SHD）
+
+                        **实物流**：国内收货/验货（标准头程）→ 出口发运 → 国际运输 → 进口清关 → 海外仓卸货到仓 → 海外验货（仅海外验链路）→ 上架入库存
+
+                        ---
+
+                        ## 前置条件
+
+                        1. **SKU 必须提前注册发布**：万邑联 → 商品 → 商品维护信息；未发布无法下单。
+                        2. **产品权限开通**：部分 PSC（自验、海外验、整柜等）需在万邑联 → 个人中心 → 服务设置 → 偏好设置开通；无直发入口同理。
+                        3. **进口商注册**：递延清关（UK PVA、DE/BE 递延）须提前维护有效进口商（VAT + EORI）。
+                        4. **库容额度**：高峰期海外仓可能实施配额；直发客户关注库容（→ inbound-capacity-availability）。
+
+                        ---
+
+                        ## 新建入库单 SOP（通用）
+
+                        1. **开通权限**：万邑联 → 个人中心 → 服务设置 → 偏好设置。
+                        2. **注册商品**：确保 SKU 已发布且规格与下单一致。
+                        3. **创建入库单**：万邑联 → 海外仓入库 → 新建入库单；选择目的仓、PSC、填写箱单/商品明细。
+                        4. **完成页面设置**：如页面出现相关设置，请按所选 PSC 和页面提示完成；未出现可继续下一步。如无法提交，请提供页面提示或截图。
+                        5. **发货/送仓**：
+                           - 快递：免预约，按仓库地址规范填写面单（→ inbound-warehouse-info）。
+                           - 散货/整柜：必须预约（→ inbound-appointment-manage）。
+                        6. **到仓签收** → **验货** → **上架完成**（库存可用）。
+
+                        详细操作与报错处理 → inbound-order-manage。
+
+                        ---
+
+                        ## 标准海外仓入库流程（OW01011*）
+
+                        1. SKU 注册发布（品名、申报价值、尺重）。
+                        2. 创建入库单：选 PSC、目的仓、包裹信息；标准头程需上传完整箱单。
+                        3. 提交发货确认（OD），进入国内仓揽收/自送流程。
+                        4. 国内仓质检 → 出库发运（TS）→ 国际运输 → 清关 → 海外仓卸货 → 上架（SHD）。
+
+                        **申报价值建议**：美国单票 ≤ 660 USD（上限 700 USD）；澳洲 ≤ 600 USD。超限可能触发正式报关。
+
+                        ---
+
+                        ## 直发自验流程要点（OW01021/22）
+
+                        - **OW01021**（Winit 承运自验）：须**先完成验货**才能创建预约单。
+                        - **OW01022**（完全直发自验）：客户自选物流直发海外仓。
+                        - 自验链路通常**无 RE 状态**（RE 仅在 Winit 国内仓收货时触发）；TS 由客户确认发货触发。
+
+                        ### 三种自验模式
+
+                        | 模式 | 说明 |
+                        |------|------|
+                        | **旧自验（标准自验）** | 下单时须上传完整箱单；PDA/API/Excel 逐箱对照验货 |
+                        | **新自验** | 下单只填 SKU + 数量，箱单可后补；PDA 扫描后系统生成箱单 |
+                        | **API 对接验货** | 通过 API 上传验货数据，适合 ERP/WMS 大客户 |
+                        | **免验货** | 白名单客户，以 Excel 箱单上传，Winit 不物理开箱核对 |
+
+                        发货前在万邑联/PDA/API 完成自验；到仓后可能抽验，异常可能产生异常费（→ inbound-self-inspection）。
+
+                        ---
+
+                        ## 直发海外验流程要点（OW01031/32）
+
+                        - 货物到仓后由 Winit 执行验货（PEWC 阶段）；客户侧主要查询进度（→ inbound-overseas-inspection）。
+
+                        | 模式 | 说明 |
+                        |------|------|
+                        | **有箱单** | 上传完整装箱明细，海外仓按箱单开箱核对 |
+                        | **无箱单（绿色通道）** | 仅填 SKU + 预计数量，到仓后实际清点；**不允许多验** |
+                        | **预报海外验** | 先预报数量，货物分批到仓后累计验货上架 |
+
+                        ---
+
+                        ## 入库单状态机概览
+
+                        > 本段解释状态**含义**，不查询具体单据当前状态（→ inbound-order-status）。
+
+                        ```
+                        DR → OD → RE → TS → PEWC → EWC → SHD
+                                                  ↘ STOP（终止）
+                        ```
+
+                        | 状态 | 含义 | 客户常见咨询 | 对应专家 |
+                        |------|------|--------------|----------|
+                        | DR | 草稿/已创建 | 怎么下单？权限开了吗？ | inbound-process-guide |
+                        | OD | 已确认/待发货 | 什么时候可以发货？ | inbound-process-guide / inbound-order-manage |
+                        | RE | 国内仓已收货 | 国内仓收到了吗？ | inbound-order-status |
+                        | TS | 已发运/在途 | 到港了吗？预计何时送仓？ | inbound-order-status / inbound-arrival-status |
+                        | PEWC | 预计在仓期 | 什么时候上架？能加急吗？ | inbound-arrival-status / inbound-putaway-expedite |
+                        | EWC | 验货/上架中 | 上架数量对吗？ | inbound-putaway-status / inbound-exception-check |
+                        | SHD | 全部上架，库存可用 | — | — |
+                        | STOP | 已终止 | 为什么终止？ | inbound-process-guide / inbound-order-manage |
+
+                        ---
+
+                        ## 送仓方式与预约
+
+                        | 方式 | 预约要求 | 备注 |
+                        |------|----------|------|
+                        | 快递 | 免预约 | 按仓库地址规范填写面单 |
+                        | 散货 LCL | 必须预约 | 未预约可能产生违规费 |
+                        | 整柜 FCL | 必须预约 | DROP = 司机留柜后离开；LIVE = 司机现场等候卸货 |
+
+                        预约入口：booking.winit.com.cn（→ inbound-appointment-manage）。
+
+                        ---
+
+                        ## 上架 SLA 速查（到仓后）
+
+                        **美国（US）— 摘要**
+
+                        | 产品线 | 运输方式 | 到仓后上架 SLA |
+                        |--------|----------|----------------|
+                        | 标准海外仓入库 | 空运/FedEx 快递 | 1 工作日 |
+                        | 标准海外仓入库 | 海运散货（美森/以星） | 2 工作日 |
+                        | 标准海外仓入库 | 海运散货（非美森/以星）/ 整柜 | 3 工作日 |
+                        | 直发国内验 | 空卡（POD 须注明航单号） | 1 工作日 |
+                        | 直发国内验 | DHL 快递 | 1 工作日 |
+                        | 直发国内验 | 非 DHL 快递/空派/海派/整柜 | 4 工作日 |
+                        | 直发海外验 | 空卡 | 2 工作日 |
+                        | 直发海外验 | DHL 快递 | 2 工作日 |
+                        | 直发海外验 | 非 DHL/空派/海派/整柜 | 5 工作日 |
+
+                        **非美国（UK/DE/AU/CA）— 摘要**：标准空运/快递通常 1 工作日；海运/铁路 3 工作日；直发海外验空派/海派最长 5 工作日。
+
+                        **空卡特别注意**：送仓 POD 须清晰备注【空卡 + 11 位航空运输单号】，否则默认按海卡 SLA 处理。
+
+                        催上架、超时处理 → inbound-putaway-expedite / inbound-putaway-status。
+
+                        ---
+
+                        ## 混装转运时效（海运散货）
+
+                        美国海运散货拼柜可能混装（多仓货物共柜），需判断是否转运：
+
+                        | 转运路径 | 送仓时间推算（有实际到仓） |
+                        |----------|---------------------------|
+                        | USWC ↔ USWC2 | 送仓完成时间 + 2 工作日 |
+                        | USWC/USWC2 → USTX | + 11 自然日 |
+                        | USWC/USWC2 → USKY3 | + 12 自然日 |
+                        | AU ↔ AUME | + 7 自然日 |
+                        | DE → BEMO | + 7 自然日 |
+
+                        无实际到仓时用预计送仓时间按同规则推算。具体单据送仓进度 → inbound-arrival-status / inbound-transit-tracking。
+
+                        ---
+
+                        ## 常见流程 FAQ
+
+                        | 场景 | 说明 |
+                        |------|------|
+                        | 无直发下单入口 | 万邑联 → 个人中心 → 服务设置 → 偏好设置开通 |
+                        | 怎么新建入库单 | 见「新建入库单 SOP」；PSC 选型见决策树；报错 → inbound-order-manage |
+                        | 批次/非批次混单 | 需拆分下单 |
+                        | 箱号已存在 | 须终止原入库单才能重用箱号 |
+                        | BC 类包裹上架慢 | BC 类 SKU 种类多、分拣耗时更长；建议优先 A+/A 类包裹 |
+                        | 带电商品 | 须上传电池资料审核（→ 规则 KB） |
+
+                        ---
+
+                        ## 专家路由（本专家边界）
+
+                        | 客户问题 | 路由 |
+                        |----------|------|
+                        | 流程/规则/费用口径/PSC 选型原则 | **本专家** |
+                        | 具体单据当前状态 | inbound-order-status |
+                        | 新建/修改/关闭入库单操作步骤 | inbound-order-manage |
+                        | 仓库地址/送仓规范 | inbound-warehouse-info |
+                        | 已开通 PSC 列表 | inbound-psc-eligibility |
+                        | 预约操作 | inbound-appointment-manage |
+                        | 自验操作 | inbound-self-inspection |
+                        | 海外验进度 | inbound-overseas-inspection |
+                        | 到仓/送仓进度 | inbound-arrival-status |
+                        | 上架进度/催上架 | inbound-putaway-status / inbound-putaway-expedite |
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: text
+      title: kb-fees
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 200
+          y: 620
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 入库费用冻结与扣费知识库
+
+                        > 来源摘要：`_kb/service-team/.../各收费项的冻结_解冻_结算扣费节点.md`
+
+                        **话术原则**：费用为参考口径，**以实际账单为准**。
+
+                        ---
+
+                        ## 主要费用项与节点
+
+                        | 费用项 | 冻结节点 | 扣费节点（摘要） |
+                        |--------|----------|------------------|
+                        | 运费 | 验货完成 | 海外港在途 |
+                        | 入库处理费 | 验货完成 | 海外仓上架完成 |
+                        | 关税增值税（自有 IOR） | 验货完成 | 清关完成后 14 天内实报实销 |
+                        | 关税增值税（第三方 IOR） | 验货完成 | 清关完成按系统计算扣费 |
+
+                        ---
+
+                        ## 逾期账单与额度
+
+                        - 逾期账单：还清欠款后额度自动恢复；需延期联系商务。
+                        - CBM 额度：属于容量/额度查询范畴（→ inbound-capacity-availability），本专家仅解释口径。
+
+                        ---
+
+                        ## 头程运费扣费时机
+
+                        - 验货完成后冻结运费。
+                        - 实际扣费发生在海外港在途节点。
+                        - 对客说明以系统账单与合同约定为准。
+
+                        ---
+
+                        ## 入库处理费
+
+                        - 验货完成时冻结。
+                        - 海外仓上架完成后扣费。
+                        - 具体单价参考价卡/合同。
+
+                        ---
+
+                        ## 关税与增值税
+
+                        - **自有进口商（IOR）**：清关完成后 14 天内实报实销。
+                        - **第三方 IOR**：清关完成按系统计算扣费。
+                        - 清关资料准备见 inbound-customs-doc-manage；清关进度见 inbound-customs-clearance。
+
+                        ---
+
+                        ## 对客约束
+
+                        - 不承诺费用减免或账单争议处理（→ 人工/ billing）。
+                        - 标注「参考口径，以实际账单为准」。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163003"
+      type: text
+      title: kb-restrictions
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 200
+          y: 760
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 入库规则与禁限运知识库
+
+                        > 来源摘要：新增海外仓入库单 FAQ、inbound-rules、playbook §八 前置条件、件型限制。
+
+                        ---
+
+                        ## 下单报错与规则解释
+
+                        | 报错/场景 | 规则解释要点 |
+                        |-----------|--------------|
+                        | 逾期账单 | 还清欠款后额度自动恢复；延期联系商务 |
+                        | 商品不存在 | 检查 SKU 注册发布状态、规格（Specification）与下单一致 |
+                        | 体积超限 | 未验货取注册尺寸；已验货取验货尺寸；验货后体积错误需申请海外仓复核 |
+                        | B/C 包裹含大件 | 大件/超大件（T120/T240/TM）仅 A/A+；B/C 含大件会报错 |
+                        | 批次/非批次混单 | 需拆分下单 |
+                        | 箱号已存在 | 须终止原入库单才能重用箱号 |
+                        | 不支持 Winit 头程 | SKU 被限制直发，提供 SKU 核实原因 |
+                        | 带电无电池证书 | 上传电池资料并完成审核 |
+                        | 没有直发下单入口 | 个人中心 → 服务设置 → 偏好设置开通 |
+
+                        ---
+
+                        ## 件型与包裹类型
+
+                        | 件型 | 尺寸/重量（摘要） | 包裹限制 |
+                        |------|-------------------|----------|
+                        | 小件 | 长≤50cm，宽≤40cm，高≤13cm，重≤3kg | USTX/USGA/USNJ2 仅 A；其他仓 A/A+/B/C |
+                        | 大件/超大件 | T120/T240/TM 货型 | 仅 A/A+ 包裹可含 |
+
+                        - **A / A+**：标准小件；A+ 为全新完好。
+                        - **B / C**：混装/异常包裹；BC 类上架效率低于 A 类。
+                        - **USTX / USGA / USNJ2**：小件仅 A 类包裹。
+
+                        ---
+
+                        ## 申报价值（标准头程）
+
+                        - **美国**：单票申报价值建议 ≤ 660 USD（上限 700 USD）；超限可能触发正式报关，关税实报实销。
+                        - **澳洲**：单票 ≤ 600 USD。
+
+                        ---
+
+                        ## CBM 额度规则（说明口径）
+
+                        - CBM 为入库容量额度概念，满额时需等待释放或申请扩容（→ inbound-capacity-availability 查剩余）。
+                        - 本专家仅解释规则，不提供实时剩余额度。
+
+                        ---
+
+                        ## 禁限运品类别
+
+                        | 类别 | 说明 |
+                        |------|------|
+                        | 危险品 | 需符合目的国法规与仓库配置；最终合规判断需人工核实 |
+                        | 带电商品 | 须上传电池资料；按仓库配置说明电池类型/功率限制 |
+                        | 液体 | 需确认包装与 MSDS；部分仓/PSC 不支持 |
+                        | 易碎品 | 注意包装要求，可能需增值包装服务 |
+                        | 特殊货型 | 涉及合规争议 → 转人工 |
+
+                        **对客约束**：仅提供类别说明，不做最终合规判断。
+
+                        ---
+
+                        ## 权限与入口
+
+                        - 无直发入口：万邑联 → 个人中心 → 服务设置 → 偏好设置。
+                        - SKU 注册：万邑联 → 商品 → 商品维护信息。
+                        - 件型查询（人工核实）：TOM → 管理商品管理 → 商品。
+
+                        ---
+
+                        ## 国别/仓别差异化（摘要）
+
+                        - **德国仓**：地址 Straße 字符问题见 inbound-warehouse-info。
+                        - **美国部分仓**：小件仅 A 类（USTX/USGA/USNJ2）。
+                        - **递延清关**（UK PVA、DE/BE）：须提前维护进口商信息（→ inbound-customs-doc-manage）。
+                        - 具体仓库规则结合 `country` 与 `productLine` 过滤。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163004"
+      type: code
+      title: load-process-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 550
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：load-process-kb — 按 intentType 选择性拼接 KB 语料
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function filterByKeywords(content: string, keywords: string[]): string {
+                if (!content || keywords.length === 0) return content;
+                const lines = content.split("\n");
+                const hits = new Set<number>();
+                const lowerKeywords = keywords.map((k) => k.toLowerCase()).filter(Boolean);
+
+                for (let i = 0; i < lines.length; i++) {
+                  const line = lines[i].toLowerCase();
+                  if (lowerKeywords.some((k) => line.includes(k))) {
+                    const isHeading = /^#{1,3}\s/.test(lines[i]);
+                    const before = isHeading ? 0 : 3;
+                    const after = isHeading ? 12 : 6;
+                    for (let j = Math.max(0, i - before); j <= Math.min(lines.length - 1, i + after); j++) {
+                      hits.add(j);
+                    }
+                  }
+                }
+
+                if (hits.size === 0) return content;
+                const sorted = Array.from(hits).sort((a, b) => a - b);
+                const minLines = Math.min(40, lines.length);
+                if (sorted.length < minLines && lines.length > minLines * 2) {
+                  return content;
+                }
+                return sorted.map((i) => lines[i]).join("\n");
+              }
+
+              function pickKbParts(
+                intentType: string,
+                kbProcess: string,
+                kbFees: string,
+                kbRestrictions: string
+              ): { parts: string[]; scope: string } {
+                switch (intentType) {
+                  case "fee":
+                    return { parts: [kbFees, kbProcess], scope: "fee+process" };
+                  case "prohibition":
+                    return { parts: [kbRestrictions], scope: "restrictions" };
+                  case "rule":
+                    return { parts: [kbRestrictions, kbProcess], scope: "rules+process" };
+                  case "psc_select":
+                    return { parts: [kbProcess, kbRestrictions], scope: "psc+rules" };
+                  case "process":
+                    return { parts: [kbProcess], scope: "process" };
+                  default:
+                    return { parts: [kbProcess, kbFees, kbRestrictions], scope: "full" };
+                }
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validationOk = params.validationOk === true;
+                const intentType = str(params.intentType) || "general";
+                const normalizedTopic = str(params.normalizedTopic);
+                const country = str(params.country);
+                const productLine = str(params.productLine) || str(params.pscCode);
+                const subTopic = str(params.subTopic);
+
+                const kbProcess = str(params.kbProcess);
+                const kbFees = str(params.kbFees);
+                const kbRestrictions = str(params.kbRestrictions);
+
+                if (!validationOk) {
+                  return {
+                    kbContent: "",
+                    kbScope: "invalid",
+                    intentType,
+                    normalizedTopic,
+                  };
+                }
+
+                const { parts, scope } = pickKbParts(intentType, kbProcess, kbFees, kbRestrictions);
+                const keywords = [normalizedTopic, subTopic, country, productLine]
+                  .join(" ")
+                  .split(/[\s,，、/]+/)
+                  .filter((w) => w.length >= 2);
+
+                const filteredParts = parts.filter(Boolean).map((p) => filterByKeywords(p, keywords));
+                const kbContent = filteredParts.join("\n\n---\n\n");
+
+                return {
+                  kbContent: kbContent || parts.filter(Boolean).join("\n\n---\n\n"),
+                  kbScope: `${scope}${country ? `:${country}` : ""}${productLine ? `:psc-${productLine}` : ""}`,
+                  intentType,
+                  normalizedTopic,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-process-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: intentType
+                input:
+                    value:
+                        path: intentType
+                        ref_node: "163000"
+              - name: normalizedTopic
+                input:
+                    value:
+                        path: normalizedTopic
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: productLine
+                input:
+                    value:
+                        path: productLine
+                        ref_node: "163000"
+              - name: subTopic
+                input:
+                    value:
+                        path: subTopic
+                        ref_node: "163000"
+              - name: kbProcess
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+              - name: kbFees
+                input:
+                    value:
+                        path: output
+                        ref_node: "163002"
+              - name: kbRestrictions
+                input:
+                    value:
+                        path: output
+                        ref_node: "163003"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              intentType:
+                  type: string
+                  value: null
+              normalizedTopic:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163005"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 850
+          y: 310
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 入库流程与规则指引专家 - LLM Prompt
+
+                        将本内容复制到 Coze LLM 节点。上游应先执行 **validate-guide-query** 与 **load-process-kb**。
+
+                        **对客输出**：不引用飞书链接、TOM URL；外部入口描述为「通过万邑联平台操作」。费用标注「以实际账单为准」。不得输出或解释 `orderMode`、`isAutoInspection` 等内部字段；涉及页面设置时，仅说明按所选 PSC 与页面提示完成相关设置，无法提交时请客户提供页面提示或截图。
+
+                        ---
+
+                        ## 角色
+
+                        你是 **入库流程与规则指引专家**（inbound-process-guide）。根据 `intentType` 与 KB 内容，解答入库流程、规则限制、费用口径、禁限运品与 PSC 选型问题。
+
+                        职责：
+
+                        1. 按 `intentType` 组织回答：process（流程）/ rule（规则）/ fee（费用）/ prohibition（禁运）/ psc_select（选型）。
+                        2. 有 `enabledProducts` 时优先展示客户已开通 PSC 的差异化规则；未开通的产品仅作选型参考并提示确认权限。
+                        3. **可解释**入库单状态机各状态含义（DR/OD/TS/PEWC 等），但**不查询或推断**具体单据当前状态（→ inbound-order-status）。
+                        4. 不输出仓库地址明细（→ inbound-warehouse-info）；具体操作步骤（新建/修改/关闭）引导 → inbound-order-manage。
+                        5. 不得编造 KB 中不存在的信息；KB 标注 `[推断]` 的内容须说明待确认。
+
+                        ---
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **intentType**：`{{intentType}}`
+                        - **normalizedTopic**：`{{normalizedTopic}}`
+                        - **country**：`{{country}}`
+                        - **productLine**：`{{productLine}}`
+                        - **subTopic**：`{{subTopic}}`
+                        - **enabledProducts**：`{{enabledProducts}}`（上游 inbound-psc-eligibility 快照，可为空）
+                        - **kbContent**：
+
+                        ```
+                        {{kbContent}}
+                        ```
+
+                        ---
+
+                        ## 工作步骤（体现在 analysis 中）
+
+                        1. **结论**：一句话概括匹配主题。
+                        2. **分类型组织**：
+                           - **process**：前置条件 → SOP 步骤 → 送仓/预约要点；涉及状态时引用状态机概览，不查单。
+                           - **psc_select**：决策树 → 三种链路对比 → 结合 enabledProducts 给出建议。
+                           - **rule**：报错/限制条目 + 处理建议。
+                           - **fee**：冻结/扣费节点 + 免责。
+                           - **prohibition**：禁限运类别 + 转人工条件。
+                        3. **国别/PSC 过滤**：有 `country` 或 `productLine` 时优先匹配 KB 中对应段落（如 US SLA、USTX 件型规则）。
+                        4. **专家路由**：问题超出本专家范围时，在 analysis 末尾简要说明应转哪个专家。
+                        5. **免责**：费用以实际账单为准；禁运不做最终合规判断。
+                        6. **升级提示**：个案豁免、合规争议、KB 未覆盖 → 建议联系客服。
+
+                        ---
+
+                        ## 输出格式
+
+                        只输出一个 JSON 对象，顶层 **仅有** `analysisResult`（与 workflow LLM 节点 outputs 一致），其内包含 `structured` 与 `analysis`。
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "topicMatched": "标准海外仓入库流程",
+                              "intentType": "process",
+                              "sopSteps": [
+                                "步骤1",
+                                "步骤2"
+                              ],
+                              "matchedRules": [
+                                {
+                                  "rule": "规则名",
+                                  "condition": "条件",
+                                  "notes": "说明"
+                                }
+                              ],
+                              "feeNotes": "",
+                              "prohibitedItems": [],
+                              "pscContext": "",
+                              "prerequisites": [
+                                "SKU 已发布",
+                                "PSC 已开通"
+                              ],
+                              "expertRouting": "具体操作步骤见 inbound-order-manage"
+                            },
+                            "analysis": "对客分步说明或规则摘要。"
+                          }
+                        }
+                        ```
+
+                        字段说明：`prerequisites`、`expertRouting` 在流程/选型类问题中尽量填写；其他 intent 可留空字符串或空数组。
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: intentType
+                input:
+                    value:
+                        path: intentType
+                        ref_node: "163004"
+              - name: normalizedTopic
+                input:
+                    value:
+                        path: normalizedTopic
+                        ref_node: "163004"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: productLine
+                input:
+                    value:
+                        path: productLine
+                        ref_node: "163000"
+              - name: subTopic
+                input:
+                    value:
+                        path: subTopic
+                        ref_node: "163000"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163004"
+              - name: enabledProducts
+                input:
+                    value:
+                        path: enabledProducts
+                        ref_node: "163000"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163006"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1050
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              const INTERNAL_FIELD_KEY = /^(orderMode|isAutoInspection)$/i;
+              const INTERNAL_FIELD_PAIR = /`?orderMode`?\s*(?:与|和|\/)\s*`?isAutoInspection`?(?:\s*配置)?/gi;
+              const INTERNAL_FIELD_NAME = /`?(?:orderMode|isAutoInspection)`?/gi;
+
+              function sanitizeCustomerValue(value: unknown): unknown {
+                if (typeof value === "string") {
+                  return value
+                    .replace(INTERNAL_FIELD_PAIR, "相关下单设置")
+                    .replace(INTERNAL_FIELD_NAME, "相关下单设置");
+                }
+                if (Array.isArray(value)) return value.map(sanitizeCustomerValue);
+                if (!value || typeof value !== "object") return value;
+
+                const sanitized: Record<string, unknown> = {};
+                for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+                  if (!INTERNAL_FIELD_KEY.test(key)) sanitized[key] = sanitizeCustomerValue(nested);
+                }
+                return sanitized;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) {
+                  return { structured: {}, analysis: "未收到模型输出。" };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    /* fall through */
+                  }
+                  return { structured: {}, analysis: s || "解析失败。" };
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const structured = sanitizeCustomerValue(coerced.structured) as Record<string, unknown>;
+                const analysis = String(sanitizeCustomerValue(coerced.analysis) || "（无 analysis 字段）");
+                const summary = analysis.slice(0, 200) || "入库流程与规则指引完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {
+                    expertId: "inbound-process-guide",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "",
+                  },
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "163005"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "900001"

@@ -1,0 +1,131 @@
+﻿# 本地专家 → COZE 工作流导出配置（与手工导出 id / 连线对齐时可保持导入一致）
+workflowId: "7621923795871957002"
+yamlBasename: e_template-draft.yaml
+packageMainName: e_template
+packageDescription: 专家模板（含选择器分支 + 代码/LLM/format）
+icon: plugin_icon/workflow.png
+
+# 导出时在 fetch-sku-inventory 前插入 cobra_winit_openapi_request 插件（占位说明见 nodes/winit-openapi-plugin.ts）
+winitOpenapiPlugin:
+  enabled: true
+  insertBefore: fetch-sku-inventory
+  logicalId: winit_openapi_plugin
+  # 插件 action 入参（默认 queryProductInventoryList4Page，与 fetch-sku-inventory 一致）；非调用边界顶层字段
+  # openapiAction: queryProductInventoryList4Page
+
+  # 开始/结束 id 固定为 100001 / 900001；下列为中间节点
+nodeIds:
+  stub-llm-placeholder: "163197"
+  resolve-analysis-result: "163196"
+  build-winit-inventory-data: "163201"
+  winit_openapi_plugin: "115282"
+  fetch-sku-inventory: "163203"
+  evaluate-expression: "163198"
+  route-after-eval: "163199"
+  load-examples-text: "163200"
+  llm-comment: "175211"
+  format-output: "168002"
+
+# 与 COZE 占位符、画布拉线一致；Few-shot 由 load-examples-text 代码节点输出（因 branching 与 textNodes 互斥）
+inputBindings:
+  llm-comment:
+    result:
+      ref: evaluate-expression
+      path: result
+      aliasAs: computationResult
+    inputContext:
+      ref: evaluate-expression
+      path: outputContext
+    examplesMd:
+      ref: load-examples-text
+      path: examplesMd
+  resolve-analysis-result:
+    llmAnalysisResult:
+      ref: llm-comment
+      path: analysisResult
+    stubAnalysisResult:
+      ref: stub-llm-placeholder
+      path: analysisResult
+  format-output:
+    result:
+      ref: evaluate-expression
+      path: result
+    analysisResult:
+      ref: resolve-analysis-result
+      path: analysisResult
+    inputContext:
+      ref: evaluate-expression
+      path: outputContext
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+# 求值成功后走 load-examples-text → llm-comment → resolve → format；失败则 stub → resolve → format
+branching:
+  after: evaluate-expression
+  logicalId: route-after-eval
+  title: 是否走 LLM 点评
+  routes:
+    - port: "true"
+      target: load-examples-text
+      whenEquals:
+        path: branch
+        value: "with_review"
+    - port: "false"
+      target: stub-llm-placeholder
+  joins:
+    - from: stub-llm-placeholder
+      to: resolve-analysis-result
+
+# stub 仅 false 分支触达；joins.from 会自动从线性 tail 排除，也可显式列出
+branchOnlyNodeIds:
+  - stub-llm-placeholder
+
+positions:
+  __start__:
+    x: -149.557913881682
+    y: 231.51531952084514
+  __end__:
+    x: 1053.3053365464475
+    y: 309.27940455803343
+  stub-llm-placeholder:
+    x: 120
+    y: -13
+  build-winit-inventory-data:
+    x: 165
+    y: -13
+  winit_openapi_plugin:
+    x: 210
+    y: -13
+  fetch-sku-inventory:
+    x: 300
+    y: -13
+  evaluate-expression:
+    x: 480
+    y: -13
+  route-after-eval:
+    x: 480
+    y: 120
+  load-examples-text:
+    x: 480
+    y: 240
+  llm-comment:
+    x: 480
+    y: 380
+  resolve-analysis-result:
+    x: 480
+    y: 450
+  format-output:
+    x: 480
+    y: 520

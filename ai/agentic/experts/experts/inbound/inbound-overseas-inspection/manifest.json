@@ -1,0 +1,59 @@
+{
+  "id": "inbound-overseas-inspection",
+  "domain": "inbound",
+  "name": "海外验状态解读",
+  "description": "解读 OW01031/OW01032 链路下货物在 PEWC→EWC 阶段的海外验进展、阻塞原因与模式差异。OMS getOrderDetail 主路径，WMS 细粒度验货阶段当前 Gap。Use when 客户询问海外验进行到哪了、有箱单和无箱单进度差异、预报单验货状态。",
+  "capabilities": [
+    "海外验阶段映射",
+    "PEWC/EWC 解读",
+    "有箱单/无箱单/预报模式",
+    "验货阻塞识别",
+    "WMS Gap 说明"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "inboundOrderNos": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "入库单号；progress 意图时必填"
+      },
+      "inspectionMode": {
+        "type": "string",
+        "enum": ["with_carton", "without_carton", "forecast", "auto"],
+        "description": "海外验模式：with_carton(OW01031) / without_carton / forecast(OW01032) / auto(从单号推断)",
+        "default": "auto"
+      },
+      "intent": {
+        "type": "string",
+        "enum": ["progress", "mode_faq"],
+        "description": "progress=按单查进度；mode_faq=模式差异 FAQ",
+        "default": "progress"
+      },
+      "modeTopic": {
+        "type": "string",
+        "description": "mode_faq 时主题：packing_list_vs_forecast / no_packing_list"
+      },
+      "maxTrajectoryNodes": {
+        "type": "integer",
+        "description": "轨迹节点保留条数上限；默认 20",
+        "default": 20,
+        "minimum": 1
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "海外验结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "海外验阶段客观说明"
+      }
+    }
+  }
+}

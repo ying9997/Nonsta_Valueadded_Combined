@@ -1,0 +1,307 @@
+{
+  "nodes": [
+    {
+      "id": "validate-intent",
+      "file": "nodes/validate-intent.ts",
+      "inputs": [
+        "intent",
+        "inboundOrderNo",
+        "targetWarehouseCode",
+        "targetPsc",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "error",
+        "intent",
+        "inboundOrderNo",
+        "targetWarehouseCode",
+        "targetPsc",
+        "customerIntent",
+        "inputContext",
+        "enabledProducts",
+        "hasSelfInspection",
+        "needsOrderDetail",
+        "skipApi",
+        "wiOrderNos",
+        "customerRefNos"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "inboundOrderNo": {
+            "type": "string"
+          },
+          "targetWarehouseCode": {
+            "type": "string"
+          },
+          "targetPsc": {
+            "type": "string"
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enabledProducts": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "hasSelfInspection": {
+            "type": "boolean"
+          },
+          "needsOrderDetail": {
+            "type": "boolean"
+          },
+          "skipApi": {
+            "type": "boolean"
+          },
+          "wiOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerRefNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "build-winit-inbound-detail",
+      "file": "nodes/build-winit-inbound-detail.ts",
+      "inputs": [
+        "wiOrderNos",
+        "skipApi"
+      ],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount",
+        "actionName",
+        "skipApi"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "winitPluginBatchActionsCount": {
+            "type": "integer"
+          },
+          "actionName": {
+            "type": "string"
+          },
+          "skipApi": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch-inbound-order",
+      "file": "nodes/fetch-inbound-order.ts",
+      "inputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginOutputList",
+        "skipApi"
+      ],
+      "outputs": [
+        "rawOrderData"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "rawOrderData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "check-operability",
+      "file": "nodes/check-operability.ts",
+      "inputs": [
+        "rawOrderData",
+        "intent",
+        "inboundOrderNo"
+      ],
+      "outputs": [
+        "isOperable",
+        "blockReason",
+        "currentStatus",
+        "orderNo",
+        "destWhCode",
+        "operabilityNote",
+        "riskNotes"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "isOperable": {
+            "type": "boolean"
+          },
+          "blockReason": {
+            "type": "string"
+          },
+          "currentStatus": {
+            "type": "string"
+          },
+          "orderNo": {
+            "type": "string"
+          },
+          "destWhCode": {
+            "type": "string"
+          },
+          "operabilityNote": {
+            "type": "string"
+          },
+          "riskNotes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "id": "load-order-kb",
+      "file": "nodes/load-order-kb.ts",
+      "inputs": [
+        "validationOk",
+        "intent",
+        "kbOrderCreate",
+        "kbOrderModify",
+        "kbOrderClose",
+        "enabledProducts",
+        "targetWarehouseCode",
+        "targetPsc"
+      ],
+      "outputs": [
+        "kbContent",
+        "kbScope",
+        "intent",
+        "pscContext",
+        "enabledProducts",
+        "targetWarehouseCode",
+        "targetPsc"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "kbContent": {
+            "type": "string"
+          },
+          "kbScope": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "pscContext": {
+            "type": "string"
+          },
+          "enabledProducts": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "targetWarehouseCode": {
+            "type": "string"
+          },
+          "targetPsc": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "intent",
+        "inboundOrderNo",
+        "targetWarehouseCode",
+        "targetPsc",
+        "validationOk",
+        "error",
+        "isOperable",
+        "blockReason",
+        "currentStatus",
+        "operabilityNote",
+        "riskNotes",
+        "kbContent",
+        "pscContext",
+        "enabledProducts",
+        "rawOrderData",
+        "inputContext"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext",
+        "intent",
+        "isOperable",
+        "blockReason",
+        "currentStatus"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

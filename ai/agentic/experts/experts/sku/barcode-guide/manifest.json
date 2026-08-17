@@ -1,0 +1,53 @@
+{
+  "id": "barcode-guide",
+  "domain": "sku",
+  "name": "SKU 条码与三方编码引导",
+  "description": "引导海外仓商品条码打印、第三方商品/单品条码增删查，以及仓内扫不上排查。KB+LLM 为主，不代客写入绑码/删码。Use when 客户问怎么打印标签、FNSKU/三方码怎么绑、怎么删/查三方编码、仓库扫不上码、或待办缺第三方商品条码如何补。",
+  "capabilities": [
+    "打印条码标签",
+    "新增三方码",
+    "删除三方码指引",
+    "查询三方/单品码",
+    "扫码失败排查"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "topic": {
+        "type": "string",
+        "description": "咨询主题关键词（与 intentType 至少填一个）"
+      },
+      "intentType": {
+        "type": "string",
+        "description": "print / third_party_add / third_party_delete / third_party_query / scan_fail / general"
+      },
+      "skuCode": {
+        "type": "string",
+        "description": "商品编码（与打标入参 productCode 同义；可选）"
+      },
+      "skuCodeThird": {
+        "type": "string",
+        "description": "第三方商品条码（绑码/查删场景可选）"
+      },
+      "supervisorMode": {
+        "type": "string",
+        "description": "管理模式 SI / SKU（可选；影响是否返回单品 S 码）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "branch、sopSteps、confidence 等"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客分步说明"
+      }
+    }
+  }
+}

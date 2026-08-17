@@ -1,0 +1,2652 @@
+schema_version: 1.0.0
+name: inbound_transit_tracking
+id: 7606854963483364046
+description: 头程在途追踪（resolve → TMS queryPage → OMS getOrderDetail → extract → check-tms-gap → LLM）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      inboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 入库单号（WI 前缀）或客户自有参考号列表
+                          required: true
+                      queryFocus:
+                          type: string
+                          value: null
+                          description: departure/arrival_port 不在本期；delivery_warehouse/overall 为后续 OMS 方向
+                      maxTrajectoryNodes:
+                          type: integer
+                          value: null
+                          description: 轨迹节点保留条数上限；默认 20
+                      transportOrderNo:
+                          type: string
+                          value: null
+                          description: 运输单号 TO（可选，优先 TMS 查询）
+                      containerNo:
+                          type: string
+                          value: null
+                          description: 柜号（可选，TMS 查询辅助）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163015"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163015"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163015"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163015"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: resolve-inbound-lookup
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化入库单查询标识
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function isWiOrderToken(raw: string): boolean {
+                return /^WI/i.test(raw.trim());
+              }
+
+              function normalizeWiOrderNum(raw: string): string {
+                return raw.trim().toUpperCase();
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const raw = ((params.inboundOrderNos as string[]) ?? [])
+                  .map((o) => String(o ?? "").trim())
+                  .filter(Boolean);
+
+                const wiSeen = new Set<string>();
+                const refSeen = new Set<string>();
+                const wiOrderNos: string[] = [];
+                const customerRefNos: string[] = [];
+
+                for (const token of raw) {
+                  if (isWiOrderToken(token)) {
+                    const normalized = normalizeWiOrderNum(token);
+                    if (!wiSeen.has(normalized)) {
+                      wiSeen.add(normalized);
+                      wiOrderNos.push(normalized);
+                    }
+                  } else {
+                    const normalized = token.trim();
+                    if (!refSeen.has(normalized)) {
+                      refSeen.add(normalized);
+                      customerRefNos.push(normalized);
+                    }
+                  }
+                }
+
+                const hasOrders = wiOrderNos.length > 0 || customerRefNos.length > 0;
+
+                return {
+                  wiOrderNos,
+                  customerRefNos,
+                  inboundOrderNos: [...wiOrderNos, ...customerRefNos],
+                  skipApi: !hasOrders,
+                  lookupMeta: { hasOrders, wiCount: wiOrderNos.length, refCount: customerRefNos.length },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-inbound-lookup")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inputs.inboundOrderNos
+                        ref_node: "100001"
+          node_outputs:
+              wiOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerRefNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+              lookupMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: build-tms-transport-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 节点：组装 tms.transportorder.queryPage 请求
+               * 规格：docs/plan/inbound-tms-transportorder-queryPage.md
+               */
+
+              const TMS_QUERY_PAGE_ACTION =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_TMS_QUERY_PAGE_ACTION?.trim()) ||
+                "tms.transportorder.queryPage";
+
+              const DEFAULT_WI_KEYWORD_TYPE =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_TMS_KEYWORD_TYPE?.trim()) ||
+                "inboundOrderNo";
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function isTransportOrderNo(token: string): boolean {
+                return /^TO/i.test(token.trim());
+              }
+
+              function basePageData(extra: Record<string, unknown>): Record<string, unknown> {
+                return { pageNo: 1, pageSize: 10, ...extra };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipApi === true || params.skipTms === true) {
+                  return { actions: [], tmsActionName: TMS_QUERY_PAGE_ACTION, skipTms: true };
+                }
+
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).map((o) => str(o)).filter(Boolean);
+                const customerRefNos = ((params.customerRefNos as string[]) ?? []).map((o) => str(o)).filter(Boolean);
+                const transportOrderNo = str(params.transportOrderNo);
+                const containerNo = str(params.containerNo);
+
+                const actions: Array<{ action: string; data: string }> = [];
+                const seen = new Set<string>();
+
+                const push = (keywordType: string, content: string) => {
+                  const key = `${keywordType}|${content}`;
+                  if (!content || seen.has(key)) return;
+                  seen.add(key);
+                  actions.push({
+                    action: TMS_QUERY_PAGE_ACTION,
+                    data: JSON.stringify(basePageData({ keywordType, content })),
+                  });
+                };
+
+                if (transportOrderNo) push("orderNo", transportOrderNo.toUpperCase());
+                for (const token of [...wiOrderNos, ...customerRefNos]) {
+                  if (isTransportOrderNo(token)) push("orderNo", token.toUpperCase());
+                }
+                for (const wi of wiOrderNos) push(DEFAULT_WI_KEYWORD_TYPE, wi);
+                for (const ref of customerRefNos) push("customerOrderNo", ref);
+                if (containerNo) push("containerNo", containerNo);
+
+                if (actions.length === 0) {
+                  return { actions: [], tmsActionName: TMS_QUERY_PAGE_ACTION, skipTms: true };
+                }
+
+                return { actions: actions, tmsActionName: TMS_QUERY_PAGE_ACTION, skipTms: false };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-tms-transport-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163000"
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163000"
+              - name: customerRefNos
+                input:
+                    value:
+                        path: customerRefNos
+                        ref_node: "163000"
+              - name: transportOrderNo
+                input:
+                    value:
+                        path: inputs.transportOrderNo
+                        ref_node: "100001"
+              - name: containerNo
+                input:
+                    value:
+                        path: inputs.containerNo
+                        ref_node: "100001"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              tmsActionName:
+                  type: string
+                  value: null
+              skipTms:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: plugin
+      title: winit_tms_transport_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 947
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 10
+              concurrentSize: 5
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163001"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163002"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163002"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163003"
+      type: code
+      title: fetch-tms-transport-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          code: |-
+              /**
+               * 节点：拉取 TMS 运输单 queryPage
+               */
+
+              const TMS_QUERY_PAGE_ACTION =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_TMS_QUERY_PAGE_ACTION?.trim()) ||
+                "tms.transportorder.queryPage";
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  return JSON.parse(data) as unknown;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceList(parsed: unknown): unknown[] {
+                if (parsed == null) return [];
+                if (Array.isArray(parsed)) return parsed;
+                if (typeof parsed !== "object") return [];
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coerceList(o.output);
+                if (o.code === "0" || o.code === 0) return coerceList(o.data);
+                return Array.isArray(o.list) ? o.list : [];
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipTms === true) {
+                  return { tmsRawList: [] };
+                }
+
+                const pluginList = params.winitTmsPluginOutputList;
+                let list: unknown[] = [];
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  for (const item of pluginList as Array<{ data?: unknown }>) {
+                    list.push(...coerceList(parseCozeWorkflowDataField(item?.data)));
+                  }
+                } else {
+                  const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                    action: string;
+                    data: string;
+                  }>;
+                  const env = getCozeWinitEnv();
+                  if (env && actions.length > 0) {
+                    try {
+                      for (const act of actions) {
+                        const data = JSON.parse(act.data) as Record<string, unknown>;
+                        const parsed = await runCozeWinitWorkflow(env, act.action || TMS_QUERY_PAGE_ACTION, data);
+                        list.push(...coerceList(parsed));
+                      }
+                    } catch {
+                      list = [];
+                    }
+                  }
+                }
+
+                return { tmsRawList: list };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-tms-transport-order")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipTms
+                input:
+                    value:
+                        path: skipTms
+                        ref_node: "163001"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163001"
+              - name: winitTmsPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163002"
+          node_outputs:
+              tmsRawList:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163004"
+      type: code
+      title: summarize-tms-transport
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化 TMS TransportOrderVo 摘要
+               */
+
+              type TmsTransportRecord = {
+                transportOrderNo: string;
+                customerOrderNo: string;
+                status: string;
+                winitProductCode: string;
+                estimateVolume: number | null;
+                estimatePackageQty: number | null;
+                containerNo: string;
+                cartonType: string;
+                sendPortType: string;
+                cutoffCabinetDate: string;
+                importDeclarationRuleCode: string;
+                importerCode: string;
+                exportDeclarationType: string;
+                isWaitDataFile: string;
+                isWaitPackageList: string;
+                logisticsPlanId: string;
+                source: string;
+              };
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function numOrNull(v: unknown): number | null {
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+              }
+
+              function obj(v: unknown): Record<string, unknown> {
+                return v != null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+              }
+
+              function normalizeRow(raw: unknown): TmsTransportRecord | null {
+                if (!raw || typeof raw !== "object") return null;
+                const o = raw as Record<string, unknown>;
+                const transportOrderNo = str(o.orderNo);
+                if (!transportOrderNo && !o.customerOrderNo && !o.status) return null;
+
+                const send = obj(o.sendPortInfoVo);
+                const imported = obj(o.importedInfoVo);
+                const exported = obj(o.exportedInfoVo);
+                const logistics = obj(o.logisticsInfoVo);
+
+                return {
+                  transportOrderNo,
+                  customerOrderNo: str(o.customerOrderNo),
+                  status: str(o.status),
+                  winitProductCode: str(o.winitProductCode),
+                  estimateVolume: numOrNull(o.estimateVolume),
+                  estimatePackageQty: numOrNull(o.estimatePackageQty),
+                  containerNo: str(send.containerNo),
+                  cartonType: str(send.cartonType),
+                  sendPortType: str(send.sendPortType),
+                  cutoffCabinetDate: str(send.cutoffCabinetDate),
+                  importDeclarationRuleCode: str(imported.importDeclarationRuleCode),
+                  importerCode: str(imported.importerCode),
+                  exportDeclarationType: str(exported.exportDeclarationType),
+                  isWaitDataFile: str(o.isWaitDataFile),
+                  isWaitPackageList: str(o.isWaitPackageList),
+                  logisticsPlanId: str(logistics.estimateLogisticsPlanId),
+                  source: "tms_query_page",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawList = Array.isArray(params.tmsRawList) ? params.tmsRawList : [];
+                const seen = new Set<string>();
+                const records: TmsTransportRecord[] = [];
+
+                for (const raw of rawList) {
+                  const row = normalizeRow(raw);
+                  if (!row || !row.transportOrderNo) continue;
+                  if (seen.has(row.transportOrderNo)) continue;
+                  seen.add(row.transportOrderNo);
+                  records.push(row);
+                }
+
+                const primary = records[0] ?? null;
+                const dataQuality = records.length > 0 ? "tms_api" : params.skipTms === true ? "skipped" : "missing";
+
+                return {
+                  tmsTransportSummary: {
+                    records,
+                    recordCount: records.length,
+                    dataQuality,
+                    primary,
+                    trackingNote:
+                      records.length > 0
+                        ? "运输单表头可查；离港/到港里程碑须 tms.transportorder.queryTrackingList（本期未接入）"
+                        : "未查到运输单；请确认 TO 号或 WI↔TO 关联 keywordType",
+                  },
+                  tmsTransportRecords: records,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("summarize-tms-transport")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipTms
+                input:
+                    value:
+                        path: skipTms
+                        ref_node: "163001"
+              - name: tmsRawList
+                input:
+                    value:
+                        path: tmsRawList
+                        ref_node: "163003"
+          node_outputs:
+              tmsTransportSummary:
+                  type: object
+                  value: null
+              tmsTransportRecords:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163005"
+      type: code
+      title: build-winit-inbound-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          code: |-
+              /* coze-inline: shared/inbound-get-order-detail.ts */
+              /**
+               * 入库单 getOrderDetail 详情分层：detailLevel ↔ isIncludePackage、extract、SKU/包裹聚合
+               * 官方 id/39：N 不返回 merchandiseList/packageList；无包裹分页 API
+               */
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              type DetailLevel =
+                | "header"
+                | "sku_summary"
+                | "sku_filtered"
+                | "package_summary"
+                | "package_detail"
+                | "item_lookup";
+
+              type IsIncludePackage = "Y" | "N";
+
+              interface DetailExtractOptions {
+                detailLevel: DetailLevel;
+                targetMerchandiseCodes?: string[];
+                targetPackageNos?: string[];
+                targetItemSernos?: string[];
+                maxPackagesPerOrder?: number;
+                maxMerchandisePerPackage?: number;
+                packageFetchThreshold?: number;
+              }
+
+              interface DetailExtractMeta {
+                detailLevel: DetailLevel;
+                originalPackageCount: number;
+                packagesDiscarded: boolean;
+                merchandiseRowCount: number;
+                requiresNarrowing?: boolean;
+                largeOrderSkuOnly?: boolean;
+                packagesRetained?: number;
+              }
+
+              interface SkuPutawaySummary {
+                totalSkus: number;
+                completedSkus: number;
+                partialSkus: number;
+                pendingSkus: number;
+                putawayRate: number;
+                anomalySkus: Array<{
+                  merchandiseCode: string;
+                  quantity: number;
+                  actualQuantity: number;
+                  inspectionQty?: number;
+                }>;
+                targetSkusOnly: boolean;
+              }
+
+              interface PackagePutawaySummary {
+                totalPackages: number;
+                byStatus: Record<string, number>;
+                recentUnshelvedSample: Array<{
+                  packageNo?: string;
+                  sellerCaseNo?: string;
+                  status?: string;
+                  unloadingTime?: string;
+                  shelvesTime?: string;
+                }>;
+                expectedPackages?: number;
+                receivedPackages?: number;
+                discrepancy?: number;
+              }
+
+              const PLUGIN_BATCH_MAX_DEFAULT = 100;
+              const DEFAULT_MAX_PACKAGES = 50;
+              const DEFAULT_MAX_MERCH_PER_PKG = 20;
+              const DEFAULT_PACKAGE_THRESHOLD = 200;
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function num(v: unknown): number {
+                const n = Number(v);
+                return Number.isFinite(n) ? n : 0;
+              }
+
+              function arr(v: unknown): string[] {
+                if (!Array.isArray(v)) return [];
+                return v.map((x) => str(x)).filter(Boolean);
+              }
+
+              function getPluginBatchMaxActions(): number {
+                if (typeof process !== "undefined" && process.env?.COZE_WINIT_PLUGIN_BATCH_MAX) {
+                  const n = Number(process.env.COZE_WINIT_PLUGIN_BATCH_MAX);
+                  if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+                }
+                return PLUGIN_BATCH_MAX_DEFAULT;
+              }
+
+              function isIncludePackageForLevel(level: DetailLevel): IsIncludePackage {
+                return level === "header" ? "N" : "Y";
+              }
+
+              /** 解析 detailLevel：兼容 includePackageDetails / checkPackageQty */
+              function resolveDetailLevel(
+                params: Record<string, unknown>,
+                defaultLevel: DetailLevel
+              ): DetailLevel {
+                if (params.includePackageDetails === true) return "package_detail";
+                const raw = str(params.detailLevel);
+                const levels: DetailLevel[] = [
+                  "header",
+                  "sku_summary",
+                  "sku_filtered",
+                  "package_summary",
+                  "package_detail",
+                  "item_lookup",
+                ];
+                if (raw && levels.includes(raw as DetailLevel)) return raw as DetailLevel;
+                if (params.checkPackageQty === true && defaultLevel === "header") return "package_summary";
+                return defaultLevel;
+              }
+
+              /** 统一官方字段名与历史别名 */
+              function normalizeInboundOrderFields(order: Record<string, unknown>): Record<string, unknown> {
+                const copy = { ...order };
+                if (!copy.packageList && Array.isArray(copy.inboundPackageVos)) {
+                  copy.packageList = copy.inboundPackageVos;
+                }
+                if (!copy.merchandiseList && Array.isArray(copy.inboundMerchandiseVos)) {
+                  copy.merchandiseList = copy.inboundMerchandiseVos;
+                }
+                return copy;
+              }
+
+              type InboundDetailActionPlan = {
+                inputToken: string;
+                queryBy: "orderNo" | "customerOrderNo";
+              };
+
+              function buildInboundDetailActions(
+                wiOrderNos: string[],
+                customerRefNos: string[],
+                detailLevel: DetailLevel
+              ): {
+                actions: Array<{ action: string; data: string }>;
+                actionPlans: InboundDetailActionPlan[];
+                winitPluginBatchActionsCount: number;
+                actionName: string;
+                detailLevel: DetailLevel;
+                isIncludePackage: IsIncludePackage;
+              } {
+                const actionPlans: InboundDetailActionPlan[] = [];
+                for (const no of wiOrderNos) {
+                  if (no?.trim()) actionPlans.push({ inputToken: no.trim(), queryBy: "orderNo" });
+                }
+                for (const ref of customerRefNos) {
+                  if (ref?.trim()) actionPlans.push({ inputToken: ref.trim(), queryBy: "customerOrderNo" });
+                }
+
+                const isIncludePackage = isIncludePackageForLevel(detailLevel);
+                const maxActions = getPluginBatchMaxActions();
+                const forPlugin = actionPlans.slice(0, maxActions);
+
+                const actions = forPlugin.map((p) => {
+                  const data: Record<string, string> = { isIncludePackage };
+                  if (p.queryBy === "orderNo") data.orderNo = p.inputToken;
+                  else data.customerOrderNo = p.inputToken;
+                  return { action: INBOUND_DETAIL_ACTION, data: JSON.stringify(data) };
+                });
+
+                return {
+                  actions,
+                  actionPlans: forPlugin,
+                  winitPluginBatchActionsCount: actions.length,
+                  actionName: INBOUND_DETAIL_ACTION,
+                  detailLevel,
+                  isIncludePackage,
+                };
+              }
+
+              function pruneMerchandiseList(
+                merchandiseList: unknown[],
+                maxMerchandise: number,
+                includeItemList: boolean
+              ): unknown[] {
+                const mapRow = (m: unknown) => {
+                  const copy = { ...(m as Record<string, unknown>) };
+                  if (!includeItemList) {
+                    delete copy.itemList;
+                    delete copy.batchList;
+                  }
+                  return copy;
+                };
+                if (merchandiseList.length <= maxMerchandise) {
+                  return merchandiseList.map(mapRow);
+                }
+                const pruned = merchandiseList.slice(0, maxMerchandise).map(mapRow);
+                pruned.push({ _truncated: true, _remainingCount: merchandiseList.length - maxMerchandise });
+                return pruned;
+              }
+
+              function prunePackageList(
+                packageList: unknown[],
+                maxPackages: number,
+                maxMerchandise: number,
+                includeItemList: boolean,
+                targetPackageNos?: string[]
+              ): unknown[] {
+                let list = packageList;
+                if (targetPackageNos?.length) {
+                  const targets = new Set(targetPackageNos.map((t) => t.toUpperCase()));
+                  list = packageList.filter((pkg) => {
+                    const p = pkg as Record<string, unknown>;
+                    const keys = [p.packageNo, p.sellerCaseNo, p.packageNum, p.barcode].map(str);
+                    return keys.some((k) => k && targets.has(k.toUpperCase()));
+                  });
+                }
+
+                if (list.length <= maxPackages) {
+                  return list.map((pkg) => {
+                    const p = pkg as Record<string, unknown>;
+                    const merchList = (p.merchandiseList as unknown[]) ?? [];
+                    const copy = { ...p };
+                    if (merchList.length > 0) {
+                      copy.merchandiseList = pruneMerchandiseList(merchList, maxMerchandise, includeItemList);
+                    }
+                    if (!includeItemList) delete copy.itemList;
+                    return copy;
+                  });
+                }
+
+                const sorted = [...list].sort((a, b) => {
+                  const pa = a as Record<string, unknown>;
+                  const pb = b as Record<string, unknown>;
+                  const sa = str(pa.status).toUpperCase();
+                  const sb = str(pb.status).toUpperCase();
+                  const unshelved = (s: string) => (s === "SCP" || s === "SHD" ? 1 : 0);
+                  if (unshelved(sa) !== unshelved(sb)) return unshelved(sa) - unshelved(sb);
+                  return str(pb.unloadingTime ?? pb.shelvesTime).localeCompare(str(pa.unloadingTime ?? pa.shelvesTime));
+                });
+
+                const retained = sorted.slice(0, maxPackages).map((pkg) => {
+                  const p = pkg as Record<string, unknown>;
+                  const merchList = (p.merchandiseList as unknown[]) ?? [];
+                  const copy = { ...p };
+                  if (merchList.length > 0) {
+                    copy.merchandiseList = pruneMerchandiseList(merchList, maxMerchandise, includeItemList);
+                  }
+                  return copy;
+                });
+                retained.push({ _truncated: true, _remainingCount: list.length - maxPackages });
+                return retained;
+              }
+
+              function filterItemLookup(packageList: unknown[], targetItemSernos: string[]): unknown[] {
+                const targets = new Set(targetItemSernos.map((t) => t.toUpperCase()));
+                const out: unknown[] = [];
+                for (const pkg of packageList) {
+                  const p = pkg as Record<string, unknown>;
+                  const merchList = (p.merchandiseList as unknown[]) ?? [];
+                  const keptMerch: unknown[] = [];
+                  for (const m of merchList) {
+                    const row = m as Record<string, unknown>;
+                    const items = (row.itemList as unknown[]) ?? [];
+                    const hitItems = items.filter((it) => {
+                      const i = it as Record<string, unknown>;
+                      return targets.has(str(i.itemSerno).toUpperCase());
+                    });
+                    if (hitItems.length > 0) {
+                      keptMerch.push({ ...row, itemList: hitItems });
+                    }
+                  }
+                  if (keptMerch.length > 0) {
+                    out.push({ ...p, merchandiseList: keptMerch });
+                  }
+                }
+                return out;
+              }
+
+              function extractInboundOrderDetail(
+                order: Record<string, unknown>,
+                options: DetailExtractOptions
+              ): { order: Record<string, unknown>; meta: DetailExtractMeta } {
+                const normalized = normalizeInboundOrderFields(order);
+                const level = options.detailLevel;
+                const maxPackages = options.maxPackagesPerOrder ?? DEFAULT_MAX_PACKAGES;
+                const maxMerch = options.maxMerchandisePerPackage ?? DEFAULT_MAX_MERCH_PER_PKG;
+                const threshold = options.packageFetchThreshold ?? DEFAULT_PACKAGE_THRESHOLD;
+                const targetSkus = arr(options.targetMerchandiseCodes as unknown);
+                const targetPkgs = arr(options.targetPackageNos as unknown);
+                const targetItems = arr(options.targetItemSernos as unknown);
+
+                const packageList = (normalized.packageList as unknown[]) ?? [];
+                const merchandiseList = (normalized.merchandiseList as unknown[]) ?? [];
+                const totalPackageQty = num(normalized.totalPackageQty) || packageList.length;
+
+                const meta: DetailExtractMeta = {
+                  detailLevel: level,
+                  originalPackageCount: packageList.length,
+                  packagesDiscarded: false,
+                  merchandiseRowCount: merchandiseList.length,
+                };
+
+                const copy = { ...normalized };
+
+                if (level === "header") {
+                  delete copy.packageList;
+                  delete copy.inboundPackageVos;
+                  delete copy.merchandiseList;
+                  delete copy.inboundMerchandiseVos;
+                  meta.packagesDiscarded = packageList.length > 0;
+                  return { order: copy, meta };
+                }
+
+                if (level === "sku_summary" || level === "sku_filtered") {
+                  delete copy.packageList;
+                  delete copy.inboundPackageVos;
+                  meta.packagesDiscarded = packageList.length > 0;
+                  if (totalPackageQty > threshold) meta.largeOrderSkuOnly = true;
+
+                  let merch = merchandiseList;
+                  if (level === "sku_filtered" && targetSkus.length > 0) {
+                    const set = new Set(targetSkus.map((s) => s.toUpperCase()));
+                    merch = merchandiseList.filter((m) => {
+                      const code = str((m as Record<string, unknown>).merchandiseCode).toUpperCase();
+                      return set.has(code);
+                    });
+                    meta.merchandiseRowCount = merch.length;
+                  }
+                  copy.merchandiseList = merch;
+                  delete copy.inboundMerchandiseVos;
+                  return { order: copy, meta };
+                }
+
+                if (level === "package_summary") {
+                  delete copy.packageList;
+                  delete copy.inboundPackageVos;
+                  meta.packagesDiscarded = true;
+                  copy._packageListForAggregate = packageList;
+                  return { order: copy, meta };
+                }
+
+                if (level === "package_detail" || level === "item_lookup") {
+                  if (
+                    totalPackageQty > threshold &&
+                    targetPkgs.length === 0 &&
+                    targetItems.length === 0
+                  ) {
+                    delete copy.packageList;
+                    delete copy.inboundPackageVos;
+                    meta.requiresNarrowing = true;
+                    meta.packagesDiscarded = true;
+                    return { order: copy, meta };
+                  }
+
+                  const includeItemList = level === "item_lookup";
+                  let pruned: unknown[];
+                  if (level === "item_lookup" && targetItems.length > 0) {
+                    pruned = filterItemLookup(packageList, targetItems);
+                  } else {
+                    pruned = prunePackageList(packageList, maxPackages, maxMerch, includeItemList, targetPkgs);
+                  }
+                  copy.packageList = pruned;
+                  delete copy.inboundPackageVos;
+                  meta.packagesRetained = pruned.filter((p) => !(p as Record<string, unknown>)._truncated).length;
+                  return { order: copy, meta };
+                }
+
+                return { order: copy, meta };
+              }
+
+              function extractInboundDetailBatch(
+                rawOrderData: Record<string, unknown>,
+                options: DetailExtractOptions
+              ): {
+                rawOrderData: Record<string, unknown>;
+                _detailExtractMeta: { orders: DetailExtractMeta[]; requiresNarrowing: boolean };
+              } {
+                const list = (rawOrderData.list as unknown[]) ?? [];
+                const extracted: unknown[] = [];
+                const metas: DetailExtractMeta[] = [];
+                let requiresNarrowing = false;
+
+                for (const item of list) {
+                  if (!item || typeof item !== "object") continue;
+                  const { order, meta } = extractInboundOrderDetail(item as Record<string, unknown>, options);
+                  extracted.push(order);
+                  metas.push(meta);
+                  if (meta.requiresNarrowing) requiresNarrowing = true;
+                }
+
+                return {
+                  rawOrderData: { ...rawOrderData, list: extracted, _detailExtractMeta: { orders: metas, requiresNarrowing } },
+                  _detailExtractMeta: { orders: metas, requiresNarrowing },
+                };
+              }
+
+              function effectiveParts(row: Record<string, unknown>): number {
+                const spn = num(row.standardPartsNum);
+                return spn > 0 ? spn : 1;
+              }
+
+              function aggregateSkuPutaway(
+                merchandiseList: unknown[],
+                targetMerchandiseCodes?: string[]
+              ): SkuPutawaySummary {
+                let rows = merchandiseList.filter((m) => m && typeof m === "object") as Record<string, unknown>[];
+                const targetSkusOnly = (targetMerchandiseCodes?.length ?? 0) > 0;
+                if (targetSkusOnly) {
+                  const set = new Set(targetMerchandiseCodes!.map((s) => s.toUpperCase()));
+                  rows = rows.filter((r) => set.has(str(r.merchandiseCode).toUpperCase()));
+                }
+
+                let completedSkus = 0;
+                let partialSkus = 0;
+                let pendingSkus = 0;
+                const anomalySkus: SkuPutawaySummary["anomalySkus"] = [];
+
+                for (const row of rows) {
+                  const parts = effectiveParts(row);
+                  const expected = num(row.quantity) * parts;
+                  const actual = num(row.actualQuantity) * parts;
+                  const inspectionQty = num(row.inspectionQty) * parts;
+
+                  if (actual >= expected && expected > 0) completedSkus++;
+                  else if (actual > 0) partialSkus++;
+                  else pendingSkus++;
+
+                  if (expected > 0 && actual !== expected) {
+                    anomalySkus.push({
+                      merchandiseCode: str(row.merchandiseCode),
+                      quantity: expected,
+                      actualQuantity: actual,
+                      inspectionQty: inspectionQty || undefined,
+                    });
+                  }
+                }
+
+                const totalSkus = rows.length;
+                const putawayRate = totalSkus > 0 ? Math.round((completedSkus / totalSkus) * 100) / 100 : 0;
+
+                return {
+                  totalSkus,
+                  completedSkus,
+                  partialSkus,
+                  pendingSkus,
+                  putawayRate,
+                  anomalySkus: anomalySkus.slice(0, 50),
+                  targetSkusOnly,
+                };
+              }
+
+              function aggregatePackagePutaway(
+                order: Record<string, unknown>,
+                packageListOverride?: unknown[]
+              ): PackagePutawaySummary {
+                const packageList =
+                  packageListOverride ??
+                  (order._packageListForAggregate as unknown[]) ??
+                  (order.packageList as unknown[]) ??
+                  [];
+                const byStatus: Record<string, number> = {};
+                const unshelved: PackagePutawaySummary["recentUnshelvedSample"] = [];
+
+                for (const pkg of packageList) {
+                  if (!pkg || typeof pkg !== "object") continue;
+                  const p = pkg as Record<string, unknown>;
+                  if (p._truncated) continue;
+                  const status = str(p.status) || "UNKNOWN";
+                  byStatus[status] = (byStatus[status] ?? 0) + 1;
+                  const shelved = ["SCP", "SHD"].includes(status.toUpperCase());
+                  if (!shelved && unshelved.length < 10) {
+                    unshelved.push({
+                      packageNo: str(p.packageNo) || undefined,
+                      sellerCaseNo: str(p.sellerCaseNo) || undefined,
+                      status,
+                      unloadingTime: str(p.unloadingTime) || undefined,
+                      shelvesTime: str(p.shelvesTime) || undefined,
+                    });
+                  }
+                }
+
+                const expectedPackages = num(order.totalPackageQty ?? order.orderPackageQty);
+                const receivedPackages = num(order.actualOrderPackageQty) || packageList.length;
+
+                return {
+                  totalPackages: packageList.filter((p) => !(p as Record<string, unknown>)?._truncated).length,
+                  byStatus,
+                  recentUnshelvedSample: unshelved,
+                  expectedPackages: expectedPackages || undefined,
+                  receivedPackages: receivedPackages || undefined,
+                  discrepancy:
+                    expectedPackages > 0 ? expectedPackages - receivedPackages : undefined,
+                };
+              }
+
+              /* coze-inline: node */
+              /**
+               * 节点：getOrderDetail 批处理（默认 header / isIncludePackage=N）
+               */
+
+
+              const DEFAULT_DETAIL_LEVEL: DetailLevel = "header";
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipApi = params.skipApi === true;
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const customerRefNos = ((params.customerRefNos as string[]) ?? []).filter((o) => o?.trim());
+
+                if (skipApi) {
+                  return {
+                    actions: [],
+                    actionPlans: [],
+                    winitPluginBatchActionsCount: 0,
+                    actionName: "winit.wh.inbound.getOrderDetail",
+                    skipApi: true,
+                    detailLevel: DEFAULT_DETAIL_LEVEL,
+                    isIncludePackage: "N" as const,
+                  };
+                }
+
+                const detailLevel = resolveDetailLevel(params, DEFAULT_DETAIL_LEVEL);
+                const batch = buildInboundDetailActions(wiOrderNos, customerRefNos, detailLevel);
+                return { ...batch, skipApi: false };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-winit-inbound-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163000"
+              - name: customerRefNos
+                input:
+                    value:
+                        path: customerRefNos
+                        ref_node: "163000"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163000"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              winitPluginBatchActionsCount:
+                  type: integer
+                  value: null
+              actionName:
+                  type: string
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163006"
+      type: plugin
+      title: winit_inbound_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163005"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163006"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163006"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163007"
+      type: code
+      title: fetch-inbound-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          code: |-
+              /**
+               * 节点：本地 Runner 补拉入库单详情（无插件输出时走 Coze workflow/run 代理）
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceDetailPayload(parsed: unknown): Record<string, unknown> | null {
+                if (parsed == null || typeof parsed !== "object") return null;
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null && typeof o.output === "object") return coerceDetailPayload(o.output);
+                if (o.code === "0" || o.code === 0) {
+                  const inner = o.data;
+                  if (typeof inner === "string") {
+                    try {
+                      return coerceDetailPayload(JSON.parse(inner));
+                    } catch {
+                      return null;
+                    }
+                  }
+                  if (inner != null && typeof inner === "object") return coerceDetailPayload(inner);
+                  return null;
+                }
+                if (o.orderNo != null || o.inboundOrderNum != null || o.inboundOrderNo != null) return o;
+                return null;
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              function mergePluginOutputs(params: Record<string, unknown>): Record<string, unknown> {
+                type ActionPlan = { inputToken: string; queryBy: string };
+                const actionPlans = (Array.isArray(params.actionPlans) ? params.actionPlans : []) as ActionPlan[];
+                const outputList = (Array.isArray(params.winitPluginOutputList) ? params.winitPluginOutputList : []) as Array<{
+                  data?: unknown;
+                }>;
+                const rowsByKey = new Map<string, Record<string, unknown>>();
+                for (let i = 0; i < outputList.length; i++) {
+                  const row = coerceDetailPayload(parseCozeWorkflowDataField(outputList[i]?.data));
+                  if (!row) continue;
+                  const key = String(row.orderNo ?? row.inboundOrderNum ?? "").trim().toUpperCase();
+                  if (key) rowsByKey.set(key, row);
+                }
+                const list = Array.from(rowsByKey.values());
+                return {
+                  list,
+                  total: list.length,
+                  _fetchMeta: {
+                    strategy: "detail-only",
+                    batchPluginMerged: true,
+                    actionPlanCount: actionPlans.length,
+                    resolvedCount: list.length,
+                  },
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipApi === true) {
+                  return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "kb-only" } } };
+                }
+
+                const pluginList = params.winitPluginOutputList;
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  return { rawOrderData: mergePluginOutputs(params) };
+                }
+
+                const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                  action: string;
+                  data: string;
+                }>;
+                const env = getCozeWinitEnv();
+                const list: Record<string, unknown>[] = [];
+                const errors: string[] = [];
+
+                if (!env) {
+                  return {
+                    rawOrderData: {
+                      list: [],
+                      total: 0,
+                      _fetchMeta: { strategy: "local-fetch-skipped", reason: "missing Coze env" },
+                    },
+                  };
+                }
+
+                for (const act of actions) {
+                  try {
+                    const data = JSON.parse(act.data) as Record<string, unknown>;
+                    const parsed = await runCozeWinitWorkflow(env, act.action || INBOUND_DETAIL_ACTION, data);
+                    const row = coerceDetailPayload(parsed);
+                    if (row) list.push(row);
+                  } catch (e) {
+                    errors.push(String(e instanceof Error ? e.message : e));
+                  }
+                }
+
+                return {
+                  rawOrderData: {
+                    list,
+                    total: list.length,
+                    _fetchMeta: { strategy: "local-proxy-detail", resolvedCount: list.length, errors: errors.length ? errors : undefined },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-inbound-order")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163005"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163005"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163006"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163005"
+          node_outputs:
+              rawOrderData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163008"
+      type: code
+      title: prune-inbound-json
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          code: |-
+              /**
+               * 节点：头程专家入库单 JSON 剪枝 — 保留 TS 相关轨迹与关键字段
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              const DEFAULT_MAX_TRAJECTORY = 20;
+
+              const TS_KEYWORDS = ["ts", "头程", "在途", "发运", "离港", "到港", "送仓", "transit", "shipped", "departure", "arrival"];
+
+              function isTsRelatedNode(node: Record<string, unknown>): boolean {
+                const status = String(node.status ?? node.nodeStatus ?? "").toUpperCase();
+                if (status === "TS") return true;
+                const text = [
+                  node.nodeName,
+                  node.nodeDesc,
+                  node.status,
+                  node.remark,
+                  node.eventName,
+                  node.trajectoryDesc,
+                ]
+                  .filter((v) => v != null)
+                  .join(" ")
+                  .toLowerCase();
+                return TS_KEYWORDS.some((kw) => text.includes(kw));
+              }
+
+              function pruneOrder(
+                order: Record<string, unknown>,
+                maxTrajectory: number
+              ): Record<string, unknown> {
+                const copy: Record<string, unknown> = {
+                  orderNo: order.orderNo ?? order.inboundOrderNum,
+                  status: order.status,
+                  expectedSendwarehouseTime: order.expectedSendwarehouseTime ?? order.estimatedArrivalTime,
+                  destWhCode: order.destWhCode,
+                  transportType: order.transportType ?? order.headwayProduct,
+                };
+
+                const traj = order.trajectoryList;
+                if (Array.isArray(traj)) {
+                  let working = traj.filter(
+                    (n) => n && typeof n === "object" && isTsRelatedNode(n as Record<string, unknown>)
+                  ) as Record<string, unknown>[];
+                  if (working.length === 0) {
+                    working = traj.slice(-maxTrajectory) as Record<string, unknown>[];
+                  } else if (working.length > maxTrajectory) {
+                    working = working.slice(-maxTrajectory);
+                    copy._trajectoryTruncated = true;
+                  }
+                  copy.trajectoryList = working;
+                }
+
+                return copy;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawOrderData = (params.rawOrderData ?? {}) as Record<string, unknown>;
+                const list = (rawOrderData.list as unknown[]) ?? [];
+                const maxTrajectory =
+                  typeof params.maxTrajectoryNodes === "number" && params.maxTrajectoryNodes >= 1
+                    ? Math.floor(params.maxTrajectoryNodes)
+                    : DEFAULT_MAX_TRAJECTORY;
+
+                const prunedList = list
+                  .filter((item) => item && typeof item === "object")
+                  .map((item) => pruneOrder(item as Record<string, unknown>, maxTrajectory));
+
+                return {
+                  prunedOrderData: { list: prunedList, total: prunedList.length },
+                  _pruneMeta: { strategy: "ts-focused", maxTrajectory },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("prune-inbound-json")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163007"
+              - name: maxTrajectoryNodes
+                input:
+                    value:
+                        path: inputs.maxTrajectoryNodes
+                        ref_node: "100001"
+          node_outputs:
+              prunedOrderData:
+                  type: object
+                  value: null
+              _pruneMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163009"
+      type: code
+      title: extract-ts-facts
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2627
+      parameters:
+          code: |-
+              /**
+               * 节点：extract-ts-facts — 从 OMS 订单提取 TS 阶段事实
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function findTsEntryTime(trajectory: Record<string, unknown>[]): string | null {
+                for (const node of trajectory) {
+                  const status = str(node.status ?? node.nodeStatus).toUpperCase();
+                  if (status === "TS") {
+                    return str(node.nodeTime ?? node.eventTime ?? node.createTime) || null;
+                  }
+                }
+                for (const node of trajectory) {
+                  const text = [node.nodeName, node.nodeDesc, node.trajectoryDesc].join(" ").toLowerCase();
+                  if (text.includes("ts") || text.includes("头程") || text.includes("发运")) {
+                    return str(node.nodeTime ?? node.eventTime) || null;
+                  }
+                }
+                return null;
+              }
+
+              function extractOrderFacts(order: Record<string, unknown>) {
+                const orderNo = str(order.orderNo ?? order.inboundOrderNum);
+                const currentStatus = str(order.status).toUpperCase() || "UNKNOWN";
+                const expectedSendwarehouseTime =
+                  str(order.expectedSendwarehouseTime ?? order.estimatedArrivalTime) || null;
+
+                const traj = Array.isArray(order.trajectoryList)
+                  ? (order.trajectoryList as Record<string, unknown>[])
+                  : [];
+                const tsTrajectoryNodes = traj.filter((n) => {
+                  const status = str(n.status ?? n.nodeStatus).toUpperCase();
+                  return status === "TS" || /头程|在途|发运|ts/i.test(
+                    [n.nodeName, n.nodeDesc, n.trajectoryDesc].join(" ")
+                  );
+                });
+
+                const tsEntryTime = findTsEntryTime(traj);
+
+                let currentMilestone = "国际在途（TS）";
+                if (currentStatus !== "TS") {
+                  currentMilestone = currentStatus === "OD" ? "草稿/未发运" : `当前状态 ${currentStatus}（非 TS 在途阶段）`;
+                } else if (tsTrajectoryNodes.length > 0) {
+                  const last = tsTrajectoryNodes[tsTrajectoryNodes.length - 1];
+                  currentMilestone = str(last.nodeDesc ?? last.nodeName ?? last.trajectoryDesc) || currentMilestone;
+                }
+
+                return {
+                  orderNo,
+                  currentStatus,
+                  tsEntryTime,
+                  expectedSendwarehouseTime,
+                  tsTrajectoryNodes,
+                  currentMilestone,
+                  isTsPhase: currentStatus === "TS",
+                };
+              }
+
+              function tmsOverlay(summary: unknown) {
+                const s = (summary ?? {}) as Record<string, unknown>;
+                const primary = (s.primary ?? null) as Record<string, unknown> | null;
+                if (!primary) return null;
+                return {
+                  transportOrderNo: String(primary.transportOrderNo ?? ""),
+                  transportStatus: String(primary.status ?? ""),
+                  containerNo: String(primary.containerNo ?? ""),
+                  cartonType: String(primary.cartonType ?? ""),
+                  cutoffCabinetDate: String(primary.cutoffCabinetDate ?? ""),
+                  estimateVolume: primary.estimateVolume ?? null,
+                  logisticsPlanId: String(primary.logisticsPlanId ?? ""),
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const prunedOrderData = (params.prunedOrderData ?? {}) as Record<string, unknown>;
+                const list = (prunedOrderData.list as unknown[]) ?? [];
+                const tmsFacts = tmsOverlay(params.tmsTransportSummary);
+
+                const orders = list
+                  .filter((item) => item && typeof item === "object")
+                  .map((item) => extractOrderFacts(item as Record<string, unknown>));
+
+                const primary = orders[0] ?? {
+                  orderNo: "",
+                  currentStatus: "UNKNOWN",
+                  tsEntryTime: null,
+                  expectedSendwarehouseTime: null,
+                  tsTrajectoryNodes: [],
+                  currentMilestone: "暂无数据",
+                  isTsPhase: false,
+                };
+
+                return {
+                  tsFacts: {
+                    ...primary,
+                    orders,
+                    orderCount: orders.length,
+                    dataAvailable: orders.length > 0,
+                    tmsFacts,
+                    tmsDataQuality: String((params.tmsTransportSummary as Record<string, unknown>)?.dataQuality ?? "missing"),
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("extract-ts-facts")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: prunedOrderData
+                input:
+                    value:
+                        path: prunedOrderData
+                        ref_node: "163008"
+              - name: tmsTransportSummary
+                input:
+                    value:
+                        path: tmsTransportSummary
+                        ref_node: "163004"
+          node_outputs:
+              tsFacts:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163010"
+      type: code
+      title: check-tms-gap
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2867
+      parameters:
+          code: |-
+              /**
+               * 节点：TMS 可用性 — queryPage 表头 + queryTrackingList 里程碑 Gap
+               */
+
+              const TRACKING_GAP =
+                "离港/到港/航班船名等里程碑须 tms.transportorder.queryTrackingList，本期 workflow 未接入；勿编造日期。";
+
+              const NO_TO_NOTE =
+                "未查到关联运输单（TO）；请客户提供 TO 号，或确认 WI 与 TMS keywordType 映射。";
+
+              function summaryFromParams(params: Record<string, unknown>) {
+                return (params.tmsTransportSummary ?? {}) as Record<string, unknown>;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const summary = summaryFromParams(params);
+                const recordCount = Number(summary.recordCount ?? 0);
+                const hasTms = recordCount > 0;
+                const dataQuality = String(summary.dataQuality ?? "missing");
+
+                let phaseScope = "tms_not_found";
+                let gapNote = NO_TO_NOTE;
+
+                if (hasTms) {
+                  phaseScope = "tms_header_only";
+                  gapNote = String(summary.trackingNote ?? TRACKING_GAP);
+                } else if (dataQuality === "skipped") {
+                  phaseScope = "no_lookup";
+                  gapNote = "未提供可查询的单号，跳过 TMS。";
+                }
+
+                return {
+                  tmsAvailable: hasTms,
+                  tmsDataAvailable: hasTms,
+                  phaseScope,
+                  gapNote,
+                  tmsGapNotice: gapNote,
+                  tmsTransportSummary: summary,
+                  departureTime: null,
+                  arrivalPortTime: null,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("check-tms-gap")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: tmsTransportSummary
+                input:
+                    value:
+                        path: tmsTransportSummary
+                        ref_node: "163004"
+          node_outputs:
+              tmsAvailable:
+                  type: boolean
+                  value: null
+              tmsDataAvailable:
+                  type: boolean
+                  value: null
+              gapNote:
+                  type: string
+                  value: null
+              phaseScope:
+                  type: string
+                  value: null
+              tmsTransportSummary:
+                  type: object
+                  value: null
+              departureTime:
+                  type: object
+                  value: null
+              arrivalPortTime:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163011"
+      type: text
+      title: kb-transit-milestones
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3107
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 头程运输里程碑与典型时效
+
+                        ## 本期范围
+
+                        - **本专家（inbound-transit-tracking）本期不对客上线**
+                        - 离港 / 到港 / 航班船名：依赖 TMS，**不在本期**
+                        - 临时承接：OMS 状态与轨迹 → `inbound-order-status`；到仓 → `inbound-arrival-status`
+
+                        ## 头程阶段说明（产品概念）
+
+                        | 阶段 | 含义 | 本期数据来源 |
+                        |------|------|--------------|
+                        | 离港 | 货物从起运港/机场发出 | **不在本期**（TMS） |
+                        | 国际在途 TS | 货物在运输途中 | OMS `status` + `queryOrderTracking` |
+                        | 到港 | 货物到达目的港/机场 | **不在本期**（TMS） |
+                        | 预计送仓 | 预计送达海外仓 | OMS `expectedSendwarehouseTime` |
+
+                        ## 各渠道典型时效参考（仅供参考，非承诺）
+
+                        | 渠道 | 典型时效 | 说明 |
+                        |------|----------|------|
+                        | 空运 + 快递 | 3–7 天 | 含清关与送仓 |
+                        | 海运 LCL | 20–35 天 | 视航线 |
+                        | 海运 FCL | 18–30 天 | 视航线 |
+                        | 铁路/中欧班列 | 15–25 天 | 视口岸 |
+
+                        ## OMS 轨迹解读
+
+                        - 状态码 `TS` = 头程运输中
+                        - 轨迹来自 **`queryOrderTracking.trackingList`**（非 `getOrderDetail.trajectoryList`）
+                        - `expectedSendwarehouseTime` 为系统预计，非承诺到仓日期
+
+                        ## 升级人工
+
+                        - TS 长期无轨迹更新；客户追问离港/到港且 OMS 无答案
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163012"
+      type: text
+      title: tms-gap-notice
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3347
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # TMS 运输单与轨迹说明
+
+                        ## 已接入（queryPage）
+
+                        - 运输单号（TO）、运输单状态、`winitProductCode`
+                        - 送港信息：柜型、柜号、截重柜时间、送港方式
+                        - 预估体积/包裹数、物流计划 ID
+
+                        ## 未接入（queryTrackingList）
+
+                        离港时间、到港时间、航班/船名、中转港等**里程碑**须 `tms.transportorder.queryTrackingList`，本期 workflow **未调用**。有运输单表头时也不可编造上述日期。
+
+                        ## 查不到 TO 时
+
+                        - 请客户提供 **TO 运输单号**，或
+                        - 确认 WI 与 TMS 的 `keywordType` 映射（默认 `inboundOrderNo`，可用环境变量覆盖）
+
+                        ## 对客表述
+
+                        - 有 TO 表头：可说明运输单状态与柜型/截重柜等；里程碑查询暂不支持
+                        - 无 TO：引导 `inbound-order-status` 查 OMS 轨迹，或联系客服
+
+                        **禁止：** 编造离港/到港日期；引用 TMS/TOM 内部 URL。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163013"
+      type: code
+      title: load-transit-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3587
+      parameters:
+          code: |-
+              /**
+               * 节点：load-transit-kb — 拼接头程 KB 与本期范围说明
+               * FaaS 单文件闭环，无外部 import。
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const kbTransitMilestones = str(params.kbTransitMilestones);
+                const tmsGapNotice = str(params.tmsGapNotice);
+                const queryFocus = str(params.queryFocus) || "overall";
+
+                const focusHint =
+                  queryFocus === "departure" || queryFocus === "arrival_port"
+                    ? "客户关注离港/到港：头程 TMS 细粒度不在本期，转 OMS 轨迹或客服"
+                    : queryFocus === "delivery_warehouse"
+                      ? "客户关注预计送仓（OMS expectedSendwarehouseTime + trackingList）"
+                      : "综合概述 TS 在途（仅 OMS 可述范围）";
+
+                return {
+                  transitGuide: kbTransitMilestones,
+                  tmsGapNotice:
+                    tmsGapNotice ||
+                    "头程离港/到港细粒度不在本期交付范围；本专家本期不对客启用。",
+                  queryFocus,
+                  focusHint,
+                  phaseScope: "out_of_phase",
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-transit-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: kbTransitMilestones
+                input:
+                    value:
+                        path: output
+                        ref_node: "163011"
+              - name: tmsGapNotice
+                input:
+                    value:
+                        path: output
+                        ref_node: "163012"
+              - name: queryFocus
+                input:
+                    value:
+                        path: inputs.queryFocus
+                        ref_node: "100001"
+          node_outputs:
+              transitGuide:
+                  type: string
+                  value: null
+              tmsGapNotice:
+                  type: string
+                  value: null
+              queryFocus:
+                  type: string
+                  value: null
+              focusHint:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163014"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 3827
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 头程在途追踪专家 - LLM Prompt
+
+                        ## 角色
+
+                        头程在途追踪专家。结合 OMS `tsFacts` 与 TMS `tmsTransportSummary`（运输单表头），说明头程在途阶段信息。
+
+                        ## 禁止项
+
+                        - 不承诺具体到仓时间
+                        - **禁止**输出离港/到港具体日期（`departureTime` / `arrivalPortTime` 恒为 null；queryTrackingList 未接入）
+                        - 不引用 TMS/TOM 内部 URL
+                        - TMS 无记录时不编造运输单状态
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **tsFacts**：`{{tsFacts}}`（含 `tmsFacts` 叠加）
+                        - **tmsTransportSummary**：`{{tmsTransportSummary}}`
+                        - **phaseScope**：`{{phaseScope}}`（`tms_header_only` | `tms_not_found` | `no_lookup`）
+                        - **tmsDataAvailable**：`{{tmsDataAvailable}}`
+                        - **gapNote**：`{{gapNote}}`
+                        - **transitGuide** / **tmsGapNotice** / **focusHint**
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "orderNo": "",
+                              "currentStatus": "",
+                              "transportOrderNo": "",
+                              "transportStatus": "",
+                              "expectedSendwarehouseTime": null,
+                              "containerNo": "",
+                              "cartonType": "",
+                              "cutoffCabinetDate": "",
+                              "tsTrajectoryNodes": [],
+                              "departureTime": null,
+                              "arrivalPortTime": null,
+                              "phaseScope": "",
+                              "tmsDataAvailable": false,
+                              "currentMilestone": ""
+                            },
+                            "analysis": "客观说明 OMS 与 TMS 表头；里程碑缺失时引用 gapNote。"
+                          }
+                        }
+                        ```
+
+                        ## 特殊规则
+
+                        - `tmsDataAvailable=true`：优先引用 `tsFacts.tmsFacts` 中 TO 状态、柜号、截重柜
+                        - `phaseScope=tms_not_found`：说明未查到 TO，建议提供 TO 号或查 order-status
+                        - `queryFocus` 为 `departure` / `arrival_port`：明确 queryTrackingList 未接入，不给日期
+                        - `currentStatus !== TS`：说明当前不在头程在途阶段
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163000"
+              - name: queryFocus
+                input:
+                    value:
+                        path: queryFocus
+                        ref_node: "163013"
+              - name: tsFacts
+                input:
+                    value:
+                        path: tsFacts
+                        ref_node: "163009"
+              - name: tmsTransportSummary
+                input:
+                    value:
+                        path: tmsTransportSummary
+                        ref_node: "163010"
+              - name: tmsAvailable
+                input:
+                    value:
+                        path: tmsAvailable
+                        ref_node: "163010"
+              - name: tmsDataAvailable
+                input:
+                    value:
+                        path: tmsDataAvailable
+                        ref_node: "163010"
+              - name: gapNote
+                input:
+                    value:
+                        path: gapNote
+                        ref_node: "163010"
+              - name: phaseScope
+                input:
+                    value:
+                        path: phaseScope
+                        ref_node: "163010"
+              - name: transitGuide
+                input:
+                    value:
+                        path: transitGuide
+                        ref_node: "163013"
+              - name: tmsGapNotice
+                input:
+                    value:
+                        path: tmsGapNotice
+                        ref_node: "163013"
+              - name: focusHint
+                input:
+                    value:
+                        path: focusHint
+                        ref_node: "163013"
+              - name: prunedOrderData
+                input:
+                    value:
+                        path: prunedOrderData
+                        ref_node: "163008"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163015"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 4067
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw.trim() || "解析失败。" };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const tmsGap = params.tmsDataAvailable === false ? false : coerced.structured?.tmsDataAvailable === true;
+
+                const structured: Record<string, unknown> = {
+                  ...coerced.structured,
+                  tmsDataAvailable: tmsGap,
+                  departureTime: coerced.structured?.departureTime ?? null,
+                  arrivalPortTime: coerced.structured?.arrivalPortTime ?? null,
+                };
+
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "头程在途追踪完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {expertId: "inbound-transit-tracking",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "" },
+                  enrichedContext: {
+                      orderNo: structured.orderNo,
+                      currentStatus: structured.currentStatus,
+                      expectedSendwarehouseTime: structured.expectedSendwarehouseTime,
+                      tmsDataAvailable: structured.tmsDataAvailable,
+                    },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163014"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+              - name: tmsDataAvailable
+                input:
+                    value:
+                        path: tmsDataAvailable
+                        ref_node: "163010"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "163014"
+    - source_node: "163014"
+      target_node: "163015"
+    - source_node: "163015"
+      target_node: "900001"

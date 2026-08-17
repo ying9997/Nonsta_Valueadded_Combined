@@ -1,0 +1,69 @@
+{
+  "id": "inbound-arrival-status",
+  "domain": "inbound",
+  "name": "到仓状态查询",
+  "description": "确认货物是否已到仓、当前轨迹位置、签收证明（POD）与 PEWC→EWC 转换情况；支持直发少包裹数量对比。不做上架进度判断（→ inbound-putaway-status）、不催促上架（→ inbound-putaway-expedite）。Use when 客户询问货到仓库了吗、签收状态、POD、PEWC 为何未变 EWC、直发包裹是否到齐。",
+  "capabilities": [
+    "到仓阶段判断",
+    "轨迹里程碑",
+    "POD/签收摘要",
+    "PEWC→EWC 解读",
+    "直发包裹数量对比"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": ["inboundOrderNos"],
+    "properties": {
+      "inboundOrderNos": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "入库单号（WI 前缀）或客户自有参考号列表"
+      },
+      "includeTrajectory": {
+        "type": "boolean",
+        "description": "是否保留轨迹列表；默认 true",
+        "default": true
+      },
+      "focusPod": {
+        "type": "boolean",
+        "description": "是否仅保留 POD/签收相关轨迹节点；默认 false",
+        "default": false
+      },
+      "checkPackageQty": {
+        "type": "boolean",
+        "description": "是否对比预约/预报包裹数与签收数；默认 false",
+        "default": false
+      },
+      "includePackageDetails": {
+        "type": "boolean",
+        "description": "兼容参数：true 时升级为 package_detail；默认 false → header / isIncludePackage=N",
+        "default": false
+      },
+      "detailLevel": {
+        "type": "string",
+        "description": "getOrderDetail 详情分层：默认 header（N，无 merchandiseList/packageList）",
+        "default": "header"
+      },
+      "maxTrajectoryNodes": {
+        "type": "integer",
+        "description": "轨迹节点保留条数上限；默认 20",
+        "default": 20,
+        "minimum": 1
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化到仓状态数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "到仓阶段与签收客观说明"
+      }
+    }
+  }
+}

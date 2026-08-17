@@ -1,0 +1,113 @@
+yamlBasename: inbound_order_manage-draft.yaml
+packageMainName: inbound_order_manage
+packageDescription: 入库单操作指引（validate → fetch(getOrderDetail when needed) →
+  check-operability → load-kb → LLM → format）
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-inbound-order
+    logicalId: winit_inbound_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 10
+      concurrentSize: 5
+      actionsFrom:
+        logicalId: build-winit-inbound-detail
+        path: actions
+
+textNodes:
+  - logicalId: kb-order-create-text
+    title: kb-order-create
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-order-create.md
+  - logicalId: kb-order-modify-text
+    title: kb-order-modify
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-order-modify.md
+  - logicalId: kb-order-close-text
+    title: kb-order-close
+    insertAfter: validate-intent
+    sourceFile: prompts/kb-order-close.md
+
+inputBindings:
+  build-winit-inbound-detail:
+    wiOrderNos:
+      ref: validate-intent
+      path: wiOrderNos
+    skipApi:
+      ref: validate-intent
+      path: skipApi
+  fetch-inbound-order:
+    actions:
+      ref: build-winit-inbound-detail
+      path: actions
+    actionPlans:
+      ref: build-winit-inbound-detail
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_inbound_detail_batch
+      path: outputList
+    skipApi:
+      ref: build-winit-inbound-detail
+      path: skipApi
+  check-operability:
+    rawOrderData:
+      ref: fetch-inbound-order
+      path: rawOrderData
+    intent:
+      ref: validate-intent
+      path: intent
+    inboundOrderNo:
+      ref: validate-intent
+      path: inboundOrderNo
+  load-order-kb:
+    validationOk:
+      ref: validate-intent
+      path: validationOk
+    intent:
+      ref: validate-intent
+      path: intent
+    kbOrderCreate:
+      ref: kb-order-create-text
+      path: output
+    kbOrderModify:
+      ref: kb-order-modify-text
+      path: output
+    kbOrderClose:
+      ref: kb-order-close-text
+      path: output
+    enabledProducts:
+      ref: validate-intent
+      path: enabledProducts
+    targetWarehouseCode:
+      ref: validate-intent
+      path: targetWarehouseCode
+    targetPsc:
+      ref: validate-intent
+      path: targetPsc
+  format-output:
+    intent:
+      ref: validate-intent
+      path: intent
+    isOperable:
+      ref: check-operability
+      path: isOperable
+    blockReason:
+      ref: check-operability
+      path: blockReason
+    currentStatus:
+      ref: check-operability
+      path: currentStatus

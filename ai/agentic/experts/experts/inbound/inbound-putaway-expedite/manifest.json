@@ -1,0 +1,48 @@
+{
+  "id": "inbound-putaway-expedite",
+  "domain": "inbound",
+  "name": "上架催促与加急",
+  "description": "根据入库单类型与头程产品计算上架 SLA，检测是否超时，输出催促建议与升级路径。v1 仅基于 getOrderDetail；库存加急资格（canRush）待下期接入。不做纯进度查询（→ inbound-putaway-status）、不判责数量差异（→ inbound-exception-check）。Use when 客户催促上架、反馈超时效未上架、促销活动急需。",
+  "capabilities": [
+    "上架 SLA 违约检测",
+    "催促与升级路径",
+    "加急条件说明",
+    "工作日时效计算"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": ["inboundOrderNos"],
+    "properties": {
+      "inboundOrderNos": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "入库单号（WI 前缀）或客户自有参考号列表；支持批量"
+      },
+      "urgencyReason": {
+        "type": "string",
+        "description": "客户自述加急原因（如促销活动）；用于 analysis 文案，不参与 canRush 判定",
+        "default": ""
+      },
+      "maxTrajectoryNodes": {
+        "type": "integer",
+        "description": "轨迹节点保留条数上限；默认 20",
+        "default": 20,
+        "minimum": 1
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化 SLA 与催促判断数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "催促建议与升级路径说明"
+      }
+    }
+  }
+}

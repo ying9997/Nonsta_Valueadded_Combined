@@ -1,0 +1,72 @@
+{
+  "id": "inbound-process-guide",
+  "domain": "inbound",
+  "name": "入库流程与规则指引",
+  "description": "解答入库流程怎么走、规则/条件、费用口径与禁限运品等 FAQ。KB/RAG 为主路径，无必须 API。Use when 客户询问入库操作流程、CBM 限制、禁限运、头程与直发区别、入库费用等。",
+  "capabilities": [
+    "入库流程",
+    "规则解读",
+    "费用说明",
+    "禁限运品",
+    "PSC 选型原则"
+  ],
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": ["topic"],
+    "properties": {
+      "topic": {
+        "type": "string",
+        "description": "咨询主题关键词（如「标准海外仓入库流程」「CBM 限制」「入库费用」）"
+      },
+      "country": {
+        "type": "string",
+        "description": "目的国/地区（UK / US / DE 等），用于匹配国别差异化规则"
+      },
+      "productLine": {
+        "type": "string",
+        "description": "产品线或 PSC 编码提示（如 OW01011、OW01021），用于差异化规则匹配"
+      },
+      "subTopic": {
+        "type": "string",
+        "description": "子主题细化（如「自验流程」「件型限制」「逾期账单」）"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "流程/规则结构化结果",
+        "properties": {
+          "topicMatched": { "type": "string" },
+          "intentType": { "type": "string" },
+          "sopSteps": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "matchedRules": {
+            "type": "array",
+            "items": { "type": "object" }
+          },
+          "feeNotes": { "type": "string" },
+          "prohibitedItems": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "pscContext": { "type": "string" },
+          "prerequisites": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "expertRouting": { "type": "string" }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "分步说明或规则摘要（自然语言）"
+      }
+    }
+  }
+}

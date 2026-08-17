@@ -1,0 +1,205 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "inputContext",
+        "customerCode",
+        "customerName",
+        "username",
+        "language"
+      ],
+      "outputs": [
+        "validation",
+        "validationStatus",
+        "canQuery",
+        "identity"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "query": { "type": "string" },
+          "customerIntent": { "type": "string" },
+          "inputContext": { "type": "object" },
+          "customerCode": { "type": "string" },
+          "customerName": { "type": "string" },
+          "username": { "type": "string" },
+          "language": { "type": "string" }
+        },
+        "outputs": {
+          "validation": { "type": "object", "additionalProperties": true },
+          "validationStatus": { "type": "string" },
+          "canQuery": { "type": "boolean" },
+          "identity": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "resolve-query-scope",
+      "file": "nodes/resolve-query-scope.ts",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "timeRangeText",
+        "timeStart",
+        "timeEnd",
+        "keywords"
+      ],
+      "outputs": [
+        "queryScope",
+        "timeWindow",
+        "serverDateHints",
+        "usedMessageTimeFilter"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "query": { "type": "string" },
+          "customerIntent": { "type": "string" },
+          "timeRangeText": { "type": "string" },
+          "timeStart": { "type": "string" },
+          "timeEnd": { "type": "string" },
+          "keywords": { "type": "array", "items": { "type": "string" } }
+        },
+        "outputs": {
+          "queryScope": { "type": "object", "additionalProperties": true },
+          "timeWindow": { "type": "object", "additionalProperties": true },
+          "serverDateHints": { "type": "array", "items": { "type": "string" } },
+          "usedMessageTimeFilter": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "fetch-human-service-records",
+      "file": "nodes/fetch-human-service-records.ts",
+      "inputs": [
+        "validation",
+        "queryScope"
+      ],
+      "outputs": [
+        "humanServiceRecords"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "validation": { "type": "object" },
+          "queryScope": { "type": "object" }
+        },
+        "outputs": {
+          "humanServiceRecords": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "parse-message-turns",
+      "file": "nodes/parse-message-turns.ts",
+      "inputs": [
+        "humanServiceRecords"
+      ],
+      "outputs": [
+        "messageTurns",
+        "parseSummary"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "humanServiceRecords": { "type": "object" }
+        },
+        "outputs": {
+          "messageTurns": { "type": "array", "items": { "type": "object" } },
+          "parseSummary": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-summary-evidence",
+      "file": "nodes/build-summary-evidence.ts",
+      "inputs": [
+        "messageTurns",
+        "queryScope",
+        "humanServiceRecords",
+        "query"
+      ],
+      "outputs": [
+        "summaryEvidence",
+        "attachmentDelivery"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "messageTurns": { "type": "array", "items": { "type": "object" } },
+          "queryScope": { "type": "object" },
+          "humanServiceRecords": { "type": "object" },
+          "query": { "type": "string" }
+        },
+        "outputs": {
+          "summaryEvidence": { "type": "object", "additionalProperties": true },
+          "attachmentDelivery": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "llm-answer-from-records",
+      "type": "llm",
+      "promptFile": "prompts/main.md",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "queryScope",
+        "summaryEvidence"
+      ],
+      "outputs": [
+        "analysisResult"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "query": { "type": "string" },
+          "customerIntent": { "type": "string" },
+          "queryScope": { "type": "object" },
+          "summaryEvidence": { "type": "object" }
+        },
+        "outputs": {
+          "analysisResult": {
+            "type": "object",
+            "properties": {
+              "structured": { "type": "object" },
+              "analysis": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "validation",
+        "queryScope",
+        "summaryEvidence",
+        "attachmentDelivery",
+        "analysisResult",
+        "inputContext"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "inputs": {
+          "validation": { "type": "object" },
+          "queryScope": { "type": "object" },
+          "summaryEvidence": { "type": "object" },
+          "attachmentDelivery": { "type": "object" },
+          "analysisResult": { "type": "object" },
+          "inputContext": { "type": "object" }
+        },
+        "outputs": {
+          "structured": { "type": "object", "additionalProperties": true },
+          "analysis": { "type": "string" },
+          "outputContext": { "type": "object", "additionalProperties": true },
+          "enrichedContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  ]
+}

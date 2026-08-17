@@ -1,0 +1,63 @@
+{
+  "id": "inbound-putaway-status",
+  "domain": "inbound",
+  "name": "上架进度查询",
+  "description": "汇报入库单上架完成情况、预计完成时间及实际上架数量与预报数量对比摘要。客观描述进度，不催促（→ inbound-putaway-expedite）、不判责数量差异（→ inbound-exception-check）。Use when 客户询问上架了吗、还要多久、上架数量是否一致。",
+  "capabilities": [
+    "上架阶段推断",
+    "数量对比摘要",
+    "SLA 超时标注",
+    "预计完成时间推断"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": ["inboundOrderNos"],
+    "properties": {
+      "inboundOrderNos": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "入库单号（WI 前缀）或客户自有参考号列表"
+      },
+      "checkQtyDiscrepancy": {
+        "type": "boolean",
+        "description": "是否执行商品数量对比；默认 true",
+        "default": true
+      },
+      "detailLevel": {
+        "type": "string",
+        "description": "getOrderDetail 详情分层；默认 sku_summary（Y + extract 删 packageList）",
+        "default": "sku_summary"
+      },
+      "targetMerchandiseCodes": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "sku_filtered 时仅保留指定 SKU"
+      },
+      "includePackageDetails": {
+        "type": "boolean",
+        "description": "兼容参数：true 升级为 package_detail",
+        "default": false
+      },
+      "maxTrajectoryNodes": {
+        "type": "integer",
+        "description": "轨迹节点保留条数上限；默认 20",
+        "default": 20,
+        "minimum": 1
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化上架进度数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "上架进度与数量对比说明"
+      }
+    }
+  }
+}

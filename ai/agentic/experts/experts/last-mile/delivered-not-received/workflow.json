@@ -1,0 +1,125 @@
+{
+  "nodes": [
+    {
+      "id": "validate-input",
+      "file": "nodes/validate-input.ts",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "customerIntent",
+        "enrichedContext",
+        "claimChannelKnown",
+        "inputContext"
+      ],
+      "outputs": [
+        "valid",
+        "error",
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "customerIntent",
+        "enrichedContext",
+        "claimChannelKnown",
+        "inputContext",
+        "dnrGuard"
+      ],
+      "outputSchema": {
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "trackingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundOrderNos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "customerIntent": {
+            "type": "string"
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "claimChannelKnown": {
+            "type": "boolean"
+          },
+          "inputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "dnrGuard": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "trackingIds",
+        "outboundOrderNos",
+        "customerIntent",
+        "enrichedContext",
+        "claimChannelKnown",
+        "inputContext",
+        "dnrGuard"
+      ],
+      "outputs": [
+        "analysisResult"
+      ]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "inputContext",
+        "dnrGuard",
+        "trackingIds",
+        "outboundOrderNos"
+      ],
+      "outputs": [
+        "structured",
+        "analysis",
+        "outputContext",
+        "enrichedContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "structured": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "analysis": {
+            "type": "string"
+          },
+          "outputContext": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "enrichedContext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}

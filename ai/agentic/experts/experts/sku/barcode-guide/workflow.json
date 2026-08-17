@@ -1,0 +1,181 @@
+{
+  "nodes": [
+    {
+      "id": "validate-intent",
+      "file": "nodes/validate-intent.ts",
+      "inputs": [
+        "topic",
+        "intentType",
+        "skuCode",
+        "skuCodeThird",
+        "supervisorMode",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "intentType",
+        "intentSource",
+        "normalizedTopic",
+        "skuCode",
+        "skuCodeThird",
+        "supervisorMode",
+        "customerIntent",
+        "needInfoHint",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": { "type": "boolean" },
+          "intentType": { "type": "string" },
+          "intentSource": { "type": "string" },
+          "normalizedTopic": { "type": "string" },
+          "skuCode": { "type": "string" },
+          "skuCodeThird": { "type": "string" },
+          "supervisorMode": { "type": "string" },
+          "customerIntent": { "type": "string" },
+          "needInfoHint": { "type": "string" },
+          "inputContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "resolve-barcode-fetch",
+      "file": "nodes/resolve-barcode-fetch.ts",
+      "inputs": [
+        "intentType",
+        "skuCode",
+        "skuCodeThird",
+        "normalizedTopic",
+        "customerIntent"
+      ],
+      "outputs": [
+        "shouldFetch",
+        "fetchProfile",
+        "skipApi",
+        "skuCode",
+        "skuCodeThird",
+        "intentType"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "shouldFetch": { "type": "boolean" },
+          "fetchProfile": { "type": "string" },
+          "skipApi": { "type": "boolean" },
+          "skuCode": { "type": "string" },
+          "skuCodeThird": { "type": "string" },
+          "intentType": { "type": "string" }
+        }
+      }
+    },
+    {
+      "id": "build-barcode-page-list",
+      "file": "nodes/build-barcode-page-list.ts",
+      "inputs": ["shouldFetch", "skipApi", "skuCode", "skuCodeThird", "fetchProfile"],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount",
+        "actionName",
+        "fetchProfile",
+        "skipApi"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "winitPluginBatchActionsCount": { "type": "integer" },
+          "actionName": { "type": "string" },
+          "fetchProfile": { "type": "string" },
+          "skipApi": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "fetch-barcode-snapshot",
+      "file": "nodes/fetch-barcode-snapshot.ts",
+      "inputs": ["skuCode", "fetchProfile", "skipApi", "winitPluginOutputList"],
+      "outputs": ["barcodeSnapshot", "barcodeSnapshotText", "skipFetch"],
+      "cozeIo": {
+        "outputs": {
+          "barcodeSnapshot": { "type": "object", "additionalProperties": true },
+          "barcodeSnapshotText": { "type": "string" },
+          "skipFetch": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "load-barcode-kb",
+      "file": "nodes/load-barcode-kb.ts",
+      "inputs": [
+        "validationOk",
+        "intentType",
+        "normalizedTopic",
+        "needInfoHint",
+        "kbPrint",
+        "kbThirdPartyAdd",
+        "kbThirdPartyDelete",
+        "kbThirdPartyQuery",
+        "kbScanFail"
+      ],
+      "outputs": ["kbContent", "kbScope", "intentType", "normalizedTopic"],
+      "cozeIo": {
+        "outputs": {
+          "kbContent": { "type": "string" },
+          "kbScope": { "type": "string" },
+          "intentType": { "type": "string" },
+          "normalizedTopic": { "type": "string" }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "intentType",
+        "normalizedTopic",
+        "skuCode",
+        "skuCodeThird",
+        "supervisorMode",
+        "needInfoHint",
+        "kbContent",
+        "barcodeSnapshotText",
+        "inputContext"
+      ],
+      "outputs": ["analysisResult"]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "intentType",
+        "intentSource",
+        "normalizedTopic",
+        "customerIntent",
+        "needInfoHint",
+        "barcodeSnapshot",
+        "barcodeSnapshotText",
+        "inputContext"
+      ],
+      "outputs": ["structured", "analysis", "outputContext", "enrichedContext"],
+      "cozeIo": {
+        "outputs": {
+          "structured": { "type": "object", "additionalProperties": true },
+          "analysis": { "type": "string" },
+          "outputContext": { "type": "object", "additionalProperties": true },
+          "enrichedContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  ]
+}

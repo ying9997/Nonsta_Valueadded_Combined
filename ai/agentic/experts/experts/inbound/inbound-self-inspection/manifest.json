@@ -1,0 +1,55 @@
+{
+  "id": "inbound-self-inspection",
+  "domain": "inbound",
+  "name": "自验操作与进度",
+  "description": "OW01021/OW01022 自验闭环：发货前提交/修改/免验操作指引，到仓后抽验结果与费用查询。submit_guide 走纯 KB 路径；status/progress 拉取 OMS 入库单详情与可选异常单。不代客提交验货数据，不承诺抽验费退款。Use when 客户问自验怎么提交、验货填错怎么改、抽验结果与费用、能否免验。",
+  "capabilities": [
+    "自验提交指引",
+    "验货修改指引",
+    "免验条件判断",
+    "抽验结果查询",
+    "阶段自动推断"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "intent": {
+        "type": "string",
+        "description": "咨询意图：submit_guide（提交指引）/ status（验货状态）/ progress（抽验进度与结果）",
+        "enum": ["submit_guide", "status", "progress"]
+      },
+      "subTopic": {
+        "type": "string",
+        "description": "子场景：submit_guide / modify_guide / sampling_result / exemption_check"
+      },
+      "inboundOrderNos": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "入库单号（WI 前缀）；status/progress 场景必填"
+      },
+      "inboundOrderNo": {
+        "type": "string",
+        "description": "单个入库单号（与 inboundOrderNos 等价）"
+      },
+      "phase": {
+        "type": "string",
+        "description": "可选阶段：pre_ship / post_arrival；缺省由订单状态推断"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "自验结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "操作指引或抽验结果说明"
+      }
+    }
+  }
+}

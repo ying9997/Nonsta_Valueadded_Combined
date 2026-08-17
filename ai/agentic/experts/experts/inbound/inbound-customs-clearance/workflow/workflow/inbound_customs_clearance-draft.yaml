@@ -1,0 +1,2375 @@
+schema_version: 1.0.0
+name: inbound_customs_clearance
+id: 7065566400980692332
+description: 清关进度确认（resolve → getOrderDetail 兜底 → extract-customs-facts → TMS Gap → KB → LLM）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      inboundOrderNos:
+                          type: list
+                          items:
+                              type: string
+                              value: null
+                          value: null
+                          description: 入库单号（WI 前缀）或客户参考号列表；包税渠道咨询时可空
+                      country:
+                          type: string
+                          value: null
+                          description: 目的国/地区（UK / US / DE / BE 等），用于匹配国别清关规则
+                      containerNo:
+                          type: string
+                          value: null
+                          description: 柜号（整柜清关查询补充）
+                      transportOrderNo:
+                          type: string
+                          value: null
+                          description: 运输单号 TO（可选，优先 TMS 清关查询）
+                      maxTrajectoryNodes:
+                          type: integer
+                          value: null
+                          description: 轨迹节点保留条数上限；默认 20
+                      focusCustoms:
+                          type: boolean
+                          value: null
+                          description: 剪枝时优先保留清关相关轨迹节点；默认 true
+                      dutiableChannelQuery:
+                          type: boolean
+                          value: null
+                          description: true 时走包税渠道规则兜底路径，无需拉单
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163016"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163016"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163016"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163016"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: resolve-customs-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：解析清关查询路径（进度查询 vs 包税渠道 FAQ）
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function normalizeCountry(raw: unknown): string {
+                const u = str(raw).toUpperCase().replace(/\s+/g, "");
+                if (!u) return "";
+                const aliases: Record<string, string> = {
+                  GB: "UK",
+                  USA: "US",
+                  UNITEDSTATES: "US",
+                  UNITEDKINGDOM: "UK",
+                  GERMANY: "DE",
+                  DEU: "DE",
+                  BELGIUM: "BE",
+                  BEL: "BE",
+                  英国: "UK",
+                  美国: "US",
+                  德国: "DE",
+                  比利时: "BE",
+                };
+                return aliases[u] ?? (/^[A-Z]{2}$/.test(u) ? u : "");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const dutiableChannelQuery = params.dutiableChannelQuery === true;
+                const country = normalizeCountry(params.country);
+                const containerNo = str(params.containerNo);
+                const inboundOrderNos = ((params.inboundOrderNos as string[]) ?? [])
+                  .map((o) => String(o ?? "").trim())
+                  .filter(Boolean);
+
+                if (dutiableChannelQuery) {
+                  return {
+                    pathType: "dutiable",
+                    skipApi: true,
+                    validationOk: true,
+                    dutiableChannelQuery: true,
+                    country,
+                    containerNo,
+                    inboundOrderNos,
+                  };
+                }
+
+                const validationOk = inboundOrderNos.length > 0 || containerNo.length > 0;
+                return {
+                  pathType: validationOk ? "progress" : "invalid",
+                  skipApi: false,
+                  validationOk,
+                  error: validationOk ? "" : "请提供 inboundOrderNos 或 containerNo",
+                  dutiableChannelQuery: false,
+                  country,
+                  containerNo,
+                  inboundOrderNos,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-customs-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inputs.inboundOrderNos
+                        ref_node: "100001"
+              - name: country
+                input:
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: containerNo
+                input:
+                    value:
+                        path: inputs.containerNo
+                        ref_node: "100001"
+              - name: dutiableChannelQuery
+                input:
+                    value:
+                        path: inputs.dutiableChannelQuery
+                        ref_node: "100001"
+          node_outputs:
+              pathType:
+                  type: string
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+              validationOk:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              dutiableChannelQuery:
+                  type: boolean
+                  value: null
+              country:
+                  type: string
+                  value: null
+              containerNo:
+                  type: string
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: resolve-inbound-lookup
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 707
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化入库单查询标识
+               */
+
+              function isWiOrderToken(raw: string): boolean {
+                return /^WI/i.test(raw.trim());
+              }
+
+              function normalizeWiOrderNum(raw: string): string {
+                return raw.trim().toUpperCase();
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipFromParent = params.skipApi === true;
+                const raw = ((params.inboundOrderNos as string[]) ?? [])
+                  .map((o) => String(o ?? "").trim())
+                  .filter(Boolean);
+
+                const wiSeen = new Set<string>();
+                const refSeen = new Set<string>();
+                const wiOrderNos: string[] = [];
+                const customerRefNos: string[] = [];
+
+                for (const token of raw) {
+                  if (isWiOrderToken(token)) {
+                    const normalized = normalizeWiOrderNum(token);
+                    if (!wiSeen.has(normalized)) {
+                      wiSeen.add(normalized);
+                      wiOrderNos.push(normalized);
+                    }
+                  } else {
+                    const normalized = token.trim();
+                    if (!refSeen.has(normalized)) {
+                      refSeen.add(normalized);
+                      customerRefNos.push(normalized);
+                    }
+                  }
+                }
+
+                const hasOrders = wiOrderNos.length > 0 || customerRefNos.length > 0;
+                const skipApi = skipFromParent || !hasOrders;
+
+                return {
+                  wiOrderNos,
+                  customerRefNos,
+                  inboundOrderNos: [...wiOrderNos, ...customerRefNos],
+                  skipApi,
+                  lookupMeta: { hasOrders, skipApi },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-inbound-lookup")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163000"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163000"
+          node_outputs:
+              wiOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              customerRefNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              inboundOrderNos:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+              lookupMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: code
+      title: build-tms-transport-query
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 947
+      parameters:
+          code: |-
+              /**
+               * 节点：组装 tms.transportorder.queryPage 请求
+               * 规格：docs/plan/inbound-tms-transportorder-queryPage.md
+               */
+
+              const TMS_QUERY_PAGE_ACTION =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_TMS_QUERY_PAGE_ACTION?.trim()) ||
+                "tms.transportorder.queryPage";
+
+              const DEFAULT_WI_KEYWORD_TYPE =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_TMS_KEYWORD_TYPE?.trim()) ||
+                "inboundOrderNo";
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function isTransportOrderNo(token: string): boolean {
+                return /^TO/i.test(token.trim());
+              }
+
+              function basePageData(extra: Record<string, unknown>): Record<string, unknown> {
+                return { pageNo: 1, pageSize: 10, ...extra };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipApi === true || params.skipTms === true) {
+                  return { actions: [], tmsActionName: TMS_QUERY_PAGE_ACTION, skipTms: true };
+                }
+
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).map((o) => str(o)).filter(Boolean);
+                const customerRefNos = ((params.customerRefNos as string[]) ?? []).map((o) => str(o)).filter(Boolean);
+                const transportOrderNo = str(params.transportOrderNo);
+                const containerNo = str(params.containerNo);
+
+                const actions: Array<{ action: string; data: string }> = [];
+                const seen = new Set<string>();
+
+                const push = (keywordType: string, content: string) => {
+                  const key = `${keywordType}|${content}`;
+                  if (!content || seen.has(key)) return;
+                  seen.add(key);
+                  actions.push({
+                    action: TMS_QUERY_PAGE_ACTION,
+                    data: JSON.stringify(basePageData({ keywordType, content })),
+                  });
+                };
+
+                if (transportOrderNo) push("orderNo", transportOrderNo.toUpperCase());
+                for (const token of [...wiOrderNos, ...customerRefNos]) {
+                  if (isTransportOrderNo(token)) push("orderNo", token.toUpperCase());
+                }
+                for (const wi of wiOrderNos) push(DEFAULT_WI_KEYWORD_TYPE, wi);
+                for (const ref of customerRefNos) push("customerOrderNo", ref);
+                if (containerNo) push("containerNo", containerNo);
+
+                if (actions.length === 0) {
+                  return { actions: [], tmsActionName: TMS_QUERY_PAGE_ACTION, skipTms: true };
+                }
+
+                return { actions: actions, tmsActionName: TMS_QUERY_PAGE_ACTION, skipTms: false };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-tms-transport-query")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163001"
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163001"
+              - name: customerRefNos
+                input:
+                    value:
+                        path: customerRefNos
+                        ref_node: "163001"
+              - name: transportOrderNo
+                input:
+                    value:
+                        path: inputs.transportOrderNo
+                        ref_node: "100001"
+              - name: containerNo
+                input:
+                    value:
+                        path: containerNo
+                        ref_node: "163000"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              tmsActionName:
+                  type: string
+                  value: null
+              skipTms:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163003"
+      type: plugin
+      title: winit_tms_transport_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 10
+              concurrentSize: 5
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163002"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163003"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163003"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163004"
+      type: code
+      title: fetch-tms-transport-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          code: |-
+              /**
+               * 节点：拉取 TMS 运输单 queryPage
+               */
+
+              const TMS_QUERY_PAGE_ACTION =
+                (typeof process !== "undefined" && process.env?.COZE_WINIT_TMS_QUERY_PAGE_ACTION?.trim()) ||
+                "tms.transportorder.queryPage";
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  return JSON.parse(data) as unknown;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceList(parsed: unknown): unknown[] {
+                if (parsed == null) return [];
+                if (Array.isArray(parsed)) return parsed;
+                if (typeof parsed !== "object") return [];
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coerceList(o.output);
+                if (o.code === "0" || o.code === 0) return coerceList(o.data);
+                return Array.isArray(o.list) ? o.list : [];
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipTms === true) {
+                  return { tmsRawList: [] };
+                }
+
+                const pluginList = params.winitTmsPluginOutputList;
+                let list: unknown[] = [];
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  for (const item of pluginList as Array<{ data?: unknown }>) {
+                    list.push(...coerceList(parseCozeWorkflowDataField(item?.data)));
+                  }
+                } else {
+                  const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                    action: string;
+                    data: string;
+                  }>;
+                  const env = getCozeWinitEnv();
+                  if (env && actions.length > 0) {
+                    try {
+                      for (const act of actions) {
+                        const data = JSON.parse(act.data) as Record<string, unknown>;
+                        const parsed = await runCozeWinitWorkflow(env, act.action || TMS_QUERY_PAGE_ACTION, data);
+                        list.push(...coerceList(parsed));
+                      }
+                    } catch {
+                      list = [];
+                    }
+                  }
+                }
+
+                return { tmsRawList: list };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-tms-transport-order")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipTms
+                input:
+                    value:
+                        path: skipTms
+                        ref_node: "163002"
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163002"
+              - name: winitTmsPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163003"
+          node_outputs:
+              tmsRawList:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163005"
+      type: code
+      title: summarize-tms-transport
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          code: |-
+              /**
+               * 节点：规范化 TMS TransportOrderVo 摘要
+               */
+
+              type TmsTransportRecord = {
+                transportOrderNo: string;
+                customerOrderNo: string;
+                status: string;
+                winitProductCode: string;
+                estimateVolume: number | null;
+                estimatePackageQty: number | null;
+                containerNo: string;
+                cartonType: string;
+                sendPortType: string;
+                cutoffCabinetDate: string;
+                importDeclarationRuleCode: string;
+                importerCode: string;
+                exportDeclarationType: string;
+                isWaitDataFile: string;
+                isWaitPackageList: string;
+                logisticsPlanId: string;
+                source: string;
+              };
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function numOrNull(v: unknown): number | null {
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+              }
+
+              function obj(v: unknown): Record<string, unknown> {
+                return v != null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+              }
+
+              function normalizeRow(raw: unknown): TmsTransportRecord | null {
+                if (!raw || typeof raw !== "object") return null;
+                const o = raw as Record<string, unknown>;
+                const transportOrderNo = str(o.orderNo);
+                if (!transportOrderNo && !o.customerOrderNo && !o.status) return null;
+
+                const send = obj(o.sendPortInfoVo);
+                const imported = obj(o.importedInfoVo);
+                const exported = obj(o.exportedInfoVo);
+                const logistics = obj(o.logisticsInfoVo);
+
+                return {
+                  transportOrderNo,
+                  customerOrderNo: str(o.customerOrderNo),
+                  status: str(o.status),
+                  winitProductCode: str(o.winitProductCode),
+                  estimateVolume: numOrNull(o.estimateVolume),
+                  estimatePackageQty: numOrNull(o.estimatePackageQty),
+                  containerNo: str(send.containerNo),
+                  cartonType: str(send.cartonType),
+                  sendPortType: str(send.sendPortType),
+                  cutoffCabinetDate: str(send.cutoffCabinetDate),
+                  importDeclarationRuleCode: str(imported.importDeclarationRuleCode),
+                  importerCode: str(imported.importerCode),
+                  exportDeclarationType: str(exported.exportDeclarationType),
+                  isWaitDataFile: str(o.isWaitDataFile),
+                  isWaitPackageList: str(o.isWaitPackageList),
+                  logisticsPlanId: str(logistics.estimateLogisticsPlanId),
+                  source: "tms_query_page",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const rawList = Array.isArray(params.tmsRawList) ? params.tmsRawList : [];
+                const seen = new Set<string>();
+                const records: TmsTransportRecord[] = [];
+
+                for (const raw of rawList) {
+                  const row = normalizeRow(raw);
+                  if (!row || !row.transportOrderNo) continue;
+                  if (seen.has(row.transportOrderNo)) continue;
+                  seen.add(row.transportOrderNo);
+                  records.push(row);
+                }
+
+                const primary = records[0] ?? null;
+                const dataQuality = records.length > 0 ? "tms_api" : params.skipTms === true ? "skipped" : "missing";
+
+                return {
+                  tmsTransportSummary: {
+                    records,
+                    recordCount: records.length,
+                    dataQuality,
+                    primary,
+                    trackingNote:
+                      records.length > 0
+                        ? "运输单表头可查；离港/到港里程碑须 tms.transportorder.queryTrackingList（本期未接入）"
+                        : "未查到运输单；请确认 TO 号或 WI↔TO 关联 keywordType",
+                  },
+                  tmsTransportRecords: records,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("summarize-tms-transport")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skipTms
+                input:
+                    value:
+                        path: skipTms
+                        ref_node: "163002"
+              - name: tmsRawList
+                input:
+                    value:
+                        path: tmsRawList
+                        ref_node: "163004"
+          node_outputs:
+              tmsTransportSummary:
+                  type: object
+                  value: null
+              tmsTransportRecords:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163006"
+      type: code
+      title: build-winit-inbound-detail
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          code: |-
+              /**
+               * 节点：为 winit.wh.inbound.getOrderDetail 组装插件批处理动作
+               */
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+              const PLUGIN_BATCH_MAX_ACTIONS_DEFAULT = 100;
+
+              function getPluginBatchMaxActions(): number {
+                if (typeof process !== "undefined" && process.env?.COZE_WINIT_PLUGIN_BATCH_MAX) {
+                  const n = Number(process.env.COZE_WINIT_PLUGIN_BATCH_MAX);
+                  if (Number.isFinite(n) && n >= 1) return Math.floor(n);
+                }
+                return PLUGIN_BATCH_MAX_ACTIONS_DEFAULT;
+              }
+
+              type ActionPlan = { inputToken: string; queryBy: "orderNo" | "customerOrderNo" };
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipApi = params.skipApi === true;
+                const wiOrderNos = ((params.wiOrderNos as string[]) ?? []).filter((o) => o?.trim());
+                const customerRefNos = ((params.customerRefNos as string[]) ?? []).filter((o) => o?.trim());
+
+                if (skipApi) {
+                  return {
+                    actions: [],
+                    actionPlans: [],
+                    winitPluginBatchActionsCount: 0,
+                    actionName: INBOUND_DETAIL_ACTION,
+                    skipApi: true,
+                  };
+                }
+
+                const actionPlans: ActionPlan[] = [];
+                for (const no of wiOrderNos) actionPlans.push({ inputToken: no, queryBy: "orderNo" });
+                for (const ref of customerRefNos) actionPlans.push({ inputToken: ref, queryBy: "customerOrderNo" });
+
+                const forPlugin = actionPlans.slice(0, getPluginBatchMaxActions());
+                const actions = forPlugin.map((p) => {
+                  const data: Record<string, string> = {};
+                  if (p.queryBy === "orderNo") data.orderNo = p.inputToken;
+                  else data.customerOrderNo = p.inputToken;
+                  return { action: INBOUND_DETAIL_ACTION, data: JSON.stringify(data) };
+                });
+
+                return {
+                  actions,
+                  actionPlans: forPlugin,
+                  winitPluginBatchActionsCount: actions.length,
+                  actionName: INBOUND_DETAIL_ACTION,
+                  skipApi: false,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-winit-inbound-detail")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: wiOrderNos
+                input:
+                    value:
+                        path: wiOrderNos
+                        ref_node: "163001"
+              - name: customerRefNos
+                input:
+                    value:
+                        path: customerRefNos
+                        ref_node: "163001"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163001"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              winitPluginBatchActionsCount:
+                  type: integer
+                  value: null
+              actionName:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163007"
+      type: plugin
+      title: winit_inbound_detail_batch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 100
+              concurrentSize: 10
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163006"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163007"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163007"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163008"
+      type: code
+      title: fetch-inbound-order
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          code: |-
+              /**
+               * 节点：本地 Runner 补拉入库单详情
+               */
+
+              type CozeWinitLocalEnv = {
+                apiToken: string;
+                workflowId: string;
+                customerCode: string;
+                customerName: string;
+                username: string;
+                language: string;
+              };
+
+              const INBOUND_DETAIL_ACTION = "winit.wh.inbound.getOrderDetail";
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function coerceDetailPayload(parsed: unknown): Record<string, unknown> | null {
+                if (parsed == null || typeof parsed !== "object") return null;
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null && typeof o.output === "object") return coerceDetailPayload(o.output);
+                if (o.code === "0" || o.code === 0) {
+                  const inner = o.data;
+                  if (typeof inner === "string") {
+                    try {
+                      return coerceDetailPayload(JSON.parse(inner));
+                    } catch {
+                      return null;
+                    }
+                  }
+                  if (inner != null && typeof inner === "object") return coerceDetailPayload(inner);
+                  return null;
+                }
+                if (o.orderNo != null || o.inboundOrderNum != null || o.inboundOrderNo != null) return o;
+                return null;
+              }
+
+              async function runCozeWinitWorkflow(
+                env: CozeWinitLocalEnv,
+                action: string,
+                data: Record<string, unknown>
+              ): Promise<unknown> {
+                const baseUrl = (process.env.COZE_API_BASE_URL ?? "https://api.coze.cn").replace(/\/$/, "");
+                const res = await fetch(`${baseUrl}/v1/workflow/run`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${env.apiToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    workflow_id: env.workflowId,
+                    parameters: {
+                      action,
+                      customerCode: env.customerCode,
+                      customerName: env.customerName,
+                      username: env.username,
+                      language: env.language || "zh_CN",
+                      data: JSON.stringify(data),
+                    },
+                  }),
+                });
+                const text = await res.text();
+                const body = JSON.parse(text) as Record<string, unknown>;
+                if (!res.ok || (body.code !== 0 && body.code !== "0")) {
+                  throw new Error(`Coze workflow failed: ${String(body.msg ?? text).slice(0, 300)}`);
+                }
+                return parseCozeWorkflowDataField(body.data);
+              }
+
+              function getCozeWinitEnv(): CozeWinitLocalEnv | null {
+                if (typeof process === "undefined" || !process.env) return null;
+                const apiToken = process.env.COZE_API_TOKEN ?? process.env.COZE_WORKFLOW_PAT ?? "";
+                const workflowId =
+                  process.env.COZE_WINIT_OPENAPI_PROXY_WORKFLOW_ID ?? process.env.COZE_WINIT_WORKFLOW_ID ?? "";
+                const customerCode = process.env.COZE_WINIT_CUSTOMER_CODE ?? "";
+                const customerName = process.env.COZE_WINIT_CUSTOMER_NAME ?? "";
+                const username = process.env.COZE_WINIT_USERNAME ?? "";
+                if (!apiToken || !workflowId || !customerCode || !customerName || !username) return null;
+                return {
+                  apiToken,
+                  workflowId,
+                  customerCode,
+                  customerName,
+                  username,
+                  language: process.env.COZE_WINIT_LANGUAGE ?? "zh_CN",
+                };
+              }
+
+              function mergePluginOutputs(params: Record<string, unknown>): Record<string, unknown> {
+                const outputList = (Array.isArray(params.winitPluginOutputList) ? params.winitPluginOutputList : []) as Array<{
+                  data?: unknown;
+                }>;
+                const rowsByKey = new Map<string, Record<string, unknown>>();
+                for (const item of outputList) {
+                  const row = coerceDetailPayload(parseCozeWorkflowDataField(item?.data));
+                  if (!row) continue;
+                  const key = String(row.orderNo ?? row.inboundOrderNum ?? "").trim().toUpperCase();
+                  if (key) rowsByKey.set(key, row);
+                }
+                const list = Array.from(rowsByKey.values());
+                return { list, total: list.length, _fetchMeta: { strategy: "detail-only", batchPluginMerged: true } };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.skipApi === true) {
+                  return { rawOrderData: { list: [], total: 0, _fetchMeta: { strategy: "kb-only" } } };
+                }
+
+                const pluginList = params.winitPluginOutputList;
+                if (Array.isArray(pluginList) && pluginList.length > 0) {
+                  return { rawOrderData: mergePluginOutputs(params) };
+                }
+
+                const actions = (Array.isArray(params.actions) ? params.actions : []) as Array<{
+                  action: string;
+                  data: string;
+                }>;
+                const env = getCozeWinitEnv();
+                const list: Record<string, unknown>[] = [];
+                const errors: string[] = [];
+
+                if (!env) {
+                  return {
+                    rawOrderData: {
+                      list: [],
+                      total: 0,
+                      _fetchMeta: { strategy: "local-fetch-skipped", reason: "missing Coze env" },
+                    },
+                  };
+                }
+
+                for (const act of actions) {
+                  try {
+                    const data = JSON.parse(act.data) as Record<string, unknown>;
+                    const parsed = await runCozeWinitWorkflow(env, act.action || INBOUND_DETAIL_ACTION, data);
+                    const row = coerceDetailPayload(parsed);
+                    if (row) list.push(row);
+                  } catch (e) {
+                    errors.push(String(e instanceof Error ? e.message : e));
+                  }
+                }
+
+                return {
+                  rawOrderData: {
+                    list,
+                    total: list.length,
+                    _fetchMeta: { strategy: "local-proxy-detail", resolvedCount: list.length, errors: errors.length ? errors : undefined },
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-inbound-order")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: actions
+                input:
+                    value:
+                        path: actions
+                        ref_node: "163006"
+              - name: actionPlans
+                input:
+                    value:
+                        path: actionPlans
+                        ref_node: "163006"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163007"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163001"
+          node_outputs:
+              rawOrderData:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163009"
+      type: code
+      title: prune-inbound-json
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2627
+      parameters:
+          code: |-
+              /**
+               * 节点：清关专家入库单 JSON 剪枝（保留清关相关轨迹）
+               */
+
+              const CUSTOMS_KEYWORDS = ["清关", "报关", "申报", "放行", "查验", "customs", "clearance", "declare"];
+              const DEFAULT_MAX_TRAJECTORY = 20;
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v);
+              }
+
+              function isCustomsNode(node: Record<string, unknown>): boolean {
+                const text = [node.nodeName, node.nodeDesc, node.status, node.remark, node.eventName, node.trajectoryDesc]
+                  .map(str)
+                  .join(" ")
+                  .toLowerCase();
+                return CUSTOMS_KEYWORDS.some((kw) => text.includes(kw));
+              }
+
+              function pruneOrder(order: Record<string, unknown>, maxTrajectory: number, focusCustoms: boolean) {
+                const copy = { ...order };
+                const traj = copy.trajectoryList;
+                if (Array.isArray(traj)) {
+                  let working = traj as Record<string, unknown>[];
+                  if (focusCustoms) {
+                    const customsOnly = working.filter((n) => n && typeof n === "object" && isCustomsNode(n));
+                    working = customsOnly.length > 0 ? customsOnly : working.slice(-maxTrajectory);
+                  }
+                  if (working.length > maxTrajectory) {
+                    working = working.slice(-maxTrajectory);
+                    (copy as Record<string, unknown>)._trajectoryTruncated = true;
+                  }
+                  copy.trajectoryList = working;
+                }
+                if (copy.inboundPackageVos != null) delete copy.inboundPackageVos;
+                return copy;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                if (params.pathType === "dutiable" || params.skipApi === true) {
+                  return { prunedOrderData: { list: [], total: 0 }, _pruneMeta: { skipped: true } };
+                }
+
+                const rawOrderData = (params.rawOrderData ?? {}) as Record<string, unknown>;
+                const list = (rawOrderData.list as unknown[]) ?? [];
+                const maxTrajectory =
+                  typeof params.maxTrajectoryNodes === "number" && params.maxTrajectoryNodes >= 1
+                    ? Math.floor(params.maxTrajectoryNodes)
+                    : DEFAULT_MAX_TRAJECTORY;
+                const focusCustoms = params.focusCustoms !== false;
+
+                const prunedList = list
+                  .filter((item) => item && typeof item === "object")
+                  .map((item) => pruneOrder(item as Record<string, unknown>, maxTrajectory, focusCustoms));
+
+                return {
+                  prunedOrderData: { ...rawOrderData, list: prunedList },
+                  _pruneMeta: { orderCount: prunedList.length, focusCustoms },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("prune-inbound-json")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: rawOrderData
+                input:
+                    value:
+                        path: rawOrderData
+                        ref_node: "163008"
+              - name: pathType
+                input:
+                    value:
+                        path: pathType
+                        ref_node: "163000"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163001"
+              - name: maxTrajectoryNodes
+                input:
+                    value:
+                        path: inputs.maxTrajectoryNodes
+                        ref_node: "100001"
+              - name: focusCustoms
+                input:
+                    value:
+                        path: inputs.focusCustoms
+                        ref_node: "100001"
+          node_outputs:
+              prunedOrderData:
+                  type: object
+                  value: null
+              _pruneMeta:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163010"
+      type: code
+      title: extract-customs-facts
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2867
+      parameters:
+          code: |-
+              /**
+               * 节点：从 OMS getOrderDetail 提取清关相关事实
+               */
+
+              const CUSTOMS_KEYWORDS = [
+                "清关",
+                "报关",
+                "申报",
+                "放行",
+                "查验",
+                "customs",
+                "clearance",
+                "declare",
+                "inspection",
+                "release",
+              ];
+
+              function str(v: unknown): string {
+                return v == null ? "" : String(v).trim();
+              }
+
+              function isCustomsNode(node: Record<string, unknown>): boolean {
+                const text = [
+                  node.nodeName,
+                  node.nodeDesc,
+                  node.status,
+                  node.remark,
+                  node.eventName,
+                  node.trajectoryDesc,
+                ]
+                  .filter((v) => v != null)
+                  .join(" ")
+                  .toLowerCase();
+                return CUSTOMS_KEYWORDS.some((kw) => text.includes(kw.toLowerCase()));
+              }
+
+              function summarizeTrajectoryNode(node: Record<string, unknown>) {
+                return {
+                  nodeName: str(node.nodeName ?? node.eventName ?? node.status),
+                  nodeDesc: str(node.nodeDesc ?? node.trajectoryDesc ?? node.remark),
+                  eventTime: str(node.eventTime ?? node.createTime ?? node.operateTime),
+                  status: str(node.status),
+                };
+              }
+
+              function extractFromOrder(order: Record<string, unknown>) {
+                const trajectory = Array.isArray(order.trajectoryList) ? order.trajectoryList : [];
+                const customsTrajectoryNodes = trajectory
+                  .filter((n) => n && typeof n === "object" && isCustomsNode(n as Record<string, unknown>))
+                  .map((n) => summarizeTrajectoryNode(n as Record<string, unknown>));
+
+                return {
+                  orderNo: str(order.orderNo ?? order.inboundOrderNum ?? order.inboundOrderNo),
+                  currentStatus: str(order.status),
+                  importerCode: str(order.importerCode),
+                  containerNo: str(order.containerNo ?? order.cabinetNo),
+                  destWhCode: str(order.destWhCode),
+                  winitProductCode: str(order.winitProductCode),
+                  customsTrajectoryNodes,
+                  trajectoryTotal: trajectory.length,
+                  customsNodeCount: customsTrajectoryNodes.length,
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const pathType = str(params.pathType) || "progress";
+                if (pathType !== "progress" || params.validationOk === false) {
+                  return {
+                    customsFacts: {
+                      orderNo: "",
+                      currentStatus: "",
+                      importerCode: "",
+                      containerNo: str(params.containerNo),
+                      customsTrajectoryNodes: [],
+                      orders: [],
+                      orderCount: 0,
+                    },
+                  };
+                }
+
+                const prunedOrderData = (params.prunedOrderData ?? {}) as Record<string, unknown>;
+                const list = (prunedOrderData.list as unknown[]) ?? [];
+                const orders = list
+                  .filter((item) => item && typeof item === "object")
+                  .map((item) => extractFromOrder(item as Record<string, unknown>));
+
+                const primary = orders[0] ?? {
+                  orderNo: "",
+                  currentStatus: "",
+                  importerCode: "",
+                  containerNo: str(params.containerNo),
+                  customsTrajectoryNodes: [],
+                };
+
+                const tmsSummary = (params.tmsTransportSummary ?? {}) as Record<string, unknown>;
+                const tmsPrimary = (tmsSummary.primary ?? null) as Record<string, unknown> | null;
+                const tmsFacts = tmsPrimary
+                  ? {
+                      transportOrderNo: String(tmsPrimary.transportOrderNo ?? ""),
+                      transportStatus: String(tmsPrimary.status ?? ""),
+                      importDeclarationRuleCode: String(tmsPrimary.importDeclarationRuleCode ?? ""),
+                      importerCode: String(tmsPrimary.importerCode ?? ""),
+                      exportDeclarationType: String(tmsPrimary.exportDeclarationType ?? ""),
+                      containerNo: String(tmsPrimary.containerNo ?? primary.containerNo ?? ""),
+                    }
+                  : null;
+
+                return {
+                  customsFacts: {
+                    ...primary,
+                    country: str(params.country),
+                    orders,
+                    orderCount: orders.length,
+                    tmsFacts,
+                    tmsDataQuality: String(tmsSummary.dataQuality ?? "missing"),
+                  },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("extract-customs-facts")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: prunedOrderData
+                input:
+                    value:
+                        path: prunedOrderData
+                        ref_node: "163009"
+              - name: pathType
+                input:
+                    value:
+                        path: pathType
+                        ref_node: "163000"
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: containerNo
+                input:
+                    value:
+                        path: containerNo
+                        ref_node: "163000"
+              - name: tmsTransportSummary
+                input:
+                    value:
+                        path: tmsTransportSummary
+                        ref_node: "163005"
+          node_outputs:
+              customsFacts:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163011"
+      type: code
+      title: check-tms-gap
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3107
+      parameters:
+          code: |-
+              /**
+               * 节点：TMS 清关 — queryPage 进口商/报关规则 + queryTrackingList 节点 Gap
+               */
+
+              const TRACKING_GAP =
+                "清关申报/放行等细粒度节点须 tms.transportorder.queryTrackingList，本期未接入；仅可陈述运输单表头进口商与报关规则。";
+
+              const NO_TO_NOTE = "未查到关联运输单；清关进度仅能参考 OMS 入库单状态与轨迹关键词。";
+
+              function summaryFromParams(params: Record<string, unknown>) {
+                return (params.tmsTransportSummary ?? {}) as Record<string, unknown>;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const summary = summaryFromParams(params);
+                const recordCount = Number(summary.recordCount ?? 0);
+                const hasTms = recordCount > 0;
+                const dataQuality = String(summary.dataQuality ?? "missing");
+
+                let gapNote = NO_TO_NOTE;
+                if (hasTms) gapNote = String(summary.trackingNote ?? TRACKING_GAP);
+                else if (dataQuality === "skipped") gapNote = "包税/无单号路径，跳过 TMS 查询。";
+
+                return {
+                  tmsAvailable: hasTms,
+                  tmsDataAvailable: hasTms,
+                  gapNote,
+                  tmsTransportSummary: summary,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("check-tms-gap")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: tmsTransportSummary
+                input:
+                    value:
+                        path: tmsTransportSummary
+                        ref_node: "163005"
+          node_outputs:
+              tmsAvailable:
+                  type: boolean
+                  value: null
+              tmsDataAvailable:
+                  type: boolean
+                  value: null
+              gapNote:
+                  type: string
+                  value: null
+              tmsTransportSummary:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163012"
+      type: text
+      title: kb-customs-clearance
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3347
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 清关进度与延误知识库
+
+                        ## 清关阶段说明
+
+                        | 阶段 | 含义 | 客户可见性 |
+                        |------|------|-----------|
+                        | 申报 | 报关资料提交海关系统 | OMS 轨迹可能含「已申报」节点 |
+                        | 审核 | 海关审核单证与货值 | TMS 细粒度节点当前 Gap |
+                        | 查验 | 单证查验（不开箱）或实物查验（开箱） | 需客户配合时由关务通知 |
+                        | 放行 | 海关准予进口，货物可送仓 | OMS 状态可能同步更新 |
+
+                        ### 查验类型区分
+
+                        - **文件查验（D02 类）**：不开箱，仅审核单证；部分类型每周四有邮件更新机制
+                        - **实物查验**：开箱抽检，耗时更长；AI 只能客观描述已知状态，不预测放行时间
+
+                        ## 清关查询处理决策树
+
+                        1. **无异常 + 时效内** → 告知预计清关时间范围（引用 KB，非承诺）
+                        2. **无异常 + 超时效** → 建议升级关务核实
+                        3. **D02 异常已处理** → 检查是否有周四邮件更新
+                        4. **D02 异常新提交 + 未超影响天数** → 复制异常话术告知客户
+                        5. **D02 异常新提交 + 已超影响天数** → 升级关务
+
+                        > 清关 SLA 时效仅作内部判断依据，不直接告知客户具体 SLA 数字。
+
+                        ## 延误常见原因
+
+                        - 海关查验（单证/实物）
+                        - 证件缺失或不符（EORI/VAT/进口商资质）
+                        - 节假日海关停工
+                        - 特殊货型（敏感品类/超限货物）
+
+                        对于 D02 类查验异常，只能客观描述已知状态，不猜测放行时间。
+
+                        ## US 目的国参考
+
+                        - 美西仓（USWC）：到港后清关+送仓通常数个工作日
+                        - 超 3 倍预期时效建议升级人工核实
+
+                        ## UK 目的国参考
+
+                        - 递延清关需提前配置进口商（见 inbound-customs-doc-manage 专家）
+                        - 查验通知需客户配合提供补充资料
+
+                        ## DE / BE 目的国参考
+
+                        - 欧盟递延清关需进口商 VAT + EORI
+                        - 比利时递延清关材料要求与英国略有差异
+
+                        ## 升级人工条件
+
+                        - 货物清关超过预期 3 倍时效
+                        - 查验通知需客户配合提供资料
+                        - TMS 细粒度节点不可查时，引导工单通道联系客服
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163013"
+      type: text
+      title: kb-bonded-channel
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3587
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # 包税渠道清关规则
+
+                        ## 产品特性
+
+                        包税渠道（美森散货、普船散货等）**无独立清关轨迹**，属产品设计特性，非系统故障。
+
+                        客户常见疑问：「为什么查不到清关节点？」—— 应明确说明包税渠道由万邑通统一清关，不向客户开放细粒度清关轨迹查询。
+
+                        ## 美森散货（LCL Premium）
+
+                        - 到港后 **6 个工作日内** 完成清关 + 送仓（工作日，不含节假日）
+                        - 不额外向客户收取进口关税（已含在头程费用中）
+                        - 无独立清关轨迹节点可查
+
+                        ## 普船散货
+
+                        - 时效较美森略长，视船期与港口拥堵情况而定
+                        - 同样无独立清关轨迹
+                        - 不额外收取进口关税
+
+                        ## USWC 到港后流程
+
+                        1. 货物到港
+                        2. 万邑通统一报关清关（客户不可见细粒度节点）
+                        3. 清关完成后安排送仓
+                        4. 到仓后进入 PEWC 验货/上架流程
+
+                        ## 对客话术要点
+
+                        - 解释无清关轨迹是**产品特性**，不是异常
+                        - 不承诺具体清关放行日期
+                        - 若超 6 工作日（美森）仍未到仓，建议联系客服核实
+                        - 清关文件上传与进口商配置见 `inbound-customs-doc-manage` 专家
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163014"
+      type: code
+      title: load-customs-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3827
+      parameters:
+          code: |-
+              /**
+               * 节点：按 pathType 选择性拼接清关 KB 语料
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function filterByCountry(content: string, country: string): string {
+                if (!content || !country) return content;
+                const lines = content.split("\n");
+                const hits = new Set<number>();
+                const lowerCountry = country.toLowerCase();
+
+                for (let i = 0; i < lines.length; i++) {
+                  const line = lines[i].toLowerCase();
+                  if (line.includes(lowerCountry) || line.includes(`## ${lowerCountry}`)) {
+                    for (let j = Math.max(0, i - 1); j <= Math.min(lines.length - 1, i + 6); j++) {
+                      hits.add(j);
+                    }
+                  }
+                }
+
+                if (hits.size === 0) return content;
+                return Array.from(hits)
+                  .sort((a, b) => a - b)
+                  .map((i) => lines[i])
+                  .join("\n");
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const pathType = str(params.pathType) || "progress";
+                const country = str(params.country);
+                const kbCustomsClearance = str(params.kbCustomsClearance);
+                const kbBondedChannel = str(params.kbBondedChannel);
+                const gapNote = str(params.gapNote);
+
+                if (pathType === "dutiable") {
+                  return {
+                    kbContent: kbBondedChannel,
+                    kbScope: "bonded-channel",
+                    customsStagesGuide: "",
+                    delayReasonsGuide: "",
+                    dutiableChannelGuide: kbBondedChannel,
+                    tmsGapNotice: "",
+                  };
+                }
+
+                const customsFiltered = filterByCountry(kbCustomsClearance, country);
+                const tmsSection = gapNote ? `\n\n---\n\n## TMS 数据说明\n\n${gapNote}` : "";
+                const kbContent = `${customsFiltered}${tmsSection}`.trim();
+
+                return {
+                  kbContent,
+                  kbScope: `customs-progress${country ? `:${country}` : ""}`,
+                  customsStagesGuide: customsFiltered,
+                  delayReasonsGuide: customsFiltered,
+                  dutiableChannelGuide: "",
+                  tmsGapNotice: gapNote,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-customs-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: pathType
+                input:
+                    value:
+                        path: pathType
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: kbCustomsClearance
+                input:
+                    value:
+                        path: output
+                        ref_node: "163012"
+              - name: kbBondedChannel
+                input:
+                    value:
+                        path: output
+                        ref_node: "163013"
+              - name: gapNote
+                input:
+                    value:
+                        path: gapNote
+                        ref_node: "163011"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              customsStagesGuide:
+                  type: string
+                  value: null
+              delayReasonsGuide:
+                  type: string
+                  value: null
+              dutiableChannelGuide:
+                  type: string
+                  value: null
+              tmsGapNotice:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163015"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 4067
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 清关进度确认专家 - LLM Prompt
+
+                        ## 角色
+
+                        你是清关进度确认专家。根据 `customsFacts`（OMS + TMS 表头）、`tmsTransportSummary` 与 KB，客观说明清关状态、延误参考与包税渠道规则。
+
+                        ## 禁止项
+
+                        - 不承诺清关放行时间
+                        - **禁止**编造清关里程碑（queryTrackingList 未接入）
+                        - 不引用 TMS/TOM/飞书内部 URL
+                        - 不代客上传清关文件（→ inbound-customs-doc-manage）
+                        - `tmsDataAvailable=false` 时仅 OMS + KB，不虚构进口商编码
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **pathType**：`{{pathType}}`（`progress` | `dutiable`）
+                        - **country**：`{{country}}`
+                        - **customsFacts**：
+
+                        ```json
+                        {{customsFacts}}
+                        ```
+
+                        - **tmsTransportSummary**：`{{tmsTransportSummary}}`
+                        - **tmsDataAvailable**：`{{tmsDataAvailable}}`
+                        - **gapNote**：`{{gapNote}}`
+                        - **kbContent**：`{{kbContent}}`
+
+                        ## 输出格式
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "orderNo": "",
+                              "currentStatus": "",
+                              "customsTrajectoryNodes": [],
+                              "importerCode": "",
+                              "tmsDataAvailable": false,
+                              "isDutiableChannel": false,
+                              "customsStatusSummary": "",
+                              "country": ""
+                            },
+                            "analysis": "客观描述清关状态、TMS Gap 与升级路径。"
+                          }
+                        }
+                        ```
+
+                        ## 特殊规则
+
+                        - `pathType=dutiable`：`isDutiableChannel=true`，解释包税渠道无清关轨迹属产品特性
+                        - `pathType=progress`：展示 OMS 可用字段，标注 TMS 不可查，给出工单升级路径
+                        - `customsTrajectoryNodes` 为空时说明 OMS 层面暂无清关轨迹节点
+                        - 延误说明引用 KB 常见原因，不猜测具体原因
+                        - `structured.tmsDataAvailable` 必须为 `false`
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: pathType
+                input:
+                    value:
+                        path: pathType
+                        ref_node: "163000"
+              - name: country
+                input:
+                    value:
+                        path: country
+                        ref_node: "163000"
+              - name: inboundOrderNos
+                input:
+                    value:
+                        path: inboundOrderNos
+                        ref_node: "163001"
+              - name: customsFacts
+                input:
+                    value:
+                        path: customsFacts
+                        ref_node: "163010"
+              - name: tmsTransportSummary
+                input:
+                    value:
+                        path: tmsTransportSummary
+                        ref_node: "163011"
+              - name: tmsDataAvailable
+                input:
+                    value:
+                        path: tmsDataAvailable
+                        ref_node: "163011"
+              - name: gapNote
+                input:
+                    value:
+                        path: gapNote
+                        ref_node: "163011"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163014"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163016"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 4307
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              interface InputContext {
+                chainId?: string;
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  try {
+                    const parsed = JSON.parse(raw.trim()) as AnalysisResult;
+                    if (parsed && typeof parsed === "object") return coerceAnalysisResult(parsed);
+                  } catch {
+                    return { structured: {}, analysis: raw.trim() || "解析失败。" };
+                  }
+                }
+                const o = raw as AnalysisResult;
+                return {
+                  structured: o.structured ?? ({} as Record<string, unknown>),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as InputContext | undefined;
+                const structured: Record<string, unknown> = {
+                  tmsDataAvailable: false,
+                  ...coerced.structured,
+                };
+                structured.tmsDataAvailable = false;
+
+                const analysis = coerced.analysis || "（无 analysis 字段）";
+                const summary = analysis.slice(0, 200) || "清关进度确认完成";
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {expertId: "inbound-customs-clearance",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "" },
+                  enrichedContext: {
+                      orderNo: structured.orderNo,
+                      currentStatus: structured.currentStatus,
+                      isDutiableChannel: structured.isDutiableChannel,
+                      tmsDataAvailable: false,
+                      importerCode: structured.importerCode,
+                    },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163015"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "163014"
+    - source_node: "163014"
+      target_node: "163015"
+    - source_node: "163015"
+      target_node: "163016"
+    - source_node: "163016"
+      target_node: "900001"

@@ -1,0 +1,200 @@
+# 申请获取 POD — Coze 工作流包导出
+# 导出：npm run export:coze -- experts/last-mile/pod-request
+
+yamlBasename: pod_request-draft.yaml
+packageMainName: pod_request
+packageDescription: 申请获取POD（validate → queryOutboundOrder 归属校验 → exportOutboundPod → fetch → LLM → format）
+
+winitOpenapiPlugins:
+  - insertBefore: verify-outbound-ownership
+    logicalId: winit_verify_outbound_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-verify-outbound-winit-data
+        path: actions
+  - insertBefore: fetch-export-pod
+    logicalId: winit_openapi_plugin
+    openapiAction: wh.outbound.exportOutboundPod
+
+nodeIds:
+  validate-input: "165000"
+  route-by-branch: "165001"
+  build-verify-outbound-winit-data: "165006"
+  winit_verify_outbound_batch: "165007"
+  verify-outbound-ownership: "165008"
+  build-export-pod-winit-data: "165002"
+  winit_openapi_plugin: "115282"
+  fetch-export-pod: "165003"
+  llm-analyze: "165004"
+  format-output: "165005"
+
+inputBindings:
+  build-verify-outbound-winit-data:
+    branch:
+      ref: validate-input
+      path: branch
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+  verify-outbound-ownership:
+    branch:
+      ref: validate-input
+      path: branch
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    actionPlans:
+      ref: build-verify-outbound-winit-data
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_verify_outbound_batch
+      path: outputList
+    customerCode:
+      ref: __start__
+      path: customerCode
+    customerName:
+      ref: __start__
+      path: customerName
+    username:
+      ref: __start__
+      path: username
+  build-export-pod-winit-data:
+    branch:
+      ref: validate-input
+      path: branch
+    verifiedOutboundOrderNos:
+      ref: verify-outbound-ownership
+      path: verifiedOutboundOrderNos
+  fetch-export-pod:
+    branch:
+      ref: validate-input
+      path: branch
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    ownershipFacts:
+      ref: verify-outbound-ownership
+      path: ownershipFacts
+    customerCode:
+      ref: __start__
+      path: customerCode
+    customerName:
+      ref: __start__
+      path: customerName
+    username:
+      ref: __start__
+      path: username
+    winitRequestData:
+      ref: build-export-pod-winit-data
+      path: winitRequestData
+    winitOpenapiData:
+      ref: winit_openapi_plugin
+      path: data
+  llm-analyze:
+    query:
+      ref: __start__
+      path: query
+    trackingIds:
+      ref: validate-input
+      path: trackingIds
+    outboundOrderNos:
+      ref: validate-input
+      path: outboundOrderNos
+    customerIntent:
+      ref: __start__
+      path: customerIntent
+    enrichedContext:
+      ref: validate-input
+      path: enrichedContext
+    inputContext:
+      ref: __start__
+      path: inputContext
+    podExportFacts:
+      ref: fetch-export-pod
+      path: podExportFacts
+  format-output:
+    analysisResult:
+      ref: llm-analyze
+      path: analysisResult
+    podExportFacts:
+      ref: fetch-export-pod
+      path: podExportFacts
+    inputContext:
+      ref: __start__
+      path: inputContext
+
+branching:
+  after: validate-input
+  logicalId: route-by-branch
+  title: 按 branch 分流
+  routes:
+    - port: "true"
+      target: build-verify-outbound-winit-data
+      whenEquals:
+        path: branch
+        value: "export"
+    - port: "true_1"
+      target: fetch-export-pod
+      whenEquals:
+        path: branch
+        value: "guidance"
+    - port: "false"
+      target: fetch-export-pod
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+positions:
+  __start__:
+    x: 0
+    y: 200
+  __end__:
+    x: 1100
+    y: 200
+  validate-input:
+    x: 120
+    y: 120
+  route-by-branch:
+    x: 120
+    y: 240
+  build-verify-outbound-winit-data:
+    x: 300
+    y: 60
+  winit_verify_outbound_batch:
+    x: 460
+    y: 60
+  verify-outbound-ownership:
+    x: 620
+    y: 60
+  build-export-pod-winit-data:
+    x: 780
+    y: 60
+  winit_openapi_plugin:
+    x: 940
+    y: 60
+  fetch-export-pod:
+    x: 780
+    y: 180
+  llm-analyze:
+    x: 940
+    y: 180
+  format-output:
+    x: 940
+    y: 320

@@ -1,0 +1,54 @@
+{
+  "id": "value-add-service-config",
+  "domain": "value-add",
+  "name": "增值服务配置",
+  "description": "在 VASC 已知的前提下解释服务项/原子编排、必选/可选、互斥和字段证据边界；不承诺完整下单字段、附件或模板配置。Use when 客户问某个 VASC 下有哪些服务项、原子能不能一起选、字段/附件/模板需要准备什么。",
+  "version": "1.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "vascCode": {
+        "type": "string",
+        "description": "VASC 编码"
+      },
+      "vascName": {
+        "type": "string",
+        "description": "VASC 名称"
+      },
+      "serviceIntent": {
+        "type": "string",
+        "description": "服务配置意图"
+      },
+      "scenarioConditions": {
+        "type": "object",
+        "description": "对象层级、阶段、仓库、异常等场景条件"
+      },
+      "handoffToServiceConfig": {
+        "type": "object",
+        "description": "推荐专家输出的服务配置手交对象"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "编排器聚合事实"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "服务项配置结构化结果"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客可读服务配置说明"
+      }
+    }
+  },
+  "x_recaller_propagate_previous_enriched_context": true,
+  "x_recaller_enriched_context_preferred_source_experts": [
+    "value-add-product-recommendation"
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "id": "tracking-inquiry",
+  "domain": "last-mile",
+  "name": "查件代查件",
+  "description": "查件状态和结果返回，代客户发起查件或告知查件入口；可根据上游结构化扫描事实推荐新建查件类型。RDscan（退回妥投）优先推荐 FR（退回原因/查派送失败原因）；无 RDscan 时，Dscan 且买家未收到推荐 NT（妥投未收到），Ascan、无 Dscan 且明确超时/停滞/派送异常推荐 OT（超时未妥投）。Use when 用户发起查件、查询查件进度、代查件。",
+  "capabilities": [
+    "查件",
+    "代查件",
+    "查件状态"
+  ],
+  "version": "0.3.1",
+  "x_recaller_propagate_previous_enriched_context": true,
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "出库单号"
+      },
+      "inquiryIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "查件流水号（与 TailTrace serialNumber 对齐，如 TA…）"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "上游专家合并的上下文（可选）",
+        "additionalProperties": true
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "查件事实与路由标签",
+        "properties": {
+          "serialNumbers": { "type": "array", "items": { "type": "string" } },
+          "orderNos": { "type": "array", "items": { "type": "string" } },
+          "trackingNos": { "type": "array", "items": { "type": "string" } },
+          "shippingNos": { "type": "array", "items": { "type": "string" } },
+          "primaryCheckingStatus": { "type": "string" },
+          "primaryCheckingType": { "type": "string" },
+          "recommendedCheckingType": { "type": "string", "description": "新建查件建议类型；不覆盖已有记录的 primaryCheckingType" },
+          "recommendedCheckingTypeName": { "type": "string" },
+          "classificationConfidence": { "type": "string" },
+          "classificationReason": { "type": "string" },
+          "sopBranch": { "type": "string" },
+          "submissionGuidanceUrl": { "type": "string" },
+          "queryKeys": {
+            "type": "object",
+            "properties": {
+              "inquiryIds": { "type": "array", "items": { "type": "string" } },
+              "trackingIds": { "type": "array", "items": { "type": "string" } },
+              "outboundOrderNos": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "records": { "type": "array" },
+          "statusSummary": { "type": "object" },
+          "elapsedBizDays": { "type": ["number", "null"] },
+          "applicationTimeLocal": { "type": "string" },
+          "analysisTimeLocal": { "type": "string" },
+          "calendarSource": { "type": "string" },
+          "slaBand": { "type": "string" },
+          "canEscalateUrgent": { "type": ["boolean", "null"] },
+          "missingFacts": { "type": "array", "items": { "type": "string" } },
+          "nextAction": { "type": "string" }
+        }
+      },
+      "analysis": {
+        "type": "string",
+        "description": "分析结论与建议"
+      }
+    }
+  }
+}

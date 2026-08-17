@@ -1,0 +1,3120 @@
+schema_version: 1.0.0
+name: sku_compliance_check
+id: 7103237725592589198
+description: SKU 合规深判（validate → optional page.list → KB → LLM → format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -149.557913881682
+          y: 231.51531952084514
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      topic:
+                          type: string
+                          value: null
+                          description: 咨询主题关键词（与 intentType 至少填一个）
+                      intentType:
+                          type: string
+                          value: null
+                          description: carriability_deep / restricted / certificates / weee / ecommerce / brand / unban_deep / declaration / general
+                      skuCode:
+                          type: string
+                          value: null
+                          description: 商品编码（可选；有则尝试只读合规切片）
+                      importCountryCode:
+                          type: string
+                          value: null
+                          description: 进口国/目的国二字码（合规因国别而异，建议提供）
+                      productLink:
+                          type: string
+                          value: null
+                          description: 商品链接（承运/电清关场景）
+                      categoryHint:
+                          type: string
+                          value: null
+                          description: 品类或客户自述类别（可选）
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1053.3053365464475
+          y: 309.27940455803343
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163015"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163015"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163015"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163015"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-intent
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 467
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-intent — 归一合规深判意图；抽取 profile 快照
+               */
+
+              type IntentType =
+                | "carriability_deep"
+                | "restricted"
+                | "certificates"
+                | "weee"
+                | "ecommerce"
+                | "brand"
+                | "unban_deep"
+                | "declaration"
+                | "general";
+
+              const ALLOWED = new Set<string>([
+                "carriability_deep",
+                "restricted",
+                "certificates",
+                "weee",
+                "ecommerce",
+                "brand",
+                "unban_deep",
+                "declaration",
+                "general",
+              ]);
+
+              const INTENT_PATTERNS: Array<{ type: IntentType; patterns: RegExp[] }> = [
+                { type: "weee", patterns: [/WEEE|德国.*类别|电器.*类别/i] },
+                { type: "ecommerce", patterns: [/海关建议申报价|销售链接|电清关|链接是否合规|申报价/i] },
+                { type: "certificates", patterns: [/MSDS|SDS|UN38\.?3|证书|GPSR|缺资料|资料证书/i] },
+                { type: "brand", patterns: [/品牌备案|商标|授权|熏蒸|MDF|密度板/i] },
+                { type: "declaration", patterns: [/申报要素|HS\s*码|申报品名|品名申报/i] },
+                { type: "unban_deep", patterns: [/解禁条件|能否解禁|禁售.*原因|禁止入库.*原因|条件是否满足/i] },
+                { type: "restricted", patterns: [/禁限运|禁运清单|限运|能不能发.*清单/i] },
+                {
+                  type: "carriability_deep",
+                  patterns: [/能否发|能不能发|能否入|能不能入|新品.*承运|链接.*能不能|商品链接/i],
+                },
+              ];
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : v == null ? "" : String(v).trim();
+              }
+
+              function asRecord(v: unknown): Record<string, unknown> {
+                return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+              }
+
+              function detectIntent(text: string): IntentType {
+                for (const { type, patterns } of INTENT_PATTERNS) {
+                  if (patterns.some((p) => p.test(text))) return type;
+                }
+                return "general";
+              }
+
+              function extractProfileSnapshot(inputContext: Record<string, unknown>): Record<string, unknown> {
+                const previousOutput = asRecord(inputContext.previousOutput);
+                const structured = asRecord(previousOutput.structured);
+                if (Array.isArray(structured.skus) && structured.skus.length > 0) {
+                  return { skus: structured.skus, missingFacts: structured.missingFacts ?? [] };
+                }
+                const enriched = asRecord(inputContext.enrichedContext);
+                const profile = asRecord(enriched["sku/profile"]);
+                if (Array.isArray(profile.skus) && profile.skus.length > 0) {
+                  return { skus: profile.skus, missingFacts: profile.missingFacts ?? [] };
+                }
+                return {};
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const topic = str(params.topic);
+                const rawIntent = str(params.intentType).toLowerCase();
+                const skuCode = str(params.skuCode) || str(params.productCode);
+                const importCountryCode = str(params.importCountryCode).toUpperCase();
+                const productLink = str(params.productLink);
+                const categoryHint = str(params.categoryHint);
+                const query = str(params.query);
+                const customerIntent = str(params.customerIntent) || query;
+                const inputContext = asRecord(params.inputContext);
+                const profileSnapshot = extractProfileSnapshot(inputContext);
+
+                let intentType: IntentType = "general";
+                if (rawIntent && ALLOWED.has(rawIntent)) {
+                  intentType = rawIntent as IntentType;
+                } else {
+                  intentType = detectIntent(`${topic} ${customerIntent} ${query}`);
+                }
+
+                const hasTopicOrIntent = topic.length > 0 || (rawIntent.length > 0 && ALLOWED.has(rawIntent));
+                const normalizedTopic = topic || customerIntent || intentType;
+
+                let needInfoHint = "";
+                if (!hasTopicOrIntent && !customerIntent && !query) {
+                  needInfoHint = "missing_topic_or_intent";
+                } else if (
+                  (intentType === "carriability_deep" || intentType === "ecommerce") &&
+                  !productLink &&
+                  !skuCode
+                ) {
+                  needInfoHint = "prefer_product_link_or_sku";
+                } else if (
+                  (intentType === "weee" || intentType === "certificates" || intentType === "unban_deep") &&
+                  !skuCode &&
+                  !importCountryCode
+                ) {
+                  needInfoHint = "prefer_sku_or_country";
+                } else if (
+                  (intentType === "restricted" || intentType === "carriability_deep" || intentType === "brand") &&
+                  !importCountryCode &&
+                  !/国|US|DE|UK|AU|CA|EU/i.test(`${topic} ${customerIntent}`)
+                ) {
+                  needInfoHint = "prefer_import_country";
+                }
+
+                const validationOk = hasTopicOrIntent || customerIntent.length > 0 || query.length > 0;
+
+                return {
+                  validationOk,
+                  intentType,
+                  normalizedTopic,
+                  skuCode,
+                  importCountryCode,
+                  productLink,
+                  categoryHint,
+                  customerIntent,
+                  needInfoHint: validationOk ? needInfoHint : "missing_topic_or_intent",
+                  profileSnapshot,
+                  inputContext,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-intent")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: topic
+                input:
+                    value:
+                        path: inputs.topic
+                        ref_node: "100001"
+              - name: intentType
+                input:
+                    value:
+                        path: inputs.intentType
+                        ref_node: "100001"
+              - name: skuCode
+                input:
+                    value:
+                        path: inputs.skuCode
+                        ref_node: "100001"
+              - name: importCountryCode
+                input:
+                    value:
+                        path: inputs.importCountryCode
+                        ref_node: "100001"
+              - name: productLink
+                input:
+                    value:
+                        path: inputs.productLink
+                        ref_node: "100001"
+              - name: categoryHint
+                input:
+                    value:
+                        path: inputs.categoryHint
+                        ref_node: "100001"
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              validationOk:
+                  type: boolean
+                  value: null
+              intentType:
+                  type: string
+                  value: null
+              normalizedTopic:
+                  type: string
+                  value: null
+              skuCode:
+                  type: string
+                  value: null
+              importCountryCode:
+                  type: string
+                  value: null
+              productLink:
+                  type: string
+                  value: null
+              categoryHint:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              needInfoHint:
+                  type: string
+                  value: null
+              profileSnapshot:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: kb-carriability-deep
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 707
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # KB：新品承运深判
+
+                        > 来源：docs/sku/flows/01 · 相对 registration-guide 浅层的加深判路径
+
+                        ## 与浅层的分工
+
+                        - **浅层**（registration-guide）：禁限运清单自查 + 引导注册。
+                        - **本专家深判**：清单未覆盖、品类争议、需登记注册组审核、或客户坚持要「能不能发」的结论。
+
+                        ## 对客处理
+
+                        1. 确认 **商品链接/清晰图片**、**目的国家**、建议确认运输方式（空/海/直发）。
+                        2. 引导客户在万邑联 **公告** 下载最新 **WINIT 禁限运清单** 再核一次品类与国别。
+                        3. 清单明确禁限 → `complianceVerdict=fail`，说明不可发/不可入的依据为清单品类。
+                        4. 清单未命中且无历史结论 → **无法由机器人下最终承运结论**：
+                           - 引导完成商品注册由专人审核；或
+                           - 说明需转人工/注册组登记咨询（咨询类型、仓库、链接、目的国、运输方式）。
+                        5. 不要编造「已通过承运审核」；无系统结论时 `uncertain` 或 `need_human`。
+
+                        ## 历史咨询清单 / 任务单 API
+
+                        当前无可靠结构化 API → 不假装已匹配历史清单；缺材料时 `need_info`，需人工审核时 `need_human`。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: text
+      title: kb-restricted
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 947
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # KB：禁限运细则
+
+                        > 来源：flows/01 · 公告禁限运清单（无独立查询 API）
+
+                        ## 查询路径
+
+                        万邑联 → **公告** → 搜索「禁限运清单」→ 下载最新版 → 按品类与目的国核对。
+
+                        ## 对客要点
+
+                        1. 禁限运以**目的国 + 品类**为准，勿用他国结论套用。
+                        2. 清单命中 → 明确告知不可发/不可入及建议（改品类说明、换目的国、或不走海外仓）。
+                        3. 清单未写清或客户品类描述含糊 → 收集链接/图片 + 国别后转人工或引导注册审核。
+                        4. **无结构化禁限运 API**：不要声称「系统已自动比对清单」。
+
+                        ## 与证书/属性
+
+                        纯电、液体、磁性、粉末、DG 等可能同时涉及特殊属性与证书 → 可交叉引用证书 KB；操作勾选属性属 registration-guide。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163003"
+      type: text
+      title: kb-certificates
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # KB：证书齐备（MSDS / UN38.3 / GPSR 等）
+
+                        > 来源：docs/sku/flows/07、05
+
+                        ## 上传路径
+
+                        万邑联 → 商品管理 → 商品信息 → 点击 SKU → 商品详情 → **资料证书** → 国家选 **ALL**（或按指引选国）→ 选择证书类型 → 提交。
+
+                        ## 电池 / DG
+
+                        头程常要求：含电池商品须 **当年有效期内** 的 **MSDS（SDS）+ UN38.3**，且与商品匹配。
+
+                        | 情况 | 动作 |
+                        |------|------|
+                        | 过期/缺失/不一致 | 按上路径上传有效文件 |
+                        | 确认已上传仍报错 | `need_human` 排查 |
+
+                        客户发 SDS 问「能不能用」→ 引导先注册/选定 SKU 并在资料证书栏上传后提交审核，避免口头预审。
+
+                        ## GPSR 与禁售
+
+                        未关联 GPSR → 库存可能出现 **不合规禁售**。解除：在系统完成 GPSR 信息关联。禁售数量细节在库存查询（非本专家主责）。
+
+                        ## 禁止入库常见文案
+
+                        纯电或 DG 未提供有效期内 SDS 及 UN38.3 → 无法接收入库。补齐路径同上。
+
+                        ## missingDocuments 示例
+
+                        - `MSDS` / `UN38.3` / `GPSR` / `WEEE注册号` / `德语说明书` 等，按客户问题与档案摘要列出，勿编造已上传。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163004"
+      type: text
+      title: kb-weee
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # KB：德国 WEEE 类别
+
+                        > 来源：flows/07 · appendix/weee-categories-de.md
+
+                        ## 查询路径
+
+                        商品编辑 → 进口国 **德国** → 字段 **WEEE 类别**（及需 WEEE 注册号、需 GPSR、德语说明书等勾选）。
+
+                        ## 六类摘要（对客）
+
+                        | 类 | 名称 | 要点 |
+                        |----|------|------|
+                        | 1 | 温度交换设备 | 制冷/加热/除湿等热交换 |
+                        | 2 | 屏幕/显示器 | 以显示为主；屏面积≥100cm² 等 |
+                        | 3 | 灯具 | 可更换电光源 |
+                        | 4 | 大型设备 | 任意外部尺寸 **>50cm**，且非 1–3 |
+                        | 5 | 小型设备 | 最大尺寸 **≤50cm**，非 1–4、6 |
+                        | 6 | 小型 IT/电信 | ≤50cm 信息通讯设备 |
+
+                        ## 对客话术
+
+                        1. 若档案/系统有显示类别 → 引用该类别并附定义摘要。
+                        2. 客户异议 → 请其提供认为正确的类别及依据（用途、尺寸、是否含屏），提交复核 → 常 `need_human`。
+                        3. 无 sku / 无系统值 → `need_info` 或引导打开商品详情查看后再判。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163005"
+      type: text
+      title: kb-ecommerce
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # KB：电商清关销售链接（海关建议申报价）
+
+                        > 来源：flows/07 · appendix/ecommerce-clearance-link-rules.md
+
+                        ## 场景
+
+                        SKU 未获取海关建议申报价；客户问链接是否合规。欧盟海关依据合规销售链接审核，周期通常 **1–3 个工作日**。
+
+                        ## 链接要求摘要
+
+                        1. 真实可交易、有库存  
+                        2. 链接商品与实物一致  
+                        3. 单一售卖（非捆绑/拍卖）  
+                        4. 新品非二手  
+                        5. 使用 **Amazon 或 eBay**；亚马逊须 AMAZON 派送或欧盟本地派送  
+                        6. 欧洲站点刊登（ITEM LOCATION 为欧洲）  
+                        7. 售价与尾程运费不倒挂（推荐 FREE SHIPPING）  
+                        8. 报关价与注册价差 **≤20%**；尺重与刊登/实物一致  
+                        9. 多属性须带 **var**；海关可能取最高价  
+                        10. Amazon 域名含 `pd`/`product` 及 ASIN；eBay 含 12 位 ITEM ID  
+
+                        ## 对客流程
+
+                        1. 按上表自查已提交链接  
+                        2. 不合规 → 修改后重提  
+                        3. 看似合规 → 说明等待海关回传（1–3 工作日），`uncertain` 直至有价  
+                        4. 超时仍无结果 → `need_human`
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163006"
+      type: text
+      title: kb-brand
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # KB：品牌备案与熏蒸
+
+                        > 来源：flows/07
+
+                        ## 品牌备案
+
+                        引导客户自行在目的国商标官网检索；若已备案须提供**品牌授权文件**。
+
+                        | 国家 | 查询入口（对客可给官网） |
+                        |------|--------------------------|
+                        | 中国 | 国家知识产权相关商标检索站点 |
+                        | 美国 / 英国等 | CBP IPRS 等官方检索 |
+                        | 德国 | DPMA 商标检索 |
+                        | 澳大利亚 | IP Australia |
+                        | 加拿大 | CIPO |
+
+                        不确定是否备案或授权文件是否够 → `need_human`，勿编造「已备案通过」。
+
+                        ## 澳大利亚熏蒸
+
+                        发往澳大利亚的**非密度板**木质产品通常需熏蒸；**密度板（MDF）** 一般无需熏蒸。材料不清时请客户确认材质或转人工。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163007"
+      type: text
+      title: kb-unban-deep
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # KB：解禁条件深判
+
+                        > 来源：flows/05 · 相对 registration-guide `guide_unban` 浅层
+
+                        ## 分工
+
+                        | 层级 | 专家 | 覆盖 |
+                        |------|------|------|
+                        | 浅层 | registration-guide | 已有明确禁止标记：补资料、改属性、看待办路径 |
+                        | 深判 | 本专家 | 无现成标记或规则未覆盖：品类/国别细则、证书是否齐备、解禁**条件是否满足** |
+
+                        ## 判定原则
+
+                        1. 若 `profileSnapshot` / 合规摘要显示 `prohibitSource=manual` → **优先 `need_human`**，勿教客户自助解人工禁。
+                        2. 系统规则类（缺证、缺 GPSR、禁限运命中）→ 列出 `missingDocuments` 与补齐路径；条件未满足则 `complianceVerdict=fail`。
+                        3. 客户称「资料已齐仍禁」→ `need_human` 排查拦截明细。
+                        4. 禁售数量在库存查询；本专家解释原因与条件，不报库存数量。
+
+                        ## 常见条件
+
+                        - 有效期内 MSDS + UN38.3（电池/DG）
+                        - GPSR 关联完成
+                        - WEEE / 说明书等国别勾选项完成
+                        - 禁限运品类本身不可解 → `fail` + 说明不可发
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163008"
+      type: text
+      title: kb-declaration
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # KB：申报要素争议
+
+                        > 来源：flows/07 · 申报 API Gap，以 KB + 档案摘要为准
+
+                        ## 要点
+
+                        1. 申报品名、HS、申报要素因**进口国**而异；建议提供 `importCountryCode`。
+                        2. 有商品编码时，可引用档案摘要中的申报相关字段（若有）；**无字段勿编造 HS/品名**。
+                        3. 客户对系统申报要素有异议 → 收集其主张的正确要素与依据 → 多数需 `need_human` 提交复核。
+                        4. 操作修改路径属商品编辑/注册引导；本专家侧重「是否合规/缺什么」判定。
+
+                        ## 与电清关
+
+                        海关建议申报价依赖合规销售链接 → 见电清关 KB。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163009"
+      type: code
+      title: resolve-compliance-fetch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2627
+      parameters:
+          code: |-
+              /**
+               * 节点：按 intent 决定是否拉 page.list facts_compliance
+               */
+
+              const FETCH_INTENTS = new Set([
+                "certificates",
+                "weee",
+                "unban_deep",
+                "declaration",
+                "restricted",
+              ]);
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : v == null ? "" : String(v).trim();
+              }
+
+              function asRecord(v: unknown): Record<string, unknown> {
+                return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+              }
+
+              function hasProfileSnapshot(snap: Record<string, unknown>): boolean {
+                return Array.isArray(snap.skus) && snap.skus.length > 0;
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const intentType = str(params.intentType).toLowerCase() || "general";
+                const skuCode = str(params.skuCode);
+                const importCountryCode = str(params.importCountryCode).toUpperCase();
+                const profileSnapshot = asRecord(params.profileSnapshot);
+
+                if (!skuCode) {
+                  return {
+                    shouldFetch: false,
+                    fetchProfile: "",
+                    skipApi: true,
+                    skuCode: "",
+                    importCountryCode,
+                    intentType,
+                    reuseProfileSnapshot: false,
+                  };
+                }
+
+                if (hasProfileSnapshot(profileSnapshot) && FETCH_INTENTS.has(intentType)) {
+                  return {
+                    shouldFetch: false,
+                    fetchProfile: "facts_compliance",
+                    skipApi: true,
+                    skuCode,
+                    importCountryCode,
+                    intentType,
+                    reuseProfileSnapshot: true,
+                  };
+                }
+
+                if (FETCH_INTENTS.has(intentType)) {
+                  return {
+                    shouldFetch: true,
+                    fetchProfile: "facts_compliance",
+                    skipApi: false,
+                    skuCode,
+                    importCountryCode,
+                    intentType,
+                    reuseProfileSnapshot: false,
+                  };
+                }
+
+                // carriability_deep / ecommerce / brand / general — 默认不拉（链接向）
+                return {
+                  shouldFetch: false,
+                  fetchProfile: "",
+                  skipApi: true,
+                  skuCode,
+                  importCountryCode,
+                  intentType,
+                  reuseProfileSnapshot: hasProfileSnapshot(profileSnapshot),
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("resolve-compliance-fetch")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: intentType
+                input:
+                    value:
+                        path: intentType
+                        ref_node: "163000"
+              - name: skuCode
+                input:
+                    value:
+                        path: skuCode
+                        ref_node: "163000"
+              - name: importCountryCode
+                input:
+                    value:
+                        path: importCountryCode
+                        ref_node: "163000"
+              - name: profileSnapshot
+                input:
+                    value:
+                        path: profileSnapshot
+                        ref_node: "163000"
+          node_outputs:
+              shouldFetch:
+                  type: boolean
+                  value: null
+              fetchProfile:
+                  type: string
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+              skuCode:
+                  type: string
+                  value: null
+              importCountryCode:
+                  type: string
+                  value: null
+              intentType:
+                  type: string
+                  value: null
+              reuseProfileSnapshot:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163010"
+      type: code
+      title: build-compliance-page-list
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 2867
+      parameters:
+          code: |-
+              /* coze-inline: shared/sku-item-page-list.ts */
+              /**
+               * winit.item.page.list — 请求组装与响应剪枝映射（SKU 域共享）
+               * Coze 导出时由 bundle 内联到代码节点。
+               */
+
+              const PAGE_LIST_ACTION = "winit.item.page.list";
+
+              type FetchProfile =
+                | "facts_core"
+                | "audit_status"
+                | "barcode_third"
+                | "supplement_third_sku"
+                | "facts_compliance"
+                | "minimal";
+
+              const VALID_PROFILES = new Set<string>([
+                "facts_core",
+                "audit_status",
+                "barcode_third",
+                "supplement_third_sku",
+                "facts_compliance",
+                "minimal",
+              ]);
+
+              function normalizeFetchProfile(v: unknown): FetchProfile {
+                const s = typeof v === "string" ? v.trim() : "";
+                if (VALID_PROFILES.has(s)) return s as FetchProfile;
+                return "facts_core";
+              }
+
+              function asText(v: unknown): string {
+                return typeof v === "string" ? v.trim() : v == null ? "" : String(v).trim();
+              }
+
+              function asRecord(v: unknown): Record<string, unknown> {
+                return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+              }
+
+              function ynTrue(v: unknown): boolean {
+                const s = asText(v).toUpperCase();
+                return s === "Y" || s === "TRUE" || s === "1";
+              }
+
+              function num(v: unknown): number | null {
+                if (v == null || v === "") return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+              }
+
+              function toStatusInt(v: unknown): number | null {
+                if (v == null || v === "") return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+              }
+
+              function truncateForLlm(script: string, maxLen = 500): string {
+                const s = asText(script);
+                if (s.length <= maxLen) return s;
+                return `${s.slice(0, maxLen)}…（详见万邑联）`;
+              }
+
+              function mapPublishStatus(status: unknown): string {
+                const n = toStatusInt(status);
+                switch (n) {
+                  case 1:
+                  case 2:
+                    return "draft";
+                  case 3:
+                    return "auditing";
+                  case 4:
+                    return "published";
+                  case 5:
+                    return "returned";
+                  case 6:
+                    return "inactive";
+                  default: {
+                    // legacy flat isActive fallback
+                    const active = asText(status).toUpperCase();
+                    if (active === "Y") return "published";
+                    if (active === "N") return "inactive";
+                    return "draft";
+                  }
+                }
+              }
+
+              function shouldExposeReturnFields(
+                itemStatus: unknown,
+                declaration: Record<string, unknown> | null
+              ): boolean {
+                const item = toStatusInt(itemStatus);
+                if (item === 5) return true;
+                if (item === 4 && declaration) {
+                  const changeStatus = toStatusInt(declaration.changeStatus);
+                  return changeStatus === 5;
+                }
+                return false;
+              }
+
+              type AttrRow = {
+                attributeName?: unknown;
+                attributeValue?: unknown;
+                areaCode?: unknown;
+              };
+
+              function attrNameKey(name: unknown): string {
+                return asText(name).toLowerCase();
+              }
+
+              /**
+               * 按进口国匹配 attributes：优先精确国别 → ALL → null/空 → 首个同名
+               */
+              function pickAttr(
+                attrs: unknown,
+                name: string,
+                country?: string
+              ): AttrRow | null {
+                if (!Array.isArray(attrs)) return null;
+                const want = attrNameKey(name);
+                const rows = attrs.filter(
+                  (a) => a && typeof a === "object" && attrNameKey((a as AttrRow).attributeName) === want
+                ) as AttrRow[];
+                if (rows.length === 0) return null;
+                const c = asText(country).toUpperCase();
+                if (c) {
+                  const exact = rows.find((r) => asText(r.areaCode).toUpperCase() === c);
+                  if (exact) return exact;
+                }
+                const all = rows.find((r) => asText(r.areaCode).toUpperCase() === "ALL");
+                if (all) return all;
+                const global = rows.find((r) => !asText(r.areaCode));
+                if (global) return global;
+                return rows[0] ?? null;
+              }
+
+              function pickAttrValue(attrs: unknown, name: string, country?: string): string {
+                const row = pickAttr(attrs, name, country);
+                return row ? asText(row.attributeValue) : "";
+              }
+
+              function pickDeclaration(
+                declarations: unknown,
+                country?: string
+              ): Record<string, unknown> | null {
+                if (!Array.isArray(declarations) || declarations.length === 0) return null;
+                const rows = declarations.filter((d) => d && typeof d === "object") as Record<string, unknown>[];
+                if (rows.length === 0) return null;
+                const c = asText(country).toUpperCase();
+                if (c) {
+                  const exact = rows.find((r) => asText(r.countryCode).toUpperCase() === c);
+                  if (exact) return exact;
+                }
+                return rows[0] ?? null;
+              }
+
+              type BuildPageListOpts = {
+                skuCodes?: string[];
+                importCountryCode?: string;
+                fetchProfile?: FetchProfile | string;
+                thirdItemCodes?: string[];
+                pageNo?: number;
+                pageSize?: number;
+              };
+
+              function buildPageListData(opts: BuildPageListOpts): Record<string, unknown> {
+                const profile = normalizeFetchProfile(opts.fetchProfile);
+                const codes = (opts.skuCodes ?? []).map((c) => asText(c)).filter(Boolean);
+                const pageNo = opts.pageNo ?? 1;
+                let pageSize = opts.pageSize ?? Math.min(Math.max(codes.length, 1), 20);
+                if (profile === "supplement_third_sku") {
+                  pageSize = Math.min(opts.pageSize ?? 50, 50);
+                } else {
+                  pageSize = Math.min(pageSize, 20);
+                }
+
+                const data: Record<string, unknown> = {
+                  pageVo: { pageNo, pageSize },
+                  conditionQueryType: "equals",
+                };
+
+                const country = asText(opts.importCountryCode);
+                if (country) data.importCountryCode = country;
+
+                if (profile === "supplement_third_sku") {
+                  data.querySupplementType = "SUPPLEMENT_THRID_SKU";
+                  if (codes.length > 0) data.skuCodes = codes;
+                  return data;
+                }
+
+                if (codes.length > 0) data.skuCodes = codes;
+
+                const thirds = (opts.thirdItemCodes ?? []).map((c) => asText(c)).filter(Boolean);
+                if (thirds.length > 0) data.thirdItemCodes = thirds;
+
+                if (profile === "audit_status") {
+                  data.queryType = "REGISTERING";
+                }
+
+                return data;
+              }
+
+              function buildPageListAction(opts: BuildPageListOpts): {
+                action: string;
+                data: string;
+              } {
+                return {
+                  action: PAGE_LIST_ACTION,
+                  data: JSON.stringify(buildPageListData(opts)),
+                };
+              }
+
+              function mapFirstLegType(
+                firstLegType: string
+              ): { directShipmentRestriction: string | null; prohibitInboundFromLeg: boolean } {
+                const t = firstLegType.toUpperCase();
+                if (t === "NS") return { directShipmentRestriction: "seller_direct", prohibitInboundFromLeg: false };
+                if (t === "NL") return { directShipmentRestriction: "unlimited", prohibitInboundFromLeg: false };
+                if (t === "PI") return { directShipmentRestriction: null, prohibitInboundFromLeg: true };
+                return { directShipmentRestriction: null, prohibitInboundFromLeg: false };
+              }
+
+              type MapItemOpts = {
+                fetchProfile?: FetchProfile | string;
+                importCountryCode?: string;
+                requestedSkuCode?: string;
+              };
+
+              /**
+               * 将 page.list 单条 raw item 映射为 profile 契约（按 fetchProfile 裁剪字段）
+               */
+              function mapItemToProfile(
+                raw: Record<string, unknown>,
+                opts: MapItemOpts = {}
+              ): Record<string, unknown> {
+                const profile = normalizeFetchProfile(opts.fetchProfile);
+                const country = asText(opts.importCountryCode);
+                const requested = asText(opts.requestedSkuCode) || asText(raw.skuCode);
+                const attrs = raw.attributes;
+                const decl = pickDeclaration(raw.declarations, country);
+                const sw = asRecord(raw.sizeWeight);
+                const status = raw.status ?? raw.isActive;
+
+                const supervisorMode =
+                  pickAttrValue(attrs, "supervisorMode", country) || asText(raw.supervisorMode) || null;
+                const packaging =
+                  pickAttrValue(attrs, "packaging", country) ||
+                  pickAttrValue(attrs, "itemPackaging", country) ||
+                  asText(raw.itemPackaging) ||
+                  null;
+
+                const firstLegRaw =
+                  (decl ? asText(decl.firstLegType) : "") ||
+                  pickAttrValue(attrs, "firstLegType", country);
+                // attributes.firstLegType 用 NS/NL/PI；declarations.firstLegType 可能是 AIR/SEA — 仅当是限制码时映射
+                const firstLegForLimit = /^(NS|NL|PI)$/i.test(firstLegRaw)
+                  ? firstLegRaw
+                  : pickAttrValue(attrs, "firstLegType", country);
+                const leg = mapFirstLegType(firstLegForLimit);
+
+                const prohibitFromDecl = decl ? ynTrue(decl.isProhibitWarehousing) : false;
+                const prohibitInbound = prohibitFromDecl || leg.prohibitInboundFromLeg;
+
+                const regLen = num(sw.registerLength ?? raw.registerLength);
+                const regWidth = num(sw.registerWidth ?? raw.registerWidth);
+                const regHeight = num(sw.registerHeight ?? raw.registerHeight);
+                const regWeight = num(sw.registerWeight ?? raw.registerWeight);
+                const hasReg = regLen != null || regWidth != null || regHeight != null || regWeight != null;
+
+                const verLen = num(sw.length);
+                const verWidth = num(sw.width);
+                const verHeight = num(sw.height);
+                const verWeight = num(sw.weight);
+                const hasVer = verLen != null || verWidth != null || verHeight != null || verWeight != null;
+
+                const battery = ynTrue(pickAttrValue(attrs, "battery", country) || raw.isBattery);
+                const liquid = ynTrue(pickAttrValue(attrs, "liquid", country) || raw.isWithLiquid);
+                const powder = ynTrue(pickAttrValue(attrs, "powder", country) || raw.isWithPowder);
+                const magnetism = ynTrue(pickAttrValue(attrs, "magnetism", country) || raw.isWithMagnetism);
+                const food = ynTrue(pickAttrValue(attrs, "food", country) || raw.isFood);
+                const dg = ynTrue(pickAttrValue(attrs, "dg", country));
+                const fragile = ynTrue(pickAttrValue(attrs, "fragileLabel", country));
+
+                const batchMgmt = ynTrue(
+                  pickAttrValue(attrs, "batchManagement", country) || raw.isBatchManager
+                );
+                const batchType =
+                  pickAttrValue(attrs, "batchManagementType", country) || asText(raw.batchManagerType) || null;
+
+                const exposeReturn = shouldExposeReturnFields(raw.status, decl);
+                const returnReason = exposeReturn && decl ? asText(decl.returnReason) || null : null;
+                const standardScript = exposeReturn && decl ? asText(decl.standardScript) || null : null;
+
+                const estimateAuditDate = pickAttrValue(attrs, "estimateAuditDate", country) || null;
+                const isUrgentRaw = pickAttrValue(attrs, "isUrgent", country);
+                const isUrgent = isUrgentRaw ? ynTrue(isUrgentRaw) : null;
+
+                const skuCodeThirds = Array.isArray(raw.skuCodeThirds)
+                  ? (raw.skuCodeThirds as unknown[]).map((x) => asText(x)).filter(Boolean)
+                  : [];
+                const isSupportThirdSkuRaw = pickAttrValue(attrs, "isSupportThirdSku", country);
+                const isSupportThirdSku = isSupportThirdSkuRaw ? ynTrue(isSupportThirdSkuRaw) : null;
+
+                const hasSuit = ynTrue(pickAttrValue(attrs, "hasSuitBoxItem", country));
+                const typeHint = hasSuit ? "SUITE" : null;
+
+                const base: Record<string, unknown> = {
+                  skuCode: asText(raw.skuCode) || requested,
+                  code: asText(raw.code) || null,
+                  specification: asText(raw.specification) || null,
+                  isActive: asText(raw.isActive) || null,
+                  publishStatus: mapPublishStatus(status),
+                  _requestedSkuCode: requested || asText(raw.skuCode),
+                  dataSource: "api",
+                  confidence: "high",
+                };
+
+                if (profile === "minimal") {
+                  return base;
+                }
+
+                if (profile === "barcode_third") {
+                  return {
+                    ...base,
+                    supervisorMode,
+                    skuCodeThirds,
+                    isSupportThirdSku,
+                    managementMode: { supervisorMode, isBatchManager: false, batchManagerType: null, hasExpiry: false },
+                  };
+                }
+
+                if (profile === "audit_status") {
+                  return {
+                    ...base,
+                    supervisorMode,
+                    rejectReason: returnReason,
+                    standardScript,
+                    estimateAuditDate: estimateAuditDate || null,
+                    isUrgent,
+                    prohibitInbound,
+                    directShipmentRestriction: leg.directShipmentRestriction,
+                  };
+                }
+
+                // facts_core / facts_compliance / default
+                const out: Record<string, unknown> = {
+                  ...base,
+                  supervisorMode,
+                  type: typeHint,
+                  itemPackaging: packaging,
+                  prohibitInbound,
+                  prohibitOutbound: false,
+                  prohibitReason: null,
+                  prohibitSource: "unknown",
+                  prohibitInboundReason: prohibitInbound ? "isProhibitWarehousing_or_PI" : null,
+                  directShipmentRestriction: leg.directShipmentRestriction,
+                  restrictionReason: null,
+                  rejectReason: returnReason,
+                  standardScript,
+                  estimateAuditDate: estimateAuditDate || null,
+                  isUrgent,
+                  itemType: null,
+                  registeredDimensions: hasReg
+                    ? { length: regLen, width: regWidth, height: regHeight, weight: regWeight, unit: "kg" }
+                    : null,
+                  verifiedDimensions: hasVer
+                    ? { length: verLen, width: verWidth, height: verHeight, weight: verWeight, unit: "kg" }
+                    : null,
+                  specialFlags: {
+                    isBattery: battery,
+                    isWithLiquid: liquid,
+                    isWithPowder: powder,
+                    isWithMagnetism: magnetism,
+                    isFood: food,
+                    isDangerous: dg,
+                    isFragile: fragile,
+                  },
+                  managementMode: {
+                    supervisorMode,
+                    isBatchManager: batchMgmt,
+                    batchManagerType: batchType,
+                    hasExpiry: asText(batchType).toUpperCase().includes("SHELF") || asText(batchType).includes("ED"),
+                  },
+                  applicableRules: [] as string[],
+                  handlingRequirements: [] as string[],
+                };
+
+                if (battery) {
+                  (out.applicableRules as string[]).push("带电品需填报电池信息");
+                }
+
+                if (profile === "facts_compliance") {
+                  out.hsCode = decl ? asText(decl.hsCode) || null : null;
+                  out.declareName = decl ? asText(decl.declareName) || null : null;
+                  out.itemLink = pickAttrValue(attrs, "itemLink", country) || null;
+                  out.dg = dg;
+                }
+
+                if (skuCodeThirds.length > 0) out.skuCodeThirds = skuCodeThirds;
+
+                return out;
+              }
+
+              function buildAuditStatusHint(profile: Record<string, unknown>, skuCode: string): string {
+                const parts: string[] = [];
+                const code = asText(profile.skuCode) || skuCode;
+                parts.push(`SKU ${code}`);
+                const ps = asText(profile.publishStatus);
+                if (ps) parts.push(`发布态：${ps}`);
+                const est = asText(profile.estimateAuditDate);
+                if (est) {
+                  parts.push(`应维护完成时间：${est}`);
+                } else {
+                  parts.push("应维护完成时间：暂无（请在万邑联商品维护任务中核实）");
+                }
+                if (profile.isUrgent === true) parts.push("已加急：是");
+                if (profile.isUrgent === false) parts.push("已加急：否");
+                const reject = asText(profile.rejectReason);
+                const script = truncateForLlm(asText(profile.standardScript), 500);
+                if (reject) parts.push(`退回原因：${reject}`);
+                if (script) parts.push(`退回说明：${script}`);
+                return parts.join("；");
+              }
+
+              const DROPPED_SECTIONS = ["outPackaging", "translates", "rawAttributes", "fullDeclarations"];
+
+              /**
+               * 从 plugin / workflow 解析出的 payload 中提取 list[]
+               */
+              function coercePageList(parsed: unknown): {
+                list: Record<string, unknown>[];
+                totalCount: number | null;
+              } {
+                if (parsed == null) return { list: [], totalCount: null };
+                if (Array.isArray(parsed)) {
+                  return {
+                    list: parsed.filter((x) => x && typeof x === "object") as Record<string, unknown>[],
+                    totalCount: parsed.length,
+                  };
+                }
+                if (typeof parsed !== "object") return { list: [], totalCount: null };
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coercePageList(o.output);
+                if (o.code === "0" || o.code === 0) return coercePageList(o.data);
+                if (Array.isArray(o.list)) {
+                  return {
+                    list: o.list.filter((x) => x && typeof x === "object") as Record<string, unknown>[],
+                    totalCount: num(o.totalCount) ?? o.list.length,
+                  };
+                }
+                if (o.skuCode != null || o.code != null) {
+                  return { list: [o], totalCount: 1 };
+                }
+                return { list: [], totalCount: null };
+              }
+
+              /* coze-inline: node */
+              /**
+               * 节点：组装 facts_compliance page.list action
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : v == null ? "" : String(v).trim();
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skipApi = params.skipApi === true || params.shouldFetch === false;
+                const skuCode = str(params.skuCode);
+                const importCountryCode = str(params.importCountryCode);
+                const fetchProfile = params.fetchProfile
+                  ? normalizeFetchProfile(params.fetchProfile)
+                  : "facts_compliance";
+
+                if (skipApi || !skuCode) {
+                  return {
+                    actions: [],
+                    actionPlans: [],
+                    winitPluginBatchActionsCount: 0,
+                    actionName: PAGE_LIST_ACTION,
+                    fetchProfile,
+                    skipApi: true,
+                  };
+                }
+
+                const action = buildPageListAction({
+                  skuCodes: [skuCode],
+                  importCountryCode: importCountryCode || undefined,
+                  fetchProfile: "facts_compliance",
+                });
+
+                return {
+                  actions: [action],
+                  actionPlans: [{ inputToken: skuCode, skuCode }],
+                  winitPluginBatchActionsCount: 1,
+                  actionName: PAGE_LIST_ACTION,
+                  fetchProfile,
+                  skipApi: false,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("build-compliance-page-list")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: shouldFetch
+                input:
+                    value:
+                        path: shouldFetch
+                        ref_node: "163009"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163009"
+              - name: skuCode
+                input:
+                    value:
+                        path: skuCode
+                        ref_node: "163009"
+              - name: importCountryCode
+                input:
+                    value:
+                        path: importCountryCode
+                        ref_node: "163009"
+              - name: fetchProfile
+                input:
+                    value:
+                        path: fetchProfile
+                        ref_node: "163009"
+          node_outputs:
+              actions:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                      properties:
+                          action:
+                              type: string
+                              value: null
+                          data:
+                              type: string
+                              value: null
+                  value: null
+              actionPlans:
+                  type: list
+                  items:
+                      type: object
+                      value: null
+                  value: null
+              winitPluginBatchActionsCount:
+                  type: integer
+                  value: null
+              actionName:
+                  type: string
+                  value: null
+              fetchProfile:
+                  type: string
+                  value: null
+              skipApi:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163011"
+      type: plugin
+      title: winit_item_page_list_compliance
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: Winit openapi 透传请求
+      position:
+          x: 480
+          y: 3107
+      parameters:
+          apiParam:
+              - name: apiID
+                input:
+                    type: string
+                    value: "7618114590886379526"
+              - name: apiName
+                input:
+                    type: string
+                    value: cobra_winit_openapi_request
+              - name: pluginID
+                input:
+                    type: string
+                    value: "7473322438084935720"
+              - name: pluginName
+                input:
+                    type: string
+                    value: cobra_agent_http
+              - name: pluginVersion
+                input:
+                    type: string
+                    value: "0"
+              - name: tips
+                input:
+                    type: string
+                    value: ""
+              - name: outDocLink
+                input:
+                    type: string
+                    value: ""
+          batch:
+              batchEnable: true
+              batchSize: 5
+              concurrentSize: 3
+              inputLists:
+                  - name: item
+                    input:
+                        value:
+                            path: actions
+                            ref_node: "163010"
+          node_inputs:
+              - name: action
+                input:
+                    type: string
+                    value:
+                        path: item.action
+                        ref_node: "163011"
+              - name: customerCode
+                input:
+                    value:
+                        path: customerCode
+                        ref_node: "100001"
+              - name: customerName
+                input:
+                    value:
+                        path: customerName
+                        ref_node: "100001"
+              - name: data
+                input:
+                    type: string
+                    value:
+                        path: item.data
+                        ref_node: "163011"
+              - name: username
+                input:
+                    value:
+                        path: username
+                        ref_node: "100001"
+              - name: language
+                input:
+                    value:
+                        path: language
+                        ref_node: "100001"
+          node_outputs:
+              outputList:
+                  type: list
+                  items:
+                      type: object
+                      properties:
+                          code:
+                              type: integer
+                              required: true
+                              value: null
+                          data:
+                              type: string
+                              required: true
+                              value: null
+                          msg:
+                              type: string
+                              required: true
+                              value: null
+                      value: null
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 180000
+    - id: "163012"
+      type: code
+      title: fetch-compliance-snapshot
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3347
+      parameters:
+          code: |-
+              /* coze-inline: shared/sku-item-page-list.ts */
+              /**
+               * winit.item.page.list — 请求组装与响应剪枝映射（SKU 域共享）
+               * Coze 导出时由 bundle 内联到代码节点。
+               */
+
+              const PAGE_LIST_ACTION = "winit.item.page.list";
+
+              type FetchProfile =
+                | "facts_core"
+                | "audit_status"
+                | "barcode_third"
+                | "supplement_third_sku"
+                | "facts_compliance"
+                | "minimal";
+
+              const VALID_PROFILES = new Set<string>([
+                "facts_core",
+                "audit_status",
+                "barcode_third",
+                "supplement_third_sku",
+                "facts_compliance",
+                "minimal",
+              ]);
+
+              function normalizeFetchProfile(v: unknown): FetchProfile {
+                const s = typeof v === "string" ? v.trim() : "";
+                if (VALID_PROFILES.has(s)) return s as FetchProfile;
+                return "facts_core";
+              }
+
+              function asText(v: unknown): string {
+                return typeof v === "string" ? v.trim() : v == null ? "" : String(v).trim();
+              }
+
+              function asRecord(v: unknown): Record<string, unknown> {
+                return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+              }
+
+              function ynTrue(v: unknown): boolean {
+                const s = asText(v).toUpperCase();
+                return s === "Y" || s === "TRUE" || s === "1";
+              }
+
+              function num(v: unknown): number | null {
+                if (v == null || v === "") return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+              }
+
+              function toStatusInt(v: unknown): number | null {
+                if (v == null || v === "") return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+              }
+
+              function truncateForLlm(script: string, maxLen = 500): string {
+                const s = asText(script);
+                if (s.length <= maxLen) return s;
+                return `${s.slice(0, maxLen)}…（详见万邑联）`;
+              }
+
+              function mapPublishStatus(status: unknown): string {
+                const n = toStatusInt(status);
+                switch (n) {
+                  case 1:
+                  case 2:
+                    return "draft";
+                  case 3:
+                    return "auditing";
+                  case 4:
+                    return "published";
+                  case 5:
+                    return "returned";
+                  case 6:
+                    return "inactive";
+                  default: {
+                    // legacy flat isActive fallback
+                    const active = asText(status).toUpperCase();
+                    if (active === "Y") return "published";
+                    if (active === "N") return "inactive";
+                    return "draft";
+                  }
+                }
+              }
+
+              function shouldExposeReturnFields(
+                itemStatus: unknown,
+                declaration: Record<string, unknown> | null
+              ): boolean {
+                const item = toStatusInt(itemStatus);
+                if (item === 5) return true;
+                if (item === 4 && declaration) {
+                  const changeStatus = toStatusInt(declaration.changeStatus);
+                  return changeStatus === 5;
+                }
+                return false;
+              }
+
+              type AttrRow = {
+                attributeName?: unknown;
+                attributeValue?: unknown;
+                areaCode?: unknown;
+              };
+
+              function attrNameKey(name: unknown): string {
+                return asText(name).toLowerCase();
+              }
+
+              /**
+               * 按进口国匹配 attributes：优先精确国别 → ALL → null/空 → 首个同名
+               */
+              function pickAttr(
+                attrs: unknown,
+                name: string,
+                country?: string
+              ): AttrRow | null {
+                if (!Array.isArray(attrs)) return null;
+                const want = attrNameKey(name);
+                const rows = attrs.filter(
+                  (a) => a && typeof a === "object" && attrNameKey((a as AttrRow).attributeName) === want
+                ) as AttrRow[];
+                if (rows.length === 0) return null;
+                const c = asText(country).toUpperCase();
+                if (c) {
+                  const exact = rows.find((r) => asText(r.areaCode).toUpperCase() === c);
+                  if (exact) return exact;
+                }
+                const all = rows.find((r) => asText(r.areaCode).toUpperCase() === "ALL");
+                if (all) return all;
+                const global = rows.find((r) => !asText(r.areaCode));
+                if (global) return global;
+                return rows[0] ?? null;
+              }
+
+              function pickAttrValue(attrs: unknown, name: string, country?: string): string {
+                const row = pickAttr(attrs, name, country);
+                return row ? asText(row.attributeValue) : "";
+              }
+
+              function pickDeclaration(
+                declarations: unknown,
+                country?: string
+              ): Record<string, unknown> | null {
+                if (!Array.isArray(declarations) || declarations.length === 0) return null;
+                const rows = declarations.filter((d) => d && typeof d === "object") as Record<string, unknown>[];
+                if (rows.length === 0) return null;
+                const c = asText(country).toUpperCase();
+                if (c) {
+                  const exact = rows.find((r) => asText(r.countryCode).toUpperCase() === c);
+                  if (exact) return exact;
+                }
+                return rows[0] ?? null;
+              }
+
+              type BuildPageListOpts = {
+                skuCodes?: string[];
+                importCountryCode?: string;
+                fetchProfile?: FetchProfile | string;
+                thirdItemCodes?: string[];
+                pageNo?: number;
+                pageSize?: number;
+              };
+
+              function buildPageListData(opts: BuildPageListOpts): Record<string, unknown> {
+                const profile = normalizeFetchProfile(opts.fetchProfile);
+                const codes = (opts.skuCodes ?? []).map((c) => asText(c)).filter(Boolean);
+                const pageNo = opts.pageNo ?? 1;
+                let pageSize = opts.pageSize ?? Math.min(Math.max(codes.length, 1), 20);
+                if (profile === "supplement_third_sku") {
+                  pageSize = Math.min(opts.pageSize ?? 50, 50);
+                } else {
+                  pageSize = Math.min(pageSize, 20);
+                }
+
+                const data: Record<string, unknown> = {
+                  pageVo: { pageNo, pageSize },
+                  conditionQueryType: "equals",
+                };
+
+                const country = asText(opts.importCountryCode);
+                if (country) data.importCountryCode = country;
+
+                if (profile === "supplement_third_sku") {
+                  data.querySupplementType = "SUPPLEMENT_THRID_SKU";
+                  if (codes.length > 0) data.skuCodes = codes;
+                  return data;
+                }
+
+                if (codes.length > 0) data.skuCodes = codes;
+
+                const thirds = (opts.thirdItemCodes ?? []).map((c) => asText(c)).filter(Boolean);
+                if (thirds.length > 0) data.thirdItemCodes = thirds;
+
+                if (profile === "audit_status") {
+                  data.queryType = "REGISTERING";
+                }
+
+                return data;
+              }
+
+              function buildPageListAction(opts: BuildPageListOpts): {
+                action: string;
+                data: string;
+              } {
+                return {
+                  action: PAGE_LIST_ACTION,
+                  data: JSON.stringify(buildPageListData(opts)),
+                };
+              }
+
+              function mapFirstLegType(
+                firstLegType: string
+              ): { directShipmentRestriction: string | null; prohibitInboundFromLeg: boolean } {
+                const t = firstLegType.toUpperCase();
+                if (t === "NS") return { directShipmentRestriction: "seller_direct", prohibitInboundFromLeg: false };
+                if (t === "NL") return { directShipmentRestriction: "unlimited", prohibitInboundFromLeg: false };
+                if (t === "PI") return { directShipmentRestriction: null, prohibitInboundFromLeg: true };
+                return { directShipmentRestriction: null, prohibitInboundFromLeg: false };
+              }
+
+              type MapItemOpts = {
+                fetchProfile?: FetchProfile | string;
+                importCountryCode?: string;
+                requestedSkuCode?: string;
+              };
+
+              /**
+               * 将 page.list 单条 raw item 映射为 profile 契约（按 fetchProfile 裁剪字段）
+               */
+              function mapItemToProfile(
+                raw: Record<string, unknown>,
+                opts: MapItemOpts = {}
+              ): Record<string, unknown> {
+                const profile = normalizeFetchProfile(opts.fetchProfile);
+                const country = asText(opts.importCountryCode);
+                const requested = asText(opts.requestedSkuCode) || asText(raw.skuCode);
+                const attrs = raw.attributes;
+                const decl = pickDeclaration(raw.declarations, country);
+                const sw = asRecord(raw.sizeWeight);
+                const status = raw.status ?? raw.isActive;
+
+                const supervisorMode =
+                  pickAttrValue(attrs, "supervisorMode", country) || asText(raw.supervisorMode) || null;
+                const packaging =
+                  pickAttrValue(attrs, "packaging", country) ||
+                  pickAttrValue(attrs, "itemPackaging", country) ||
+                  asText(raw.itemPackaging) ||
+                  null;
+
+                const firstLegRaw =
+                  (decl ? asText(decl.firstLegType) : "") ||
+                  pickAttrValue(attrs, "firstLegType", country);
+                // attributes.firstLegType 用 NS/NL/PI；declarations.firstLegType 可能是 AIR/SEA — 仅当是限制码时映射
+                const firstLegForLimit = /^(NS|NL|PI)$/i.test(firstLegRaw)
+                  ? firstLegRaw
+                  : pickAttrValue(attrs, "firstLegType", country);
+                const leg = mapFirstLegType(firstLegForLimit);
+
+                const prohibitFromDecl = decl ? ynTrue(decl.isProhibitWarehousing) : false;
+                const prohibitInbound = prohibitFromDecl || leg.prohibitInboundFromLeg;
+
+                const regLen = num(sw.registerLength ?? raw.registerLength);
+                const regWidth = num(sw.registerWidth ?? raw.registerWidth);
+                const regHeight = num(sw.registerHeight ?? raw.registerHeight);
+                const regWeight = num(sw.registerWeight ?? raw.registerWeight);
+                const hasReg = regLen != null || regWidth != null || regHeight != null || regWeight != null;
+
+                const verLen = num(sw.length);
+                const verWidth = num(sw.width);
+                const verHeight = num(sw.height);
+                const verWeight = num(sw.weight);
+                const hasVer = verLen != null || verWidth != null || verHeight != null || verWeight != null;
+
+                const battery = ynTrue(pickAttrValue(attrs, "battery", country) || raw.isBattery);
+                const liquid = ynTrue(pickAttrValue(attrs, "liquid", country) || raw.isWithLiquid);
+                const powder = ynTrue(pickAttrValue(attrs, "powder", country) || raw.isWithPowder);
+                const magnetism = ynTrue(pickAttrValue(attrs, "magnetism", country) || raw.isWithMagnetism);
+                const food = ynTrue(pickAttrValue(attrs, "food", country) || raw.isFood);
+                const dg = ynTrue(pickAttrValue(attrs, "dg", country));
+                const fragile = ynTrue(pickAttrValue(attrs, "fragileLabel", country));
+
+                const batchMgmt = ynTrue(
+                  pickAttrValue(attrs, "batchManagement", country) || raw.isBatchManager
+                );
+                const batchType =
+                  pickAttrValue(attrs, "batchManagementType", country) || asText(raw.batchManagerType) || null;
+
+                const exposeReturn = shouldExposeReturnFields(raw.status, decl);
+                const returnReason = exposeReturn && decl ? asText(decl.returnReason) || null : null;
+                const standardScript = exposeReturn && decl ? asText(decl.standardScript) || null : null;
+
+                const estimateAuditDate = pickAttrValue(attrs, "estimateAuditDate", country) || null;
+                const isUrgentRaw = pickAttrValue(attrs, "isUrgent", country);
+                const isUrgent = isUrgentRaw ? ynTrue(isUrgentRaw) : null;
+
+                const skuCodeThirds = Array.isArray(raw.skuCodeThirds)
+                  ? (raw.skuCodeThirds as unknown[]).map((x) => asText(x)).filter(Boolean)
+                  : [];
+                const isSupportThirdSkuRaw = pickAttrValue(attrs, "isSupportThirdSku", country);
+                const isSupportThirdSku = isSupportThirdSkuRaw ? ynTrue(isSupportThirdSkuRaw) : null;
+
+                const hasSuit = ynTrue(pickAttrValue(attrs, "hasSuitBoxItem", country));
+                const typeHint = hasSuit ? "SUITE" : null;
+
+                const base: Record<string, unknown> = {
+                  skuCode: asText(raw.skuCode) || requested,
+                  code: asText(raw.code) || null,
+                  specification: asText(raw.specification) || null,
+                  isActive: asText(raw.isActive) || null,
+                  publishStatus: mapPublishStatus(status),
+                  _requestedSkuCode: requested || asText(raw.skuCode),
+                  dataSource: "api",
+                  confidence: "high",
+                };
+
+                if (profile === "minimal") {
+                  return base;
+                }
+
+                if (profile === "barcode_third") {
+                  return {
+                    ...base,
+                    supervisorMode,
+                    skuCodeThirds,
+                    isSupportThirdSku,
+                    managementMode: { supervisorMode, isBatchManager: false, batchManagerType: null, hasExpiry: false },
+                  };
+                }
+
+                if (profile === "audit_status") {
+                  return {
+                    ...base,
+                    supervisorMode,
+                    rejectReason: returnReason,
+                    standardScript,
+                    estimateAuditDate: estimateAuditDate || null,
+                    isUrgent,
+                    prohibitInbound,
+                    directShipmentRestriction: leg.directShipmentRestriction,
+                  };
+                }
+
+                // facts_core / facts_compliance / default
+                const out: Record<string, unknown> = {
+                  ...base,
+                  supervisorMode,
+                  type: typeHint,
+                  itemPackaging: packaging,
+                  prohibitInbound,
+                  prohibitOutbound: false,
+                  prohibitReason: null,
+                  prohibitSource: "unknown",
+                  prohibitInboundReason: prohibitInbound ? "isProhibitWarehousing_or_PI" : null,
+                  directShipmentRestriction: leg.directShipmentRestriction,
+                  restrictionReason: null,
+                  rejectReason: returnReason,
+                  standardScript,
+                  estimateAuditDate: estimateAuditDate || null,
+                  isUrgent,
+                  itemType: null,
+                  registeredDimensions: hasReg
+                    ? { length: regLen, width: regWidth, height: regHeight, weight: regWeight, unit: "kg" }
+                    : null,
+                  verifiedDimensions: hasVer
+                    ? { length: verLen, width: verWidth, height: verHeight, weight: verWeight, unit: "kg" }
+                    : null,
+                  specialFlags: {
+                    isBattery: battery,
+                    isWithLiquid: liquid,
+                    isWithPowder: powder,
+                    isWithMagnetism: magnetism,
+                    isFood: food,
+                    isDangerous: dg,
+                    isFragile: fragile,
+                  },
+                  managementMode: {
+                    supervisorMode,
+                    isBatchManager: batchMgmt,
+                    batchManagerType: batchType,
+                    hasExpiry: asText(batchType).toUpperCase().includes("SHELF") || asText(batchType).includes("ED"),
+                  },
+                  applicableRules: [] as string[],
+                  handlingRequirements: [] as string[],
+                };
+
+                if (battery) {
+                  (out.applicableRules as string[]).push("带电品需填报电池信息");
+                }
+
+                if (profile === "facts_compliance") {
+                  out.hsCode = decl ? asText(decl.hsCode) || null : null;
+                  out.declareName = decl ? asText(decl.declareName) || null : null;
+                  out.itemLink = pickAttrValue(attrs, "itemLink", country) || null;
+                  out.dg = dg;
+                }
+
+                if (skuCodeThirds.length > 0) out.skuCodeThirds = skuCodeThirds;
+
+                return out;
+              }
+
+              function buildAuditStatusHint(profile: Record<string, unknown>, skuCode: string): string {
+                const parts: string[] = [];
+                const code = asText(profile.skuCode) || skuCode;
+                parts.push(`SKU ${code}`);
+                const ps = asText(profile.publishStatus);
+                if (ps) parts.push(`发布态：${ps}`);
+                const est = asText(profile.estimateAuditDate);
+                if (est) {
+                  parts.push(`应维护完成时间：${est}`);
+                } else {
+                  parts.push("应维护完成时间：暂无（请在万邑联商品维护任务中核实）");
+                }
+                if (profile.isUrgent === true) parts.push("已加急：是");
+                if (profile.isUrgent === false) parts.push("已加急：否");
+                const reject = asText(profile.rejectReason);
+                const script = truncateForLlm(asText(profile.standardScript), 500);
+                if (reject) parts.push(`退回原因：${reject}`);
+                if (script) parts.push(`退回说明：${script}`);
+                return parts.join("；");
+              }
+
+              const DROPPED_SECTIONS = ["outPackaging", "translates", "rawAttributes", "fullDeclarations"];
+
+              /**
+               * 从 plugin / workflow 解析出的 payload 中提取 list[]
+               */
+              function coercePageList(parsed: unknown): {
+                list: Record<string, unknown>[];
+                totalCount: number | null;
+              } {
+                if (parsed == null) return { list: [], totalCount: null };
+                if (Array.isArray(parsed)) {
+                  return {
+                    list: parsed.filter((x) => x && typeof x === "object") as Record<string, unknown>[],
+                    totalCount: parsed.length,
+                  };
+                }
+                if (typeof parsed !== "object") return { list: [], totalCount: null };
+                const o = parsed as Record<string, unknown>;
+                if (o.output != null) return coercePageList(o.output);
+                if (o.code === "0" || o.code === 0) return coercePageList(o.data);
+                if (Array.isArray(o.list)) {
+                  return {
+                    list: o.list.filter((x) => x && typeof x === "object") as Record<string, unknown>[],
+                    totalCount: num(o.totalCount) ?? o.list.length,
+                  };
+                }
+                if (o.skuCode != null || o.code != null) {
+                  return { list: [o], totalCount: 1 };
+                }
+                return { list: [], totalCount: null };
+              }
+
+              /* coze-inline: node */
+              /**
+               * 节点：page.list / profile 快照 → complianceSnapshotText
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : v == null ? "" : String(v).trim();
+              }
+
+              function asRecord(v: unknown): Record<string, unknown> {
+                return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+              }
+
+              function parseCozeWorkflowDataField(data: unknown): unknown {
+                if (data == null) return null;
+                if (typeof data !== "string") return data;
+                try {
+                  const once = JSON.parse(data) as unknown;
+                  if (typeof once === "string") {
+                    try {
+                      return JSON.parse(once) as unknown;
+                    } catch {
+                      return once;
+                    }
+                  }
+                  return once;
+                } catch {
+                  return data;
+                }
+              }
+
+              function formatFromMapped(mapped: Record<string, unknown>, skuCode: string): string {
+                const parts: string[] = [];
+                const code = str(mapped.skuCode) || skuCode;
+                if (code) parts.push(`SKU ${code}`);
+                const ps = str(mapped.publishStatus);
+                if (ps) parts.push(`发布态：${ps}`);
+                if (mapped.prohibitInbound === true) parts.push("禁止入库：是");
+                const flags = asRecord(mapped.specialFlags);
+                const attrs: string[] = [];
+                if (flags.isBattery) attrs.push("带电");
+                if (flags.isWithLiquid) attrs.push("液体");
+                if (flags.isDangerous) attrs.push("危险品(dg)");
+                if (attrs.length) parts.push(`特殊属性：${attrs.join("/")}`);
+                if (mapped.dg === true) parts.push("目的国危险品标记：是");
+                const hs = str(mapped.hsCode);
+                if (hs) parts.push(`HS：${hs}`);
+                const declareName = str(mapped.declareName);
+                if (declareName) parts.push(`申报名：${declareName}`);
+                const src = str(mapped.prohibitSource);
+                if (src) parts.push(`禁限来源：${src}`);
+                return parts.join("；");
+              }
+
+              function fromProfileSnapshot(
+                snapshot: Record<string, unknown>,
+                skuCode: string
+              ): { complianceSnapshot: Record<string, unknown>; complianceSnapshotText: string } {
+                const skus = Array.isArray(snapshot.skus) ? snapshot.skus : [];
+                const hit =
+                  (skus.find((s) => str(asRecord(s).skuCode).toUpperCase() === skuCode.toUpperCase()) as
+                    | Record<string, unknown>
+                    | undefined) ?? (skus[0] as Record<string, unknown> | undefined);
+                if (!hit) {
+                  return { complianceSnapshot: {}, complianceSnapshotText: "" };
+                }
+                const text = formatFromMapped(hit, skuCode);
+                return { complianceSnapshot: hit, complianceSnapshotText: text };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const skuCode = str(params.skuCode);
+                const importCountryCode = str(params.importCountryCode);
+                const skipApi = params.skipApi === true;
+                const reuseProfileSnapshot = params.reuseProfileSnapshot === true;
+                const profileSnapshot = asRecord(params.profileSnapshot);
+
+                if (reuseProfileSnapshot && skuCode) {
+                  const fromSnap = fromProfileSnapshot(profileSnapshot, skuCode);
+                  return { ...fromSnap, skipFetch: true, dataSource: "profile_snapshot" };
+                }
+
+                if (skipApi || !skuCode) {
+                  return {
+                    complianceSnapshot: {},
+                    complianceSnapshotText: "",
+                    skipFetch: true,
+                  };
+                }
+
+                const outputList = (Array.isArray(params.winitPluginOutputList)
+                  ? params.winitPluginOutputList
+                  : []) as Array<{ data?: unknown }>;
+
+                let list: Record<string, unknown>[] = [];
+                for (const item of outputList) {
+                  const { list: rows } = coercePageList(parseCozeWorkflowDataField(item?.data));
+                  list.push(...rows);
+                }
+
+                const key = skuCode.toUpperCase();
+                const raw =
+                  list.find((r) => str(r.skuCode).toUpperCase() === key) ?? (list.length === 1 ? list[0] : null);
+
+                if (!raw) {
+                  return {
+                    complianceSnapshot: { skuCode, missing: true },
+                    complianceSnapshotText: `SKU ${skuCode}：未查到合规相关档案字段，请核实编码或转人工。`,
+                    skipFetch: false,
+                    dataSource: "api_miss",
+                    fetchSource: PAGE_LIST_ACTION,
+                  };
+                }
+
+                const mapped = mapItemToProfile(raw, {
+                  fetchProfile: "facts_compliance",
+                  importCountryCode: importCountryCode || undefined,
+                  requestedSkuCode: skuCode,
+                });
+
+                return {
+                  complianceSnapshot: mapped,
+                  complianceSnapshotText: formatFromMapped(mapped, skuCode),
+                  skipFetch: false,
+                  dataSource: "api",
+                  fetchSource: PAGE_LIST_ACTION,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("fetch-compliance-snapshot")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params }).then((r) => process.stdout.write(JSON.stringify(r)));
+              }
+          language: 5
+          node_inputs:
+              - name: skuCode
+                input:
+                    value:
+                        path: skuCode
+                        ref_node: "163009"
+              - name: importCountryCode
+                input:
+                    value:
+                        path: importCountryCode
+                        ref_node: "163009"
+              - name: skipApi
+                input:
+                    value:
+                        path: skipApi
+                        ref_node: "163010"
+              - name: reuseProfileSnapshot
+                input:
+                    value:
+                        path: reuseProfileSnapshot
+                        ref_node: "163009"
+              - name: profileSnapshot
+                input:
+                    value:
+                        path: profileSnapshot
+                        ref_node: "163000"
+              - name: winitPluginOutputList
+                input:
+                    value:
+                        path: outputList
+                        ref_node: "163011"
+          node_outputs:
+              complianceSnapshot:
+                  type: object
+                  value: null
+              complianceSnapshotText:
+                  type: string
+                  value: null
+              skipFetch:
+                  type: boolean
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163013"
+      type: code
+      title: load-compliance-kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 3587
+      parameters:
+          code: |-
+              /**
+               * 节点：load-compliance-kb — 按 intentType 选择 KB 切片
+               */
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              function pickParts(
+                intentType: string,
+                bags: Record<string, string>
+              ): { parts: string[]; scope: string } {
+                switch (intentType) {
+                  case "carriability_deep":
+                    return {
+                      parts: [bags.kbCarriabilityDeep, bags.kbRestricted],
+                      scope: "carriability_deep",
+                    };
+                  case "restricted":
+                    return { parts: [bags.kbRestricted, bags.kbCertificates], scope: "restricted" };
+                  case "certificates":
+                    return { parts: [bags.kbCertificates, bags.kbUnbanDeep], scope: "certificates" };
+                  case "weee":
+                    return { parts: [bags.kbWeee, bags.kbCertificates], scope: "weee" };
+                  case "ecommerce":
+                    return { parts: [bags.kbEcommerce, bags.kbDeclaration], scope: "ecommerce" };
+                  case "brand":
+                    return { parts: [bags.kbBrand], scope: "brand" };
+                  case "unban_deep":
+                    return {
+                      parts: [bags.kbUnbanDeep, bags.kbCertificates, bags.kbRestricted],
+                      scope: "unban_deep",
+                    };
+                  case "declaration":
+                    return { parts: [bags.kbDeclaration, bags.kbEcommerce], scope: "declaration" };
+                  default:
+                    return {
+                      parts: [
+                        bags.kbCarriabilityDeep,
+                        bags.kbRestricted,
+                        bags.kbCertificates,
+                        bags.kbWeee,
+                        bags.kbEcommerce,
+                        bags.kbBrand,
+                        bags.kbUnbanDeep,
+                        bags.kbDeclaration,
+                      ],
+                      scope: "full",
+                    };
+                }
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const validationOk = params.validationOk === true;
+                const intentType = str(params.intentType) || "general";
+                const normalizedTopic = str(params.normalizedTopic);
+                const needInfoHint = str(params.needInfoHint);
+
+                const bags = {
+                  kbCarriabilityDeep: str(params.kbCarriabilityDeep),
+                  kbRestricted: str(params.kbRestricted),
+                  kbCertificates: str(params.kbCertificates),
+                  kbWeee: str(params.kbWeee),
+                  kbEcommerce: str(params.kbEcommerce),
+                  kbBrand: str(params.kbBrand),
+                  kbUnbanDeep: str(params.kbUnbanDeep),
+                  kbDeclaration: str(params.kbDeclaration),
+                };
+
+                if (!validationOk) {
+                  return {
+                    kbContent: "",
+                    kbScope: "invalid",
+                    intentType,
+                    normalizedTopic,
+                  };
+                }
+
+                const { parts, scope } = pickParts(intentType, bags);
+                let kbContent = parts.filter(Boolean).join("\n\n---\n\n");
+                if (needInfoHint) {
+                  kbContent = `【缺参提示】needInfoHint=${needInfoHint}\n\n` + kbContent;
+                }
+
+                return {
+                  kbContent,
+                  kbScope: scope,
+                  intentType,
+                  normalizedTopic,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-compliance-kb")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: validationOk
+                input:
+                    value:
+                        path: validationOk
+                        ref_node: "163000"
+              - name: intentType
+                input:
+                    value:
+                        path: intentType
+                        ref_node: "163000"
+              - name: normalizedTopic
+                input:
+                    value:
+                        path: normalizedTopic
+                        ref_node: "163000"
+              - name: needInfoHint
+                input:
+                    value:
+                        path: needInfoHint
+                        ref_node: "163000"
+              - name: kbCarriabilityDeep
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+              - name: kbRestricted
+                input:
+                    value:
+                        path: output
+                        ref_node: "163002"
+              - name: kbCertificates
+                input:
+                    value:
+                        path: output
+                        ref_node: "163003"
+              - name: kbWeee
+                input:
+                    value:
+                        path: output
+                        ref_node: "163004"
+              - name: kbEcommerce
+                input:
+                    value:
+                        path: output
+                        ref_node: "163005"
+              - name: kbBrand
+                input:
+                    value:
+                        path: output
+                        ref_node: "163006"
+              - name: kbUnbanDeep
+                input:
+                    value:
+                        path: output
+                        ref_node: "163007"
+              - name: kbDeclaration
+                input:
+                    value:
+                        path: output
+                        ref_node: "163008"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              intentType:
+                  type: string
+                  value: null
+              normalizedTopic:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163014"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 480
+          y: 3827
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # SKU 合规深判专家 - LLM Prompt
+
+                        将本内容复制到 Coze LLM 节点。上游：validate → 可选合规档案摘要 → load-compliance-kb。
+
+                        **对客输出**：不引用飞书链接、内部 API/表名；界面路径用「万邑联 → …」。不代客上传证书、不解禁写入。
+
+                        ---
+
+                        ## 角色
+
+                        你是 **sku/compliance-check**。根据 `intentType`、KB 与可选档案摘要，给出合规深判结论与下一步。
+
+                        职责：
+
+                        1. 选择唯一 `structured.branch`。
+                        2. 填写 `complianceVerdict`：`pass` / `fail` / `uncertain` / `need_human`。
+                        3. 列出 `missingDocuments`（确实缺失的证书/资料；未知则空数组并在 analysis 说明）。
+                        4. `sopSteps` 可执行；浅层注册/加急操作 → `handoff_registration`。
+                        5. `prohibitSource=manual` → 优先 `need_human`。
+                        6. 禁限运无自动比对能力 → 勿声称「系统已比对清单」。
+                        7. 无法判定时 `uncertain` 或 `need_human`，**不编造**通过/驳回结论。
+
+                        ---
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **intentType**：`{{intentType}}`
+                        - **normalizedTopic**：`{{normalizedTopic}}`
+                        - **skuCode**：`{{skuCode}}`
+                        - **importCountryCode**：`{{importCountryCode}}`
+                        - **productLink**：`{{productLink}}`
+                        - **categoryHint**：`{{categoryHint}}`
+                        - **needInfoHint**：`{{needInfoHint}}`
+                        - **profileSnapshot**：`{{profileSnapshot}}`
+                        - **complianceSnapshotText**：`{{complianceSnapshotText}}`
+                        - **kbContent**：
+
+                        ```
+                        {{kbContent}}
+                        ```
+
+                        ---
+
+                        ## branch 枚举（只能选一个）
+
+                        | branch | 场景 |
+                        |--------|------|
+                        | `verdict_carriability` | 承运深判结论/路径 |
+                        | `guide_restricted` | 禁限运细则 |
+                        | `guide_certificates` | 证书齐备 |
+                        | `guide_weee` | WEEE 类别 |
+                        | `guide_ecommerce` | 电清关链接 |
+                        | `guide_brand` | 品牌备案/熏蒸 |
+                        | `guide_declaration` | 申报要素 |
+                        | `guide_unban_criteria` | 解禁条件深判 |
+                        | `handoff_registration` | 应走注册浅层操作 |
+                        | `need_info` | 缺关键信息 |
+                        | `need_human` | 转人工/专席 |
+
+                        若 `needInfoHint=missing_topic_or_intent` → 必须 `need_info`。
+
+                        ---
+
+                        ## 输出格式
+
+                        只输出一个 JSON，顶层仅有 `analysisResult`：
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "branch": "guide_certificates",
+                              "topicMatched": "电池证书",
+                              "complianceVerdict": "fail",
+                              "missingDocuments": ["MSDS", "UN38.3"],
+                              "sopSteps": ["步骤1", "步骤2"],
+                              "prerequisites": [],
+                              "missingInfo": [],
+                              "expertRouting": null,
+                              "confidence": "medium"
+                            },
+                            "analysis": "对客说明……"
+                          }
+                        }
+                        ```
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: intentType
+                input:
+                    value:
+                        path: intentType
+                        ref_node: "163000"
+              - name: normalizedTopic
+                input:
+                    value:
+                        path: normalizedTopic
+                        ref_node: "163000"
+              - name: skuCode
+                input:
+                    value:
+                        path: skuCode
+                        ref_node: "163000"
+              - name: importCountryCode
+                input:
+                    value:
+                        path: importCountryCode
+                        ref_node: "163000"
+              - name: productLink
+                input:
+                    value:
+                        path: productLink
+                        ref_node: "163000"
+              - name: categoryHint
+                input:
+                    value:
+                        path: categoryHint
+                        ref_node: "163000"
+              - name: needInfoHint
+                input:
+                    value:
+                        path: needInfoHint
+                        ref_node: "163000"
+              - name: profileSnapshot
+                input:
+                    value:
+                        path: profileSnapshot
+                        ref_node: "163000"
+              - name: complianceSnapshotText
+                input:
+                    value:
+                        path: complianceSnapshotText
+                        ref_node: "163012"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163013"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163015"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 480
+          y: 4067
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出；缺参时强制 need_info
+               */
+
+              interface AnalysisResult {
+                structured?: Record<string, unknown>;
+                analysis?: string;
+              }
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v.trim() : "";
+              }
+
+              function asRecord(v: unknown): Record<string, unknown> {
+                return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+              }
+
+              function coerceAnalysisResult(raw: unknown): AnalysisResult {
+                if (raw == null) return { structured: {}, analysis: "未收到模型输出。" };
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    return coerceAnalysisResult(JSON.parse(s));
+                  } catch {
+                    return { structured: {}, analysis: s || "解析失败。" };
+                  }
+                }
+                const o = raw as Record<string, unknown>;
+                if (o.analysisResult != null) return coerceAnalysisResult(o.analysisResult);
+                return {
+                  structured: asRecord(o.structured),
+                  analysis: typeof o.analysis === "string" ? o.analysis : "",
+                };
+              }
+
+              const VALID_BRANCHES = new Set([
+                "verdict_carriability",
+                "guide_restricted",
+                "guide_certificates",
+                "guide_weee",
+                "guide_ecommerce",
+                "guide_brand",
+                "guide_declaration",
+                "guide_unban_criteria",
+                "handoff_registration",
+                "need_info",
+                "need_human",
+              ]);
+
+              const VALID_VERDICTS = new Set(["pass", "fail", "uncertain", "need_human"]);
+
+              function defaultBranch(intentType: string): string {
+                switch (intentType) {
+                  case "carriability_deep":
+                    return "verdict_carriability";
+                  case "restricted":
+                    return "guide_restricted";
+                  case "certificates":
+                    return "guide_certificates";
+                  case "weee":
+                    return "guide_weee";
+                  case "ecommerce":
+                    return "guide_ecommerce";
+                  case "brand":
+                    return "guide_brand";
+                  case "declaration":
+                    return "guide_declaration";
+                  case "unban_deep":
+                    return "guide_unban_criteria";
+                  default:
+                    return "guide_certificates";
+                }
+              }
+
+              function defaultVerdict(branch: string): string {
+                if (branch === "need_human") return "need_human";
+                if (branch === "need_info") return "uncertain";
+                return "uncertain";
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const needInfoHint = str(params.needInfoHint);
+                const intentType = str(params.intentType) || "general";
+                const inputContext = asRecord(params.inputContext);
+                const complianceSnapshotText = str(params.complianceSnapshotText);
+                const coerced = coerceAnalysisResult(params.analysisResult);
+
+                if (needInfoHint === "missing_topic_or_intent") {
+                  const analysis =
+                    "请补充合规咨询主题（例如：禁限运、证书、WEEE、电清关链接、解禁条件），并尽量提供商品编码、进口国或商品链接。";
+                  const structured = {
+                    branch: "need_info",
+                    topicMatched: "",
+                    complianceVerdict: "uncertain",
+                    missingDocuments: [] as string[],
+                    sopSteps: ["说明具体合规问题", "如有 SKU / 进口国 / 商品链接请一并提供"],
+                    prerequisites: [],
+                    missingInfo: ["topic_or_intentType"],
+                    expertRouting: null,
+                    confidence: "low",
+                  };
+                  return {
+                    structured,
+                    analysis,
+                    outputContext: {
+                      expertId: "sku/compliance-check",
+                      resultSummary: analysis.slice(0, 200),
+                      chainId: str(inputContext.chainId),
+                    },
+                    enrichedContext: { "sku/compliance-check": structured },
+                  };
+                }
+
+                const structuredIn = asRecord(coerced.structured);
+                let branch = str(structuredIn.branch) || defaultBranch(intentType);
+                if (!VALID_BRANCHES.has(branch)) branch = defaultBranch(intentType);
+
+                let complianceVerdict = str(structuredIn.complianceVerdict) || defaultVerdict(branch);
+                if (!VALID_VERDICTS.has(complianceVerdict)) complianceVerdict = "uncertain";
+
+                const sopSteps = Array.isArray(structuredIn.sopSteps)
+                  ? structuredIn.sopSteps.map((s) => String(s))
+                  : [];
+                const missingDocuments = Array.isArray(structuredIn.missingDocuments)
+                  ? structuredIn.missingDocuments.map((s) => String(s))
+                  : [];
+                const missingInfo = Array.isArray(structuredIn.missingInfo)
+                  ? structuredIn.missingInfo.map((s) => String(s))
+                  : [];
+                if (needInfoHint && !missingInfo.includes(needInfoHint)) missingInfo.push(needInfoHint);
+
+                const structured = {
+                  branch,
+                  topicMatched: str(structuredIn.topicMatched) || intentType,
+                  complianceVerdict,
+                  missingDocuments,
+                  sopSteps,
+                  prerequisites: Array.isArray(structuredIn.prerequisites)
+                    ? structuredIn.prerequisites.map((s) => String(s))
+                    : [],
+                  missingInfo,
+                  expertRouting:
+                    structuredIn.expertRouting ??
+                    (branch === "handoff_registration" ? "sku/registration-guide" : null),
+                  confidence: str(structuredIn.confidence) || (missingInfo.length ? "medium" : "high"),
+                };
+
+                let analysis = coerced.analysis || "已根据合规知识库整理判定与下一步建议。";
+                if (complianceSnapshotText && !analysis.includes(complianceSnapshotText.slice(0, 16))) {
+                  analysis = `${analysis}\n\n【档案摘要】${complianceSnapshotText}`;
+                }
+
+                return {
+                  structured,
+                  analysis,
+                  outputContext: {
+                    expertId: "sku/compliance-check",
+                    resultSummary: analysis.slice(0, 200),
+                    chainId: str(inputContext.chainId),
+                  },
+                  enrichedContext: { "sku/compliance-check": structured },
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    value:
+                        path: analysisResult
+                        ref_node: "163014"
+              - name: intentType
+                input:
+                    value:
+                        path: intentType
+                        ref_node: "163000"
+              - name: needInfoHint
+                input:
+                    value:
+                        path: needInfoHint
+                        ref_node: "163000"
+              - name: complianceSnapshotText
+                input:
+                    value:
+                        path: complianceSnapshotText
+                        ref_node: "163012"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "163014"
+    - source_node: "163014"
+      target_node: "163015"
+    - source_node: "163015"
+      target_node: "900001"

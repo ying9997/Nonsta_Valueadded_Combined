@@ -1,0 +1,364 @@
+schema_version: 1.0.0
+name: nonstandard_sop_guide_staging
+id: null
+description: 非标增值 SOP 引导（灰度测试）— 场景匹配→追问→生成 SOP
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点
+      position:
+          x: -150
+          y: 230
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 客户意图描述（自然语言）
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参
+                  properties:
+                      customerIntent:
+                          type: string
+                          value: null
+                          description: 客户意图描述
+                      exceptionCode:
+                          type: string
+                          value: null
+                          description: 异常编码
+                      exceptionName:
+                          type: string
+                          value: null
+                          description: 异常名称
+                      recommendedVasc:
+                          type: object
+                          value: null
+                          description: 上游推荐的 VASC（含 vascCode/vascName）
+                      serviceAtom:
+                          type: string
+                          value: null
+                          description: 服务项原子名称
+                      providedFields:
+                          type: object
+                          value: null
+                          description: 客户已提供的结构化字段
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 编排器聚合上下文
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名
+              language:
+                  type: string
+                  value: null
+                  description: 语言偏好
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 返回 SOP 引导结果
+      position:
+          x: 2600
+          y: 310
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163004"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163004"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163004"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163004"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 校验入参合法性，拦截非兜底原子场景
+      version: v2
+      position:
+          x: 120
+          y: 310
+      parameters:
+          code_file: nodes/validate-input.ts
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: inputs
+                input:
+                    value:
+                        path: inputs
+                        ref_node: "100001"
+              - name: exceptionCode
+                input:
+                    value:
+                        path: inputs.exceptionCode
+                        ref_node: "100001"
+              - name: exceptionName
+                input:
+                    value:
+                        path: inputs.exceptionName
+                        ref_node: "100001"
+              - name: recommendedVasc
+                input:
+                    value:
+                        path: inputs.recommendedVasc
+                        ref_node: "100001"
+              - name: serviceAtom
+                input:
+                    value:
+                        path: inputs.serviceAtom
+                        ref_node: "100001"
+              - name: providedFields
+                input:
+                    value:
+                        path: inputs.providedFields
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+          node_outputs:
+              sopInput:
+                  type: object
+                  value: null
+              validationResult:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: code
+      title: match-template
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 用客户意图匹配场景索引，判断 B/C 分类
+      version: v2
+      position:
+          x: 560
+          y: 310
+      parameters:
+          code_file: nodes/match-template.ts
+          language: 5
+          node_inputs:
+              - name: sopInput
+                input:
+                    value:
+                        path: sopInput
+                        ref_node: "163000"
+              - name: validationResult
+                input:
+                    value:
+                        path: validationResult
+                        ref_node: "163000"
+          node_outputs:
+              matchResult:
+                  type: object
+                  value: null
+              sopInput:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163002"
+      type: code
+      title: check-completeness
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 对照 B 类模板必填字段检查完整性
+      version: v2
+      position:
+          x: 1000
+          y: 310
+      parameters:
+          code_file: nodes/check-completeness.ts
+          language: 5
+          node_inputs:
+              - name: sopInput
+                input:
+                    value:
+                        path: sopInput
+                        ref_node: "163001"
+              - name: matchResult
+                input:
+                    value:
+                        path: matchResult
+                        ref_node: "163001"
+          node_outputs:
+              completenessResult:
+                  type: object
+                  value: null
+              sopInput:
+                  type: object
+                  value: null
+              matchResult:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163003"
+      type: llm
+      title: llm-generate-sop
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: LLM 生成仓库操作 SOP
+      version: "3"
+      position:
+          x: 1500
+          y: 310
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          prompt_file: prompts/main.md
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: sopInput
+                input:
+                    value:
+                        path: sopInput
+                        ref_node: "163002"
+              - name: matchResult
+                input:
+                    value:
+                        path: matchResult
+                        ref_node: "163002"
+              - name: completenessResult
+                input:
+                    value:
+                        path: completenessResult
+                        ref_node: "163002"
+          node_outputs:
+              sopGenerationResult:
+                  type: object
+                  value: null
+    - id: "163004"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 归一化输出，决定 outputPath
+      version: v2
+      position:
+          x: 2000
+          y: 310
+      parameters:
+          code_file: nodes/format-output.ts
+          language: 5
+          node_inputs:
+              - name: sopInput
+                input:
+                    value:
+                        path: sopInput
+                        ref_node: "163002"
+              - name: matchResult
+                input:
+                    value:
+                        path: matchResult
+                        ref_node: "163002"
+              - name: completenessResult
+                input:
+                    value:
+                        path: completenessResult
+                        ref_node: "163002"
+              - name: sopGenerationResult
+                input:
+                    value:
+                        path: sopGenerationResult
+                        ref_node: "163003"
+              - name: validationResult
+                input:
+                    value:
+                        path: validationResult
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+connections:
+    - from_node: "100001"
+      to_node: "163000"
+    - from_node: "163000"
+      to_node: "163001"
+    - from_node: "163001"
+      to_node: "163002"
+    - from_node: "163002"
+      to_node: "163003"
+    - from_node: "163003"
+      to_node: "163004"
+    - from_node: "163004"
+      to_node: "900001"

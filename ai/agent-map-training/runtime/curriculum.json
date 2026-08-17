@@ -1,0 +1,141 @@
+{
+  "version": 2,
+  "program_name": "AI Agent 地图式学习训练",
+  "canonical_curriculum_file": "agent-map-training/110-question-curriculum.md",
+  "total_question_items": 110,
+  "answer_format": "【回答结论】 -> 【思考过程】 -> 【依据】",
+  "rules": [
+    "训练题目必须以 110-question-curriculum.md 为唯一主课程来源。",
+    "如果 runtime/curriculum.json 与主课程表不一致，先修正 runtime/curriculum.json。",
+    "不得在主课程表之外自行编造阶段题目。",
+    "如果主课程表缺少某阶段明细题目，必须先向用户确认，不得自行补题。"
+  ],
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "现状对齐",
+      "status": "completed",
+      "question_count": 6,
+      "completed_count": 6,
+      "notes": "阶段1明细题目当前未在仓库中完整保存；状态来自既有训练进度。后续如需复盘，先向用户确认题目原文。"
+    },
+    {
+      "id": "phase-2",
+      "name": "项目基础画像",
+      "status": "completed",
+      "question_count": 10,
+      "completed_count": 10,
+      "questions": [
+        { "id": "2.1", "text": "Agent 工作在哪个业务流程中？", "status": "completed" },
+        { "id": "2.2", "text": "用户在什么触发点使用 Agent？", "status": "completed" },
+        { "id": "2.3", "text": "用户输入是什么？", "status": "completed" },
+        { "id": "2.4", "text": "系统已知事实有哪些？", "status": "completed" },
+        { "id": "2.5", "text": "Agent 可选择或推荐的候选范围是什么？", "status": "completed" },
+        { "id": "2.6", "text": "Agent 需要做哪些路由或决策？", "status": "completed" },
+        { "id": "2.7", "text": "Agent 依据哪些规则、知识或历史案例？", "status": "completed" },
+        { "id": "2.8", "text": "Agent 输出给谁消费？", "status": "completed" },
+        { "id": "2.9", "text": "怎么判断 Agent 做得好不好？", "status": "completed" },
+        { "id": "2.10", "text": "这个 Agent 在全局链路中的位置是什么？", "status": "completed" }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "系统分层建模",
+      "status": "completed",
+      "question_count": 10,
+      "completed_count": 10,
+      "questions": [
+        { "id": "3.1", "text": "业务场景层是什么？（明确业务流程和边界）", "status": "completed" },
+        { "id": "3.2", "text": "输入事实层包含哪些输入？（区分用户输入、系统事实、上下文）", "status": "completed" },
+        { "id": "3.3", "text": "候选范围层是什么？（明确可处理/不可处理范围）", "status": "completed" },
+        { "id": "3.4", "text": "决策路由层有哪些分支？（拆 intent、routePath、branch）", "status": "completed" },
+        { "id": "3.5", "text": "规则与知识层有哪些 KB/API/SOP？（明确知识来源和用途）", "status": "completed" },
+        { "id": "3.6", "text": "能力编排层如何运转？（看 workflow/nodes 的顺序和职责）", "status": "completed" },
+        { "id": "3.7", "text": "输出契约层输出什么？（拆 structured、analysis、outputContext）", "status": "completed" },
+        { "id": "3.8", "text": "人工确认/兜底层在哪里？（找 need_human、禁止写操作、人工接管）", "status": "completed" },
+        { "id": "3.9", "text": "评测验收层有什么依据？（找测试、规则、失败条件）", "status": "completed" },
+        { "id": "3.10", "text": "数据回流层是否存在？（判断是否有后续优化闭环）", "status": "completed" }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "文件与能力层级映射",
+      "status": "completed",
+      "question_count": 10,
+      "completed_count": 10,
+      "current_questions": [],
+      "notes": "此前围绕主链路/概念四步法编写的步骤4/5为误归档，不计入本阶段。当前按用户提供的 110 题主课程表重新开始。",
+      "questions": [
+        { "id": "4.1", "text": "design.md 在系统里承担什么角色？", "purpose": "明确它是路书/能力地图", "status": "completed" },
+        { "id": "4.2", "text": "manifest.json 承担什么角色？", "purpose": "明确身份、描述、输入输出契约", "status": "completed" },
+        { "id": "4.3", "text": "workflow.json 承担什么角色？", "purpose": "明确节点编排", "status": "completed" },
+        { "id": "4.4", "text": "nodes/ 承担什么角色？", "purpose": "明确确定性处理、查数、格式化", "status": "completed" },
+        { "id": "4.5", "text": "prompts/ 承担什么角色？", "purpose": "明确 LLM 推理和知识注入", "status": "completed" },
+        { "id": "4.6", "text": "coze.config.yml 承担什么角色？", "purpose": "明确 Coze 导入/配置关系", "status": "completed" },
+        { "id": "4.7", "text": "KB 文件和 prompt 的关系是什么？", "purpose": "区分知识材料和生成任务", "status": "completed" },
+        { "id": "4.8", "text": "API 节点和 KB 节点的关系是什么？", "purpose": "区分系统事实和规则知识", "status": "completed" },
+        { "id": "4.9", "text": "LLM 节点在整个链路中做什么？", "purpose": "明确模型负责非确定性分析", "status": "completed" },
+        { "id": "4.10", "text": "format-output 为什么重要？", "purpose": "明确输出契约是验收和下游消费基础", "status": "completed" }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "主链路与支线识别",
+      "status": "completed",
+      "question_count": 10,
+      "completed_count": 10,
+      "current_questions": [],
+      "notes": "题目见 110-question-curriculum.md。5.1-5.10 已完成并归档。",
+      "questions": [
+        { "id": "5.1", "text": "这个 expert 的最小主链路是什么？", "purpose": "找到核心闭环", "status": "completed" },
+        { "id": "5.2", "text": "哪些节点属于主链路？", "purpose": "避免被支线拖走", "status": "completed" },
+        { "id": "5.3", "text": "哪些节点属于支线查询？", "purpose": "识别 query/penalty/pod 等分支", "status": "completed" },
+        { "id": "5.4", "text": "哪些节点是安全约束？", "purpose": "找 scope guard、禁止写操作", "status": "completed" },
+        { "id": "5.5", "text": "哪些能力是增强能力？", "purpose": "避免一期过重", "status": "completed" },
+        { "id": "5.6", "text": "哪些是不做事项？", "purpose": "明确边界", "status": "completed" },
+        { "id": "5.7", "text": "如果只做 V0，最小可跑通什么？", "purpose": "找 MVP", "status": "completed" },
+        { "id": "5.8", "text": "如果做 V1，要补哪些节点？", "purpose": "明确迭代", "status": "completed" },
+        { "id": "5.9", "text": "哪些问题当前不该追？", "purpose": "拦截来源发散", "status": "completed" },
+        { "id": "5.10", "text": "如何判断主链路已点亮？", "purpose": "定义验收", "status": "completed" }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "name": "概念四步法训练",
+      "status": "in_progress",
+      "question_count": 40,
+      "completed_count": 0,
+      "current_questions": ["intent:6.1", "intent:6.2", "intent:6.3", "intent:6.4"],
+      "notes": "10 个核心概念，每个 4 问；题目见 110-question-curriculum.md。当前从 intent 开始。",
+      "concepts": [
+        { "id": "intent", "status": "current" },
+        { "id": "routePath", "status": "pending" },
+        { "id": "branch", "status": "pending" },
+        { "id": "kb_only", "status": "pending" },
+        { "id": "api_chain", "status": "pending" },
+        { "id": "booking.list", "status": "pending" },
+        { "id": "load-booking-kb", "status": "pending" },
+        { "id": "llm-analyze", "status": "pending" },
+        { "id": "format-output", "status": "pending" },
+        { "id": "need_human", "status": "pending" }
+      ]
+    },
+    {
+      "id": "phase-7",
+      "name": "节点点亮验收",
+      "status": "planned",
+      "question_count": 10,
+      "completed_count": 0,
+      "notes": "题目见 110-question-curriculum.md。"
+    },
+    {
+      "id": "phase-8",
+      "name": "迁移到非标增值 SOP expert",
+      "status": "planned",
+      "question_count": 14,
+      "completed_count": 0,
+      "notes": "题目见 110-question-curriculum.md。"
+    }
+  ],
+  "progress_display_rule": "每次继续训练、评审用户回答或进入下一题时，都必须先显示：当前阶段、当前题号进度、剩余题目。"
+}

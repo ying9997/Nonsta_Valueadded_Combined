@@ -1,0 +1,47 @@
+{
+  "cases": [
+    {
+      "id": "mock_plugin_hit_list",
+      "description": "带 winitOpenapiData（模拟插件返回列表），fetch 宽容解析命中 records",
+      "params": {
+        "query": "查代客索赔进度",
+        "customerIntent": "客户催进度",
+        "inputs": {
+          "claimIds": ["CLM-DEMO-001"],
+          "outboundOrderNos": [],
+          "trackingIds": []
+        },
+        "winitOpenapiData": "{\"list\":[{\"compensateApplyNo\":\"CLM-DEMO-001\",\"businessNo\":\"WO-DEMO-1\",\"trackingNo\":\"1Z-DEMO\",\"compensateStatus\":\"PENDING_REVIEW\",\"applyTime\":\"2025-04-01T10:00:00Z\"}]}"
+      },
+      "expect": {
+        "branch": "query",
+        "listStatus": "success",
+        "recordsMin": 1
+      }
+    },
+    {
+      "id": "mock_plugin_empty_list",
+      "description": "插件返回显式空列表 → listStatus empty",
+      "params": {
+        "claimIds": ["CLM-NONE"],
+        "winitOpenapiData": "{\"data\":{\"list\":[]}}"
+      },
+      "expect": {
+        "branch": "query",
+        "listStatus": "empty"
+      }
+    },
+    {
+      "id": "no_plugin_no_coze_env",
+      "description": "无 winitOpenapiData 且无 Coze 代理环境时跳过 OpenAPI（skipped_no_env）；仍走 Mock LLM + format",
+      "params": {
+        "outboundOrderNos": ["WO-DEMO-2"],
+        "customerIntent": "查索赔"
+      },
+      "expect": {
+        "branch": "query",
+        "listStatus": "skipped_no_env"
+      }
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "nodes": [
+    {
+      "id": "validate-intent",
+      "file": "nodes/validate-intent.ts",
+      "inputs": [
+        "topic",
+        "intentType",
+        "skuCode",
+        "importCountryCode",
+        "productLink",
+        "query",
+        "customerIntent",
+        "inputContext"
+      ],
+      "outputs": [
+        "validationOk",
+        "intentType",
+        "normalizedTopic",
+        "skuCode",
+        "importCountryCode",
+        "productLink",
+        "customerIntent",
+        "needInfoHint",
+        "needHumanReason",
+        "skipAudit",
+        "profileSnapshot",
+        "inputContext"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "validationOk": { "type": "boolean" },
+          "intentType": { "type": "string" },
+          "normalizedTopic": { "type": "string" },
+          "skuCode": { "type": "string" },
+          "importCountryCode": { "type": "string" },
+          "productLink": { "type": "string" },
+          "customerIntent": { "type": "string" },
+          "needInfoHint": { "type": "string" },
+          "needHumanReason": { "type": "string" },
+          "skipAudit": { "type": "boolean" },
+          "profileSnapshot": { "type": "object", "additionalProperties": true },
+          "inputContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "resolve-audit-fetch",
+      "file": "nodes/resolve-audit-fetch.ts",
+      "inputs": ["customerCode", "intentType", "skuCode", "importCountryCode", "skipAudit", "profileSnapshot"],
+      "outputs": [
+        "shouldFetch",
+        "fetchProfile",
+        "skipApi",
+        "skuCode",
+        "customerCode",
+        "importCountryCode",
+        "intentType",
+        "reuseProfileSnapshot",
+        "profileSnapshot"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "shouldFetch": { "type": "boolean" },
+          "fetchProfile": { "type": "string" },
+          "skipApi": { "type": "boolean" },
+          "skuCode": { "type": "string" },
+          "customerCode": { "type": "string" },
+          "importCountryCode": { "type": "string" },
+          "intentType": { "type": "string" },
+          "reuseProfileSnapshot": { "type": "boolean" },
+          "profileSnapshot": { "type": "object", "additionalProperties": true }
+        }
+      }
+    },
+    {
+      "id": "build-audit-page-list",
+      "file": "nodes/build-audit-page-list.ts",
+      "inputs": ["shouldFetch", "skipApi", "skuCode", "importCountryCode", "fetchProfile"],
+      "outputs": [
+        "actions",
+        "actionPlans",
+        "winitPluginBatchActionsCount",
+        "actionName",
+        "fetchProfile",
+        "skipApi"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "actions": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "actionPlans": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "winitPluginBatchActionsCount": { "type": "integer" },
+          "actionName": { "type": "string" },
+          "fetchProfile": { "type": "string" },
+          "skipApi": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "id": "fetch-audit-status",
+      "file": "nodes/fetch-audit-status.ts",
+      "inputs": [
+        "customerCode",
+        "skuCode",
+        "importCountryCode",
+        "fetchProfile",
+        "skipApi",
+        "reuseProfileSnapshot",
+        "profileSnapshot",
+        "winitPluginOutputList"
+      ],
+      "outputs": [
+        "auditStatusHint",
+        "auditFactStatus",
+        "rejectReason",
+        "estimateAuditDate",
+        "skipAudit",
+        "dataSource",
+        "fetchSource"
+      ],
+      "cozeIo": {
+        "outputs": {
+          "auditStatusHint": { "type": "string" },
+          "auditFactStatus": { "type": "string" },
+          "rejectReason": { "type": "string" },
+          "estimateAuditDate": { "type": "string" },
+          "skipAudit": { "type": "boolean" },
+          "dataSource": { "type": "string" },
+          "fetchSource": { "type": "string" }
+        }
+      }
+    },
+    {
+      "id": "load-sku-kb",
+      "file": "nodes/load-sku-kb.ts",
+      "inputs": [
+        "validationOk",
+        "intentType",
+        "normalizedTopic",
+        "needInfoHint",
+        "kbExpedite",
+        "kbCarriability",
+        "kbRegister",
+        "kbAuditResubmit",
+        "kbDirectShipment",
+        "kbAttributeChange",
+        "kbInboundBlocked",
+        "kbUnban"
+      ],
+      "outputs": ["kbContent", "kbScope", "intentType", "normalizedTopic"],
+      "cozeIo": {
+        "outputs": {
+          "kbContent": { "type": "string" },
+          "kbScope": { "type": "string" },
+          "intentType": { "type": "string" },
+          "normalizedTopic": { "type": "string" }
+        }
+      }
+    },
+    {
+      "id": "llm-analyze",
+      "type": "llm",
+      "inputs": [
+        "query",
+        "customerIntent",
+        "intentType",
+        "normalizedTopic",
+        "skuCode",
+        "importCountryCode",
+        "productLink",
+        "needInfoHint",
+        "needHumanReason",
+        "profileSnapshot",
+        "kbContent",
+        "auditStatusHint",
+        "auditFactStatus",
+        "inputContext"
+      ],
+      "outputs": ["analysisResult"]
+    },
+    {
+      "id": "format-output",
+      "file": "nodes/format-output.ts",
+      "inputs": [
+        "analysisResult",
+        "intentType",
+        "needInfoHint",
+        "auditStatusHint",
+        "auditFactStatus",
+        "needHumanReason",
+        "inputContext"
+      ],
+      "outputs": ["structured", "analysis", "outputContext", "enrichedContext"],
+      "cozeIo": {
+        "outputs": {
+          "structured": { "type": "object", "additionalProperties": true },
+          "analysis": { "type": "string" },
+          "outputContext": { "type": "object", "additionalProperties": true },
+          "enrichedContext": { "type": "object", "additionalProperties": true }
+        }
+      }
+    }
+  ]
+}

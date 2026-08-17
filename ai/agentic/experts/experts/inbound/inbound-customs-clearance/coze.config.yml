@@ -1,0 +1,168 @@
+yamlBasename: inbound_customs_clearance-draft.yaml
+packageMainName: inbound_customs_clearance
+packageDescription: 清关进度确认（resolve → getOrderDetail 兜底 → extract-customs-facts →
+  TMS Gap → KB → LLM）
+
+textNodes:
+  - logicalId: kb-customs-clearance-text
+    title: kb-customs-clearance
+    insertAfter: check-tms-gap
+    sourceFile: prompts/kb-customs-clearance.md
+  - logicalId: kb-bonded-channel-text
+    title: kb-bonded-channel
+    insertAfter: check-tms-gap
+    sourceFile: prompts/kb-bonded-channel.md
+
+endOutputs:
+  structured:
+    ref: format-output
+    path: structured
+  analysis:
+    ref: format-output
+    path: analysis
+  outputContext:
+    ref: format-output
+    path: outputContext
+  enrichedContext:
+    ref: format-output
+    path: enrichedContext
+
+winitOpenapiPlugins:
+  - insertBefore: fetch-tms-transport-order
+    logicalId: winit_tms_transport_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 10
+      concurrentSize: 5
+      actionsFrom:
+        logicalId: build-tms-transport-query
+        path: actions
+  - insertBefore: fetch-inbound-order
+    logicalId: winit_inbound_detail_batch
+    pluginBatch:
+      enabled: true
+      batchSize: 100
+      concurrentSize: 10
+      actionsFrom:
+        logicalId: build-winit-inbound-detail
+        path: actions
+
+inputBindings:
+  build-tms-transport-query:
+    skipApi:
+      ref: resolve-inbound-lookup
+      path: skipApi
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: resolve-inbound-lookup
+      path: customerRefNos
+    transportOrderNo:
+      ref: __start__
+      path: inputs.transportOrderNo
+    containerNo:
+      ref: resolve-customs-query
+      path: containerNo
+  fetch-tms-transport-order:
+    skipTms:
+      ref: build-tms-transport-query
+      path: skipTms
+    actions:
+      ref: build-tms-transport-query
+      path: actions
+    winitTmsPluginOutputList:
+      ref: winit_tms_transport_batch
+      path: outputList
+  summarize-tms-transport:
+    skipTms:
+      ref: build-tms-transport-query
+      path: skipTms
+    tmsRawList:
+      ref: fetch-tms-transport-order
+      path: tmsRawList
+  resolve-inbound-lookup:
+    inboundOrderNos:
+      ref: resolve-customs-query
+      path: inboundOrderNos
+    skipApi:
+      ref: resolve-customs-query
+      path: skipApi
+  build-winit-inbound-detail:
+    wiOrderNos:
+      ref: resolve-inbound-lookup
+      path: wiOrderNos
+    customerRefNos:
+      ref: resolve-inbound-lookup
+      path: customerRefNos
+    skipApi:
+      ref: resolve-inbound-lookup
+      path: skipApi
+  fetch-inbound-order:
+    actions:
+      ref: build-winit-inbound-detail
+      path: actions
+    actionPlans:
+      ref: build-winit-inbound-detail
+      path: actionPlans
+    winitPluginOutputList:
+      ref: winit_inbound_detail_batch
+      path: outputList
+    skipApi:
+      ref: resolve-inbound-lookup
+      path: skipApi
+  prune-inbound-json:
+    rawOrderData:
+      ref: fetch-inbound-order
+      path: rawOrderData
+    pathType:
+      ref: resolve-customs-query
+      path: pathType
+    skipApi:
+      ref: resolve-inbound-lookup
+      path: skipApi
+    maxTrajectoryNodes:
+      ref: __start__
+      path: inputs.maxTrajectoryNodes
+    focusCustoms:
+      ref: __start__
+      path: inputs.focusCustoms
+  extract-customs-facts:
+    prunedOrderData:
+      ref: prune-inbound-json
+      path: prunedOrderData
+    pathType:
+      ref: resolve-customs-query
+      path: pathType
+    validationOk:
+      ref: resolve-customs-query
+      path: validationOk
+    country:
+      ref: resolve-customs-query
+      path: country
+    containerNo:
+      ref: resolve-customs-query
+      path: containerNo
+    tmsTransportSummary:
+      ref: summarize-tms-transport
+      path: tmsTransportSummary
+  check-tms-gap:
+    tmsTransportSummary:
+      ref: summarize-tms-transport
+      path: tmsTransportSummary
+  load-customs-kb:
+    pathType:
+      ref: resolve-customs-query
+      path: pathType
+    country:
+      ref: resolve-customs-query
+      path: country
+    kbCustomsClearance:
+      ref: kb-customs-clearance-text
+      path: output
+    kbBondedChannel:
+      ref: kb-bonded-channel-text
+      path: output
+    gapNote:
+      ref: check-tms-gap
+      path: gapNote

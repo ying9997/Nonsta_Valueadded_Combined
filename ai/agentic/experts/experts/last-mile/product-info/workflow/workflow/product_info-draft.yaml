@@ -1,0 +1,3724 @@
+schema_version: 1.0.0
+name: product_info
+id: 7358118568093639504
+description: 尾程产品信息获取（validate → load-knowledge → LLM → format）
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: 工作流的起始节点，用于设定启动工作流需要的信息
+      position:
+          x: -150
+          y: 230
+      parameters:
+          node_outputs:
+              query:
+                  type: string
+                  value: null
+                  description: 上游 Agent 委托本专家需要完成的具体任务说明
+              customerIntent:
+                  type: string
+                  value: null
+                  description: 当前正在为客户解决的业务问题或诉求摘要
+              inputContext:
+                  type: object
+                  value: null
+                  description: 链式上下文：跨专家编排时由调用方在 JSON 中传入；单专家可省略。常见键（不在 Coze 展开子类型，避免 previousOutput 多态与平台校验冲突）：sourceExpertId 上一环节专家 id；chainId 调用链；previousOutput 为上一专家 result（JSON 对象）或整段序列化字符串。见 design-spec.md §5。
+              inputs:
+                  type: object
+                  value: null
+                  description: 本专家业务入参（与 manifest.inputSchema 一致）；上游拼装 LLM 通常只需填充此对象。
+                  properties:
+                      country:
+                          type: string
+                          value: null
+                          description: 目的国 ISO2（如 US、DE、UK、AU、CA）。上游可选传入，未传时从 query 文本自动提取
+                      destinationCountry:
+                          type: string
+                          value: null
+                          description: 同 country，便于上游字段命名对齐
+                      productLine:
+                          type: string
+                          value: null
+                          description: 产品线：psc（标准尾程）/ wf（Winit Fulfillment）/ pallet（托盘）。大小写不敏感；空或未识别时由工作流归一为 ""，并从 query 文本补充推断。上游可选传入
+                      enrichedContext:
+                          type: object
+                          value: null
+                          description: 上游合并的上下文，可含 country/destinationCountry/productLine 等
+              customerCode:
+                  type: string
+                  value: null
+                  description: 客户编码（租户/账号上下文；审计、日志及可选万邑通调用；可为空）
+              customerName:
+                  type: string
+                  value: null
+                  description: 客户名称（租户展示上下文；可为空）
+              username:
+                  type: string
+                  value: null
+                  description: 操作者用户名（审计上下文；可为空）
+              language:
+                  type: string
+                  value: null
+                  description: 语言/区域偏好（如 zh_CN；可为空）
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: 工作流的最终节点，用于返回工作流运行后的结果信息
+      position:
+          x: 1350
+          y: 310
+      parameters:
+          node_inputs:
+              - name: structured
+                input:
+                    type: object
+                    value:
+                        path: structured
+                        ref_node: "163018"
+              - name: analysis
+                input:
+                    type: string
+                    value:
+                        path: analysis
+                        ref_node: "163018"
+              - name: outputContext
+                input:
+                    type: object
+                    value:
+                        path: outputContext
+                        ref_node: "163018"
+              - name: enrichedContext
+                input:
+                    type: object
+                    value:
+                        path: enrichedContext
+                        ref_node: "163018"
+          terminatePlan: returnVariables
+    - id: "163000"
+      type: code
+      title: validate-input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 200
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：validate-input — 校验入参、解析国家码、模糊匹配产品名、推断 kbScope
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 中本节点 `inputs` / `outputs` 完全一致。
+               *
+               * 【输入】`params` 字段（均为可选；但至少需满足「有效」条件之一）：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | query | string | 用户咨询原文；与 customerIntent 一并参与国家/产品线/产品名提取 |
+               * | customerIntent | string | 业务意图摘要；与 query 一并参与文本提取 |
+               * | country | string | 目的国（支持 GB→UK、USA→US 等归一化） |
+               * | destinationCountry | string | 同 country |
+               * | productLine | string | 产品线过滤：psc / wf / pallet |
+               * | enrichedContext | Record<string, unknown> | 上游合并上下文 |
+               * | inputContext | unknown | 链式上下文 |
+               *
+               * 【输出】JSON 对象：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | valid | boolean | 是否通过校验 |
+               * | error | string | 仅当 valid===false |
+               * | customerIntent | string | 归一后意图 |
+               * | countryResolved | string | ISO2 国家码 |
+               * | countrySource | string | `""` \| `"param"` \| `"enrichedContext"` \| `"inferred"` |
+               * | productLine | string | psc / wf / pallet / "" |
+               * | directMatch | boolean | 是否模糊匹配到已知产品 |
+               * | matchedProductNames | string[] | 匹配到的产品规范名 |
+               * | kbScope | string | 知识加载范围 |
+               * | enrichedContext | Record<string, unknown> | 含 analysisClock |
+               * | inputContext | Record<string, unknown> | 默认 {} |
+               */
+
+              // ─── 产品目录 ───────────────────────────────────────────────────────
+
+              interface CatalogEntry {
+                name: string;
+                aliases: string[];
+                country: string;
+                line: string; // "psc" | "wf" | "pallet"
+              }
+
+              const PRODUCT_CATALOG: CatalogEntry[] = [
+                // ── Pallet ──
+                { name: "FedEx Freight Economy", aliases: ["FedEx Freight"], country: "US", line: "pallet" },
+                { name: "DB SCHENKER Standard Delivery", aliases: ["DB SCHENKER", "SCHENKER"], country: "DE", line: "pallet" },
+
+                // ── WF US ──
+                { name: "Winit Fulfillment-7日达", aliases: ["7日达", "Fulfillment 7", "WF-7", "WF7"], country: "US", line: "wf" },
+                { name: "Winit Fulfillment-5日达", aliases: ["5日达", "Fulfillment 5", "WF-5", "WF5"], country: "US", line: "wf" },
+                { name: "Winit Fulfillment-3日达", aliases: ["3日达", "Fulfillment 3", "WF-3", "WF3"], country: "US", line: "wf" },
+                { name: "Winit Fulfillment-2日达", aliases: ["2日达", "Fulfillment 2", "WF-2", "WF2"], country: "US", line: "wf" },
+                { name: "Shipping with Amazon", aliases: ["SWA", "Amazon Logistics SWA", "Amazon Shipping"], country: "US", line: "wf" },
+
+                // ── WF UK ──
+                { name: "Winit Fulfillment-Standard", aliases: ["WF Standard"], country: "UK", line: "wf" },
+                { name: "Winit Fulfillment-Express", aliases: ["WF Express"], country: "UK", line: "wf" },
+                { name: "DHL Next Day", aliases: [], country: "UK", line: "wf" },
+
+                // ── WF DE ──
+                { name: "Winit Fulfillment-Economy", aliases: ["WF Economy"], country: "DE", line: "wf" },
+                { name: "Winit Fulfillment-Standard", aliases: [], country: "DE", line: "wf" },
+                { name: "DHL Express-Worldwide", aliases: ["DHL Express Worldwide"], country: "DE", line: "wf" },
+                { name: "DHL Paket", aliases: [], country: "DE", line: "wf" },
+
+                // ── WF AU ──
+                { name: "Winit Fulfillment-Economy", aliases: [], country: "AU", line: "wf" },
+                { name: "Winit Fulfillment-Standard", aliases: [], country: "AU", line: "wf" },
+                { name: "Winit Fulfillment-Express", aliases: [], country: "AU", line: "wf" },
+                { name: "AuPost International NZ Delivery", aliases: ["NZ Delivery", "新西兰"], country: "AU", line: "wf" },
+
+                // ── PSC US ──
+                { name: "USPS Ground Advantage", aliases: ["USPS GA", "USPS Ground"], country: "US", line: "psc" },
+                { name: "USPS Priority Mail", aliases: [], country: "US", line: "psc" },
+                { name: "UPS SurePost", aliases: [], country: "US", line: "psc" },
+                { name: "UPS Ground", aliases: [], country: "US", line: "psc" },
+                { name: "UPS 3 Day Select", aliases: [], country: "US", line: "psc" },
+                { name: "UPS Next Day Air", aliases: ["UPS Next Day"], country: "US", line: "psc" },
+                { name: "OnTrac Ground", aliases: ["OnTrac"], country: "US", line: "psc" },
+                { name: "FedEx Ground", aliases: [], country: "US", line: "psc" },
+                { name: "FedEx 2Day", aliases: [], country: "US", line: "psc" },
+                { name: "FedEx Standard Overnight", aliases: ["FedEx Overnight"], country: "US", line: "psc" },
+                { name: "UPS Hundredweight", aliases: [], country: "US", line: "psc" },
+
+                // ── PSC UK ──
+                { name: "Royal Mail Untracked 24", aliases: ["RM Untracked 24"], country: "UK", line: "psc" },
+                { name: "Royal Mail Untracked 48", aliases: ["RM Untracked 48"], country: "UK", line: "psc" },
+                { name: "Royal Mail Tracked 24", aliases: ["RM Tracked 24"], country: "UK", line: "psc" },
+                { name: "Royal Mail Tracked 48", aliases: ["RM Tracked 48"], country: "UK", line: "psc" },
+                { name: "DHL Domestic Next Day", aliases: [], country: "UK", line: "psc" },
+                { name: "EVRi Standard 24", aliases: ["EVRi 24", "Evri 24"], country: "UK", line: "psc" },
+                { name: "EVRi Standard 48", aliases: ["EVRi 48", "Evri 48"], country: "UK", line: "psc" },
+                { name: "XDP 1 Man", aliases: ["XDP"], country: "UK", line: "psc" },
+                { name: "XDP 2 Man", aliases: [], country: "UK", line: "psc" },
+                { name: "DPD Parcel", aliases: ["DPD"], country: "UK", line: "psc" },
+                { name: "FedEx Economy", aliases: [], country: "UK", line: "psc" },
+
+                // ── PSC DE ──
+                { name: "DE Post Untracked Letter", aliases: ["DE Post Letter"], country: "DE", line: "psc" },
+                { name: "DHL Kleinpaket", aliases: ["Kleinpaket"], country: "DE", line: "psc" },
+                { name: "DE Post Warenpost", aliases: ["Warenpost"], country: "DE", line: "psc" },
+                { name: "DHL Domestic Paket", aliases: ["DHL Paket Domestic"], country: "DE", line: "psc" },
+                { name: "DHL Express Domestic", aliases: [], country: "DE", line: "psc" },
+                { name: "DPD Domestic", aliases: ["DPD"], country: "DE", line: "psc" },
+                { name: "UPS Standard Single", aliases: [], country: "DE", line: "psc" },
+                { name: "UPS Standard Multiple", aliases: [], country: "DE", line: "psc" },
+                { name: "Winit Parcel-EU", aliases: ["Parcel EU"], country: "DE", line: "psc" },
+
+                // ── PSC AU ──
+                { name: "AU Post Large Letter", aliases: ["AU Post Letter"], country: "AU", line: "psc" },
+                { name: "AUPOST Parcel Post eParcel", aliases: ["Parcel Post eParcel", "eParcel"], country: "AU", line: "psc" },
+                { name: "AU Post Express Post Parcel", aliases: ["Express Post", "AUPost Express"], country: "AU", line: "psc" },
+                { name: "MCS Economy", aliases: ["MCS"], country: "AU", line: "psc" },
+                { name: "PFL Courier", aliases: ["PFL"], country: "AU", line: "psc" },
+                { name: "Aramex Courier", aliases: ["Aramex"], country: "AU", line: "psc" },
+                { name: "AU Mix Economy", aliases: ["AU Mix"], country: "AU", line: "psc" },
+                { name: "TOLL Priority", aliases: ["TOLL"], country: "AU", line: "psc" },
+                { name: "TOLL IPEC", aliases: [], country: "AU", line: "psc" },
+                { name: "Direct Freight", aliases: [], country: "AU", line: "psc" },
+                { name: "Allied Express", aliases: ["Allied"], country: "AU", line: "psc" },
+
+                // ── PSC CA ──
+                { name: "UPS Standard Single", aliases: [], country: "CA", line: "psc" },
+                { name: "UNI Domestic", aliases: ["UNI"], country: "CA", line: "psc" },
+                { name: "Canada Post Expedited", aliases: ["Canada Post"], country: "CA", line: "psc" },
+                { name: "UPS Standard Multiple", aliases: [], country: "CA", line: "psc" },
+                { name: "Purolator Ground", aliases: ["Purolator"], country: "CA", line: "psc" },
+              ];
+
+              // ─── 工具函数 ───────────────────────────────────────────────────────
+
+              interface AnalysisClock {
+                utcIso: string;
+                timezoneLabel: string;
+                note: string;
+              }
+
+              function buildAnalysisClock(): AnalysisClock {
+                return {
+                  utcIso: new Date().toISOString(),
+                  timezoneLabel: "UTC",
+                  note:
+                    "参考时钟为服务端 UTC（ISO8601）。轨迹节点时间多为事件发生地/承运商返回的本地时间或混用时区，与「当前时刻」比较时请显式区分二者，勿直接混算。",
+                };
+              }
+
+              function withAnalysisClock(ec: unknown): Record<string, unknown> {
+                const base =
+                  ec !== undefined && ec !== null && typeof ec === "object" && !Array.isArray(ec)
+                    ? { ...(ec as Record<string, unknown>) }
+                    : {};
+                base.analysisClock = buildAnalysisClock();
+                return base;
+              }
+
+              function isNonEmptyString(v: unknown): boolean {
+                return typeof v === "string" && v.trim().length > 0;
+              }
+
+              function normalizeCountryCode(s: string): string | undefined {
+                const u = s.trim().toUpperCase();
+                if (u === "GB" || u === "UNITED KINGDOM" || u === "GREAT BRITAIN") return "UK";
+                if (u === "USA" || u === "UNITED STATES") return "US";
+                if (u === "DEU" || u === "GERMANY") return "DE";
+                if (u === "CAN" || u === "CANADA") return "CA";
+                if (u === "BEL" || u === "BELGIUM") return "BE";
+                if (u === "AUS" || u === "AUSTRALIA") return "AU";
+                if (u === "英国") return "UK";
+                if (u === "美国") return "US";
+                if (u === "德国") return "DE";
+                if (u === "澳洲" || u === "澳大利亚") return "AU";
+                if (u === "加拿大") return "CA";
+                if (/^[A-Z]{2}$/.test(u)) return u;
+                return undefined;
+              }
+
+              function normalizeProductLine(v: unknown): string {
+                if (typeof v !== "string") return "";
+                const u = v.trim().toLowerCase();
+                if (u === "psc" || u === "parcel") return "psc";
+                if (u === "wf" || u === "fulfillment") return "wf";
+                if (u === "pallet" || u === "托盘") return "pallet";
+                return "";
+              }
+
+              /** 从自然语言文本中推断产品线 */
+              const TEXT_LINE_PATTERNS: Array<{ pattern: RegExp; line: string }> = [
+                { pattern: /托盘|pallet|freight/i, line: "pallet" },
+                { pattern: /fulfillment|履约|WF[^a-z]|Winit\s*Fulfillment/i, line: "wf" },
+                { pattern: /PSC|标准尾程|Parcel\s*Service/i, line: "psc" },
+              ];
+
+              function extractProductLineFromText(text: string): string {
+                if (!text) return "";
+                for (const { pattern, line } of TEXT_LINE_PATTERNS) {
+                  if (pattern.test(text)) return line;
+                }
+                return "";
+              }
+
+              function enrichedContextHasContent(v: unknown): boolean {
+                if (v == null || typeof v !== "object" || Array.isArray(v)) return false;
+                return Object.keys(v as object).length > 0;
+              }
+
+              // ─── 国家解析 ───────────────────────────────────────────────────────
+
+              /** 从自然语言文本中提取国家关键词（中文国名 / 英文国名 / ISO2） */
+              const TEXT_COUNTRY_PATTERNS: Array<{ pattern: RegExp; code: string }> = [
+                { pattern: /美国|USA?|United\s+States/i, code: "US" },
+                { pattern: /英国|UK|GB|United\s+Kingdom|Great\s+Britain/i, code: "UK" },
+                { pattern: /德国|DEU?|Germany/i, code: "DE" },
+                { pattern: /澳洲|澳大利亚|AUSTR?|Australia/i, code: "AU" },
+                { pattern: /加拿大|CAN|Canada/i, code: "CA" },
+              ];
+
+              function extractCountryFromText(text: string): string | undefined {
+                if (!text) return undefined;
+                for (const { pattern, code } of TEXT_COUNTRY_PATTERNS) {
+                  if (pattern.test(text)) return code;
+                }
+                return undefined;
+              }
+
+              function extractCountryForShard(params: Record<string, unknown>): { countryResolved: string; countrySource: string } {
+                const tryStr = (v: unknown): string | undefined =>
+                  typeof v === "string" && v.trim() ? normalizeCountryCode(v) : undefined;
+
+                // 1. 结构化字段
+                let c =
+                  tryStr(params.countryResolved) ??
+                  tryStr(params.country) ??
+                  tryStr(params.destinationCountry);
+                if (c) return { countryResolved: c, countrySource: "param" };
+
+                // 2. enrichedContext
+                const ec = params.enrichedContext;
+                if (ec && typeof ec === "object" && !Array.isArray(ec)) {
+                  const o = ec as Record<string, unknown>;
+                  c =
+                    tryStr(o.country) ??
+                    tryStr(o.destinationCountry) ??
+                    tryStr(o.destinationRegion) ??
+                    tryStr(o.countryCode);
+                  if (c) return { countryResolved: c, countrySource: "enrichedContext" };
+                }
+
+                // 3. 从 query / customerIntent 自然语言中提取
+                const queryText = typeof params.query === "string" ? params.query : "";
+                const intentText = typeof params.customerIntent === "string" ? params.customerIntent : "";
+                c = extractCountryFromText(queryText) ?? extractCountryFromText(intentText);
+                if (c) return { countryResolved: c, countrySource: "text" };
+
+                return { countryResolved: "", countrySource: "" };
+              }
+
+              // ─── 产品名模糊匹配 ─────────────────────────────────────────────────
+
+              interface MatchResult {
+                directMatch: boolean;
+                matchedProductNames: string[];
+                inferredCountry: string;
+                inferredLine: string;
+              }
+
+              /**
+               * 尝试从候选字符串中匹配已知产品。
+               * 匹配策略：
+               *   1. 标准名大小写不敏感子串匹配
+               *   2. alias 大小写不敏感子串匹配
+               *   3. 从候选文本中提取国家后缀（如 "-US"、"-DE"）
+               */
+              function fuzzyMatchProducts(candidates: string[]): MatchResult {
+                const result: MatchResult = { directMatch: false, matchedProductNames: [], inferredCountry: "", inferredLine: "" };
+                const matchedEntries = new Set<string>();
+
+                for (const raw of candidates) {
+                  if (!raw || typeof raw !== "string") continue;
+                  const input = raw.trim().toUpperCase();
+
+                  // 从候选文本中提取国家后缀（如 "FedEx Freight Economy-US (3-7 business days)" → "US"）
+                  const countrySuffixMatch = input.match(/[-–—]\s*([A-Z]{2})\b/);
+
+                  for (const entry of PRODUCT_CATALOG) {
+                    if (matchedEntries.has(entry.name + "|" + entry.country)) continue;
+
+                    const nameUpper = entry.name.toUpperCase();
+                    const matched =
+                      input.includes(nameUpper) ||
+                      nameUpper.includes(input) ||
+                      entry.aliases.some((a) => {
+                        const aUpper = a.toUpperCase();
+                        return input.includes(aUpper) || aUpper.includes(input);
+                      });
+
+                    if (matched) {
+                      matchedEntries.add(entry.name + "|" + entry.country);
+                      result.matchedProductNames.push(entry.name);
+                      // 推断国家和产品线
+                      if (!result.inferredCountry) {
+                        result.inferredCountry = countrySuffixMatch ? countrySuffixMatch[1] : entry.country;
+                      }
+                      if (!result.inferredLine) result.inferredLine = entry.line;
+                    }
+                  }
+                }
+
+                result.directMatch = result.matchedProductNames.length > 0;
+                return result;
+              }
+
+              // ─── kbScope 推断 ───────────────────────────────────────────────────
+
+              const SUPPORTED_COUNTRIES = new Set(["US", "UK", "DE", "AU", "CA"]);
+
+              function determineKbScope(
+                countryResolved: string,
+                productLine: string,
+                directMatch: boolean,
+              ): string {
+                if (directMatch) return "direct";
+
+                const hasCountry = countryResolved !== "" && SUPPORTED_COUNTRIES.has(countryResolved);
+                const hasLine = productLine === "psc" || productLine === "wf" || productLine === "pallet";
+
+                if (hasCountry && hasLine) return `${productLine}-${countryResolved}`;
+                if (hasCountry) return `all-${countryResolved}`;
+                if (hasLine) return `${productLine}-all`;
+                return "index";
+              }
+
+              // ─── 主入口 ─────────────────────────────────────────────────────────
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const customerIntent = isNonEmptyString(params.customerIntent) ? String(params.customerIntent).trim() : "";
+                const enrichedContext = params.enrichedContext;
+                const inputContext = params.inputContext;
+
+                const queryText = typeof params.query === "string" ? params.query : "";
+                const intentText = typeof params.customerIntent === "string" ? params.customerIntent : "";
+                const combinedText = queryText + " " + intentText;
+
+                // 1. 从文本中提取国家（query + customerIntent）
+                let countryFromText = extractCountryFromText(queryText) ?? extractCountryFromText(intentText) ?? "";
+
+                // 2. 从文本中提取产品线
+                let lineFromText = extractProductLineFromText(combinedText);
+
+                // 3. 从文本中模糊匹配产品名（query + customerIntent 整句都作为候选）
+                const textCandidates = [queryText, intentText].filter(Boolean);
+                const matchResult = fuzzyMatchProducts(textCandidates);
+
+                const allMatchedNames = matchResult.matchedProductNames;
+                const directMatch = allMatchedNames.length > 0;
+                const inferredFromProduct = directMatch ? matchResult.inferredCountry : "";
+                const inferredLineFromProduct = directMatch ? matchResult.inferredLine : "";
+
+                // 4. 国家优先级：结构化字段 > 文本提取 > 产品名推断
+                let { countryResolved, countrySource } = extractCountryForShard(params);
+                if (!countryResolved && countryFromText) {
+                  countryResolved = countryFromText;
+                  countrySource = "text";
+                }
+                if (!countryResolved && inferredFromProduct) {
+                  countryResolved = inferredFromProduct;
+                  countrySource = "inferred";
+                }
+
+                // 6. 产品线优先级：结构化字段 > 文本提取 > 产品名推断
+                let productLine = normalizeProductLine(params.productLine);
+                if (!productLine) productLine = lineFromText;
+                if (!productLine) productLine = inferredLineFromProduct;
+
+                // 7. 推断 kbScope
+                const kbScope = determineKbScope(countryResolved, productLine, directMatch);
+
+                // 8. 校验（有 query 就算有效）
+                const hasQuery = queryText.trim().length > 0;
+                const hasIntent = customerIntent.length > 0;
+                const hasEnriched = enrichedContextHasContent(enrichedContext);
+                const hasCountry = countryResolved.length > 0;
+                const valid = hasQuery || hasIntent || hasEnriched || hasCountry;
+
+                const ret = valid
+                  ? {
+                      valid: true as const,
+                      customerIntent,
+                      countryResolved,
+                      countrySource,
+                      productLine,
+                      directMatch,
+                      matchedProductNames: allMatchedNames,
+                      kbScope,
+                      enrichedContext: withAnalysisClock(enrichedContext ?? {}),
+                      inputContext: inputContext ?? {},
+                    }
+                  : {
+                      valid: false as const,
+                      error: "至少提供 query、customerIntent 或 enrichedContext（非空对象）之一",
+                      customerIntent: params.customerIntent ?? "",
+                      countryResolved,
+                      countrySource,
+                      productLine,
+                      directMatch: false,
+                      matchedProductNames: [],
+                      kbScope,
+                      enrichedContext: withAnalysisClock(enrichedContext ?? {}),
+                      inputContext: inputContext ?? {},
+                    };
+                return ret;
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => {
+                    console.error(e);
+                    process.exit(1);
+                  });
+              }
+          language: 5
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "100001"
+              - name: country
+                input:
+                    value:
+                        path: inputs.country
+                        ref_node: "100001"
+              - name: destinationCountry
+                input:
+                    value:
+                        path: inputs.destinationCountry
+                        ref_node: "100001"
+              - name: productLine
+                input:
+                    value:
+                        path: inputs.productLine
+                        ref_node: "100001"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: inputs.enrichedContext
+                        ref_node: "100001"
+              - name: inputContext
+                input:
+                    value:
+                        path: inputContext
+                        ref_node: "100001"
+          node_outputs:
+              valid:
+                  type: boolean
+                  value: null
+              error:
+                  type: string
+                  value: null
+              customerIntent:
+                  type: string
+                  value: null
+              countryResolved:
+                  type: string
+                  value: null
+              countrySource:
+                  type: string
+                  value: null
+              productLine:
+                  type: string
+                  value: null
+              directMatch:
+                  type: boolean
+                  value: null
+              matchedProductNames:
+                  type: list
+                  items:
+                      type: string
+                      value: null
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+              inputContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163001"
+      type: text
+      title: kb-psc-index
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 707
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # PSC 尾程派送产品知识库（非 Winit Fulfillment）— 索引
+
+                        > 本知识库涵盖万邑通 PSC（Parcel Service Center）尾程派送产品，按国家拆分为独立文件。不含价格信息。
+
+                        ---
+
+                        ## 一、服务总览
+
+                        | 国家 | 本地正向派送 | 本地逆向派送 | 国际派送 |
+                        |------|-------------|-------------|---------|
+                        | 澳洲 (AU) | AU Post Large Letter、Parcel Post eParcel、Express Post Parcel、MCS Economy、PFL Courier、Aramex Courier、AU Mix Economy、TOLL Priority、TOLL IPEC、Direct Freight、Allied Express | Parcel Post eParcel Return | AuPost International NZ |
+                        | 德国 (DE) | DE Post Untracked Letter、DHL Kleinpaket、DE Post Warenpost、DHL Domestic Paket、DHL Express Domestic、DPD Domestic、UPS Standard Single、UPS Standard Multiple | DHL Domestic Paket Return、DHL International Paket Return | DHL Warenpost Intl、DPD Intl、DHL Intl Paket、DHL Express Worldwide、Winit Parcel-EU、UPS Standard (多国) |
+                        | 英国 (UK) | Royal Mail Untracked 24/48 Letter、Royal Mail Tracked 24/48 Parcel、DHL Domestic Next Day、EVRi Standard 24/48、XDP 1 Man/2 Man、DPD Parcel、FedEx Economy | Royal Mail Tracked Returns 48、EVRi Light&Large Return | DPD Intl Parcel |
+                        | 美国 (US) | USPS Ground Advantage、USPS Priority Mail、Amazon Logistics SWA、UPS SurePost、UPS Ground、UPS 3 Day Select、UPS Next Day Air、OnTrac Ground、FedEx Ground（小/大货仓）、FedEx 2Day、FedEx Standard Overnight、UPS Hundredweight | USPS Ground Advantage Return、USPS Priority Mail Return、UPS Ground Return、FedEx Ground Return | USPS First Class Pkg Intl、USPS Priority Mail Intl |
+                        | 加拿大 (CA) | UPS Standard Single、UNI Domestic、Canada Post Expedited、UPS Standard Multiple、Purolator Ground | UPS Standard Return | — |
+
+                        ---
+
+                        ## 二、国家文件索引
+
+                        | 文件 | 国家 | 内容 |
+                        |------|------|------|
+                        | [kb-psc-au.md](kb-psc-au.md) | 澳洲 | 产品规格 + 发货限制 |
+                        | [kb-psc-de.md](kb-psc-de.md) | 德国 | 产品规格 + 发货限制 |
+                        | [kb-psc-uk.md](kb-psc-uk.md) | 英国 | 产品规格 + 发货限制 |
+                        | [kb-psc-us.md](kb-psc-us.md) | 美国 | 产品规格 + 发货限制 |
+                        | [kb-psc-ca.md](kb-psc-ca.md) | 加拿大 | 产品规格 + 发货限制 |
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163002"
+      type: text
+      title: kb-wf-index
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 947
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # Winit Fulfillment 履约服务范围知识库 — 索引
+
+                        > 本知识库涵盖万邑通尾程履约服务的完整产品信息，按国家拆分为独立文件。通用规则适用于所有国家。
+
+                        ---
+
+                        ## 一、服务总览
+
+                        ## 一、服务总览
+
+                        | 国家 | 正向派送（组合渠道） | 正向派送（指定渠道） | 逆向退货服务 | 增值保险 |
+                        |------|---------------------|---------------------|-------------|---------|
+                        | 美国 | 7日达、5日达、3日达、2日达 | USPS Ground Advantage、Shipping with Amazon、Ground（组合FedEx/UPS）、UPS Ground（一票多件）、USPS First Class Pkg Intl、USPS Priority Mail Intl | USPS Ground Advantage Return、USPS Priority Mail Return、UPS Ground Return、FedEx Ground Return | 追踪守护、时效保（仅2/3/5/7日达） |
+                        | 澳洲 | Economy、Standard、Express | AuPost International NZ Delivery | AUPOST Parcel Post eParcel Return | 追踪守护 |
+                        | 德国 | Economy、Standard | DHL Express-Worldwide、DHL Paket、DB SCHENKER Standard Delivery（托盘） | DHL Paket Return | 追踪守护 |
+                        | 英国 | Standard、Express | DHL Next Day | Royal Mail Tracked Returns 48 Parcel | 追踪守护 |
+
+                        ---
+
+                        ---
+
+                        ## 二、国家文件索引
+
+                        | 文件 | 国家 | 适用群体 |
+                        |------|------|---------|
+                        | [kb-wf-us.md](kb-wf-us.md) | 美国 | 美国 WINIT Fulfillment（分区价） |
+                        | [kb-wf-au.md](kb-wf-au.md) | 澳洲 | 澳洲 WINIT Fulfillment |
+                        | [kb-wf-de.md](kb-wf-de.md) | 德国 | 德国 WINIT Fulfillment |
+                        | [kb-wf-uk.md](kb-wf-uk.md) | 英国 | 英国 WINIT Fulfillment |
+
+                        ---
+
+                        ## 三、通用规则与政策
+
+                        ### 3.1 计费重量规则
+
+                        计费重量取实重和体积重的最大值。各国各渠道体积重计算公式：
+
+                        | 渠道 | 体积重公式 |
+                        |------|-----------|
+                        | 美国：7日达/5日达/USPS Ground Advantage/USPS Return | 长×宽×高(cm)/6000 |
+                        | 美国：2日达/3日达/Ground/UPS Ground(一票多件)/UPS Ground Return/FedEx Ground Return | 长×宽×高(cm)/8000 |
+                        | 美国：Shipping with Amazon | 长×宽×高(cm)/7200 |
+                        | 澳洲：Standard/Express | 长×宽×高(cm)/4000 |
+                        | 德国：Standard（FR-Zonal）/DHL Express | 长×宽×高(cm)/5000 |
+
+                        ### 3.2 电池货物通用政策
+
+                        - 电池货物的包装及标签需满足国际电池货物标准（包含但不限于 ADR/IATA/IMDG 及 Packing Instruction）。
+                        - 离岸地址不支持配送带电商品（美国离岸邮编：006,007,009,00801-00851,967,968,96900-96970,995-999）。
+                        - 纯电池商品（单独电池）大部分渠道不支持，仅部分指定渠道有条件接受。
+
+                        ### 3.3 尾程保险「时效保」
+
+                        #### 产品概要
+
+                        | 项目 | 说明 |
+                        |------|------|
+                        | 服务名称 | 时效保 |
+                        | 结算币种 | USD |
+                        | 承保的尾程产品 | 美国 Winit Fulfillment-2日达、3日达、5日达、7日达 |
+                        | 保险范围 | 已有尾程揽收轨迹，但未在要求的时效内完成派送的订单（免赔场景除外） |
+                        | 投保方式 | 下单时选择尾程增值「时效保 Lite」，订单提交成功即投保成功 |
+                        | 保费 | 0.3 USD/订单 |
+                        | 赔付标准 | 5 USD/订单 与 订单运费金额，二者取小 |
+                        | 赔付方式 | 直接退到 Winit 账户余额 |
+                        | 赔付时间 | Winit 每月主动 Review；M0 出库的订单，M1 月底前完成赔付到账 |
+
+                        #### 时效要求
+
+                        | 场景 | 2日达 | 3日达 | 5日达 | 7日达 |
+                        |------|-------|-------|-------|-------|
+                        | Day0 截单时间前提交的订单 | 工作日 Day2 24点前妥投 | 工作日 Day3 24点前妥投 | 工作日 Day5 24点前妥投 | 工作日 Day7 24点前妥投 |
+                        | Day0 截单时间后提交的订单 | 工作日 Day3 24点前妥投 | - | 工作日 Day6 24点前妥投 | 工作日 Day8 24点前妥投 |
+
+                        > **赔付举例**：订单 A 运费=4.15 USD，则赔付金额=4.15 USD；订单 B 运费=5.34 USD，则赔付金额=5 USD。
+
+                        #### 免赔场景
+
+                        1. 因收件人拒收/地址错误/不在家/截单改址/指定时间派送等收件人原因导致的派送超时，根据承运商第一次派送时间（Attempt scan）在应妥投时间内则计为准时。
+                        2. 由于包装不符合承运要求、商品侵权等非 Winit/承运商原因导致的派送超时，不在保险范围。
+                        3. 由于自然灾害、战争等不可抗力因素导致的派送超时，不在保险范围。
+                        4. 因库存丢失或其它原因导致订单不能出库，Winit 及时通知客户作废订单的情况，不在保险范围。
+                        5. 因下单地址问题或供应商系统异常导致抓单失败，Winit 及时通知客户作废订单的情况，不在保险范围。
+                        6. 离岸岛屿及军事地址不在保险范围。
+                        7. 超时无上网的订单请按 Winit 标准赔付流程申请超时无上网赔付，不在时效保保险范围。
+
+                        ### 3.4 时效与偏远地区
+
+                        - 偏远地区及旺季期间的订单物流时效可能延长，请留意旺季期间公告。
+                        - 各组合渠道时效达成率为送达率≥95%（偏远地区除外）。
+
+                        ### 3.5 赔付政策
+
+                        - 赔付标准细节请参考《Winit赔付标准》合同条款。
+                        - 高货值产品建议购买尾程保险【追踪守护】以获得更充分保障。
+
+                        ### 3.6 异形包装
+
+                        - 2/3/5/7日达产品不支持异形包装（包含且不仅限于圆柱形、不规则形状）。
+                        - 如因异形包装产生尾程账单费用差异，Winit 有权禁止对应商品发货权限或依据账单向客户补收费用。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163003"
+      type: text
+      title: kb-pallet-index
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1187
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        # Winit 托盘（Pallet）尾程派送产品知识库 — 索引
+
+                        > 本知识库涵盖万邑通托盘尾程派送产品信息，按国家拆分为独立文件。不含价格信息，价格请参考合同价卡。
+
+                        ---
+
+                        ## 一、服务总览
+
+                        | 国家 | 产品名称 | 承运商 | 预计物流时效 | 配送范围 |
+                        |------|---------|--------|------------|---------|
+                        | 德国 (DE) | DB SCHENKER Standard Delivery | DB SCHENKER | 德国：2个工作日；德国除外：2-5个工作日 | 欧盟内+欧盟外部分国家 |
+                        | 美国 (US) | FedEx Freight Economy | FedEx | 3-7个工作日 | 美国本土48州 |
+
+                        ---
+
+                        ## 二、国家文件索引
+
+                        | 文件 | 国家 | 内容 |
+                        |------|------|------|
+                        | [kb-pallet-de.md](kb-pallet-de.md) | 德国 | DB SCHENKER 托盘产品规格 + 附加费说明 |
+                        | [kb-pallet-us.md](kb-pallet-us.md) | 美国 | FedEx Freight Economy 托盘产品规格 + 附加费说明 |
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163004"
+      type: text
+      title: kb-psc-us
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1427
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        ### 1.1 USPS - Ground Advantage（Standard 3-5 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重为准；体积≤0.028m³ 按实重；体积>0.028m³ 时按体积重与实重取大者，体积重=长×宽×高(cm)/6000 |
+                        | 重量限制 | ≤20 lbs |
+                        | 尺寸限制 | 长+2×(宽+高)≤330 cm |
+                        | 时效 | 3-5 个工作日 |
+                        | 支持发货仓 | USKY3/USKY5/USWC/USWC2/USWC5/USTX |
+                        | 挂号 | 已含 |
+                        | 主要附加费 | 超长附加费（分两级：22-30 inches / >30 inches；同时触发超长和超大时叠加收取；如因商品与系统不符额外补收 Non-compliance fee 1.5 USD）；超大尺寸附加费（体积>0.055m³；或长+2×(宽+高)>274cm 且≤330cm 时运费按 Oversize 收取）；签名附加费；超限制附加费 20 USD；人工分拣费 Nonstandard Characteristic fee（非标准包装）；取消订单费（(运费+尾程附加费)×10%）；派送失败退货费（与正向一致） |
+                        | 增值服务 | Return Label（买家 28 天内预约 USPS 上门提货；超 28 天面单作废，继续退货特殊处理费 10 USD/Order）；支持代客索赔 |
+                        | 其他 | 离岸及军事地址不支持 Return Service（邮编：006-009,090-099,340,962-969,995-999） |
+
+                        ### 1.2 USPS - Priority Mail（Express 2-3 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重为准，体积重=长×宽×高(cm)/6000，与实重取大者 |
+                        | 重量限制 | ≤25 lbs |
+                        | 时效 | 2-3 个工作日 |
+                        | 支持发货仓 | USKY3/USKY5/USWC/USWC2/USWC5/USTX/USGA |
+                        | 主要附加费 | 超长附加费；超大尺寸附加费（体积>0.055m³）；签名附加费；超限制附加费；人工分拣费；取消订单费；派送失败退货费（与正向一致） |
+                        | 其他 | 官网参考时效 2-3 工作日，实际无法保证 3 日内送达；如紧急建议选 FedEx 2Day；Winit 2025 上半年实际数据（满足妥投率≥90%）：Zone 1-3 需 4 个工作日，Zone 4-8 需 6 个工作日 |
+
+                        ### 1.3 Amazon Logistics - Shipping with Amazon（Economy 3-7 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长×宽×高(cm)/7200，与实重取大者 |
+                        | 重量限制 | ≤30 lbs |
+                        | 尺寸限制 | 长≤93cm，宽≤76cm，高≤60cm，长+2*(宽+高)≤266cm |
+                        | 时效 | 3-7 个工作日 |
+                        | 支持发货仓 | USWC/USWC2/USKY3/USKY5/USGA/USTX |
+                        | 主要附加费 | 燃油附加费（每周更新，参考 UPS 官网）；地区附加费 DAS/EDAS/Remote；超长附加费 Non-Standard Fee（按 Zone 分级）、超长附加费 Additional Handling-Dim（按 Zone 分级）；超重附加费 Additional Handling-Weight（按 Zone 分级）；超大附加费 Large Package（按 Zone 分级）；异形包装附加费 Additional Handling（按 Zone 分级）；超限制 Overmaximum Fee；地址修正费；派送失败退货费（与正向一致） |
+                        | 其他 | 整合型服务，尾程可能由自营车队或第三方派送商完成；不支持签名/截件/改址/重派；USTX 仅支持 Zone 1-6 |
+
+                        ### 1.4 UPS - SurePost（Standard 3-5 工作日）— 即将下线
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤20 lbs |
+                        | 支持发货仓 | USKY3/USWC/USTX |
+                        | 时效 | 3-5 个工作日 |
+                        | 主要附加费 | 燃油附加费；地区附加费；超长附加费；超大附加费；旺季附加费；超限制附加费 |
+                        | 其他 | UPS 整合型服务，UPS 前端运输+USPS 尾程派送；不支持改址/改派；将于 4 月 24 日下线 |
+
+                        ### 1.5 UPS - Ground（Standard 1-5 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长×宽×高(cm)/139（即 lbs 体系），与实重取大者 |
+                        | 重量限制 | ≤150 lbs |
+                        | 尺寸限制 | L≤274 cm (108 inches)，长+2*(宽+高)≤419 cm (165 inches) |
+                        | 时效 | 1-5 个工作日 |
+                        | 支持发货仓 | USKY3/USKY5/USWC/USWC2/USWC5/USTX/USGA/USNJ2 |
+                        | 主要附加费 | 燃油附加费（每周更新）；住宅地址附加费；地区附加费 DAS/EDAS/Remote（分商业/住宅）；超长附加费；超重附加费（>50lbs）；超大附加费 Large Package；超限制附加费（>150lbs/274cm/419cm）；不规则包装附加费；旺季附加费；签名附加费；地址修正费；截件费；派送失败退货费（与正向一致） |
+                        | 增值服务 | Return Label（UPS Ground Return Service） |
+
+                        ### 1.6 UPS - 3 Day Select Residential（Express 3 工作日）— 即将下线
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 同 UPS Ground |
+                        | 时效 | 3 个工作日 |
+                        | 支持发货仓 | USKY3/USWC/USWC2 |
+                        | 其他 | 将于 4 月 24 日下线 |
+
+                        ### 1.7 UPS - Next Day Air Saver（One-Day Service）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 同 UPS Ground |
+                        | 时效 | 1 个工作日 |
+                        | 支持发货仓 | USKY3/USWC/USWC2 |
+
+                        ### 1.8 OnTrac - Ground（Standard 3-5 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤20 lbs |
+                        | 尺寸限制 | 长+2*(宽+高)≤266 cm |
+                        | 时效 | 3-5 个工作日 |
+                        | 支持发货仓 | USKY3/USKY5/USWC/USWC2/USWC5 |
+                        | 配送范围 | 美国本土 |
+
+                        ### 1.9 FedEx - Ground（Standard 1-5 工作日）— US 小货仓 / 大货仓
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长×宽×高(cm)/139（lbs 体系），与实重取大者 |
+                        | 重量限制 | ≤150 lbs |
+                        | 尺寸限制 | L≤274 cm (108 inches)，长+2*(宽+高)≤419 cm (165 inches) |
+                        | 时效 | 1-5 个工作日 |
+                        | 小货仓 | USKY3/USKY5/USWC/USWC2/USWC5/USTX |
+                        | 大货仓 | USWC/USTX/USGA/USNJ2 |
+                        | 主要附加费 | 燃油附加费；住宅地址附加费；地区附加费 DAS/Extended/Remote/Super Remote；超长/超重附加费 Additional Handling；超大附加费 Large Package（分 Zone）；超限制附加费 Overmaximum；不规则包装附加费；旺季附加费；签名附加费；地址修正费；截件费；派送失败退货费（与正向一致） |
+                        | 增值服务 | Return Label（FedEx Ground Return Service） |
+
+                        ### 1.10 FedEx - 2Day（Express 2 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 重量限制 | ≤150 lbs |
+                        | 尺寸限制 | L≤274 cm，长+2*(宽+高)≤419 cm |
+                        | 时效 | 2 个工作日 |
+
+                        ### 1.11 FedEx - Standard Overnight（One-Day Service）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 重量限制 | ≤150 lbs |
+                        | 尺寸限制 | L≤274 cm，长+2*(宽+高)≤419 cm |
+                        | 时效 | 1 个工作日 |
+
+                        ### 1.12 UPS - Ground Hundredweight（大件一单多包裹）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 重量限制 | 单包裹≤150 lbs，订单总计费重≤200 lbs |
+                        | 支持一单多包裹 | 是 |
+
+                        ### 1.13 逆向退货服务
+
+                        | 服务 | 说明 |
+                        |------|------|
+                        | USPS Ground Advantage Return | 退货仓：USKY3/USWC/USWC2/USTX；Return Label 服务 |
+                        | USPS Priority Mail Return | 退货仓：USWC；时效更快的 Return Label |
+                        | UPS Ground Return Service | UPS Return Label |
+                        | FedEx Ground Return Service | 支持 USGA 仓退货 |
+
+                        ### 1.14 国际派送
+
+                        | 服务 | 说明 |
+                        |------|------|
+                        | USPS First Class Package International | 计费重≤64 oz，时效 6-11 工作日；供应商不承诺回传妥投轨迹 |
+                        | USPS Priority Mail International | 计费重≤30 lbs，时效 6-11 工作日；配送至墨西哥、加拿大及其它 15+ 国家 |
+
+                        ### 1.15 发货限制与注意事项
+
+                        #### 电池限制
+
+                        | 产品 | 内置电池 | 配套电池 | 纯电池 | 备注 |
+                        |------|---------|---------|--------|------|
+                        | USPS Ground Advantage | √ | √ | √ | 纯电须纸盒包装+外包装标注 Surface Mail Only |
+                        | USPS Priority Mail | √ | √ | × | 不支持：锂金属电池订单>11lbs 或>8 电芯或>2 电池；锂离子>8 电芯或>2 电池；破损/召回电池 |
+                        | UPS SurePost | √ | √ | √ | |
+                        | UPS Ground | √ | √ | √ | 电池组≤300Wh 按普货；>300Wh 为危险品需 DG 价卡 |
+                        | UPS Next Day Air | √ | √ | × | 包裹电池重量≤5KG |
+                        | FedEx Ground | √ | √ | √ | 电池组≤300Wh 按普货；>300Wh 不可发 |
+                        | FedEx 2Day / Overnight | √ | √ | × | |
+                        | Amazon SWA | √ | √ | × | |
+                        | OnTrac Ground | √ | √ | × | |
+                        | USPS First Class Intl | √ | × | × | |
+                        | USPS Priority Mail Intl | √ | × | × | |
+
+                        > 注：US 电池标准为电池组≤100WH / 电池芯≤60WH。UN 电池标签要求：纯电/配套锂电池必须贴 UN 标；内置锂电池超 4 电芯或 2 电池以上也须贴 UN 标。不支持场景：锂金属电池订单>11lbs 或>8 电芯或>2 电池；锂离子>8 电芯或>2 电池；纯电>5lbs；破损/召回电池。
+
+                        #### 其他限制
+
+                        - **UPS SurePost**：不接受 AK/HI/PR 及其他离岸岛屿；不接受军事地址
+                        - **USPS Ground Advantage**：军事地址派送限制各有不同；USPS 将自动修正不规范地址
+                        - **USPS Priority Mail**：发军事/离岸地址时申报品名不得超 30 个
+                        - **UPS Ground**：不接受军事地址；美国大陆以外地址不支持危险品（含电池或危险品标），包括 AK/HI/PR/Avalon CA/Catalina Island CA/Beaver Island MI 等
+                        - **FedEx Ground**：不接受 AK/HI/PR 及其他离岸岛屿；不接受军事地址
+                        - **FedEx 2Day / Overnight**：送亚马逊仓涉及预约，派送时效会有所延长
+                        - **Amazon SWA**：不接受全部亚马逊仓库地址、离岸地址（PR/AK/HI/GU/AA/AE/AP）、军事地址（APO/FPO/DPO）；存在因地址不支持导致抓单失败的概率
+                        - **USPS First Class Intl**：订单申报价值≤1250 USD；不支持发手机
+                        - **各产品通用**：必须填写有效收件人电话号码
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163005"
+      type: text
+      title: kb-psc-uk
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1667
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        ### 1.1 Royal Mail - Untracked 24 Large Letter（Standard 1-2 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤0.75 kg |
+                        | 尺寸限制 | ≤353×250×25 mm |
+                        | 时效 | 1-2 个工作日 |
+                        | 挂号 | 不含 |
+                        | 燃油 | 不含 |
+
+                        ### 1.2 Royal Mail - Untracked 48 Large Letter（Economy 2-3 工作日）
+
+                        规格与 24 版相同，时效 2-3 个工作日。
+
+                        ### 1.3 Royal Mail - Tracked 24 Parcel（Standard 1-2 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤15 kg |
+                        | 尺寸限制 | ≤610×460×460 mm |
+                        | 时效 | 1-2 个工作日 |
+                        | 挂号 | 已含 |
+
+                        ### 1.4 Royal Mail - Tracked 48 Parcel（Economy 2-3 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤20 kg |
+                        | 尺寸限制 | ≤610×460×460 mm |
+                        | 时效 | 2-3 个工作日 |
+                        | 挂号 | 已含 |
+                        | 燃油 | 已含 |
+
+                        ### 1.5 Royal Mail 通用附加费
+
+                        - 燃油附加费：官网提前 30 天通知（Tracked 48 Parcel 除外）
+                        - 偏远附加费：适用于 Tracked 24/48 Parcel 及对应 Return（邮编 IV,HS,KA27-28,KW,PA20-49,PA60-78,PH17-26,PH30-44,PH49-50,ZE,GY,JE,IM,BT,TR21-25,FK19-20,PA80,PO30-41,AB35-38,AB53-56）
+                        - 超限制附加费：分三级 — Tracked 24/48 Parcel 超出限制 12.1 GBP；Untracked 超出 Untracked 限制但未超出 Tracked 限制 7.5 GBP（按 Tracked 计费）；Untracked 超出 Tracked 限制 12.1 GBP
+                        - 签名附加费：适用于 Signed 版本服务
+                        - 目测年龄费：2025年3月起英国售卖刀具产品必须购买
+                        - 派送失败退货费：与正向一致（叠加燃油）
+                        - 增值服务：Return Label（买家 28 天内预约 Royal Mail 上门提货；超 28 天面单作废，继续退货特殊处理费 10 GBP/Order）
+                        - 其他：以下军事区域邮编无法派送：BF1 开头
+
+                        ### 1.6 EVRi - UK Standard 24（One-Day Service）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤15 kg |
+                        | 尺寸限制 | L≤120 cm，L+2*(W+H)≤225 cm |
+                        | 时效 | 1 个工作日 |
+                        | 无法送达区域 | BF、其他军事地址 |
+
+                        ### 1.7 EVRi - UK Standard 48（Economy 2-3 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤30 kg |
+                        | 尺寸限制 | L≤180 cm，L+2*(W+H)≤420 cm |
+                        | 时效 | 2-3 个工作日 |
+                        | 无法送达区域 | BF,GY,JE 及其他军事地址 |
+
+                        ### 1.8 EVRi 通用附加费
+
+                        - 燃油附加费：费率 2.5%（如有更新提前公告）
+                        - 超长超重附加费（三级）：15-20kg 或 120-140cm 或 225<L+2(W+H)≤300cm；20-25kg 或 140-160cm 或 300<L+2(W+H)≤350cm；25-30kg 或 160-180cm 或 350<L+2(W+H)≤420cm
+                        - 超大尺寸附加费（两级）：体积≥0.04 m³；体积≥0.08 m³
+                        - 签名附加费（POD 版本）
+                        - 特殊操作费：(运费+附加费)×3%
+                        - 地区附加费（clean air surcharge，2025年6月15日有更新）
+                        - 超限制附加费：20 GBP（超出服务重量/尺寸限制）
+                        - 地址修正费（两种场景）：地址错误修正 0.6 GBP；因地址/破损/买家拒收导致退回处理中心 2 GBP
+                        - 派送失败退货费：与正向一致
+                        - 已知军事地址附加费：HA4 6DQ、HA4 6EP 等军事地址加收 8 GBP/票
+                        - 增值服务：EVRi Light&Large Return Service（实重>15kg 或长>120cm 的退货）
+
+                        ### 1.9 XDP - 1 Man Parcel-Multiple（Economy 3-5 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 实重与体积重取大；Zone A/B: 体积重=长×宽×高cm/5000；Zone C-G: /3000 |
+                        | 重量限制 | 单品≤50 kg，订单总计费重≤250 kg |
+                        | 尺寸限制 | 单品 L≤3.2 m，订单总体积≤2 m³，订单所含单品≤20 个 |
+                        | 时效 | 3-5 个工作日 |
+
+                        ### 1.10 XDP - 2 Man Delivery-Multiple（Economy 3-6 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 同 1 Man |
+                        | 重量限制 | 单品≤150 kg，订单总计费重≤350 kg，总体积重≤600 kg |
+                        | 尺寸限制 | 单品 L≤4 m，单个包裹最大 3.2 m，订单所含单品≤10 个 |
+                        | 时效 | 3-6 个工作日 |
+
+                        ### 1.11 XDP 通用附加费
+
+                        - 燃油附加费（每周更新，参考 gov.uk）
+                        - 偏远附加费：PO30-PO41, TR21-TR25（13.3 GBP）
+                        - 伦敦拥堵费：1MAN 服务 2.62 GBP / 2MAN 服务 21.28 GBP；邮编 W1-W14,EC,WC,SW1-SW20,SE1-SE28,E1-E20,N1-N22,NW1-NW11
+                        - 订单取消费：1.92 GBP
+                        - 超限制附加费：20 GBP
+                        - 二次派送费：收件人原因（运费+燃油费）的 50%；改址（运费+燃油费）的 100%
+                        - 派送失败退货费：与正向一致
+
+                        ### 1.12 DPD - Parcel（Express 1-2 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际重量为准 |
+                        | 重量限制 | ≤30 kg |
+                        | 尺寸限制 | L×W×H≤100×70×60 cm，L+W+H≤230 cm |
+                        | 时效 | 1-2 个工作日 |
+                        | 其他 | GY,JE 邮编无派送服务；支持截件尝试；增值服务 DPD PIN Code（4 位验证码） |
+                        | 主要附加费 | 燃油附加费（每周更新）；特殊操作费；收货验证附加费 DPD PIN Code；超限制附加费 17.5 GBP 或退回；派送失败退货费（与正向一致） |
+
+                        ### 1.13 DPD - International Parcel（Economy 2-8 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际重量为准 |
+                        | 重量限制 | ≤31.5 kg |
+                        | 尺寸限制 | 长<175 cm，长+2*(宽+高)<300 cm（北爱尔兰/爱尔兰：≤30kg，L×W×H≤100×70×60cm） |
+                        | 时效 | 2-8 个工作日 |
+                        | 其他 | 到达目的国前支持截件；部分 HSCODE 商品不支持；清关税金：货值≤150 欧向收件人收取，货值>150 欧向发件人收取；部分邮编不支持派送 |
+                        | 主要附加费 | 燃油附加费（每月更新）；特殊清关处理费；特殊操作费；税金（实报实销）；超限制附加费 28 GBP；派送失败退货费（与正向一致） |
+
+                        ### 1.14 FedEx - Economy Parcel（Economy 2-5 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 首包裹+续包裹×续包裹数量（一单一包裹/一单多包裹） |
+                        | 重量限制 | ≤68 kg |
+                        | 尺寸限制 | L≤121 cm，W≤76 cm，L+2*(W+H)≤266 cm |
+                        | 时效 | 1-3 个工作日（偏远地区不适用） |
+                        | 主要附加费 | 燃油附加费；超长/超重附加费；超大附加费；偏远附加费（A/B/C 区）；不规则包装附加费；地址修正费 |
+                        | 其他 | 支持一单一包裹（Single Parcel）和一单多包裹（Multiple Parcels）两种子产品 |
+
+                        ### 1.15 DHL - Domestic Next Day（Standard 1-2 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以每个包裹计费重量单独计费，体积重=长(cm)×宽(cm)×高(cm)/5000 |
+                        | 重量限制 | 包裹≤70 kg，订单计费重<1000 kg |
+                        | 尺寸限制 | 包裹≤200×120×120 cm |
+                        | 时效 | 1-2 个工作日 |
+                        | 支持一单多包裹 | 是 |
+                        | 北爱尔兰限制 | 邮编 BT 开头，重量上限 30 kg |
+                        | 主要附加费 | 燃油附加费 8.5%；地区附加费（clean air）；超长附加费；超重附加费（分级）；目测年龄费；偏远附加费（Isle of Wight/Scilly/BFPO） |
+                        | 其他 | 供应商原名 DHL Parcel，已更名 DHL eCommerce；增值服务：目测年龄验证（Last Mile VCA） |
+
+                        ### 1.16 发货限制与注意事项
+
+                        #### 电池限制
+
+                        | 产品 | 内置电池 | 配套电池 | 纯电池 | 备注 |
+                        |------|---------|---------|--------|------|
+                        | EVRi Standard 24/48 | √ | √ | √ | |
+                        | Royal Mail Untracked 24/48 | × | × | × | |
+                        | Royal Mail Tracked 24/48 | √（离岸岛屿/军事地址/苏格兰除外） | √（离岸岛屿/军事地址/苏格兰除外） | × | |
+                        | DPD Parcel | √ | √ | × | |
+                        | DPD International | √（部分离岸岛屿除外） | × | × | |
+                        | FedEx Economy | √ | √ | √ | 纯电需单独报价（DG 价卡），联系销售经理 |
+                        | DHL Domestic Next Day | √ | √ | × | |
+                        | XDP 1 Man/2 Man | √ | √ | × | |
+
+                        > 注：UK 电池标准为电池芯≤20WH。英国离岸岛屿、军事地址及苏格兰地区不支持运输电池商品，具体邮编：苏格兰 KW/IV/AB/PH/PA/FK/DD/KY/G/KA/ML/EH/TD/DG 开头；离岸岛屿 BT/IM/HS/ZE/GY/JE/TR21-25。电池包装须满足 ADR/IATA/IMDG 标准。
+
+                        #### 其他限制
+
+                        - **Royal Mail Untracked 24/48**：无法派送到 Click&Collect 地址；不支持全货型复合打包
+                        - **Royal Mail Tracked 24/48**：无法派送到 Click&Collect 地址；不支持发货值超过 500 英镑的包裹；须填写有效收件人电话；派送刀具需验证收件人年龄≥18 周岁，须选增值服务 Last Mile VCA
+                        - **EVRi Standard 24**：订单申报价值不得超过£1000
+                        - **DPD Parcel**：无法派送到 Click&Collect 地址
+                        - **DPD International**：订单申报价值+运费不得超过 150 EUR
+                        - **DHL Domestic Next Day**：派送刀具需验证收件人年龄≥18 周岁，须选增值服务 Last Mile VCA
+                        - **XDP**：必须填写有效收件人电话号码
+                        - **FedEx Economy**：刀具支持（√）
+                        - **各产品通用**：EVRi、DPD、DHL 支持刀具；不支持 Click&Collect 的产品需注意
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163006"
+      type: text
+      title: kb-psc-de
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 1907
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        ### 1.1 DE Post - Untracked Letter（Standard 1-2 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤0.5 kg |
+                        | 尺寸限制 | 35.3×25×2 cm |
+                        | 时效 | 1-2 个工作日 |
+                        | 挂号 | 不含 |
+                        | 派送标准 | 仅派送一次，派送不成功退回 |
+                        | 未妥投退货运费 | 免费；DE Post 如发现实际货物尺寸重量与传送数据不符，货物将被退回 |
+                        | 超限制附加费 | 若实际重量/尺寸超出派送限制，将按 DE DHL-Domestic Paket 公开价补收运费及附加费差价 |
+
+                        ### 1.2 DHL - Kleinpaket（Economy 2-4 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤1 kg |
+                        | 尺寸限制 | 最大 35.3×25×8 cm，最小 10×7×0.1 cm |
+                        | 时效 | 1-2 个工作日 |
+                        | 挂号 | 已含 |
+                        | 派送标准 | 仅派送一次，派送不成功退回 |
+                        | 附加费 | 地址校验附加费 0.49 EUR/票（DHL 校验返回地址/邮编有误）；未妥投退货运费 2.5 EUR/票；取消订单费 2.6 EUR/票；超限制按 DHL Domestic Paket 补差价；燃油附加费（能源附加费，费率每月更新，参考 dhl.de/energysurcharge） |
+
+                        ### 1.3 DE Post - Warenpost
+
+                        规格与 Kleinpaket 类似，不单独详述。
+
+                        ### 1.4 DHL - Domestic Paket（Standard 1-3 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤31.5 kg |
+                        | 尺寸限制 | 最小 15×10×1 cm，L≤200 cm，L+2×(W+H)≤360 cm |
+                        | 时效 | 1-3 个工作日 |
+                        | 挂号 | 已含 |
+                        | 配送范围 | 欧盟内 |
+                        | 主要附加费 | 燃油附加费（每月更新，金额=(尾程派送运费+其他附加费)×费率）；超大尺寸附加费 Bulky Goods 20 EUR（条件：第一边长>120cm 或第二/三边长>60cm）；道路养护费 0.19 EUR/单；地址校验附加费 0.6 EUR；超限制附加费 20 EUR；人工分拣费 Bulky Goods 20 EUR；包裹复核费 2.2 EUR；派送失败退货费 4.5 EUR（叠加燃油） |
+                        | 增值服务 | 目测年龄验证 Visual Check of Age（增收 1.2 EUR/票）；Return Label 退货服务（买家 30 天内预约 DHL 上门提货，超 30 天面单作废，继续退货特殊处理费 10 EUR/票） |
+                        | 其他 | 触发超尺寸/人工分拣费的订单不支持派送到 PackStation 及 Parcel Shop；部分邮编不支持派送：78266 |
+
+                        ### 1.5 DHL Express - Domestic Service
+
+                        时效更快的国内派送，详见合同价卡。
+
+                        ### 1.6 DPD Domestic Parcels（Standard 1-3 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为计费重量 |
+                        | 重量限制 | ≤31.5 kg |
+                        | 尺寸限制 | L≤250 cm，L+2*(W+H)≤330 cm |
+                        | 时效 | 1-3 个工作日 |
+                        | 主要附加费 | 燃油附加费（9%+临时费率）；超长附加费 NC 3.9 EUR（条件：120cm<L≤175cm 或 60cm<W 或 0.15m³<L×W×H）；超大尺寸附加费 Oversized 35 EUR（条件：175cm<L≤250cm 或 300<L+2×(W+H)≤330cm）；超限制附加费 Forwarding 60 EUR；偏远地区附加费 13.16 EUR（Hiddensee:18565, North-Friesland Islands, East-Friesland Islands, Helgoland, Neuwerk, Chiemsee 等邮编）；人工分拣费 3.9 EUR；地址修正费 3 EUR；特殊操作费 Tyre packaging 6.85 EUR；特殊操作费 Limited Quantities（危险品）4 EUR；派送失败退货费（与正向一致） |
+
+                        ### 1.7 UPS - Standard Single Parcel（Standard 2-6 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(cm)×宽(cm)×高(cm)/5000，与实重取大者 |
+                        | 重量限制 | ≤70 kg |
+                        | 尺寸限制 | L≤274 cm，L+2*(W+H)≤300 cm |
+                        | 时效 | 2-6 个工作日 |
+                        | 配送范围 | 德国、比利时、丹麦、法国、卢森堡、荷兰、奥地利、波兰等 |
+                        | 主要附加费 | 燃油附加费（每周更新）；超长/超重附加费；超大尺寸附加费；偏远附加费；旺季附加费 |
+                        | 其他 | 非欧盟国家需选择 Invoice 版本下单；支持 DDP（垫付关税）增值服务 |
+
+                        ### 1.8 UPS - Standard Multiple（一单多包裹服务）
+
+                        规格与 UPS Standard Single 一致，支持一单多包裹。
+
+                        ### 1.9 Winit Parcel - EU Shipping（DE 发欧洲组合渠道）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 配送范围 | 欧盟内（法国、荷兰等） |
+                        | 计费标准 | 区域分区与实际重量取大者（法国），或按实际重量（荷兰） |
+                        | 区域分区条件 | 同时满足：①邮编在分区范围内 ②包裹长≤60cm 且长+宽+高≤150cm 且计费重≤5kg ③平台来源为 SHEIN/Amazon/Shopify/Walmart/eBay/Temu/自营网站 |
+                        | 其他 | 组合供应商服务（YUN EXPRESS 区域派送，DHL/DPD/UPS 非区域派送）；不接受纯电商品，可接受电池功率≤100wh 或锂含量≤2g 配套/内置锂电池商品 |
+
+                        ### 1.10 DHL - Warenpost International（Economy 2-10 / Premium 2-8 工作日）
+
+                        | 属性 | Economy | Premium |
+                        |------|---------|---------|
+                        | 时效 | 2-10 个工作日 | 2-8 个工作日 |
+                        | 挂号 | 不含 | 已含 |
+                        | 计费标准 | 以实际称重为准，不足 100g 按 100g 计费 | 同左 |
+                        | 其他 | 清关税金默认收件人承担；不支持的目的地国家+离岛邮编：DK:0100-0999,3900-3999; CY:50XX,52XX,5500-5899,90XX,9200-9699; FR:97100-97699,98400-98899; IT:23041; ES:35XX,38XX,51XX,52XX; GR:63086 |
+                        | 主要附加费 | 地址校验附加费 0.49 EUR；取消订单费 2.15 EUR；超限制附加费（按 DE DHL-International Paket 公开价补收差价）；派送失败退货费 5 EUR | 同左 |
+
+                        ### 1.11 DHL - International Paket（Standard 2-8 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准，不满 1kg 按 1kg 计费 |
+                        | 重量限制 | ≤30 kg |
+                        | 尺寸限制 | 最小 15×10×1 cm，L≤150 cm，L+2*(W+H)≤300 cm |
+                        | 时效 | 2-8 个工作日 |
+                        | 挂号 | 已含 |
+                        | 配送范围 | 欧盟内+欧盟外部分国家 |
+                        | 主要附加费 | 燃油附加费；超大尺寸附加费；超限制附加费；人工分拣费；特殊操作费（瑞士）；出库粘贴发票增值费 |
+                        | 其他 | 发往芬兰仅支持站点自提；部分国家偏远邮编不可派送；支持 Return Label 服务 |
+
+                        ### 1.12 DHL - International Paket Return Service（Standard 2-8 工作日）
+
+                        Return Label 退货服务。爱尔兰/希腊限制尺寸：60×60×60 cm。
+
+                        ### 1.13 DPD - International Parcel（Standard 2-8 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(cm)×宽(cm)×高(cm)/5000，与实重取大者 |
+                        | 重量限制 | 实重≤31.5 kg |
+                        | 尺寸限制 | L≤250 cm，L+2×(W+H)≤330 cm |
+                        | 配送范围 | 欧盟内+欧盟外部分国家 |
+                        | 主要附加费 | 燃油附加费（9%+临时费率）；道路养护费 0.06 EUR；偏远附加费 15.86/29.26 EUR（Korsika/Madeira/Azores/Balearic/Finland 等离岛邮编）；超长附加费 NC 3.9 EUR（120cm<L≤175cm 或 60cm<W 或 0.15m³<L×W×H）；超大尺寸附加费 Oversized 35 EUR（175cm<L≤250cm 或 300<L+2×(W+H)≤330cm 或计费重>31.5kg）；超限制附加费 Forwarding 65.05 EUR；地址修正费 6 EUR；人工分拣费 3.9 EUR；特殊操作费（轮胎包装/危险品）；派送失败退货费（与正向一致） |
+                        | 其他 | 多国偏远/离岛邮编不可派送（Denmark: Faroe Islands, Greenland 等）；清关税金默认收件人承担 |
+
+                        ### 1.14 DHL Express - Worldwide
+
+                        国际快递服务，时效更快，详见合同价卡。
+
+                        ### 1.15 发货限制与注意事项
+
+                        #### 电池限制
+
+                        | 产品 | 内置电池 | 配套电池 | 纯电池 | 备注 |
+                        |------|---------|---------|--------|------|
+                        | DE Post Untracked Letter | √ | × | × | 不支持派送电子烟产品 |
+                        | DE Post Warenpost | √ | √ | √ | |
+                        | DHL Kleinpaket | × | × | × | |
+                        | DHL Domestic Paket | √ | √ | √ | 本地支持派送电子烟产品（需选 VCA 增值服务）；国际不支持 |
+                        | DHL Express Domestic | √ | √ | √ | |
+                        | DHL Express Worldwide | √ | √ | × | |
+                        | DHL Warenpost Intl Economy | × | × | × | 不支持电子烟产品 |
+                        | DHL Warenpost Intl Premium | × | × | × | |
+                        | DHL International Paket | 指定国家支持 | × | × | |
+                        | DPD Domestic | √ | √ | √ | 配套/纯电池需单独报价（DG 价卡），联系销售经理 |
+                        | DPD International | √ | √ | × | |
+                        | UPS Standard Single | √ | √ | √ | 不支持派送电子烟产品 |
+                        | UPS Standard Multiple | √ | √ | √ | |
+                        | UPS International | √ | √ | √ | 不支持派送电子烟产品 |
+                        | Winit Parcel-EU | 不接受纯电 | | | 可接受电池功率≤100WH 或锂含量≤2g 配套/内置锂电池 |
+
+                        > 注：DE 电池标准为电池芯≤20WH。如因出库包装不符合国际电池货物标准，可能导致退货/销毁或产生额外费用。
+
+                        #### 其他限制
+
+                        - **DE Post Untracked Letter**：仅派送一次，派送不成功退回，退货无未妥投退货运费；不支持 POBox
+                        - **DHL Warenpost Intl**：不支持 Postfiliale、Packstation 邮局网点和自提柜地址
+                        - **DHL Domestic Paket**：小尺寸货物禁止出库（长<15cm 或 宽<10cm 或 高<1cm）；支持 Postfiliale/Packstation 但 Packstation 限制 L≤120cm, W≤60cm, H≤60cm；缠绕膜/信封/塑料袋等非纸箱包装发生破损时 DHL 不赔付；发往非欧盟国家限制 1000 欧/单
+                        - **DPD Domestic**：不支持 Postfiliale/Packstation 地址；异型货可能产生额外费用；仅派送一次
+                        - **UPS Standard/International**：不支持 Postfiliale/Packstation 地址；金属/木制容器或圆柱形物品有拒收风险；国际线路仅接受 11 种语言下单（英/丹/荷/芬/法/德/意/挪/葡/西/瑞典）；发往非欧盟国家限制 1000 欧/单
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163007"
+      type: text
+      title: kb-psc-au
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2147
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        ### 1.1 AU Post - Untracked Large Letter（平邮 Economy 2-6 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | ≤0.5 kg |
+                        | 尺寸限制 | ≤36×26×2 cm，且必须符合 AUPOST LETTER 标准 |
+                        | 时效 | 2-6 个工作日 |
+                        | 挂号 | 不含，不提供派送轨迹追踪 |
+                        | 支持仓库 | 悉尼仓、墨尔本仓 |
+                        | 配送范围 | 全澳 |
+                        | 附加费 | 超限制附加费：若实际重量/尺寸超出，将按 AU Post-Parcel Post eParcel 公开价补收运费及附加费差价 |
+                        | 其他 | 未妥投退货运费：免费；DE Post 如发现实际货物尺寸重量与传送数据不符，货物将被退回 |
+
+                        ### 1.2 AUPOST - Parcel Post eParcel（Standard 2-6 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 实重≤3kg 按实际重量；实重>3kg 按实重与体积重取大者，体积重=长×宽×高(cm)/4000；0.5kg 以上不足 1kg 按 1kg 计费 |
+                        | 重量限制 | 实重≤22 kg，计费重≤62.5 kg |
+                        | 尺寸限制 | 最长边≤105 cm，体积≤0.25 m³ |
+                        | 时效 | 2-6 个工作日 |
+                        | 挂号 | 已含 |
+                        | 支持仓库 | 悉尼仓、墨尔本仓 |
+                        | 支持地址 | 支持 POBox/ECP/PrivateBag |
+                        | 主要附加费 | 燃油附加费（每月更新，金额=(尾程派送运费+其他附加费)×费率）；安全管理费 Security Management Charge（(正向运费+退回运费)×4.35%，适用于 Express 服务）；超限制附加费（100 AUD，叠加燃油）；派送失败退货费（15 AUD，叠加燃油） |
+                        | 增值服务 | Return Label：买家 30 天内自行交货至 AUPOST 网点，如要求上门提货将产生额外费用 9 AUD/单；超 30 天未退货面单作废，继续退货产生特殊处理费 30 AUD/票（线下补收） |
+
+                        ### 1.3 AU Post - Express Post Parcel（Express 1-5 工作日）
+
+                        规格与 Parcel Post eParcel 相同，时效 1-5 个工作日。安全管理费 Security Management Charge（(正向运费+退回运费)×4.35%）适用于 Express 服务。
+
+                        ### 1.4 MCS - Economy Parcel（Economy 2-6 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准，0.5kg 以上不足 1kg 按 1kg 计费 |
+                        | 重量限制 | 实际重量≤20 kg |
+                        | 尺寸限制 | 体积≤0.1 m³，最长边≤105 cm |
+                        | 时效 | 2-6 个工作日 |
+                        | 挂号 | 已含 |
+                        | 其他 | 组合供应商服务；覆盖澳大利亚 90% 以上人口；不承诺上网及时率；部分偏远地区不支持 |
+                        | 支持仓库 | 悉尼仓、墨尔本仓 |
+                        | 主要附加费 | 超限制附加费：按实重和体积重(长×宽×高/4000)取大者作为计费重，超出每 20KG 加收（不足 20KG 按 20KG 计算）；派送失败退货费 12.5 AUD |
+
+                        ### 1.5 PFL - Courier Delivery（Standard 1-12 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准，0.5kg 以上不足 1kg 按 1kg 计费 |
+                        | 重量限制 | 实际重量≤25 kg |
+                        | 尺寸限制 | 体积≤0.1 m³，最长边≤130 cm |
+                        | 时效 | 1-12 个工作日 |
+                        | 挂号 | 已含 |
+                        | 其他 | Fastway 服务；派送范围需校验州+城市+邮编；不支持 POBox/ParcelLocker/PostalBox/PrivateBag/LockBag/ParcelCollect 地址；不支持派送中改址/截件退回/截件暂存 |
+                        | 支持仓库 | 悉尼仓、墨尔本仓 |
+                        | 主要附加费 | 超长超重附加费（原名超长附加费）10.5 AUD：订单长>105cm 或重量>22kg；超限制附加费：按实重和体积重(长×宽×高/4000)取大者作为计费重，超出每 25KG 加收 47.5 AUD（不足 25KG 按 25KG 计算）；派送失败退货费 12 AUD |
+
+                        ### 1.6 Aramex - Courier Delivery（Standard 1-12 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准 |
+                        | 重量限制 | 实际重量≤22 kg |
+                        | 尺寸限制 | 体积≤0.1 m³，最长边≤105 cm |
+                        | 时效 | 1-12 个工作日 |
+                        | 挂号 | 已含 |
+                        | 支持仓库 | 悉尼仓、墨尔本仓 |
+                        | 主要附加费 | 超长超重附加费 15.5 AUD：订单长>105cm 或重量>22kg；超限制附加费：按实重和体积重(长×宽×高/4000)取大者作为计费重，超出每 25KG 加收 47.5 AUD（不足 25KG 按 25KG 计算）；派送失败退货费 12 AUD |
+                        | 其他 | Aramex 服务；不支持 POBox/ParcelLocker 等；不支持派送中改址/截件 |
+
+                        ### 1.7 AU Mix Shipping Economy（Standard 1-12 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以实际称重为准，0.5kg 以上不足 1kg 按 1kg 计费 |
+                        | 重量限制 | 实际重量≤22 kg |
+                        | 尺寸限制 | 体积≤0.1 m³，最长边≤105 cm |
+                        | 时效 | 1-12 个工作日 |
+                        | 挂号 | 已含 |
+                        | 其他 | Couriers Please 与 Aramex 混合服务 |
+
+                        ### 1.8 TOLL - Priority Parcel（Standard 2-5 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(m)×宽(m)×高(m)×250，与实重取大者 |
+                        | 重量限制 | 计费重≤5 kg |
+                        | 尺寸限制 | L<180 cm |
+                        | 时效 | 2-5 个工作日 |
+                        | 支持仓库 | 仅支持悉尼发货 |
+                        | 其他 | 一单多包裹服务，会分开投送 |
+                        | 主要附加费 | 燃油附加费；安全管理费 8.49%；超长/超重附加费；二次派送费；地址更改费 |
+
+                        ### 1.9 TOLL - IPEC Freight（Standard 2-6 工作日）— 大件
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(m)×宽(m)×高(m)×250，与实重取大者 |
+                        | 重量限制 | 不限重 |
+                        | 尺寸限制 | L≤180 cm |
+                        | 时效 | 2-6 个工作日 |
+                        | 支持仓库 | 悉尼仓、墨尔本仓 |
+                        | 其他 | 一单多包裹服务；部分区域每周有限服务 |
+                        | 主要附加费 | 燃油附加费；偏远地区附加费；超长/超重附加费；超大尺寸附加费；尾板费；预约派送费 |
+
+                        ### 1.10 Direct Freight - Road Express（Standard 1-6 工作日）— 大件
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(cm)×宽(cm)×高(cm)/4000，与实重取大者 |
+                        | 重量限制 | 订单实重 30kg 以内 |
+                        | 尺寸限制 | 最小尺寸≥10×10×10 cm，包裹单边长不超过 3.99 m |
+                        | 时效 | 1-6 个工作日 |
+                        | 其他 | 一单多包裹服务；自 2026/1/9 起停止接收快递袋/气泡袋等软包装，仅接受纸箱 |
+                        | 主要附加费 | 燃油附加费；偏远附加费（6 区）；超限制附加费；尾板费；特殊卸货费；预约派送费；机场/会展地址派送费；二次派送费 |
+
+                        ### 1.11 Allied Express - Road Express（Standard 2-6 工作日）— 大件
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，不足 1kg 按 1kg 计费，体积重=长(cm)×宽(cm)×高(cm)/4000，与实重取大者 |
+                        | 重量限制 | 订单计费重≤135 kg |
+                        | 尺寸限制 | 包裹最长边≤2.39 m，宽≤1.6 m，订单包裹数≤50 |
+                        | 时效 | 2-6 个工作日 |
+                        | 主要附加费 | 燃油附加费；超长/超重附加费；超大尺寸附加费；偏远附加费（6 区）；包裹复核费 |
+
+                        ### 1.12 Parcel Post eParcel Return Service（Standard 2-6 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 服务说明 | 买家退货 Label 服务，买家将包裹交由 AU POST 派回万邑通仓库 |
+                        | 计费重范围 | 0-22 kg |
+                        | 附加说明 | 附加费收费标准同正向一致；买家可选择 30 天内自行交货至网点；如要求上门提货将产生额外费用 9 AUD/单；超 30 天未退货面单作废，继续退货产生特殊处理费 30 AUD/票（线下补收） |
+
+                        ### 1.13 AuPost - International Standard NZ Delivery（Standard 8-12 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(cm)×宽(cm)×高(cm)/5000，与实重取大者 |
+                        | 重量限制 | ≤20 kg |
+                        | 尺寸限制 | 最长边≤105 cm，2*(宽+高)≤140 cm |
+                        | 时效 | 8-12 个工作日 |
+                        | 配送范围 | 新西兰 |
+                        | 其他 | 需收件人清关；申报货值超 1000 NZD 需正式报关；不支持截件/改址 |
+
+                        ### 1.14 发货限制与注意事项
+
+                        #### 电池限制
+
+                        | 产品 | 内置电池 | 配套电池 | 纯电池 | 备注 |
+                        |------|---------|---------|--------|------|
+                        | AU Post Large Letter | × | × | × | |
+                        | Parcel Post eParcel | √ | √ | √ | |
+                        | Express Post Parcel | √ | × | × | |
+                        | AuPost International NZ | √ | × | × | 不支持多个带电商品复合打包 |
+                        | TOLL IPEC | √ | √ | √ | 配套电池最大数量为设备所需+2个；包装须承受 1.2m 跌落测试；外包装须贴 UN 标并注明联系人电话 |
+                        | TOLL Priority | √ | √ | × | 内置：每包裹≤2 batteries 或≤4 cells，每批≤2 个包裹，须贴 UN 标+联系人电话；配套：最大为设备所需+2个，须承受 1.2m 跌落测试，须提供 PI966 声明 |
+                        | MCS Economy | √ | √ | √ | |
+                        | PFL Courier | √ | √ | × | |
+                        | Aramex Courier | √ | √ | × | |
+                        | Direct Freight | √ | √ | √ | |
+                        | Allied Express | √ | √ | × | |
+
+                        > 注：AU 电池标准为电池芯≤20WH。如因出库包装不符合国际电池货物标准，可能导致退货/销毁或产生额外费用。
+
+                        #### 其他限制
+
+                        - **AU Post Large Letter**：不支持 POBox；超过 AUPOST LETTER 标准的复合打包将拦截，建议拆单
+                        - **AuPost International NZ**：限制货值≤2000 AUD；刀具类/尖锐物品可能因安检不通过被退回
+                        - **TOLL IPEC**：不支持 POBox/ParcelLocker/PostalBox/PrivateBag/LockBag/ParcelCollect/ECP 地址；单件>50KG 或木箱包装可能产生额外费用；矿区邮编不可派送；必须自带物流包装
+                        - **TOLL Priority**：不支持 POBox 等上述地址类型；不支持派送至 YORK 地区；必须自带物流包装
+                        - **MCS Economy**：不支持 POBox/ParcelLocker/PostalBox/PrivateBag/LockBag/ParcelCollect/ECP 地址
+                        - **Allied Express**：送亚马逊仓会产生预约派送费用
+                        - **各产品通用**：不支持派送中改址/截件退回/截件暂存
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163008"
+      type: text
+      title: kb-psc-ca
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2387
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        ### 1.1 UPS - Standard Single Parcel（Standard 1-5 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(cm)×宽(cm)×高(cm)/7000，与实重取大者 |
+                        | 重量限制 | 实际重量≤150 lbs |
+                        | 尺寸限制 | L≤274 cm (108 inches)，长+2*(宽+高)≤419 cm (165 inches) |
+                        | 时效 | 1-5 个工作日（不含偏远区域） |
+                        | 挂号 | 已含 |
+                        | 主要附加费 | 燃油附加费（每周更新）；住宅地址附加费；地区附加费 DAS/Extended/Remote/Super Remote（4级）；超长/超重附加费；超大附加费 Large Package；超限制附加费 Overmaximum；不规则包装附加费；旺季附加费；签名附加费；地址修正费；派送失败退货费（与正向一致） |
+                        | 其他 | 不支持签名服务；不支持改址/改派/截件；超长/超大附加费供应商按英寸计费，可能存在换算差异 |
+                        | 增值服务 | Return Label 退货服务（UPS Standard Return，买家可联系 UPS 上门提货，超 30 天面单作废，继续退货特殊处理费 10 CAD/票） |
+
+                        ### 1.2 UNI - Domestic Delivery（Economy 2-10 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(cm)×宽(cm)×高(cm)/8000，与实重取大者 |
+                        | 重量限制 | 不超过 30 kg |
+                        | 尺寸限制 | 单边≤200 cm，三边之和≤300 cm |
+                        | 时效 | 2-10 个工作日 |
+                        | 挂号 | 已含（含燃油附加费） |
+                        | 主要附加费 | 超长附加费（100-200cm）；超限制附加费；地址修正费 |
+                        | 其他 | 区域派送服务，限制部分偏远邮编；如附近无 UNI 服务点可能组合 Canada Post 或第三方承运商；不支持签名服务/改址/截件 |
+
+                        ### 1.3 Canada Post - Expedited Parcels（Economy 2-8 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(cm)×宽(cm)×高(cm)/6000，与实重取大者 |
+                        | 重量限制 | 0.1 kg < 计费重≤30 kg |
+                        | 尺寸限制 | 最长边≤200 cm，长+2宽+2高≤300 cm |
+                        | 时效 | 2-8 个工作日 |
+                        | 挂号 | 已含 |
+                        | 主要附加费 | 燃油附加费（每周更新）；Air Stage（偏远地区 J1/J2 分区，时效 7-15 工作日）；超限制附加费；地址修正费 |
+                        | 其他 | 不支持签名服务；不支持改址/改派/截件 |
+
+                        ### 1.4 UPS - Standard Multiple Parcel（Standard 1-5 工作日）— 一单多包裹
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 订单计费=包裹计费重之和，单包裹体积重=长(cm)×宽(cm)×高(cm)/7000；最终取「包裹数量×Per Package 最低收费」和「按订单计费重量对应价格」二者取大 |
+                        | 重量限制 | 单包裹≤150 lbs |
+                        | 尺寸限制 | L≤274 cm，长+2*(宽+高)≤419 cm |
+                        | 时效 | 1-5 个工作日 |
+                        | 主要附加费 | 与 UPS Standard Single 一致（按包裹级别收取） |
+                        | 其他 | 支持前打单和后打单；不支持签名/改址/改派/截件 |
+
+                        ### 1.5 Purolator - Ground（Standard 3-7 工作日）
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 计费标准 | 以计费重量为准，体积重=长(cm)×宽(cm)×高(cm)/6000，与实重取大者 |
+                        | 重量限制 | ≤68 kg (150 lbs) |
+                        | 尺寸限制 | L≤274.32 cm，长+2*(宽+高)≤419 cm |
+                        | 时效 | 3-7 个工作日（不含偏远区域） |
+                        | 主要附加费 | 燃油附加费（每月更新）；偏远地区附加费 A-E（5级）；超尺寸附加费；超重附加费；超大附加费；超限制附加费；二次派送费；地址修正费 |
+                        | 其他 | 部分偏远地址不可派送；不支持签名/改址/改派/截件 |
+
+                        ### 1.6 发货限制与注意事项
+
+                        #### 电池限制
+
+                        | 产品 | 内置电池 | 配套电池 | 纯电池 | 备注 |
+                        |------|---------|---------|--------|------|
+                        | UPS Standard | √ | √ | √ | 电池组≤300Wh 按普货；>300Wh 为危险品不支持 |
+                        | UNI Domestic | √ | √ | × | |
+                        | Canada Post Expedited | √ | √ | × | |
+                        | Purolator Ground | √ | √ | × | |
+
+                        > 注：CA 电池标准为电池组≤100WH / 电池芯≤60WH。
+
+                        #### 其他限制
+
+                        - **Purolator Ground**：刀具类刀刃未开口且不超 8CM，军用刀具不能发
+                        - **UPS Standard**：不支持签名服务；不支持改址/改派/截件
+                        - **Canada Post Expedited**：支持 POBox；不支持签名/改址/改派/截件
+
+                        > 通用说明：如因出库包裹包装不符合国际电池货物标准，可能导致退货/销毁或产生额外费用，Winit 将实报实销向卖家补收，必要时有权冻结客户库存直至完成相关增值服务确保包裹符合运输要求。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163009"
+      type: text
+      title: kb-wf-us
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2627
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |+
+                        ## 一、美国（US）— 适用群体：美国 WINIT Fulfillment（分区价）
+
+                        ### 1.1 正向派送
+
+                        #### 1.1.1 组合渠道
+
+                        | 属性 | 7日达 | 5日达 | 3日达 | 2日达 |
+                        |------|-------|-------|-------|-------|
+                        | 支持发货仓 | USKY3/USKY5/USWC/USWC2/USWC5/USTX | 分区价：USKY3/USKY5/USWC/USWC2/USWC5/USTX | USKY3/USKY5/USWC/USWC2/USWC5/USTX | USKY3/USKY5/USWC/USWC5/USTX/USGA |
+                        | 截单时间 | 当地14点 | 当地14点 | 当地12点 | 当地12点 |
+                        | 尺寸限制 | 长≤243.8cm，宽≤76.2cm，长+2*(宽+高)≤266cm | 长≤243.8cm，宽≤76.2cm，长+2*(宽+高)≤266cm | 长+2*(宽+高)≤330cm，长≤243.8cm | 长+2*(宽+高)≤330cm，长≤243.8cm |
+                        | 重量限制 | 计费重≤30 lb | 计费重≤30 lb | 计费重≤25 lb | 计费重≤25 lb |
+                        | 计费标准 | 若实重<1 lb按实际重量，若实重≥1 lb按计费重量 | 若体积≤0.028m³按实际重量，若体积>0.028m³按计费重量 | 按计费重量 | 按计费重量 |
+                        | 配送范围 | 美国本土 | 全美（含美国本土48州+离岸岛屿） | 美国本土 | 美国本土 |
+                        | 带电限制 | 不接受纯电，可接受功率≤100wh或锂含量≤2g配套/内置锂电池 | 可接受功率≤100wh或锂含量≤2g锂电池（纯电包裹≤5 lb） | 不接受纯电，可接受功率≤100wh或锂含量≤2g配套/内置锂电池 | 不接受纯电，可接受功率≤100wh或锂含量≤2g配套/内置锂电池 |
+                        | 支持军事地址 | × | √ | × | × |
+                        | 支持POBOX | × | √ | × | × |
+                        | 支持亚马逊地址 | × | × | × | × |
+                        | 支持包裹追踪 | √ | √ | √ | √ |
+                        | 预计物流时效 | 7工作日送达率≥95%（偏远地区除外） | 5工作日送达率≥95%（偏远地区除外） | 3工作日送达率≥95%（偏远地区除外） | 2工作日送达率≥95%（偏远地区除外） |
+                        | 赔付：超时无上网 | √ | √ | √ | √ |
+                        | 赔付：未妥投丢失 | √ 支持代客索赔 | √ 支持代客索赔 | √ 支持代客索赔 | √ 支持代客索赔 |
+                        | 赔付：破损 | × | × | √ 支持代客索赔 | √ 支持代客索赔 |
+                        | 赔付：妥投未收到 | × | × | × | × |
+                        | 增值：仓储增值 | √ | √ | √ | √ |
+                        | 增值：尾程改址/拦截 | × | × | × | √ |
+                        | 增值：尾程签名服务 | × | × | × | √ |
+                        | 增值：尾程保险【追踪守护】 | √ | √ | √ | √ |
+                        | 增值：尾程保险【时效保】 | √ | √ | √ | √ |
+                        | 支持售卖平台 | ALL | ALL | ALL | ALL |
+
+                        #### 1.1.2 指定渠道
+
+                        | 属性 | USPS Ground Advantage | Shipping with Amazon | Ground（组合FedEx Ground和UPS Ground） | UPS Ground（支持一票多件） | USPS First Class Pkg Intl | USPS Priority Mail Intl |
+                        |------|----------------------|---------------------|---------------------------------------|---------------------------|--------------------------|------------------------|
+                        | 支持发货仓 | USKY3/USKY5,USWC/USWC2/USWC5,USTX | USKY3,USWC,USGA | USKY3/USKY5,USWC/USWC2/USWC5,USTX,USGA,USNJ2 | USKY3,USWC/USWC2/USWC5,USTX,USGA,USNJ2 | USKY3/USKY5,USWC/USWC2/USWC5,USTX | USKY3/USKY5,USWC/USWC2/USWC5,USTX |
+                        | 截单时间 | 当地14点 | 当地14点 | 当地14点 | 当地14点 | 当地14点 | 当地14点 |
+                        | 尺寸限制 | 长+2*(宽+高)≤274cm | 长≤93cm，宽≤76cm，高≤60cm，长+2*(宽+高)≤266cm | ①小货仓USKY3/5+USWC2：长+2*(宽+高)<330cm，长≤243cm；②大货仓USWC+USTX+USGA+USNJ2：长+2*(宽+高)<419cm，长≤274cm | 单个包裹：长+2*(宽+高)<419cm，长≤274cm | 长≤60.96cm，长+宽+高≤91.44cm | 长+2*(宽+高)≤274cm |
+                        | 重量限制 | 计费重≤20 lb | 计费重≤30 lb | ①小货仓USKY3+USWC2：计费重≤70 lb；②大货仓USWC+USTX+USGA+USNJ2：计费重≤150 lb | 单个包裹计费重≤150 lb，订单计费重≤200 lb | 计费重≤64 oz | 计费重≤30 lb |
+                        | 计费标准 | 若体积≤0.028m³按实际重量，若体积>0.028m³按计费重量 | 按计费重量 | 按计费重量 | 按计费重量 | 按实际重量 | 按实际重量 |
+                        | 配送范围 | 全美 | 美国本土 | 全美 | 全美 | 墨西哥、加拿大 | 墨西哥、加拿大及其它15个国家 |
+                        | 带电限制 | 可接受功率≤100wh或锂含量≤2g锂电池（纯电包裹≤5 lb） | 可接受功率≤100wh或锂含量≤2g锂电池 | 可接受功率≤100wh纯电池或功率≤300wh内置/配套电池 | 可接受功率≤100wh纯电池或功率≤300wh内置/配套电池 | 不接受纯电和配套电池，可接受功率≤100wh或锂含量≤2g内置锂电池 | 不接受纯电和配套电池，可接受功率≤100wh或锂含量≤2g内置锂电池 |
+                        | 支持军事地址 | √ | × | × | × | √ | √ |
+                        | 支持POBOX | √ | × | × | × | √ | √ |
+                        | 支持亚马逊地址 | × | × | √ | √ | × | × |
+                        | 支持包裹追踪 | √ | √ | √ | √ | √（注：供应商不承诺回传妥投轨迹） | √ |
+                        | 预计物流时效 | 2-5个工作日 | 2-7个工作日 | 2-5个工作日 | 2-5个工作日 | 6-11个工作日 | 6-11个工作日 |
+                        | 赔付：超时无上网 | √ | √ | √ | √ | √ | √ |
+                        | 赔付：未妥投丢失 | √ 支持代客索赔 | √ 支持代客索赔 | √ 支持代客索赔 | √ 支持代客索赔 | × | √ 支持代客索赔 |
+                        | 赔付：破损 | √ | √ 支持代客索赔 | √ 支持代客索赔 | √ 支持代客索赔 | × | √ 支持代客索赔 |
+                        | 赔付：妥投未收到 | × | × | √ 支持代客索赔 | √ 支持代客索赔 | × | × |
+                        | 增值：仓储增值 | √ | √ | √ | √ | √ | √ |
+                        | 增值：尾程改址/拦截 | × | × | √（产生费用将线下补收） | √（产生费用将线下补收） | × | × |
+                        | 增值：尾程签名服务 | √ | × | √ | √ | × | × |
+                        | 增值：尾程保险【追踪守护】 | √ | √ | √ | √ | × | √ |
+                        | 增值：尾程保险【时效保】 | × | × | × | × | × | × |
+                        | 支持售卖平台 | ALL | ALL | ALL | ALL | ALL | ALL |
+
+                        ### 1.2 逆向退货服务
+
+                        | 属性 | USPS Ground Advantage Return | USPS Priority Mail Return | UPS Ground Return | FedEx Ground Return |
+                        |------|------------------------------|--------------------------|-------------------|---------------------|
+                        | 支持发货仓 | USKY3/USKY5,USWC/USWC2,USTX | USKY3/USKY5,USWC/USWC2,USTX | USKY3/USKY5,USWC/USWC2/USWC5,USTX,USGA,USNJ2 | USGA,USWC,USWC5,USNJ2,USTX |
+                        | 截单时间 | - | - | - | - |
+                        | 尺寸限制 | 长+2*(宽+高)≤330cm | 长+2*(宽+高)≤274cm | 长+2*(宽+高)≤419cm，长≤274cm | 长+2*(宽+高)≤419cm，长≤274cm |
+                        | 重量限制 | 计费重≤1 lb | 计费重≤25 lb | 实重≤150 lb，计费重≤200 lb | 实重≤150 lb，计费重≤200 lb |
+                        | 计费标准 | 若体积≤0.028m³按实际重量，若体积>0.028m³按计费重量 | 按计费重量 | 按计费重量 | 按计费重量 |
+                        | 配送范围 | 美国本土 | 美国本土 | 全美 | 美国本土 |
+                        | 带电限制 | 可接受功率≤100wh或锂含量≤2g锂电池 | 可接受功率≤100wh或锂含量≤2g锂电池（不支持纯电） | 可接受功率≤100wh纯电池或功率≤300wh内置/配套电池 | 可接受功率≤100wh纯电池或功率≤300wh内置/配套电池 |
+                        | 支持包裹追踪 | √ | √ | √ | √ |
+                        | 预计物流时效 | 2-5个工作日 | 2-5个工作日 | 2-5个工作日 | 2-5个工作日 |
+                        | 支持售卖平台 | - | - | - | - |
+
+                        ### 1.3 美国专属备注
+
+                        1. **计费重量**：取实重和体积重的最大值。7日达/5日达/指定USPS Ground Advantage/USPS Return services 的体积重 = 长×宽×高(cm)/6000；2日达/3日达/指定Ground/UPS Ground(一票多件)/UPS Ground Return/FedEx Ground Return 的体积重 = 长×宽×高(cm)/8000；指定 Shipping with Amazon 的体积重 = 长×宽×高(cm)/7200。
+                        2. **配送邮编**：各渠道配送邮编请参考价卡「配送邮编分区」页。2日达/3日达/7日达/指定 Amazon Logistics 不支持离岸地址配送。5日达-For TikTok 不支持离岸和 POBOX/军事地址派送。全美派送范围包含美国本土48州+离岸岛屿。
+                        3. **电池货物**：包装及标签需满足国际电池货物标准（包含但不限于 ADR/IATA/IMDG 及 Packing Instruction）。7日达/5日达/USPS Ground Advantage 限制同一个订单的电池商品数量不得超过2个。离岸地址不支持配送带电商品（离岸邮编：006,007,009,00801-00851,967,968,96900-96970,995-999）。
+                        4. **时效说明**：偏远地区及旺季期间订单物流时效可能延长，请留意旺季公告。
+                        5. **赔付参考**：赔付标准细节请参考《Winit赔付标准》合同条款；高货值产品建议购买尾程保险【追踪守护】。
+                        6. **SpeedX 退件**：区域供应商 SpeedX 的订单轨迹如显示 Rscan-Return to Shipper，预计将在14天内退回 Winit 仓库。
+                        7. **异形包装**：2/3/5/7日达产品不支持异形包装（包含且不仅限于圆柱形、不规则形状），如因异形包装产生尾程账单费用差异，Winit 有权禁止对应商品发货权限或依据账单向客户补收费用。
+
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163010"
+      type: text
+      title: kb-wf-uk
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 2867
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |+
+                        ## 一、英国（UK）— 适用群体：英国 WINIT Fulfillment
+
+                        ### 1.1 正向派送
+
+                        | 属性 | Standard | Express | DHL Next Day |
+                        |------|----------|---------|-------------|
+                        | 支持发货仓 | UKGF/UKTW | UKGF/UKTW | UKGF/UKTW |
+                        | 截单时间 | 当地15点 | 当地15点 | 当地15点 |
+                        | 尺寸限制 | 长≤180cm，长+2*(宽+高)≤420cm | 长≤120cm，长+2*(宽+高)≤225cm | 长≤200cm，宽≤120cm |
+                        | 重量限制 | 计费重≤30kg | 计费重≤15kg | 实际重量≤70kg |
+                        | 计费标准 | 按实际重量 | 按实际重量 | 体积重量与实际重量取其大者，体积重=长×宽×高(cm)/5000 |
+                        | 配送范围 | 全英 | 全英 | 全英 |
+                        | 带电限制 | 不接受纯电，可接受功率≤100wh或锂含量≤2g配套/内置锂电池 | 不接受纯电，可接受功率≤100wh或锂含量≤2g配套/内置锂电池 | 可接受功率≤100wh或锂含量≤2g的锂电池 |
+                        | 支持军事地址 | × | √ | × |
+                        | 支持Click&Collect地址 | √ | √ | × |
+                        | 支持亚马逊地址 | × | × | × |
+                        | 支持包裹追踪 | √ | √ | √ |
+                        | 预计物流时效 | 1-3个工作日 | 1-2个工作日 | 1-2个工作日 |
+                        | 赔付：超时无上网 | √ | √ | √ |
+                        | 赔付：未妥投丢失 | √ | √ | √ |
+                        | 赔付：破损 | × | × | √ |
+                        | 赔付：妥投未收到 | × | × | × |
+                        | 增值：仓储增值 | √ | √ | √ |
+                        | 增值：尾程签名服务 | √ | √ | × |
+                        | 增值：尾程保险【追踪守护】 | √ | √ | √ |
+                        | 支持售卖平台 | ALL | ALL | ALL |
+
+                        ### 1.2 逆向退货服务
+
+                        | 属性 | Royal Mail Tracked Returns 48 Parcel |
+                        |------|-------------------------------------|
+                        | 支持发货仓 | UKGF/UKTW |
+                        | 截单时间 | - |
+                        | 尺寸限制 | 包裹尺寸≤610×460×460mm，包裹体积≤0.0315m³ |
+                        | 重量限制 | 计费重≤20kg |
+                        | 计费标准 | 按实际重量 |
+                        | 配送范围 | 全英 |
+                        | 带电限制 | 不接受纯电，可接受功率≤100wh或锂含量≤2g配套/内置锂电池 |
+                        | 支持包裹追踪 | √ |
+                        | 预计物流时效 | 2-3个工作日 |
+                        | 赔付：未妥投丢失 | √ |
+                        | 增值：仓储增值 | √ |
+                        | 支持售卖平台 | - |
+
+                        ### 1.3 英国专属备注
+
+                        1. **Express 军事地址**：Winit Fulfillment-Express 无法配送至邮编 BF 开头的英国军事基地地址。
+                        2. **电池货物**：包装及标签需满足国际电池货物标准（包含但不限于 ADR/IATA/IMDG 及 Packing Instruction），离岸地址不支持配送带电商品。
+                        3. **时效说明**：偏远地区及旺季期间订单物流时效可能延长，请留意旺季公告。
+                        4. **赔付参考**：赔付标准细节请参考《Winit赔付标准》合同条款；最高赔付金额不超过 20 GBP，高货值产品建议购买尾程保险【追踪守护】。
+
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163011"
+      type: text
+      title: kb-wf-de
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3107
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |+
+                        ## 一、德国（DE）— 适用群体：德国 WINIT Fulfillment
+
+                        ### 1.1 正向派送
+
+                        | 属性 | Economy | Standard | DHL Express-Worldwide | DHL Paket | DB SCHENKER Standard Delivery（托盘） |
+                        |------|---------|----------|----------------------|-----------|---------------------------------------|
+                        | 支持发货仓 | DEBR/DEBR2 | DEBR/DEBR2 | DEBR/DEBR2 | DEBR/DEBR2 | DEBR/DEBR2 |
+                        | 截单时间 | 当地14点 | 当地14点 | 当地14点 | 当地14点 | 当地14点 |
+                        | 尺寸限制 | 15cm≤长≤35.3cm，10cm≤宽≤25cm，高：本地≤8cm，国际≤10cm | 最小尺寸：15×10×1cm；最大尺寸根据分区：FR-Zonal & NL-Zonal：长≤60cm，长+宽+高≤150cm，计费重≤5kg；其它分区：长≤175cm，长+2*(宽+高)≤300cm | 长≤120cm，宽≤80cm，高≤80cm | 15cm≤长≤150cm，10cm≤宽，长+2*宽+2*高≤300cm（爱尔兰、希腊最长边≤60cm） | 托盘长×宽=1.2m×0.8m（标准欧托），托盘高≤2m（含托高度） |
+                        | 重量限制 | 计费重≤1kg | 计费重≤31.5kg | 计费重≤30kg | 计费重≤30kg | 无限制 |
+                        | 计费标准 | 按实际重量 | FR-Zonal：按计费重量（体积重=长×宽×高(cm)/5000）；其它分区：按实际重量 | 体积重量与实际重量取其大者，体积重=长×宽×高(cm)/5000 | 按实际重量 | 详见合同价卡 |
+                        | 配送范围 | 欧盟内 | 欧盟内 | 欧盟内 | 欧盟内+欧盟外部分国家 | 欧盟内+欧盟外部分国家 |
+                        | 带电限制 | 德国：不接受纯电，可接受功率≤100wh或锂含量≤2g配套/内置锂电池；德国除外：不支持带电 | 德国：支持功率≤100wh或锂含量≤2g的纯电、配套/内置电池；德国除外：不接受纯电，可接受功率≤100wh或锂含量≤2g配套/内置锂电池 | 德国：支持功率≤100wh或锂含量≤2g的纯电、配套/内置电池；德国除外：不接受纯电，可接受功率≤100wh或锂含量≤2g配套/内置锂电池 | 德国：支持功率≤100wh或锂含量≤2g的纯电、配套/内置电池；德国除外：不接受纯电和配套电池，部分国家可接受功率≤100wh或锂含量≤2g内置锂电池 | 支持功率≤100wh或锂含量≤2g的纯电、配套/内置电池 |
+                        | 支持离岸岛屿 | × | × | × | √ | √ |
+                        | 支持Packstation自提柜 | × | √ | × | √ | × |
+                        | 支持亚马逊地址 | × | √ | √ | √ | √ |
+                        | 支持包裹追踪 | √ | √ | √ | √ | √ |
+                        | 预计物流时效 | 详见合同价卡时效表 | 详见合同价卡时效表 | 1-3个工作日 | 德国：1-3个工作日；德国除外：2-8个工作日 | 德国：2个工作日；德国除外：2-5个工作日 |
+                        | 赔付：超时无上网 | √ | √ | √ | √ | √ |
+                        | 赔付：未妥投丢失 | × | √ | √ | √ | √ |
+                        | 赔付：破损 | × | × | √ | √ | √ |
+                        | 赔付：妥投未收到 | × | × | × | × | √ |
+                        | 增值：仓储增值 | √ | √ | √ | √ | √ |
+                        | 增值：尾程签名服务 | × | × | × | × | 官网可下载 POD，无需额外购买 |
+                        | 增值：尾程保险【追踪守护】 | √ | √ | √ | √ | × |
+                        | 支持售卖平台 | ALL | ALL | ALL | ALL | - |
+
+                        ### 1.2 逆向退货服务
+
+                        | 属性 | DHL Paket Return |
+                        |------|-----------------|
+                        | 支持发货仓 | DEBR/DEBR2 |
+                        | 截单时间 | - |
+                        | 尺寸限制 | 15×10×1cm ≤ 长×宽×高，长≤200cm，长+2*(宽+高)≤360cm |
+                        | 重量限制 | 计费重≤31.5kg |
+                        | 计费标准 | 按实际重量 |
+                        | 配送范围 | 欧盟内 |
+                        | 带电限制 | 德国：支持功率≤100wh或锂含量≤2g的纯电、配套/内置电池 |
+                        | 支持包裹追踪 | √ |
+                        | 预计物流时效 | 德国：1-3个工作日；德国除外：2-8个工作日 |
+                        | 增值：仓储增值 | √ |
+                        | 增值：尾程保险【追踪守护】 | √ |
+                        | 支持售卖平台 | ALL |
+
+                        ### 1.3 德国专属备注
+
+                        1. **电池限制**：Economy 产品德国限制一个订单内不得超出2块电池。所有电池货物的包装及标签需满足国际电池货物标准（包含但不限于 ADR/IATA/IMDG 及 Packing Instruction），离岸地址不支持配送带电商品。
+                        2. **离岛地址**：具体离岛地址请参考价卡「配送邮编分区」页的德国分区。
+                        3. **时效说明**：偏远地区及旺季期间订单物流时效可能延长，请留意旺季公告。
+                        4. **赔付参考**：赔付标准细节请参考《Winit赔付标准》合同条款；高货值产品建议购买尾程保险【追踪守护】。
+                        5. **不支持配送场景**：电子烟/电子烟配件、异形包装（包含且不仅限于圆柱形、不规则形状）及其它不符合物流安全运输条款的特殊品类货物（如易燃易爆易腐蚀等），否则可能导致包裹退回、销毁或产生额外费用，Winit 概不负责且将向客户补收产生的异常费用（如有），同时 Winit 有权暂停客户的发货权限。
+                        6. **FR-Zonal 限制**：区域分区 FR-Zonal 不支持派送 Packstation 自提柜和亚马逊地址。
+
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163012"
+      type: text
+      title: kb-wf-au
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3347
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |+
+                        ## 一、澳洲（AU）— 适用群体：澳洲 WINIT Fulfillment
+
+                        ### 1.1 正向派送
+
+                        | 属性 | Economy | Standard | Express | AuPost International NZ Delivery |
+                        |------|---------|----------|---------|--------------------------------|
+                        | 支持发货仓 | AU（悉尼仓） | AU（悉尼仓） | AU（悉尼仓） | AU（悉尼仓） |
+                        | 截单时间 | 当地14点 | 当地14点 | 当地14点 | 当地14点 |
+                        | 尺寸限制 | 长≤105cm，长×宽×高≤0.1m³ | 长≤105cm，长×宽×高≤0.25m³ | 长≤105cm，长×宽×高≤0.25m³ | 长≤105cm，2*(宽+高)≤140cm |
+                        | 重量限制 | 实重≤22kg | 实重≤22kg，计费重≤62.5kg | 实重≤22kg，计费重≤62.5kg | 实重≤20kg |
+                        | 计费标准 | 按实际重量 | 若实重≤3kg按实际重量，若实重>3kg按计费重量 | 若实重≤3kg按实际重量，若实重>3kg按计费重量 | 按实际重量 |
+                        | 配送范围 | 指定范围 | 全澳 | 全澳 | 新西兰 |
+                        | 带电限制 | 支持功率≤100wh或锂含量≤2g的配套/内置电池商品 | 支持功率≤100wh或锂含量≤2g的纯电、配套或内置电池商品 | 支持功率≤100wh或锂含量≤2g的内置电池商品 | 支持功率≤100wh或锂含量≤2g的内置电池商品 |
+                        | 支持PoBox/ECP/PrivateBag | × | √ | √ | √ |
+                        | 支持亚马逊地址 | × | × | × | × |
+                        | 支持包裹追踪 | √ | √ | √ | √ |
+                        | 预计物流时效 | 3-10个工作日 | 2-7个工作日 | 1-4个工作日 | 8-12个工作日 |
+                        | 赔付：超时无上网 | √ | √ | √ | √ |
+                        | 赔付：未妥投丢失/破损 | × | √ | √ | × |
+                        | 赔付：妥投未收到 | × | × | × | × |
+                        | 增值：仓储增值 | √ | √ | √ | √ |
+                        | 增值：尾程截件/改址 | × | × | × | × |
+                        | 增值：尾程签名服务 | × | × | × | × |
+                        | 增值：尾程保险【追踪守护】 | √ | √ | √ | √ |
+                        | 支持售卖平台 | ALL | ALL | ALL | ALL |
+
+                        ### 1.2 逆向退货服务
+
+                        | 属性 | AUPOST Parcel Post eParcel Return Service |
+                        |------|------------------------------------------|
+                        | 支持发货仓 | AU（悉尼仓） |
+                        | 截单时间 | - |
+                        | 尺寸限制 | 长≤105cm，长×宽×高≤0.25m³ |
+                        | 重量限制 | 实重≤22kg，计费重≤62.5kg |
+                        | 计费标准 | 若实重≤3kg按实际重量，若实重>3kg按计费重量 |
+                        | 配送范围 | 全澳 |
+                        | 带电限制 | 支持功率≤100wh或锂含量≤2g的内置电池商品 |
+                        | 支持包裹追踪 | √ |
+                        | 预计物流时效 | 1-4个工作日 |
+                        | 增值：仓储增值 | √ |
+                        | 支持售卖平台 | - |
+
+                        ### 1.3 澳洲专属备注
+
+                        1. **计费重量**：Standard/Express 计费重量取实重和体积重的最大值，体积重 = 长×宽×高(cm)/4000。
+                        2. **电池货物**：包装及标签需满足国际电池货物标准（包含但不限于 ADR/IATA/IMDG 及 Packing Instruction），离岸地址不支持配送带电商品。
+                        3. **时效说明**：偏远地区及旺季期间订单物流时效可能延长，请留意旺季公告。
+                        4. **默认保险**：Standard/Express 默认赠送尾程保险 100 CNY，如发生未妥投丢失/破损请联系客服按【追踪守护】提交理赔申请；如要求保险金额>100 CNY，需按要求保额下单，Winit 将按【追踪守护】费率标准收取对应保费。
+                        5. **NZ Delivery 特殊规则**：AuPost International NZ Delivery 需要收件人清关；若申报货值超 1000 NZD 需要正式报关；需要收件人交清关费用及 GST。
+
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163013"
+      type: text
+      title: kb-pallet-us
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3587
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        ## 一、美国（US）— FedEx Freight Economy
+
+                        ### 1.1 产品规格
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 产品名称 | FedEx Freight Economy-US (3-7 business days) |
+                        | 支持发货仓 | USKY3 / USKY5 / USWC / USWC2 / USWC5 / USTX / USNJ2 / USGA |
+                        | 计费标准 | 按订单实际重量计费，不足0.5KG按0.5KG计算。订单重量=托盘总重量之和（托盘重量+商品重量+包材重量） |
+                        | 配送范围 | 美国本土48州（商业地址、住宅地址） |
+                        | 预计物流时效 | 3-7个工作日妥投 |
+                        | 支持包裹追踪 | √ |
+                        | 带电限制 | 支持功率≤100wh内置/外置电池；不支持纯电产品；不支持危险品 |
+                        | 支持FBA地址 | × |
+                        | 支持离岸地址 | ×（不支持 PR/AK/HI/GU/AA/AE/AP） |
+                        | 支持军事地址 | ×（不支持 APO/FPO/DPO） |
+                        | 赔付：超时无上网 | √ |
+                        | 赔付：未妥投丢失 | √ |
+                        | 赔付：破损 | √ |
+                        | 增值：仓储增值 | √ |
+                        | 支持售卖平台 | - |
+
+                        ### 1.2 地址限制
+
+                        1. **不支持 FBA 地址**：此服务不支持发往 Amazon FBA 地址。
+                        2. **不支持离岸地址**：PR/AK/HI/GU/AA/AE/AP。
+                        3. **不支持军事地址**：APO/FPO/DPO。
+                        4. **不支持特殊地址**：教堂/礼拜场所、学校、建筑工地、展会/正在举行活动的场所、监狱/看守所、军事地址、矿场、发电站、机场，或需要邀请函/入场码等地址。如派送此类地址将加收附加费并按 FedEx Freight 公开价 A-I 分区补收运费差额。
+                        5. **不支持码头/海湾地址**：具体不可派送邮编包括 58718-58856、60611、78851、79511、79701-79789、79830-79854、88231、88252、98013、98070、98222-98297 等。
+
+                        ### 1.3 附加费说明
+
+                        | 附加费名称 | 收费标准 | 计费单位 | 叠加燃油 | 触发条件 |
+                        |-----------|---------|---------|---------|---------|
+                        | 燃油附加费 | 每周更新，燃油附加费金额=(尾程派送运费+其他附加费)×燃油附加费费率 | 订单 | - | 默认收取，费率参考 FedEx 官网 |
+                        | 住宅地址派送费 | 243 USD | 订单 | 是 | 收件人地址不属于商业地址时 |
+                        | 偏远地区附加费 | ZONE1: 32 USD / ZONE2: 64 USD / ZONE3: 102 USD / ZONE4: 318 USD | 订单 | 是 | 收件地址属于偏远地区 |
+                        | 地区附加费（California Compliance） | 24 USD | 订单 | 是 | 发货仓在美西仓或收件人州属于加利福尼亚州 |
+                        | 特殊地址派送费 | 219 USD + 按公开价 A-I 分区补收运费差额 | 订单 | 是 | 收件地址属于教堂/学校/建筑工地/展会/监狱/军事地址/矿场/发电站/机场等 |
+                        | 包裹复核费 | 40 USD + 补收运费差额 | 订单 | 是 | FedEx 复测重量与订单重量差值超50LB（22.68KG） |
+                        | 尾板费 | 最低207 USD，最高681 USD | 订单 | 是 | 收件方卸货需要尾板操作 |
+                        | 派送失败退货费 | 与正向运费一致 | 订单 | 是 | 派送失败退回万邑通海外仓 |
+
+                        ### 1.4 超长附加费
+
+                        | 托盘长度 | 附加费(USD) | 叠加燃油 |
+                        |---------|------------|---------|
+                        | >243.84cm（8 feet）且≤365.76cm（12 feet） | 375 | 是 |
+                        | >365.76cm（12 feet）且≤457.2cm（15 feet） | 775 | 是 |
+                        | >457.2cm（15 feet）且≤548.64cm（18 feet） | 982 | 是 |
+                        | >548.64cm（18 feet）且≤609.6cm（20 feet） | 1234 | 是 |
+                        | >609.6cm（20 feet） | 1514 | 是 |
+
+                        ### 1.5 其他说明
+
+                        1. **电话必填**：此服务要求必填正确的收件人电话，如因电话不正确或者未填写电话产生的异常费用，将向客户补收。
+                        2. **下单限制**：每个订单的托盘数量不得超过7托。如需超出此限制，需单独线下询价。
+                        3. **扣费时间**：出库单状态="派送中"时扣费。
+                        4. **补收周期**：
+                           - 出库当月为M0，Winit有权针对M6内的派送失败退货费发起费用核算和退补，除派送失败退货费外的其他费用在M3内发起核算和退补。
+                           - 所有正向费用申诉周期为3个月，即扣费当月为M0，客户有权在M3内针对M0扣费的订单有异议的正向费用发起核算与退费申诉。
+                        5. **其他附加费**：若派送过程中产生其它附加费如重派费、等待费、滞仓费、暂存费、改址费、二次派送费等，Winit 将根据 FedEx Freight 官网公开价向客户线下补收。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163014"
+      type: text
+      title: kb-pallet-de
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 480
+          y: 3827
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        ## 一、德国（DE）— DB SCHENKER Standard Delivery（托盘）
+
+                        ### 1.1 产品规格
+
+                        | 属性 | 说明 |
+                        |------|------|
+                        | 产品名称 | DB SCHENKER - Standard Delivery (2-8 Business Days) |
+                        | 支持发货仓 | DEBR / DEBR2 |
+                        | 截单时间 | 当地14点 |
+                        | 托盘尺寸 | 标准欧托：1.2m × 0.8m × 0.17m（长×宽×托高） |
+                        | 托盘限高 | 托盘高≤2m（含托高度），不允许超托 |
+                        | 重量限制 | 无限制（按重量分段计费） |
+                        | 配送范围 | 欧盟内 + 欧盟外部分国家 |
+                        | 预计物流时效 | 德国：2个工作日；德国除外：2-5个工作日 |
+                        | 支持包裹追踪 | √ |
+                        | 支持离岸岛屿 | √ |
+                        | 支持亚马逊地址 | √ |
+                        | 支持Packstation自提柜 | × |
+                        | 赔付：超时无上网 | √ |
+                        | 赔付：未妥投丢失 | √ |
+                        | 赔付：破损 | √ |
+                        | 赔付：妥投未收到 | √ |
+                        | 增值：仓储增值 | √ |
+                        | 增值：尾程签名服务 | 官网可下载 POD，无需额外购买 |
+                        | 支持售卖平台 | - |
+
+                        ### 1.2 下单产品与计费标准
+
+                        | 下单产品 | 托盘规格 | 德国最低收费重量 | 德国除外最低收费重量 | 备注 |
+                        |---------|---------|----------------|-------------------|------|
+                        | DB SCHENKER - Standard Delivery(2-8 Business Days)-1/4托-DE | 1/4托 0.6×0.4m | 50kg | 50kg | 需联系销售经理提供预估货量及申请开通权限 |
+                        | DB SCHENKER - Standard Delivery(2-8 Business Days)-1/2托-DE | 1/2托 0.6×0.8m | 50kg | 50kg | 需联系销售经理提供预估货量及申请开通权限 |
+                        | DB SCHENKER - Standard Delivery(2-8 Business Days)-DE | 标准欧托 1.2×0.8m | 150kg | 150kg | 默认标准欧托 |
+
+                        **计费重计算规则**：取实重、体积重、托盘最低收费重量的最大值。
+                        - 体积重 = 长(m) × 宽(m) × 高(m) × 200 kg/m³
+                        - 每CBM最低收费：德国 150kg，德国除外 200kg
+
+                        > **举例**：订单总共2个托盘：托盘1重量=135kg(含托盘重量)，长×宽×高=1.2m×0.8m×2m(含托高度)，托盘2重量=350kg，长×宽×高=1.2m×0.8m×1.5m。托盘1计费重=Max(实重135, 体积重1.2×0.8×2×200, 托盘最低收费150)=384kg；托盘2计费重=Max(实重350, 体积重1.2×0.8×1.5×200, 托盘最低收费150)=350kg；订单计费重=384+350=734kg。
+
+                        ### 1.3 电池政策
+
+                        | 电池类型 | 支持情况 | 备注 |
+                        |---------|---------|------|
+                        | 内置电池 | √ | 功率≤100wh或锂含量≤2g |
+                        | 配套电池 | √ | 功率≤100wh或锂含量≤2g |
+                        | 纯电池 | √ | 功率≤100wh或锂含量≤2g |
+
+                        - 危险品手续费 Class 9：支持运输要求的大功率锂电池货物，需收取危险品附加费，收费标准参考《WINIT海外仓锂离子电池DG价格表》。
+
+                        ### 1.4 附加费说明
+
+                        #### 1.4.1 基础附加费
+
+                        | 附加费名称 | 说明 |
+                        |-----------|------|
+                        | 燃油附加费 | 燃油附加费金额=尾程派送运费×燃油附加费费率，费率以DB SCHENKER官网价格公布为准 |
+                        | 打托费 | 按照实际打托情况收取，收费标准见库内增值服务 |
+                        | 道路附加费-TOLL | 供应商每单收取，收费标准=运费×13% |
+                        | 二次派送费-Redelivery | 最低收费35 EUR/票，最高收费190 EUR/票，线下补收 |
+                        | 派送失败退货费 | 退货费用与发货费用相同 |
+
+                        #### 1.4.2 城市派送附加费
+
+                        针对派送去往下列城市/邮编的订单，供应商收取城市派送附加费，收费标准 10 EUR/票：
+
+                        | 国家-城市 | 邮编 |
+                        |----------|------|
+                        | DE-Berlin | 101xx, 102xx, 104xx, 109xx, 110xx, 14057-14059 |
+                        | DE-Frankfurt/M | 6031x, 6032x, 6059x |
+                        | DE-Hamburg | 200xx, 201xx, 203xx, 204xx, 227xx |
+                        | DE-Cologne | 506xx |
+                        | DE-Munich | 8033x, 8079x, 8080x, 816xx |
+                        | DE-Stuttgart | 701xx, 75, 77-78, 91-95 |
+                        | FR-Paris | 12101-12103, 1215x, 1216x |
+
+                        #### 1.4.3 超长超高附加费
+
+                        触发以下条件将收取50 EUR/票：
+                        - **Overheight**：货物高度在2.30m-2.40m之间
+                        - **Long goods**：
+                          - 毛重≤30kg：长度>2.40m且≤6.00m（最大宽0.40m×高0.40m），限单人搬运，每票最多10件
+                          - 毛重>30kg：长度>2.40m且≤3.00m（最大宽1.20m×高2.20m），需工业车辆可从底部两侧接近
+
+                        #### 1.4.4 协助预约派送/指定日期派送费（Fix Day）
+
+                        需供应商协助预约收件方派送时间（电话或邮箱）或下单时提前指定日期派送，供应商将收取费用：
+
+                        | 订单计费重 | 指定日期派送(EUR) | 指定日期+13点前(EUR) | 指定日期+10点前(EUR) | 预约派送时间-电话(EUR) |
+                        |-----------|------------------|---------------------|---------------------|---------------------|
+                        | ≤300kg | 30 | 44 | 61 | 39 |
+                        | ≤500kg | 35 | 62 | 77 | 45 |
+                        | ≤1000kg | 47 | 77 | 110 | 55 |
+                        | ≤1500kg | 71 | 99 | 143 | 77 |
+                        | ≤2500kg | 95 | 143 | 177 | 99 |
+
+                        #### 1.4.5 快捷派送 Premium
+
+                        选择 Premium 服务时供应商承诺派送日期：
+
+                        | 订单计费重 | Premium(EUR) | Premium+13点前(EUR) | Premium+10点前(EUR) |
+                        |-----------|-------------|--------------------|--------------------|
+                        | ≤300kg | 30 | 44 | 61 |
+                        | ≤500kg | 35 | 62 | 77 |
+                        | ≤1000kg | 47 | 77 | 110 |
+                        | ≤1500kg | 71 | 99 | 143 |
+                        | ≤2500kg | 95 | 143 | 177 |
+
+                        ### 1.5 报关服务
+
+                        | 服务 | 费用 | 说明 |
+                        |------|------|------|
+                        | 出口报关服务费 | 150 EUR/份报关单 | 仅含5个基础HS CODE，超出每个加收7 EUR |
+                        | 进口清关服务费 | 80 EUR/份报关单 | 仅含3个基础HS CODE，超出每个加收8 EUR |
+                        | 资料要求 | - | 商业发票/装箱单/POA（提前签署报关委托协议） |
+
+                        ### 1.6 保险
+
+                        - 如购买物流保险，按投保金额赔付
+                        - 如未购买物流保险，最高赔付3500 EUR/单
+                        - 保险费按投保金额阶梯计费
+
+                        ### 1.7 其他说明
+
+                        1. **电话必填**：此服务要求必填正确的收件人电话，如因电话不正确或者未填写电话产生的异常费用，将向客户补收。
+                        2. **亚马逊地址**：支持发 Amazon FBA 地址，如发往亚马逊或其它收件方要求预约 Time Slot 的地址将每单加收15 EUR预约派送费。如果收件地址是亚马逊仓库，必须在下单收件人类型选择亚马逊或在地址信息上有Amazon字眼，否则可能导致异常退回。
+                        3. **住宅地址**：此服务报价仅支持派送到商业地址，如派送住宅地址将产生额外附加费40 EUR/单，实报实销向客户补收。
+                        4. **罗马尼亚流向**：发往罗马尼亚的订单重量超500kg或货值超过2000欧需要提供 UIT 编号，否则将清关失败导致退回。
+                        5. **塞浦路斯流向**：发往塞浦路斯的订单如收件人为公司地址，则需要公司的 VAT number；如收件人为私人地址，则需要提供收件人的身份证照片，否则将派送失败导致退回。
+                        6. **订单超5托**：需收件方现场具备自卸货能力（必须配有叉车或卸货垛口），否则需拆单每5托一单发货。因收件方现场不具备自卸货能力导致的额外费用实报实销补收。
+                        7. **特殊地址**：发往 fairs, harbours and islands 需单独询价额外收费。
+                        8. **送货上楼**：供应商标准服务是送货到1楼，如要求送货上楼请买家与送货司机自行协商。
+                        9. **马耳他/塞浦路斯**：需要单独询价，请联系客服咨询。
+                        10. **非欧盟国家**：请使用 DB SCHENKER 线下打单产品（DB SCHENKER - Standard Delivery (2-8 Business Days)-Invoice-DE），请联系客服提供相关清关资料。
+                        11. **订单限制**：每个订单最多不能超过25个托盘，如超过需分开下单。
+                        12. **扣费时间**：出库单状态="派送中"时扣费。
+                        13. **不可派送邮编（岛屿）**：26757, 26571, 26548, 26579, 26465, 26474, 26486, 18565, 25845, 25849, 25859, 25863, 25869, 25938, 25946, 25980, 25992, 25996, 25997, 25999, 27498。
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163015"
+      type: code
+      title: load-product-knowledge
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 650
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：load-product-knowledge — 过滤路由器
+               * 接收 textNode 注入的 15 个 KB 字符串 + validate-input 的 kbScope，
+               * 选择性拼接输出 kbContent（聚焦后的 KB），LLM 只收到相关内容。
+               *
+               * FaaS 单文件闭环，无外部 import。与 `workflow.json` 中本节点 `inputs` / `outputs` 完全一致。
+               *
+               * 【输入】`params` 字段：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | countryResolved | string | ISO2 国家码 |
+               * | productLine | string | psc / wf / pallet / "" |
+               * | kbScope | string | 知识加载范围 |
+               * | directMatch | boolean | 是否精确匹配到产品 |
+               * | matchedProductNames | string[] | 匹配到的产品名 |
+               * | kbPscIndex | string | textNode: kb-psc.md |
+               * | kbWfIndex | string | textNode: kb-wf.md |
+               * | kbPalletIndex | string | textNode: kb-pallet.md |
+               * | kbPscUs | string | textNode: kb-psc-us.md |
+               * | kbPscUk | string | textNode: kb-psc-uk.md |
+               * | kbPscDe | string | textNode: kb-psc-de.md |
+               * | kbPscAu | string | textNode: kb-psc-au.md |
+               * | kbPscCa | string | textNode: kb-psc-ca.md |
+               * | kbWfUs | string | textNode: kb-wf-us.md |
+               * | kbWfUk | string | textNode: kb-wf-uk.md |
+               * | kbWfDe | string | textNode: kb-wf-de.md |
+               * | kbWfAu | string | textNode: kb-wf-au.md |
+               * | kbPalletUs | string | textNode: kb-pallet-us.md |
+               * | kbPalletDe | string | textNode: kb-pallet-de.md |
+               *
+               * 【输出】JSON 对象：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | kbContent | string | 聚焦后的 KB（索引 + 相关国家详情） |
+               * | kbScope | string | 原样透传 |
+               * | countryResolved | string | 原样透传 |
+               * | productLine | string | 原样透传 |
+               */
+
+              // ─── 产品名 → 国家+产品线映射（用于 direct 匹配时确定加载哪些国家文件） ──
+
+              interface ProductLocation {
+                country: string;
+                line: string;
+              }
+
+              const PRODUCT_LOCATION_MAP: Record<string, ProductLocation> = {
+                "FedEx Freight Economy": { country: "US", line: "pallet" },
+                "DB SCHENKER Standard Delivery": { country: "DE", line: "pallet" },
+                "Winit Fulfillment-7日达": { country: "US", line: "wf" },
+                "Winit Fulfillment-5日达": { country: "US", line: "wf" },
+                "Winit Fulfillment-3日达": { country: "US", line: "wf" },
+                "Winit Fulfillment-2日达": { country: "US", line: "wf" },
+                "Shipping with Amazon": { country: "US", line: "wf" },
+                "Winit Fulfillment-Standard": { country: "UK", line: "wf" }, // UK 和 DE 都有 Standard，按匹配顺序取第一个
+                "Winit Fulfillment-Express": { country: "UK", line: "wf" },
+                "DHL Next Day": { country: "UK", line: "wf" },
+                "Winit Fulfillment-Economy": { country: "DE", line: "wf" },
+                "DHL Express-Worldwide": { country: "DE", line: "wf" },
+                "DHL Paket": { country: "DE", line: "wf" },
+                "AuPost International NZ Delivery": { country: "AU", line: "wf" },
+                "USPS Ground Advantage": { country: "US", line: "psc" },
+                "USPS Priority Mail": { country: "US", line: "psc" },
+                "UPS SurePost": { country: "US", line: "psc" },
+                "UPS Ground": { country: "US", line: "psc" },
+                "UPS 3 Day Select": { country: "US", line: "psc" },
+                "UPS Next Day Air": { country: "US", line: "psc" },
+                "OnTrac Ground": { country: "US", line: "psc" },
+                "FedEx Ground": { country: "US", line: "psc" },
+                "FedEx 2Day": { country: "US", line: "psc" },
+                "FedEx Standard Overnight": { country: "US", line: "psc" },
+                "UPS Hundredweight": { country: "US", line: "psc" },
+                "Royal Mail Untracked 24": { country: "UK", line: "psc" },
+                "Royal Mail Untracked 48": { country: "UK", line: "psc" },
+                "Royal Mail Tracked 24": { country: "UK", line: "psc" },
+                "Royal Mail Tracked 48": { country: "UK", line: "psc" },
+                "DHL Domestic Next Day": { country: "UK", line: "psc" },
+                "EVRi Standard 24": { country: "UK", line: "psc" },
+                "EVRi Standard 48": { country: "UK", line: "psc" },
+                "XDP 1 Man": { country: "UK", line: "psc" },
+                "XDP 2 Man": { country: "UK", line: "psc" },
+                "DPD Parcel": { country: "UK", line: "psc" },
+                "FedEx Economy": { country: "UK", line: "psc" },
+                "DE Post Untracked Letter": { country: "DE", line: "psc" },
+                "DHL Kleinpaket": { country: "DE", line: "psc" },
+                "DE Post Warenpost": { country: "DE", line: "psc" },
+                "DHL Domestic Paket": { country: "DE", line: "psc" },
+                "DHL Express Domestic": { country: "DE", line: "psc" },
+                "DPD Domestic": { country: "DE", line: "psc" },
+                "UPS Standard Single": { country: "DE", line: "psc" },
+                "UPS Standard Multiple": { country: "DE", line: "psc" },
+                "Winit Parcel-EU": { country: "DE", line: "psc" },
+                "AU Post Large Letter": { country: "AU", line: "psc" },
+                "AUPOST Parcel Post eParcel": { country: "AU", line: "psc" },
+                "AU Post Express Post Parcel": { country: "AU", line: "psc" },
+                "MCS Economy": { country: "AU", line: "psc" },
+                "PFL Courier": { country: "AU", line: "psc" },
+                "Aramex Courier": { country: "AU", line: "psc" },
+                "AU Mix Economy": { country: "AU", line: "psc" },
+                "TOLL Priority": { country: "AU", line: "psc" },
+                "TOLL IPEC": { country: "AU", line: "psc" },
+                "Direct Freight": { country: "AU", line: "psc" },
+                "Allied Express": { country: "AU", line: "psc" },
+                "UNI Domestic": { country: "CA", line: "psc" },
+                "Canada Post Expedited": { country: "CA", line: "psc" },
+                "Purolator Ground": { country: "CA", line: "psc" },
+              };
+
+              // ─── 国家文件选取辅助 ───────────────────────────────────────────────
+
+              function str(v: unknown): string {
+                return typeof v === "string" ? v : "";
+              }
+
+              interface KbFiles {
+                kbPscUs: string;
+                kbPscUk: string;
+                kbPscDe: string;
+                kbPscAu: string;
+                kbPscCa: string;
+                kbWfUs: string;
+                kbWfUk: string;
+                kbWfDe: string;
+                kbWfAu: string;
+                kbPalletUs: string;
+                kbPalletDe: string;
+              }
+
+              function getPscByCountry(files: KbFiles, country: string): string {
+                switch (country) {
+                  case "US": return files.kbPscUs;
+                  case "UK": return files.kbPscUk;
+                  case "DE": return files.kbPscDe;
+                  case "AU": return files.kbPscAu;
+                  case "CA": return files.kbPscCa;
+                  default: return "";
+                }
+              }
+
+              function getWfByCountry(files: KbFiles, country: string): string {
+                switch (country) {
+                  case "US": return files.kbWfUs;
+                  case "UK": return files.kbWfUk;
+                  case "DE": return files.kbWfDe;
+                  case "AU": return files.kbWfAu;
+                  default: return "";
+                }
+              }
+
+              function getPalletByCountry(files: KbFiles, country: string): string {
+                switch (country) {
+                  case "US": return files.kbPalletUs;
+                  case "DE": return files.kbPalletDe;
+                  default: return "";
+                }
+              }
+
+              function getLineByCountry(files: KbFiles, line: string, country: string): string {
+                switch (line) {
+                  case "psc": return getPscByCountry(files, country);
+                  case "wf": return getWfByCountry(files, country);
+                  case "pallet": return getPalletByCountry(files, country);
+                  default: return "";
+                }
+              }
+
+              // ─── 主入口 ─────────────────────────────────────────────────────────
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const countryResolved = str(params.countryResolved);
+                const productLine = str(params.productLine);
+                const kbScope = str(params.kbScope);
+                const directMatch = params.directMatch === true;
+                const matchedProductNames = Array.isArray(params.matchedProductNames) ? params.matchedProductNames as string[] : [];
+
+                // 索引文件（始终包含）
+                const kbPscIndex = str(params.kbPscIndex);
+                const kbWfIndex = str(params.kbWfIndex);
+                const kbPalletIndex = str(params.kbPalletIndex);
+
+                // 国家详情文件
+                const files: KbFiles = {
+                  kbPscUs: str(params.kbPscUs),
+                  kbPscUk: str(params.kbPscUk),
+                  kbPscDe: str(params.kbPscDe),
+                  kbPscAu: str(params.kbPscAu),
+                  kbPscCa: str(params.kbPscCa),
+                  kbWfUs: str(params.kbWfUs),
+                  kbWfUk: str(params.kbWfUk),
+                  kbWfDe: str(params.kbWfDe),
+                  kbWfAu: str(params.kbWfAu),
+                  kbPalletUs: str(params.kbPalletUs),
+                  kbPalletDe: str(params.kbPalletDe),
+                };
+
+                // 拼接索引层
+                const indexParts: string[] = [];
+                if (kbPscIndex) indexParts.push(kbPscIndex);
+                if (kbWfIndex) indexParts.push(kbWfIndex);
+                if (kbPalletIndex) indexParts.push(kbPalletIndex);
+
+                // 根据 kbScope 追加国家详情
+                const detailParts: string[] = [];
+
+                if (kbScope === "direct") {
+                  // 根据匹配到的产品，收集需要加载的 {line}-{country} 组合
+                  const needed = new Set<string>();
+                  for (const name of matchedProductNames) {
+                    const loc = PRODUCT_LOCATION_MAP[name];
+                    if (loc) needed.add(`${loc.line}-${loc.country}`);
+                  }
+                  for (const key of needed) {
+                    const [line, country] = key.split("-");
+                    const content = getLineByCountry(files, line, country);
+                    if (content) detailParts.push(content);
+                  }
+                } else if (kbScope === "index") {
+                  // 仅索引，不追加
+                } else {
+                  // 解析 scope 格式：{line}-{country} | all-{country} | {line}-all
+                  const parts = kbScope.split("-");
+                  if (parts.length === 2) {
+                    const [left, right] = parts;
+                    const isLine = left === "psc" || left === "wf" || left === "pallet";
+                    if (isLine && right === "all") {
+                      // {line}-all：加载该产品线所有国家
+                      if (left === "psc") {
+                        detailParts.push(files.kbPscUs, files.kbPscUk, files.kbPscDe, files.kbPscAu, files.kbPscCa);
+                      } else if (left === "wf") {
+                        detailParts.push(files.kbWfUs, files.kbWfUk, files.kbWfDe, files.kbWfAu);
+                      } else if (left === "pallet") {
+                        detailParts.push(files.kbPalletUs, files.kbPalletDe);
+                      }
+                    } else if (left === "all") {
+                      // all-{country}：加载该国家所有产品线
+                      const country = right;
+                      const psc = getPscByCountry(files, country);
+                      const wf = getWfByCountry(files, country);
+                      const pallet = getPalletByCountry(files, country);
+                      if (psc) detailParts.push(psc);
+                      if (wf) detailParts.push(wf);
+                      if (pallet) detailParts.push(pallet);
+                    } else if (isLine) {
+                      // {line}-{country}
+                      const content = getLineByCountry(files, left, right);
+                      if (content) detailParts.push(content);
+                    }
+                  }
+                }
+
+                // 拼接最终输出
+                const allParts = [...indexParts, ...detailParts.filter(Boolean)];
+                const kbContent = allParts.join("\n\n---\n\n");
+
+                return {
+                  kbContent,
+                  kbScope,
+                  countryResolved,
+                  productLine,
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("load-product-knowledge")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => { console.error(e); process.exit(1); });
+              }
+          language: 5
+          node_inputs:
+              - name: countryResolved
+                input:
+                    value:
+                        path: countryResolved
+                        ref_node: "163000"
+              - name: productLine
+                input:
+                    value:
+                        path: productLine
+                        ref_node: "163000"
+              - name: kbScope
+                input:
+                    value:
+                        path: kbScope
+                        ref_node: "163000"
+              - name: directMatch
+                input:
+                    value:
+                        path: directMatch
+                        ref_node: "163000"
+              - name: matchedProductNames
+                input:
+                    value:
+                        path: matchedProductNames
+                        ref_node: "163000"
+              - name: kbPscIndex
+                input:
+                    value:
+                        path: output
+                        ref_node: "163001"
+              - name: kbWfIndex
+                input:
+                    value:
+                        path: output
+                        ref_node: "163002"
+              - name: kbPalletIndex
+                input:
+                    value:
+                        path: output
+                        ref_node: "163003"
+              - name: kbPscUs
+                input:
+                    value:
+                        path: output
+                        ref_node: "163004"
+              - name: kbPscUk
+                input:
+                    value:
+                        path: output
+                        ref_node: "163005"
+              - name: kbPscDe
+                input:
+                    value:
+                        path: output
+                        ref_node: "163006"
+              - name: kbPscAu
+                input:
+                    value:
+                        path: output
+                        ref_node: "163007"
+              - name: kbPscCa
+                input:
+                    value:
+                        path: output
+                        ref_node: "163008"
+              - name: kbWfUs
+                input:
+                    value:
+                        path: output
+                        ref_node: "163009"
+              - name: kbWfUk
+                input:
+                    value:
+                        path: output
+                        ref_node: "163010"
+              - name: kbWfDe
+                input:
+                    value:
+                        path: output
+                        ref_node: "163011"
+              - name: kbWfAu
+                input:
+                    value:
+                        path: output
+                        ref_node: "163012"
+              - name: kbPalletUs
+                input:
+                    value:
+                        path: output
+                        ref_node: "163013"
+              - name: kbPalletDe
+                input:
+                    value:
+                        path: output
+                        ref_node: "163014"
+          node_outputs:
+              kbContent:
+                  type: string
+                  value: null
+              kbScope:
+                  type: string
+                  value: null
+              countryResolved:
+                  type: string
+                  value: null
+              productLine:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+    - id: "163016"
+      type: text
+      title: examples
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: 用于处理多个字符串类型变量的格式
+      position:
+          x: 650
+          y: 550
+      parameters:
+          concatParams:
+              - name: concatResult
+                input:
+                    type: string
+                    value: |
+                        ## 示例 1：精确产品名匹配（托盘产品）
+
+                        **用户问**：FedEx Freight Economy-US 可以发带电商品吗
+
+                        **输出**：
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "countryResolved": "US",
+                              "productLine": "pallet",
+                              "matchedProducts": [
+                                {
+                                  "name": "FedEx Freight Economy",
+                                  "category": "pallet",
+                                  "weightLimit": "按订单实际重量计费，不足0.5KG按0.5KG",
+                                  "dimensionLimit": "托盘长×宽=1.2m×0.8m（标准欧托）",
+                                  "deliveryTime": "3-7个工作日妥投"
+                                }
+                              ],
+                              "confidence": "high"
+                            },
+                            "analysis": "FedEx Freight Economy 是万邑通美国托盘尾程派送产品，由 FedEx 承运：\n\n**带电政策：**\n- 支持功率≤100wh 内置/外置电池\n- 不支持纯电产品\n- 不支持危险品\n\n**其他基本信息：**\n- 支持发货仓：USKY3/USKY5/USWC/USWC2/USWC5/USTX/USNJ2/USGA\n- 配送范围：美国本土48州（商业地址、住宅地址）\n- 支持包裹追踪：√\n\n**不支持地址：** FBA地址、离岸地址（PR/AK/HI/GU）、军事地址（APO/FPO/DPO）、码头/海湾地址等。\n\n**主要附加费：** 住宅地址派送费 243 USD、偏远地区附加费（按区域32-318 USD）、超长附加费（按长度分级）、燃油附加费等。\n\n具体价格请参考合同价卡。"
+                          }
+                        }
+                        ```
+
+                        ## 示例 2：国家+产品线（WF 美国）
+
+                        **用户问**：请问 Winit Fulfillment 七日达是什么服务，可以发什么
+
+                        **输出**：
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "countryResolved": "US",
+                              "productLine": "wf",
+                              "matchedProducts": [
+                                {
+                                  "name": "Winit Fulfillment-7日达",
+                                  "category": "wf",
+                                  "weightLimit": "计费重≤30 lb",
+                                  "dimensionLimit": "长≤243.8cm，宽≤76.2cm，长+2×(宽+高)≤266cm",
+                                  "deliveryTime": "7工作日送达率≥95%（偏远地区除外）"
+                                }
+                              ],
+                              "confidence": "high"
+                            },
+                            "analysis": "Winit Fulfillment 七日达是万邑通尾程履约服务的组合渠道产品之一，主要面向美国市场：\n\n**基本信息：**\n- 支持发货仓：USKY3/USKY5/USWC/USWC2/USWC5/USTX\n- 截单时间：当地14点\n- 配送范围：美国本土\n- 计费重限制：≤30 lb\n\n**带电政策：**\n- 不接受纯电\n- 可接受功率≤100wh或锂含量≤2g的配套/内置锂电池\n- 限制同一个订单的电池商品数量不得超过2个\n\n**增值服务：**\n- 支持仓储增值、尾程保险【追踪守护】【时效保】\n- 赔付：支持超时无上网、未妥投丢失（支持代客索赔）\n- 不支持破损赔付、妥投未收到赔付\n\n**不支持：** 军事地址、POBox、亚马逊地址、尾程改址/拦截/签名服务\n\n具体价格请参考合同价卡。"
+                          }
+                        }
+                        ```
+
+                        ## 示例 3：仅国家（德国全部产品线）
+
+                        **用户问**：德国有什么尾程产品
+
+                        **输出**：
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "countryResolved": "DE",
+                              "productLine": "",
+                              "matchedProducts": [
+                                {
+                                  "name": "DE Post Untracked Letter",
+                                  "category": "psc",
+                                  "weightLimit": "≤0.5 kg",
+                                  "dimensionLimit": "35.3×25×2 cm",
+                                  "deliveryTime": "1-2工作日"
+                                },
+                                {
+                                  "name": "DHL Kleinpaket",
+                                  "category": "psc",
+                                  "weightLimit": "≤1 kg",
+                                  "dimensionLimit": "≤35.3×25×8 cm",
+                                  "deliveryTime": "2-4工作日"
+                                },
+                                {
+                                  "name": "DHL Domestic Paket",
+                                  "category": "psc",
+                                  "weightLimit": "≤31.5 kg",
+                                  "dimensionLimit": "L≤200cm, L+2×(W+H)≤360cm",
+                                  "deliveryTime": "1-3工作日"
+                                },
+                                {
+                                  "name": "Winit Fulfillment-Economy",
+                                  "category": "wf",
+                                  "weightLimit": "计费重≤1kg",
+                                  "dimensionLimit": "15-35.3×10-25×≤8cm",
+                                  "deliveryTime": "详见合同价卡"
+                                },
+                                {
+                                  "name": "Winit Fulfillment-Standard",
+                                  "category": "wf",
+                                  "weightLimit": "计费重≤31.5kg",
+                                  "dimensionLimit": "L≤175cm, L+2×(W+H)≤300cm",
+                                  "deliveryTime": "详见合同价卡"
+                                },
+                                {
+                                  "name": "DB SCHENKER Standard Delivery",
+                                  "category": "pallet",
+                                  "weightLimit": "无限制",
+                                  "dimensionLimit": "标准欧托 1.2m×0.8m",
+                                  "deliveryTime": "德国2工作日；德国除外2-5工作日"
+                                }
+                              ],
+                              "confidence": "high"
+                            },
+                            "analysis": "德国尾程产品覆盖三大产品线：\n\n**PSC 标准尾程：**\n- 轻小件（≤1kg）：DE Post Untracked Letter（平邮）、DHL Kleinpaket（挂号）\n- 标准件（≤31.5kg）：DHL Domestic Paket、DPD Domestic、UPS Standard\n- 国际派送：Winit Parcel-EU、DHL/DPD International\n\n**WF Winit Fulfillment：**\n- Economy：≤1kg，欧盟内派送\n- Standard：≤31.5kg，分区计费\n- 指定渠道：DHL Express-Worldwide、DHL Paket\n- 退货：DHL Paket Return\n\n**Pallet 托盘：**\n- DB SCHENKER Standard Delivery：欧盟内+欧盟外部分国家\n\n各产品具体附加费和限制请参考对应知识库或咨询客服。"
+                          }
+                        }
+                        ```
+
+                        ## 示例 4：无参数（仅索引）
+
+                        **用户问**：你们有什么尾程服务
+
+                        **输出**：
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "countryResolved": "",
+                              "productLine": "",
+                              "matchedProducts": [],
+                              "confidence": "medium"
+                            },
+                            "analysis": "万邑通提供三大尾程产品线：\n\n**1. PSC 标准尾程派送**\n覆盖国家：美国、英国、德国、澳洲、加拿大\n- 各国本地正向/逆向派送产品\n- 部分国家支持国际派送\n- 产品包括 USPS、Royal Mail、DHL、UPS、FedEx 等主流承运商\n\n**2. WF Winit Fulfillment 履约服务**\n覆盖国家：美国、英国、德国、澳洲\n- 组合渠道（如7日达/5日达/3日达/2日达）\n- 指定渠道（如 USPS Ground Advantage、DHL Next Day）\n- 逆向退货服务\n- 增值保险：追踪守护、时效保（仅美国）\n\n**3. Pallet 托盘派送**\n覆盖国家：美国（FedEx Freight Economy）、德国（DB SCHENKER Standard Delivery）\n\n请告诉我您想了解哪个**国家**或哪个**产品线**的详细信息，我可以提供完整的产品规格、限制与费用说明。"
+                          }
+                        }
+                        ```
+              - name: arrayItemConcatChar
+                input:
+                    type: string
+                    value: ，
+              - name: allArrayItemConcatChars
+                input:
+                    type: list
+                    items:
+                        type: object
+                        value: null
+                    value:
+                        - isDefault: true
+                          label: 换行
+                          value: |+
+                              
+                        - isDefault: true
+                          label: 制表符
+                          value: "\t"
+                        - isDefault: true
+                          label: 句号
+                          value: 。
+                        - isDefault: true
+                          label: 逗号
+                          value: ，
+                        - isDefault: true
+                          label: 分号
+                          value: ；
+                        - isDefault: true
+                          label: 空格
+                          value: " "
+          method: concat
+          node_outputs:
+              output:
+                  type: string
+                  value: null
+    - id: "163017"
+      type: llm
+      title: llm-analyze
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: 调用大语言模型,使用变量和提示词生成回复
+      version: "3"
+      position:
+          x: 950
+          y: 310
+      parameters:
+          fcParamVar:
+              knowledgeFCParam: {}
+          llmParam:
+              - name: apiMode
+                input:
+                    type: integer
+                    value: "0"
+              - name: temperature
+                input:
+                    type: float
+                    value: "0.5"
+              - name: topP
+                input:
+                    type: float
+                    value: "1"
+              - name: frequencyPenalty
+                input:
+                    type: float
+                    value: "0"
+              - name: maxTokens
+                input:
+                    type: integer
+                    value: "4096"
+              - name: spCurrentTime
+                input:
+                    type: boolean
+                    value: false
+              - name: spAntiLeak
+                input:
+                    type: boolean
+                    value: false
+              - name: thinkingType
+                input:
+                    type: string
+                    value: disabled
+              - name: responseFormat
+                input:
+                    type: integer
+                    value: "2"
+              - name: modelName
+                input:
+                    type: string
+                    value: 豆包·2.0·pro
+              - name: modelType
+                input:
+                    type: integer
+                    value: "1772700462"
+              - name: generationDiversity
+                input:
+                    type: string
+                    value: balance
+              - name: parameters
+                input:
+                    type: object
+                    properties:
+                        max_completion_tokens:
+                            type: integer
+                            value: "0"
+                        reasoning_effort:
+                            type: string
+                            value: minimal
+                    value: null
+              - name: prompt
+                input:
+                    type: string
+                    value: ""
+              - name: enableChatHistory
+                input:
+                    type: boolean
+                    value: false
+              - name: chatHistoryRound
+                input:
+                    type: integer
+                    value: "3"
+              - name: systemPrompt
+                input:
+                    type: string
+                    value: |
+                        # 尾程产品信息获取专家 - LLM Prompt
+
+                        将本内容复制到 Coze LLM 节点。上游应先执行 **validate-input** 与 **load-product-knowledge**。
+
+                        **对客输出**：`analysis` **禁止**出现飞书、内部多维表、内部 Wiki 文档链接或「以某内部表为准」类表述；产品信息用 **合同、价卡、订单约定、本专家注入的知识库** 表述。
+
+                        ---
+
+                        ## 角色
+
+                        你是 **尾程产品信息获取专家**（product-info）。从注入的产品知识库中检索尾程产品信息（PSC 标准尾程 / WF Winit Fulfillment / Pallet 托盘），回答用户关于产品规格、限制、时效、带电政策、保险等问题。
+
+                        职责：
+
+                        1. **定位国家**：根据 `countryResolved` 聚焦 kbContent 中的对应国家章节。`countryResolved` 为空时，从 kbContent 的索引总览中提取信息，并引导用户指定国家。
+                        2. **聚焦产品线**：`productLine` 为 `psc`/`wf`/`pallet` 时仅检索对应产品线；为空时检索 kbContent 中所有产品线。
+                        3. **检索匹配产品**：若 `matchedProductNames` 非空，优先检索这些产品；否则根据 query/customerIntent 在 kbContent 中检索。
+                        4. **输出产品详情**：包括计费标准、重量/尺寸限制、时效、带电政策、附加费、增值服务等。
+                        5. **不得编造**：只描述 kbContent 中存在的信息；不确定时降低 confidence。
+
+                        ---
+
+                        ## 输入
+
+                        - **query**：`{{query}}`
+                        - **customerIntent**：`{{customerIntent}}`
+                        - **countryResolved**：`{{countryResolved}}`
+                        - **productLine**：`{{productLine}}`
+                        - **matchedProductNames**：`{{matchedProductNames}}`（上游已匹配到的产品名，优先检索这些产品）
+                        - **enrichedContext**：`{{enrichedContext}}`
+                        - **examplesMd**：Few-shot 片段（见下节）
+
+                        ### 知识库
+
+                        `kbContent` 已按用户查询范围过滤，包含 **索引目录** + **相关国家产品详情**。请在 kbContent 中检索产品信息，不要要求更多知识；匹配产品时请结合 **query** 与 **customerIntent**。
+
+                        **kbContent**：
+                        ```
+                        {{kbContent}}
+                        ```
+
+                        ### Few-shot
+
+                        {{examplesMd}}
+
+                        ---
+
+                        ## 工作步骤（体现在 analysis 中）
+
+                        1. **结论**：一句话概括（如"以下是 FedEx Freight Economy 的完整产品介绍"）。
+                        2. **国家与产品线**：说明 countryResolved 和聚焦的产品线/国家。
+                        3. **产品详情**：逐一描述匹配产品的规格（计费标准、重量/尺寸限制、时效、配送范围、带电政策、主要附加费、增值服务）。
+                        4. **限制与注意事项**：相关限制说明（不支持地址类型、电池政策细节等）。
+                        5. **免责**：具体价格以合同价卡为准，建议咨询客服或商务确认。
+
+                        **特殊场景**：若 kbContent 中只有索引目录（无国家详情），说明用户未指定国家或产品线，analysis 中应列出可用产品线/国家概览，并引导用户指定。
+
+                        ---
+
+                        ## 输出格式
+
+                        **硬性要求**：你只输出 **一个** JSON 对象，**顶层有且仅有** `structured` 与 `analysis` 两个键；**不要使用** Markdown 代码围栏包裹该 JSON；**禁止**把整份 JSON 再当作字符串写入 `analysis`。
+
+                        ```json
+                        {
+                          "analysisResult": {
+                            "structured": {
+                              "countryResolved": "US",
+                              "productLine": "wf",
+                              "matchedProducts": [
+                                {
+                                  "name": "Winit Fulfillment-7日达",
+                                  "category": "wf",
+                                  "weightLimit": "计费重≤30 lb",
+                                  "dimensionLimit": "长≤243.8cm，长+2×(宽+高)≤266cm",
+                                  "deliveryTime": "7工作日送达率≥95%（偏远地区除外）"
+                                }
+                              ],
+                              "confidence": "high"
+                            },
+                            "analysis": "产品详情描述。"
+                          }
+                        }
+                        ```
+
+                        ### structured 字段说明
+
+                        | 字段 | 说明 |
+                        |------|------|
+                        | `countryResolved` | ISO2 国家码 |
+                        | `productLine` | psc / wf / pallet / "" |
+                        | `matchedProducts` | 匹配的产品列表（name, category, weightLimit, dimensionLimit, deliveryTime） |
+                        | `confidence` | high（KB 中有精确匹配）/ medium（部分匹配或推断）/ low（未找到匹配） |
+              - name: stableSystemPrompt
+                input:
+                    type: string
+                    value: ""
+              - name: canContinue
+                input:
+                    type: boolean
+                    value: false
+              - name: loopPromptVersion
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptName
+                input:
+                    type: string
+                    value: ""
+              - name: loopPromptId
+                input:
+                    type: string
+                    value: ""
+          node_inputs:
+              - name: query
+                input:
+                    value:
+                        path: query
+                        ref_node: "100001"
+              - name: customerIntent
+                input:
+                    value:
+                        path: customerIntent
+                        ref_node: "163000"
+              - name: countryResolved
+                input:
+                    value:
+                        path: countryResolved
+                        ref_node: "163015"
+              - name: productLine
+                input:
+                    value:
+                        path: productLine
+                        ref_node: "163015"
+              - name: matchedProductNames
+                input:
+                    value:
+                        path: matchedProductNames
+                        ref_node: "163000"
+              - name: kbContent
+                input:
+                    value:
+                        path: kbContent
+                        ref_node: "163015"
+              - name: enrichedContext
+                input:
+                    value:
+                        path: enrichedContext
+                        ref_node: "163000"
+              - name: examplesMd
+                input:
+                    value:
+                        path: output
+                        ref_node: "163016"
+          node_outputs:
+              analysisResult:
+                  type: object
+                  properties:
+                      analysis:
+                          type: string
+                          value: null
+                      structured:
+                          type: object
+                          value: null
+                  value: null
+              reasoning_content:
+                  type: string
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              switch: false
+              timeoutMs: 180000
+    - id: "163018"
+      type: code
+      title: format-output
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 编写代码，处理输入变量来生成返回值
+      version: v2
+      position:
+          x: 1150
+          y: 310
+      parameters:
+          code: |-
+              /**
+               * 节点：format-output — 归一化 LLM 输出，生成 result / outputContext，并摊平 structured、analysis
+               * FaaS 单文件闭环，无 import；LLM envelope 由 Runner/Coze 填参前解开。与 `workflow.json` 中本节点 `inputs` / `outputs` 完全一致。
+               *
+               * 遵循 design-spec.md §7 三层输出统一约定：
+               *   result = { structured, analysis }
+               *   outputContext = { expertId, resultSummary, chainId }
+               *
+               * 【输入】`params` 字段：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | analysisResult | object \| string \| null | LLM 输出 |
+               * | inputContext | object（可选） | 链式上下文 |
+               *
+               * 【输出】JSON 对象（与 delivery-status 一致：`result` 与顶层 `structured`/`analysis` 同构，便于 Coze 画布直连）：
+               * | 字段 | 类型 | 说明 |
+               * |------|------|------|
+               * | result | { structured: object; analysis: string } | 业务结果，严格 {structured, analysis} |
+               * | structured | object | 与 result.structured 相同 |
+               * | analysis | string | 与 result.analysis 相同 |
+               * | outputContext | { expertId: string; resultSummary: string; chainId: string } | chainId 允许空串 |
+               */
+
+              interface ProductInfoStructuredOut {
+                countryResolved?: string;
+                productLine?: string;
+                matchedProducts?: Array<{
+                  name: string;
+                  category: string;
+                  weightLimit: string;
+                  dimensionLimit: string;
+                  deliveryTime: string;
+                }>;
+                confidence?: "high" | "medium" | "low";
+              }
+
+              interface ProductInfoAnalysisResult {
+                structured?: ProductInfoStructuredOut;
+                analysis?: string;
+              }
+
+              interface ProductInfoInputContext {
+                sourceExpertId?: string;
+                previousOutput?: string | object;
+                chainId?: string;
+              }
+
+              function structuredHasProductInfo(st: ProductInfoStructuredOut): boolean {
+                if (Array.isArray(st.matchedProducts) && st.matchedProducts.length > 0) return true;
+                if (typeof st.countryResolved === "string" && st.countryResolved.trim().length > 0) return true;
+                if (typeof st.productLine === "string" && st.productLine.trim().length > 0) return true;
+                return st.confidence === "high" || st.confidence === "medium" || st.confidence === "low";
+              }
+
+              function normalizeStructured(structured: ProductInfoStructuredOut): ProductInfoStructuredOut {
+                const confidence = structured.confidence;
+                return {
+                  countryResolved: structured.countryResolved,
+                  productLine: structured.productLine,
+                  matchedProducts: Array.isArray(structured.matchedProducts) ? structured.matchedProducts : [],
+                  confidence: confidence === "high" || confidence === "medium" || confidence === "low" ? confidence : "medium",
+                };
+              }
+
+              /** 从 analysis 字符串中挽救误嵌套的 { structured, analysis }（含 ```json 代码块） */
+              function recoverFromAnalysisJson(analysis: string, depth = 0): ProductInfoAnalysisResult | null {
+                if (depth > 2) return null;
+                const t = analysis.trim();
+                if (!t) return null;
+
+                let candidate = t;
+                const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/);
+                if (fence) candidate = fence[1].trim();
+                else if (!t.startsWith("{")) return null;
+
+                try {
+                  const inner = JSON.parse(candidate) as ProductInfoAnalysisResult;
+                  if (!inner || typeof inner !== "object") return null;
+
+                  const st = inner.structured ?? {};
+                  const an = typeof inner.analysis === "string" ? inner.analysis : "";
+
+                  if (structuredHasProductInfo(st)) {
+                    return { structured: normalizeStructured(st), analysis: an };
+                  }
+                  if (an) {
+                    const deeper = recoverFromAnalysisJson(an, depth + 1);
+                    if (deeper) return deeper;
+                  }
+                  if ("structured" in inner || "analysis" in inner) {
+                    return { structured: normalizeStructured(st), analysis: an || t };
+                  }
+                } catch {
+                  return null;
+                }
+                return null;
+              }
+
+              function coerceAnalysisResult(raw: unknown): ProductInfoAnalysisResult {
+                if (raw == null) {
+                  return {
+                    structured: { matchedProducts: [], confidence: "low" },
+                    analysis: "未收到模型输出。",
+                  };
+                }
+                if (typeof raw === "string") {
+                  const s = raw.trim();
+                  try {
+                    const parsed = JSON.parse(s) as ProductInfoAnalysisResult;
+                    if (parsed && typeof parsed === "object" && ("structured" in parsed || "analysis" in parsed)) {
+                      return coerceAnalysisResult(parsed);
+                    }
+                  } catch { /* fall through */ }
+                  const recovered = recoverFromAnalysisJson(s);
+                  if (recovered) return recovered;
+                  return {
+                    structured: { matchedProducts: [], confidence: "low" },
+                    analysis: s || "解析失败，请人工查看原始模型输出。",
+                  };
+                }
+                const o = raw as ProductInfoAnalysisResult;
+                let structured = o.structured ?? {};
+                let analysis = typeof o.analysis === "string" ? o.analysis : "";
+
+                if (!structuredHasProductInfo(structured) && analysis) {
+                  const recovered = recoverFromAnalysisJson(analysis);
+                  if (recovered) {
+                    structured = recovered.structured ?? { matchedProducts: [], confidence: "low" };
+                    analysis = recovered.analysis ?? analysis;
+                  }
+                }
+
+                return {
+                  structured: normalizeStructured(structured),
+                  analysis: analysis || "（无 analysis 字段）",
+                };
+              }
+
+              async function main({ params }: { params: Record<string, unknown> }) {
+                const coerced = coerceAnalysisResult(params.analysisResult);
+                const inputContext = params.inputContext as ProductInfoInputContext | undefined;
+                const summary = coerced.analysis?.slice(0, 200) || "产品信息获取完成";
+
+                return {
+                  structured: coerced.structured,
+                  analysis: coerced.analysis,
+                  outputContext: {
+                    expertId: "product-info",
+                    resultSummary: summary,
+                    chainId: inputContext?.chainId ?? "",
+                  },
+                  enrichedContext: {},
+                };
+              }
+
+              if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+                const params = JSON.parse(process.argv[2] || "{}");
+                main({ params })
+                  .then((r) => process.stdout.write(JSON.stringify(r)))
+                  .catch((e) => { console.error(e); process.exit(1); });
+              }
+          language: 5
+          node_inputs:
+              - name: analysisResult
+                input:
+                    type: object
+                    value:
+                        path: analysisResult
+                        ref_node: "163017"
+              - name: inputContext
+                input:
+                    type: object
+                    value:
+                        path: inputContext
+                        ref_node: "163000"
+          node_outputs:
+              structured:
+                  type: object
+                  value: null
+              analysis:
+                  type: string
+                  value: null
+              outputContext:
+                  type: object
+                  value: null
+              enrichedContext:
+                  type: object
+                  value: null
+          settingOnError:
+              processType: 1
+              retryTimes: 0
+              timeoutMs: 60000
+edges:
+    - source_node: "100001"
+      target_node: "163000"
+    - source_node: "163000"
+      target_node: "163001"
+    - source_node: "163001"
+      target_node: "163002"
+    - source_node: "163002"
+      target_node: "163003"
+    - source_node: "163003"
+      target_node: "163004"
+    - source_node: "163004"
+      target_node: "163005"
+    - source_node: "163005"
+      target_node: "163006"
+    - source_node: "163006"
+      target_node: "163007"
+    - source_node: "163007"
+      target_node: "163008"
+    - source_node: "163008"
+      target_node: "163009"
+    - source_node: "163009"
+      target_node: "163010"
+    - source_node: "163010"
+      target_node: "163011"
+    - source_node: "163011"
+      target_node: "163012"
+    - source_node: "163012"
+      target_node: "163013"
+    - source_node: "163013"
+      target_node: "163014"
+    - source_node: "163014"
+      target_node: "163015"
+    - source_node: "163015"
+      target_node: "163016"
+    - source_node: "163016"
+      target_node: "163017"
+    - source_node: "163017"
+      target_node: "163018"
+    - source_node: "163018"
+      target_node: "900001"

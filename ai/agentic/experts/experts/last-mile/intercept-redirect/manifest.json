@@ -1,0 +1,43 @@
+{
+  "id": "intercept-redirect",
+  "name": "订单拦截改址",
+  "description": "订单拦截/改址处理流程。Use when 用户咨询订单拦截、改址、修改地址。",
+  "capabilities": [
+    "订单拦截",
+    "改址"
+  ],
+  "version": "0.1.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "trackingIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "轨迹单号"
+      },
+      "outboundOrderNos": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "出库单号"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "结构化数据"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "分析结论与建议"
+      }
+    }
+  }
+}
