@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>方案4 底部悬浮唤起按钮兜底版</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#1f2329;font:14px/1.5 Arial,"Microsoft YaHei",sans-serif}
+    .page{width:1180px;margin:0 auto;padding:16px 0 40px}.warning{border:1px solid #ffd591;background:#fff7e6;border-radius:4px;padding:8px 12px;margin-bottom:10px}.steps{display:flex;gap:8px;margin-bottom:12px}.step{padding:6px 14px;border-radius:16px;background:#e8eaed;color:#646a73}.step.active{background:#8a5a2b;color:#fff}
+    .card{background:#fff;border:1px solid #dee0e3;border-radius:6px;margin-bottom:10px}.card-title{padding:10px 12px;border-bottom:1px solid #eff0f1;font-weight:700}.vas-table{width:100%;border-collapse:collapse;table-layout:fixed}.vas-table th{background:#fafafa;border-bottom:1px solid #e5e6eb;text-align:left;padding:8px}.vas-table td{vertical-align:top;border-bottom:1px solid #f0f0f0;padding:10px}
+    .service-col{width:220px}.require-col{width:430px}.file-col{width:300px}.price-col{width:130px}.service-list label{display:block;margin:0 0 8px}.form-item{display:grid;grid-template-columns:135px 1fr;gap:8px;align-items:start;margin-bottom:8px}.form-item label{font-weight:600;color:#4e5969}
+    input,textarea{width:100%;border:1px solid #c9cdd4;border-radius:4px;padding:6px 8px}textarea{min-height:58px;resize:vertical}.upload-btn{display:block;width:100%;border:1px solid #c9cdd4;background:#fff;border-radius:4px;padding:6px;margin-bottom:7px;text-align:left}.file-hint{font-size:12px;color:#d46b08;margin-bottom:8px}.attach-ai{border:1px solid #ffe58f;background:#fffbe6;border-radius:4px;padding:7px;margin:6px 0 8px;font-size:12px}.bottom{display:flex;justify-content:center;gap:8px;margin-top:12px}
+    .btn{border:1px solid #c9cdd4;background:#fff;border-radius:4px;padding:6px 12px;cursor:pointer}.btn.primary{background:#8a5a2b;color:#fff;border-color:#8a5a2b}.btn[disabled]{opacity:.45;cursor:not-allowed}
+    .fab{position:fixed;right:28px;bottom:28px;width:54px;height:54px;border-radius:50%;border:0;background:#8a5a2b;color:#fff;font-weight:700;box-shadow:0 8px 22px rgba(31,35,41,.22);cursor:pointer;z-index:30}.badge{position:absolute;right:-2px;top:-2px;width:14px;height:14px;border-radius:50%;background:#d92d20;border:2px solid #fff}
+    .mask{position:fixed;inset:0;background:rgba(31,35,41,.28);z-index:40;display:none}.mask.show{display:block}.modal{width:620px;margin:110px auto 0;background:#fff;border-radius:6px;border:1px solid #dee0e3;box-shadow:0 16px 40px rgba(31,35,41,.22)}.modal-h{padding:12px;border-bottom:1px solid #eff0f1;font-weight:700;display:flex;justify-content:space-between}.modal-b{padding:12px}.modal textarea{height:72px;resize:none}.modal-actions,.route-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.ai-result{background:#fffaf3;border:1px solid #ead8c4;border-radius:4px;padding:8px;margin-top:8px}.tag{font-size:12px;color:#646a73}
+  </style>
+</head>
+<body>
+<main class="page">
+  <div class="warning">检测到您的账号未绑定微信账号，为给您提供更便捷的服务，请尽快绑定微信。</div>
+  <div class="steps"><span class="step">1 基础信息</span><span class="step active">2 增值产品信息</span><span class="step">3 确认提交</span></div>
+  <section class="card">
+    <div class="card-title">增值产品信息</div>
+    <table class="vas-table">
+      <colgroup><col class="service-col"><col class="require-col"><col class="file-col"><col class="price-col"></colgroup>
+      <thead><tr><th>增值服务</th><th>服务要求</th><th>增值文件</th><th>价格(原币)</th></tr></thead>
+      <tbody><tr data-row-key="OW01V1602">
+        <td><div class="service-list" data-guide-point="service-checkboxes"><label><input type="checkbox" value="OW01V1555"> 包裹串仓异常调拨</label><label><input type="checkbox" value="OW01V1602" checked> 入库其他服务需求</label></div></td>
+        <td data-guide-point="original-form-fields"><div class="form-item"><label for="vaAtoms_OW01V1602_attributes_PACKAGE_SERNO_attributeValue">包裹条码</label><input id="vaAtoms_OW01V1602_attributes_PACKAGE_SERNO_attributeValue" placeholder="请输入"></div><div class="form-item"><label for="vaAtoms_OW01V1602_attributes_MERCHANDISE_SERNO_attributeValue">商品条码</label><input id="vaAtoms_OW01V1602_attributes_MERCHANDISE_SERNO_attributeValue" placeholder="请输入"></div><div class="form-item"><label for="vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_NWEON_attributeValue">上架入库单号</label><input id="vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_NWEON_attributeValue" placeholder="请输入"></div><div class="form-item"><label for="vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_RD_attributeValue">需求描述</label><textarea id="vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_RD_attributeValue" data-bind-field="description" placeholder="请输入"></textarea></div><div class="form-item"><label for="vaAtoms_OW01V1602_attributes_BEOR_attributeValue">需求背景说明</label><textarea id="vaAtoms_OW01V1602_attributes_BEOR_attributeValue" data-bind-field="background" placeholder="请输入"></textarea></div></td>
+        <td data-guide-point="attachment-buttons"><button class="upload-btn" id="vaAtoms_OW01V1602_vasFiles_VAS_ATTR_REL_AOOI">操作说明附件</button><div class="file-hint">仅支持.DOC,.DOCX,.PDF,.XLS,.XLSX格式</div><div id="attachmentAiHint" class="attach-ai">AI 附件提示：主动唤起后展示。</div><button class="upload-btn" id="vaAtoms_OW01V1602_vasFiles_VAS_ATTR_REL_TCRBCAL">商品和标签的对应关系</button><button class="upload-btn" id="vaAtoms_OW01V1602_vasFiles_TRPP">包裹和标签的对应关系</button><button class="upload-btn" id="vaAtoms_OW01V1602_vasFiles_VAS_ATTR_REL_LF">标签文件</button></td>
+        <td>以实际报价为准，审核完成后请确认报价。</td>
+      </tr></tbody>
+    </table>
+  </section>
+  <div class="bottom" data-guide-point="bottom-actions"><button class="btn">上一步</button><button class="btn">保存草稿</button><button class="btn primary">提交</button></div>
+</main>
+<!-- 新增AI模块：方案4，右下角悬浮按钮主动唤起；对页面表单零侵入。 -->
+<button class="fab" data-guide-point="ai-bottom-fab" id="openAi">AI<span class="badge" title="低置信度提醒"></span></button>
+<div class="mask" id="modalMask">
+  <section class="modal" role="dialog" aria-modal="true">
+    <div class="modal-h"><span>AI 非标需求引导</span><button class="btn" id="closeAi">关闭</button></div>
+    <div class="modal-b">
+      <div class="tag">底部悬浮唤起按钮兜底版：用户主动打开；低置信红点提醒。</div>
+      <textarea id="aiUserInput" placeholder="描述希望仓库怎么处理"></textarea>
+      <div class="route-row"><button class="btn primary" data-action="judge">判断</button><button class="btn" data-route="2d">2d</button><button class="btn" data-route="2a">2a</button><button class="btn" data-route="low">低置信</button></div>
+      <div id="aiResult" class="ai-result">等待判断。</div>
+      <div id="aiActions" class="modal-actions"></div>
+    </div>
+  </section>
+</div>
+<script>
+// 本期不做边界：不嵌套二级弹窗、不由前端改阈值、不跨页会话存储、不自动提交、不读取附件内容。
+const FALLBACK_THRESHOLD=0.7,pageKey=`candidate-normalize-contract:${location.pathname}:EVENT_DEMO_001`;let currentRoute="2b";
+const normalizedCandidates=[{vascCode:"VASC_STD_001",vascName:"入库商品换标",vascType:"standard",services:[]},{vascCode:"VASC_NONSTD_001",vascName:"入库非标增值（特批）",vascType:"nonstandard",services:[{serviceCode:"OW01V1555",serviceName:"包裹串仓异常调拨"},{serviceCode:"OW01V1602",serviceName:"入库其他服务需求"}]}];
+openAi.onclick=()=>modalMask.classList.add("show");closeAi.onclick=()=>modalMask.classList.remove("show");
+document.querySelectorAll("[data-route]").forEach(b=>b.onclick=()=>{currentRoute=b.dataset.route;render(makePayload(currentRoute));});document.querySelector("[data-action='judge']").onclick=()=>render(makePayload(currentRoute));
+function makeActions(){return[{action:"fill_field",target:"vaAtoms_OW01V1602_attributes_BEOR_attributeValue",label:"填入背景",enabled:true},{action:"fill_field",target:"vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_RD_attributeValue",label:"填入描述",enabled:true},{action:"copy_text",target:"aiResult",label:"复制建议",enabled:true}];}
+function makePayload(route){const score=route==="low"?0.52:0.86,matchState=score<FALLBACK_THRESHOLD?"none":"matched";if(route==="2d")return{route:"2d_standard_redirect",selectedVasc:normalizedCandidates[0],fieldSuggestions:{background:"",description:""},pageActions:[{action:"copy_text",target:"aiResult",label:"复制标准建议",enabled:true}]};if(route==="2a")return{route:"2a_named_nonstandard_direct",selectedVasc:normalizedCandidates[1],selectedService:normalizedCandidates[1].services[0],fieldSuggestions:{background:"发现包裹串仓异常，需要仓库按异常单定位并执行调拨处理。",description:"请按包裹串仓异常调拨服务项处理，核对包裹条码、目标入库单和调拨范围后执行。"},pageActions:makeActions()};return{route:"2b_other_service_sop",selectedVasc:normalizedCandidates[1],selectedService:normalizedCandidates[1].services[1],matchState,matchConfidence:score,fieldSuggestions:matchState==="none"?{background:"",description:""}:{background:"到仓商品条码与系统登记信息不一致，需要仓库按客户提供的条码对应关系处理后上架。",description:"请根据附件中的实物条码与新商品条码对应关系补贴标签，并上架到指定新入库单。客户确认不等于审核通过。"},attachmentRequirements:["实物条码与新商品条码对应关系","新商品标签文件"],pageActions:matchState==="none"?[{action:"copy_text",target:"aiResult",label:"复制兜底追问",enabled:true}]:makeActions()};}
+function render(p){localStorage.setItem(pageKey,JSON.stringify({conversationId:"conv_EVENT_DEMO_001",payload:p,updatedAt:Date.now()}));aiActions.innerHTML="";document.querySelector(".badge").style.display=p.matchConfidence!==undefined&&p.matchConfidence<FALLBACK_THRESHOLD?"block":"none";aiResult.innerHTML=p.route==="2d_standard_redirect"?`2d：vascType=${p.selectedVasc.vascType}，建议返回标准增值。`:p.route==="2a_named_nonstandard_direct"?`2a：${p.selectedService.serviceName}。`:`2b：matchState=${p.matchState}，matchConfidence=${p.matchConfidence}。${p.matchConfidence<FALLBACK_THRESHOLD?"低于0.7，触发SOP模板追问。":"可填入字段。"}`;attachmentAiHint.innerHTML=(p.attachmentRequirements||["请补充SOP模板字段后再提交。"]).map(x=>"· "+x).join("<br>");p.pageActions.forEach(a=>{const b=document.createElement("button");b.className="btn";b.textContent=a.label;b.disabled=!a.enabled;b.onclick=()=>consume(a,p);aiActions.appendChild(b);});}
+function consume(a,p){if(a.action==="fill_field"){const el=document.getElementById(a.target);if(el)el.value=a.target.includes("BEOR")?p.fieldSuggestions.background:p.fieldSuggestions.description;}else navigator.clipboard&&navigator.clipboard.writeText(aiResult.textContent);}
+render(makePayload("low"));
+</script>
+</body>
+</html>

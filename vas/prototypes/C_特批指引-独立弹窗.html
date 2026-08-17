@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>入库增值下单页面 - C 独立弹窗</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f5f5; color: #333; font-size: 13px; line-height: 1.5; padding-top: 44px; }
+
+/* 顶部导航 */
+.top-bar { background: linear-gradient(135deg, #6B4F0A, #8B6914, #A0792A); color: white; height: 50px; display: flex; align-items: center; padding: 0 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; z-index: 10; }
+.top-logo { width: 34px; height: 34px; background: rgba(255,255,255,0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; margin-right: 16px; backdrop-filter: blur(4px); }
+.top-tabs { display: flex; gap: 1px; flex: 1; overflow: hidden; }
+.top-tab { padding: 8px 16px; font-size: 12px; border-radius: 6px 6px 0 0; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+.top-tab.active { background: white; color: #333; font-weight: 500; }
+.top-tab:not(.active) { opacity: 0.8; }
+.top-tab:not(.active):hover { opacity: 1; background: rgba(255,255,255,0.1); }
+.top-tab .close { margin-left: 8px; font-size: 10px; opacity: 0.5; cursor: pointer; }
+.top-right { display: flex; align-items: center; gap: 20px; font-size: 12px; margin-left: auto; }
+.top-right-item { opacity: 0.85; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.top-right-item:hover { opacity: 1; }
+.avatar { width: 28px; height: 28px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+
+/* 布局 */
+.layout { display: flex; min-height: calc(100vh - 50px); }
+.sidebar { width: 88px; background: #2c2216; color: rgba(255,255,255,0.7); padding-top: 12px; flex-shrink: 0; }
+.sidebar-item { padding: 14px 0; text-align: center; font-size: 12px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.2s; }
+.sidebar-item:hover { background: rgba(255,255,255,0.05); color: white; }
+.sidebar-item.active { background: rgba(160,121,42,0.25); border-left-color: #C9952E; color: white; font-weight: 500; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* 页面头部 */
+.page-header { background: white; padding: 18px 28px 0; border-bottom: 1px solid #eee; }
+.page-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.page-title { font-size: 16px; font-weight: 600; color: #1a1a1a; }
+.steps { display: flex; align-items: center; padding-bottom: 18px; }
+.step { display: flex; align-items: center; gap: 10px; }
+.step-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; transition: all 0.3s; }
+.step-circle.done { background: #A0792A; color: white; }
+.step-circle.active { background: #A0792A; color: white; box-shadow: 0 2px 6px rgba(160,121,42,0.3); }
+.step-circle.pending { background: #e8e8e8; color: #999; }
+.step-text { font-size: 13px; color: #999; transition: all 0.3s; }
+.step-text.active { color: #333; font-weight: 500; }
+.step-line { width: 100px; height: 2px; background: #e8e8e8; margin: 0 12px; border-radius: 1px; position: relative; overflow: hidden; }
+.step-line.done { background: #A0792A; }
+
+/* 内容区 */
+.page-body { flex: 1; padding: 24px 28px; overflow-y: auto; background: #f7f7f7; }
+.content-card { background: white; border-radius: 8px; padding: 28px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid #eee; }
+</style>
+</head>
+<body>
+<div class="demo-console">
+  <div class="demo-console-title">🎬 原型演示控制台（仅开发/评审可见，非线上真实界面）</div>
+  <div class="demo-console-actions">
+    <button onclick="runStandardDemo()">标准增值场景</button>
+    <button onclick="runPhotoDemo()">非标免审场景</button>
+    <button onclick="runSpecialDemo()">非标特批场景</button>
+    <button onclick="resetPrototype()">重置</button>
+  </div>
+</div>
+<div style="position:fixed;top:58px;right:16px;background:linear-gradient(135deg,#ff4d4f,#e6252a);color:white;padding:5px 12px;border-radius:4px;font-size:11px;z-index:99;box-shadow:0 2px 8px rgba(255,77,79,0.3);">原型V4 - 交互优化版</div>
+
+<!-- 顶部导航 -->
+<div class="top-bar">
+  <div class="top-logo">W</div>
+  <div class="top-tabs">
+    <div class="top-tab">首页</div>
+    <div class="top-tab">创建预约单 <span class="close">×</span></div>
+    <div class="top-tab">异常单 <span class="close">×</span></div>
+    <div class="top-tab">全部增值订单 <span class="close">×</span></div>
+    <div class="top-tab active">创建增值订单 <span class="close">×</span></div>
+  </div>
+  <div class="top-right">
+    <span class="top-right-item">💡 功能建议</span>
+    <span class="top-right-item">📖 新手指南</span>
+    <span class="top-right-item"><span class="avatar">K</span> kenghong.huang</span>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- 左侧导航 -->
+  <div class="sidebar">
+    <div class="sidebar-item">商品管理</div>
+    <div class="sidebar-item">库存管理</div>
+    <div class="sidebar-item active">海外仓</div>
+    <div class="sidebar-item">国际送仓</div>
+    <div class="sidebar-item">平台同步</div>
+    <div class="sidebar-item">退货管理</div>
+    <div class="sidebar-item">售后管理</div>
+    <div class="sidebar-item">我的钱包</div>
+    <div class="sidebar-item">数据中心</div>
+  </div>
+
+  <div class="main">
+    <!-- 页面头 -->
+    <div class="page-header">
+      <div class="page-title-row">
+        <div class="page-title">新建入库增值订单</div>
+      </div>
+      <div class="steps">
+        <div class="step"><span class="step-circle done">✓</span><span class="step-text">基本信息</span></div>
+        <div class="step-line done"></div>
+        <div class="step"><span class="step-circle active">2</span><span class="step-text active">增值产品信息</span></div>
+      </div>
+    </div>
+
+    <!-- 页面内容 -->
+    <div class="page-body">
+      <div class="content-card">
+        <!-- 余额条 -->
+        <div class="balance-bar">
+          最大可下单金额(USD) ⓘ：<b>107,773.05</b>
+          <span class="sep">|</span>
+          账户组总金额(USD)：<b>107,773.05</b>
+        </div>
+
+        <div class="question-title-row">
+          <div class="question-title">这批异常货物，你希望怎么处理？</div>
+          <button class="ai-guide-btn" id="aiGuideBtn" onclick="openAiPopup(true)">🤖 AI 指引</button>
+        </div>
+
+        <!-- 第一步：选择处理方式 -->
+        <div class="section-title"><span class="step-num">1</span> 选择处理方式</div>
+        <div class="method-cards" id="methodCards">
+          <div class="m-card" data-method="上架" onclick="selectMethod(this)">
+            <span class="check-icon">✓</span>
+            <div class="m-icon">📦</div>
+            <div class="m-name">上架</div>
+            <div class="m-desc">完成货物上架入库</div>
+          </div>
+          <div class="m-card" data-method="销毁" onclick="selectMethod(this)">
+            <span class="check-icon">✓</span>
+            <div class="m-icon">🗑️</div>
+            <div class="m-name">销毁</div>
+            <div class="m-desc">货物无法使用需销毁</div>
+          </div>
+          <div class="m-card" data-method="自提" onclick="selectMethod(this)">
+            <span class="check-icon">✓</span>
+            <div class="m-icon">🚚</div>
+            <div class="m-name">自提</div>
+            <div class="m-desc">客户自行取回货物</div>
+          </div>
+          <div class="m-card" data-method="暂存" onclick="selectMethod(this)">
+            <span class="check-icon">✓</span>
+            <div class="m-icon">📷</div>
+            <div class="m-name">暂存</div>
+            <div class="m-desc">暂存等待进一步确认</div>
+          </div>
+        </div>
+
+        <!-- 第1.5步：选择上架方式（仅上架时显示） -->
+        <div class="sub-method-row" id="subMethodRow" style="display:none;">
+          <label class="select-label">选择上架方式：</label>
+          <div class="select-wrapper">
+            <select class="select-input" id="subMethodSelect" onchange="onSubMethodChange()">
+              <option value="">请选择上架方式</option>
+              <option value="原单上架">原单上架</option>
+              <option value="Winit创建新单上架">Winit创建新单上架</option>
+              <option value="客户创建新单上架">客户创建新单上架</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 第二步：选择增值产品 -->
+        <div class="section-title" id="productSection" style="display:none;"><span class="step-num">2</span> 选择增值产品</div>
+        <div class="product-row" id="productRow" style="display:none;">
+          <div class="select-wrapper">
+            <select class="select-input" id="productSelect" onchange="onProductChange()">
+              <option value="">请选择增值产品</option>
+            </select>
+            <span class="loading-spinner" id="productSpinner"></span>
+          </div>
+          <div class="price-hint" id="productPriceHint"></div>
+        </div>
+
+        <!-- 第三步：选择增值服务 -->
+        <div class="section-title" id="serviceSection" style="display:none;"><span class="step-num">3</span> 选择增值服务</div>
+        <div class="service-row" id="serviceRow" style="display:none;">
+          <div class="select-wrapper">
+            <select class="select-input" id="serviceSelect" onchange="onServiceChange()">
+              <option value="">请选择增值服务</option>
+            </select>
+            <span class="loading-spinner" id="serviceSpinner"></span>
+          </div>
+          <div class="price-hint" id="servicePriceHint"></div>
+        </div>
+
+        <!-- 第四步：服务要求和增值文件 -->
+        <div class="section-title" id="detailSection" style="display:none;"><span class="step-num">4</span> 填写服务要求</div>
+        <div class="detail-section" id="detailTable" style="display:none;">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th style="width:180px">增值服务</th>
+                <th>服务要求</th>
+                <th style="width:200px">增值文件</th>
+                <th style="width:90px">价格(原币)</th>
+                <th style="width:100px">价格(USD) ⓘ</th>
+              </tr>
+            </thead>
+            <tbody id="detailBody"></tbody>
+          </table>
+        </div>
+
+        <!-- 服务时效 + 预估费用 -->
+        <div class="fee-section" id="feeSection" style="display:none;">
+          <div class="sla-line">📋 服务时效(工作日)：<b id="slaValue">1</b></div>
+          <div class="fee-block">
+            <div class="fee-header" onclick="this.parentElement.classList.toggle('collapsed')">
+              <span class="fee-toggle">▼</span> 预估费用
+            </div>
+            <div class="fee-content">
+              <table class="fee-table">
+                <thead><tr><th>费用名称</th><th>费用说明</th><th style="width:100px">价格(原币)</th><th style="width:100px">价格(USD) ⓘ</th></tr></thead>
+                <tbody id="feeBody"></tbody>
+              </table>
+              <div class="fee-total">
+                <span>合计(原币) <b id="totalLocal">$0.00</b></span>
+                <span>合计(USD) ⓘ <b id="totalUsd" class="red">$0.00</b></span>
+              </div>
+            </div>
+          </div>
+          <div class="fee-tip">⚠️ 温馨提示：以上费用为系统预估价格，最终收费按实际报价为准</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部按钮 -->
+    <div class="page-footer">
+      <button class="btn btn-default">上一步</button>
+      <div class="footer-right">
+        <button class="btn btn-draft">保存草稿</button>
+        <div class="submit-wrapper">
+          <button class="btn btn-submit" id="submitBtn" disabled>提交</button>
+          <div class="submit-tooltip" id="submitTooltip">请先完成所有必填项</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ai-popup" id="aiPopup">
+  <div class="ai-header" id="aiHeader">
+    <div class="ai-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#C9952E"/>
+            <stop offset="100%" stop-color="#8B6914"/>
+          </linearGradient>
+        </defs>
+        <rect x="5" y="5" width="14" height="14" rx="3" fill="url(#aiGrad)"/>
+        <path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3" stroke="#FFE7A3" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="10" cy="11" r="1.2" fill="#fffaf3"/>
+        <circle cx="14" cy="11" r="1.2" fill="#fffaf3"/>
+        <path d="M9.5 15c1.4.9 3.6.9 5 0" stroke="#fffaf3" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>AI 增值下单指引</span>
+    </div>
+    <div class="ai-header-actions">
+      <label><input type="checkbox" id="autoPopupToggle" onchange="setAutoPopupPreference(this.checked)">不自动弹出</label>
+      <button class="ai-window-btn" type="button" onclick="minimizeAiPopup()">—</button>
+      <button class="ai-window-btn" type="button" onclick="closeAiPopup()">×</button>
+    </div>
+  </div>
+  <div class="ai-body" id="aiMessages"></div>
+  <div class="ai-input-row">
+    <input id="aiInput" placeholder="请输入您的处理需求" onkeydown="if(event.key==='Enter') sendManualMessage()">
+    <button type="button" onclick="sendManualMessage()">发送</button>
+  </div>
+</div>
+
+<div class="audit-mask" id="auditMask">
+  <div class="audit-modal">
+    <div class="audit-modal-header">审核后台预览 — SOP 已自动回填</div>
+    <div class="audit-modal-body">
+      <div class="audit-form-row">
+        <label>操作SOP</label>
+        <select disabled>
+          <option selected>【入库】尺重/标签辨识后换标上架</option>
+        </select>
+      </div>
+      <div class="audit-form-row">
+        <label>操作SOP</label>
+        <div>
+          <div class="audit-tip">💡 以下内容由 AI 生成并经客户确认，审核人员可在此基础上修改</div>
+          <div style="font-size:12px;color:#666;margin-bottom:8px;">(审核人员填写，请用中英双语、分步骤填写完整的操作SOP，仓库将按照该SOP作业)</div>
+          <textarea id="auditSopTextarea"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="audit-modal-footer">
+      <button type="button" onclick="closeAuditPreview()">关闭预览</button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* 余额条 */
+.demo-console { position: fixed; top: 0; left: 0; right: 0; height: 44px; background: #2d2d2d; color: #fff; z-index: 9999; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.demo-console-title { font-size: 12px; white-space: nowrap; }
+.demo-console-actions { display: flex; gap: 8px; align-items: center; }
+.demo-console-actions button { background: #4a4a4a; color: #fff; border: 1px solid #666; border-radius: 4px; padding: 5px 14px; font-size: 12px; cursor: pointer; }
+.demo-console-actions button:hover { background: #5a5a5a; border-color: #888; }
+.balance-bar { background: linear-gradient(to right, #fffdf5, #fff9e6); border: 1px solid #f0e4c0; border-radius: 6px; padding: 12px 20px; margin-bottom: 24px; font-size: 13px; color: #8B6914; display: flex; align-items: center; gap: 8px; }
+.balance-bar b { color: #6B4F0A; }
+.balance-bar .sep { color: #d4c49a; margin: 0 12px; }
+
+/* 问题标题 */
+.question-title-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.question-title { font-size: 17px; font-weight: 600; color: #1a1a1a; }
+.ai-guide-btn { border: 1px solid #d7bd7a; background: linear-gradient(135deg, #fffaf3, #fff4dc); color: #8B6914; border-radius: 6px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 6px rgba(160,121,42,0.12); }
+.ai-guide-btn:hover { border-color: #A0792A; background: #fff6e5; }
+
+/* 分段标题 */
+.section-title { font-size: 14px; font-weight: 600; margin: 24px 0 16px; color: #333; display: flex; align-items: center; gap: 10px; }
+.section-title:first-of-type { margin-top: 0; }
+.step-num { width: 22px; height: 22px; background: linear-gradient(135deg, #A0792A, #C9952E); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+
+/* 处理方式卡片 */
+.method-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 8px; }
+.m-card { border: 2px solid #e8e8e8; border-radius: 12px; padding: 20px 14px 16px; text-align: center; cursor: pointer; transition: all 0.25s ease; position: relative; min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(to bottom, #ffffff, #fafafa); }
+.m-card:hover { border-color: #C9952E; background: linear-gradient(to bottom, #fffdf8, #fff9e6); transform: translateY(-4px); box-shadow: 0 8px 20px rgba(160,121,42,0.15); }
+.m-card.selected { border-color: #A0792A; background: linear-gradient(to bottom, #fffdf5, #fff7e6); box-shadow: 0 0 0 3px rgba(160,121,42,0.15), 0 8px 20px rgba(160,121,42,0.15); }
+.m-card.selected .check-icon { opacity: 1; transform: scale(1); }
+.m-card .check-icon { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; background: #A0792A; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; opacity: 0; transform: scale(0.5); transition: all 0.2s ease; }
+.m-card .m-icon { font-size: 28px; margin-bottom: 8px; }
+.m-card .m-name { font-size: 14px; font-weight: 600; color: #333; }
+.m-card .m-desc { font-size: 11px; color: #999; margin-top: 4px; line-height: 1.4; }
+
+/* 子处理方式行 */
+.sub-method-row { margin: 16px 0 8px; display: flex; align-items: center; gap: 16px; animation: fadeIn 0.3s ease; }
+.select-label { font-size: 13px; color: #666; white-space: nowrap; }
+
+/* 下拉选择行 */
+.product-row, .service-row { margin-bottom: 8px; display: flex; align-items: center; gap: 16px; animation: fadeIn 0.3s ease; }
+.select-wrapper { position: relative; display: inline-block; }
+.select-input { height: 38px; border: 1px solid #d9d9d9; border-radius: 6px; padding: 0 14px; font-size: 13px; min-width: 360px; background: white; outline: none; transition: border-color 0.2s; appearance: auto; }
+.select-input:focus { border-color: #A0792A; box-shadow: 0 0 0 3px rgba(160,121,42,0.08); }
+.loading-spinner { display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; border: 2px solid #e8e8e8; border-top-color: #A0792A; border-radius: 50%; animation: spin 0.8s linear infinite; }
+.price-hint { font-size: 12px; color: #666; padding: 8px 14px; background: #f5f5f5; border-radius: 6px; border: 1px solid #e8e8e8; max-width: 400px; }
+.price-hint:empty { display: none; }
+@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+/* 明细表格 */
+.detail-section { margin-top: 16px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; animation: fadeIn 0.3s ease; }
+.detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.detail-table th { background: linear-gradient(to bottom, #fafafa, #f5f5f5); padding: 12px 16px; text-align: left; color: #8B6914; font-weight: 600; border-bottom: 1px solid #eee; }
+.detail-table td { padding: 14px 16px; border-bottom: 1px solid #f5f5f5; vertical-align: top; }
+.detail-table tr:last-child td { border-bottom: none; }
+.detail-table .svc-name { font-weight: 600; color: #333; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.detail-table .svc-icon { font-size: 16px; }
+.detail-table .req-row { margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.detail-table .req-row:last-child { margin-bottom: 0; }
+.detail-table .req-row .req { color: #ff4d4f; font-weight: bold; }
+.detail-table .req-select { height: 30px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 10px; font-size: 12px; min-width: 130px; background: white; }
+.detail-table .req-textarea { width: 100%; min-height: 82px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 8px 10px; font-size: 12px; line-height: 1.5; resize: vertical; outline: none; font-family: inherit; }
+.detail-table .req-textarea:focus { border-color: #A0792A; box-shadow: 0 0 0 3px rgba(160,121,42,0.08); }
+.detail-table .file-link { color: #A0792A; font-size: 12px; cursor: pointer; text-decoration: underline; }
+.detail-table .upload-btn { display: inline-flex; align-items: center; gap: 5px; border: 1px dashed #d9d9d9; border-radius: 4px; padding: 6px 12px; font-size: 12px; cursor: pointer; margin-top: 6px; color: #666; transition: all 0.2s; }
+.detail-table .upload-btn:hover { border-color: #A0792A; color: #A0792A; }
+
+/* 费用区域 */
+.fee-section { margin-top: 24px; animation: fadeIn 0.3s ease; }
+.sla-line { font-size: 13px; margin-bottom: 14px; padding: 10px 14px; background: #f9f9f9; border-radius: 6px; border: 1px solid #f0f0f0; }
+.fee-block { border: 1px solid #f0f0f0; border-radius: 8px; overflow: hidden; }
+.fee-block.collapsed .fee-content { display: none; }
+.fee-block.collapsed .fee-toggle { transform: rotate(-90deg); }
+.fee-header { background: linear-gradient(to right, #fff7e6, #fffbe6); padding: 10px 16px; font-size: 12px; color: #d46b08; font-weight: 600; cursor: pointer; border-bottom: 1px solid #ffecc8; user-select: none; display: flex; align-items: center; gap: 6px; }
+.fee-header:hover { background: #fff3d6; }
+.fee-toggle { transition: transform 0.2s; font-size: 10px; }
+.fee-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fee-table th { background: #fafafa; padding: 10px 16px; text-align: left; color: #666; font-weight: 400; border-bottom: 1px solid #f0f0f0; }
+.fee-table td { padding: 10px 16px; border-bottom: 1px solid #f8f8f8; }
+.fee-total { display: flex; justify-content: flex-end; gap: 32px; padding: 14px 16px; font-size: 13px; border-top: 1px solid #f0f0f0; background: #fafafa; }
+.fee-total b { font-size: 16px; margin-left: 4px; }
+.fee-total .red { color: #ff4d4f; }
+.fee-tip { margin-top: 12px; font-size: 11px; color: #8c6e14; background: linear-gradient(to right, #fffbe6, #fff7e6); border: 1px solid #ffe58f; border-radius: 6px; padding: 10px 14px; }
+
+/* 底部 */
+.page-footer { background: white; border-top: 1px solid #eee; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -2px 8px rgba(0,0,0,0.03); }
+.footer-right { display: flex; gap: 12px; align-items: center; }
+.btn { padding: 9px 22px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 1px solid; font-weight: 500; transition: all 0.2s; }
+.btn-default { background: white; color: #333; border-color: #d9d9d9; }
+.btn-default:hover { border-color: #A0792A; color: #A0792A; }
+.btn-draft { background: white; color: #666; border-color: #d9d9d9; }
+.btn-draft:hover { border-color: #A0792A; color: #A0792A; }
+.btn-submit { background: linear-gradient(135deg, #A0792A, #C9952E); color: white; border-color: transparent; box-shadow: 0 2px 6px rgba(160,121,42,0.3); }
+.btn-submit:hover:not(:disabled) { background: linear-gradient(135deg, #8B6914, #A0792A); box-shadow: 0 4px 12px rgba(160,121,42,0.4); }
+.btn-submit:disabled { background: #d9d9d9; border-color: #d9d9d9; cursor: not-allowed; box-shadow: none; }
+.submit-wrapper { position: relative; }
+.submit-tooltip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 6px 12px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; margin-bottom: 8px; }
+.submit-wrapper:hover .submit-tooltip { opacity: 1; }
+.btn-submit:not(:disabled) + .submit-tooltip { display: none; }
+
+/* AI 弹窗 */
+.ai-popup { position: fixed; right: 24px; bottom: 80px; width: 420px; max-height: 70vh; background: #fffaf3; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); z-index: 9998; display: none; flex-direction: column; overflow: hidden; border: 1px solid rgba(160,121,42,0.18); }
+.ai-popup.show { display: flex; }
+.ai-popup.minimized { height: 48px; }
+.ai-popup.minimized .ai-body, .ai-popup.minimized .ai-input-row { display: none; }
+.ai-header { height: 48px; background: linear-gradient(135deg, #8B6914, #A0792A); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; cursor: move; user-select: none; flex-shrink: 0; }
+.ai-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.ai-title svg { flex: 0 0 auto; }
+.ai-header-actions { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.ai-header-actions label { display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+.ai-header-actions input { width: 13px; height: 13px; cursor: pointer; }
+.ai-window-btn { width: 22px; height: 22px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; background: rgba(255,255,255,0.12); color: #fff; cursor: pointer; line-height: 18px; font-size: 15px; }
+.ai-window-btn:hover { background: rgba(255,255,255,0.22); }
+.ai-body { min-height: 260px; max-height: calc(70vh - 96px); overflow-y: auto; padding: 14px; background: #fffaf3; }
+.ai-input-row { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #f0e4c0; background: #fff; }
+.ai-input-row input { flex: 1; height: 34px; border: 1px solid #e0d2ad; border-radius: 6px; padding: 0 10px; font-size: 12px; outline: none; }
+.ai-input-row button { border: none; border-radius: 6px; background: linear-gradient(135deg, #A0792A, #C9952E); color: #fff; padding: 0 12px; cursor: pointer; font-size: 12px; }
+.msg { margin-bottom: 12px; animation: fadeIn 0.22s ease; display: flex; }
+.msg.ai { justify-content: flex-start; }
+.msg.user { justify-content: flex-end; }
+.bubble { max-width: 92%; border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.msg.ai .bubble { background: #fffaf3; border: 1px solid #e5c878; color: #4f3a0b; box-shadow: 0 2px 8px rgba(160,121,42,0.08); }
+.msg.user .bubble { background: #A0792A; color: #fff; border: 1px solid #A0792A; }
+.msg.ai .bubble.pending-fee { background: #f9f9f9; border: 1px dashed #d9d9d9; color: #555; }
+.sop-card { background: #fff; border: 1px solid #e5c878; border-radius: 8px; padding: 12px; margin: 0 0 12px; box-shadow: 0 2px 8px rgba(160,121,42,0.08); }
+.sop-card-title { font-size: 13px; font-weight: 600; color: #8B6914; margin-bottom: 8px; }
+.sop-steps { background: #fffaf3; border: 1px solid #f0e4c0; border-radius: 6px; padding: 10px; font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: #333; }
+.sop-actions { margin-top: 10px; display: flex; justify-content: flex-end; }
+.sop-actions button, .audit-preview-btn { border: none; border-radius: 6px; background: linear-gradient(135deg, #A0792A, #C9952E); color: #fff; padding: 7px 12px; font-size: 12px; cursor: pointer; }
+.audit-preview-btn { margin: -4px 0 12px 0; }
+.audit-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 10000; display: none; align-items: center; justify-content: center; padding: 24px; }
+.audit-mask.show { display: flex; }
+.audit-modal { width: 750px; max-height: 80vh; background: #fff; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column; }
+.audit-modal-header { background: #f7f8fa; padding: 14px 18px; font-size: 15px; font-weight: 600; color: #1f2329; border-bottom: 1px solid #e5e6eb; }
+.audit-modal-body { padding: 18px; overflow-y: auto; }
+.audit-form-row { display: grid; grid-template-columns: 110px 1fr; gap: 14px; align-items: start; margin-bottom: 16px; }
+.audit-form-row label { text-align: right; padding-top: 8px; color: #333; font-weight: 500; }
+.audit-form-row select, .audit-form-row textarea { width: 100%; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; font-family: inherit; }
+.audit-form-row select { height: 36px; padding: 0 10px; background: #f5f5f5; color: #666; }
+.audit-form-row textarea { min-height: 300px; padding: 10px 12px; resize: vertical; line-height: 1.6; }
+.audit-tip { background: #eaf4ff; border: 1px solid #b9dcff; color: #245b9a; border-radius: 4px; padding: 9px 12px; margin-bottom: 10px; font-size: 12px; }
+.audit-modal-footer { padding: 12px 18px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; background: #fafafa; }
+.audit-modal-footer button { border: 1px solid #d9d9d9; background: #fff; color: #333; border-radius: 4px; padding: 8px 18px; cursor: pointer; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1200px) { .method-cards { grid-template-columns: repeat(2, 1fr) !important; } }
+@media (max-width: 768px) { .method-cards { grid-template-columns: repeat(2, 1fr) !important; } .sidebar { display: none; } .ai-popup { width: calc(100vw - 24px); right: 12px; bottom: 70px; } .demo-console-title { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; } .demo-console-actions button { padding: 5px 8px; } }
+</style>
+
+<script>
+// 数据配置：处理方式 -> 增值产品 -> 增值服务（按照用户提供的数据）
+
+// 处理方式 -> 增值产品映射
+const METHOD_PRODUCT_MAP = {
+  '上架': {
+    '原单上架': ['原单上架', '入库非标增值（特批）'],
+    'Winit创建新单上架': ['新单上架'],
+    '客户创建新单上架': ['新单上架']
+  },
+  '销毁': ['上架前销毁'],
+  '自提': ['上架前自提'],
+  '暂存': ['拍照辨识']
+};
+
+// 增值产品配置（含产品说明）
+const PRODUCT_INFO = {
+  '原单上架': { desc: '在原入库单下完成货物上架' },
+  '入库非标增值（特批）': { desc: '需求超出标准服务范围，需提交 SOP 由审核人员评估' },
+  '新单上架': { desc: '客户提供入库单，万邑通使用客户提供的入库单操作上架' },
+  '上架前销毁': { desc: '货物无法使用，需要仓库进行销毁处理' },
+  '上架前自提': { desc: '客户自行到仓库取回货物' },
+  '拍照辨识': { desc: '仓库对货物进行拍照，协助客户辨识货物信息' }
+};
+
+// 增值产品+处理方式 -> 增值服务（原子服务）
+const PRODUCT_SERVICE_MAP = {
+  '原单上架': {
+    '原单上架': [
+      '补贴原商品条码',
+      '更换新商品条码',
+      '补贴包裹条码+补贴原商品条码',
+      '补贴包裹条码+更换新商品条码',
+      '直接上架',
+      '更换商品包装+补贴原商品条码',
+      '更换商品包装+更换新商品条码',
+      '补贴包裹条码+更换商品包装+补贴原商品条码',
+      '补贴包裹条码+更换商品包装+更换新商品条码'
+    ]
+  },
+  '入库非标增值（特批）': {
+    '原单上架': ['入库其他服务需求']
+  },
+  '新单上架': {
+    'Winit创建新单上架': [
+      '补贴原商品条码',
+      '更换新商品条码',
+      '更换商品包装+补贴原商品条码',
+      '更换商品包装+更换新商品条码'
+    ],
+    '客户创建新单上架': [
+      '补贴包裹条码+补贴原商品条码',
+      '补贴包裹条码+更换新商品条码',
+      '补贴包裹条码+更换商品包装+补贴原商品条码',
+      '补贴包裹条码+更换商品包装+更换新商品条码'
+    ]
+  },
+  '上架前销毁': {
+    '销毁': ['上架前销毁']
+  },
+  '上架前自提': {
+    '自提': ['上架前自提']
+  },
+  '拍照辨识': {
+    '暂存': ['入库-商品开箱拍照']
+  }
+};
+
+// 服务明细配置
+const SERVICE_DETAILS = {
+  '补贴原商品条码': [
+    { svc: '入库-补贴原商品条码', icon: '🏷️', reqs: [['标签类型','请选择'],['尺寸规格','5cm*2.5cm'],['上架的商品等级','良品']], file: null, price: '$0.75' }
+  ],
+  '更换新商品条码': [
+    { svc: '入库-更换新商品条码', icon: '🔄', reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' }
+  ],
+  '更换商品包装': [
+    { svc: '入库-更换商品包装', icon: '📦', reqs: [['包装类型','请选择']], file: null, price: '$2.00' }
+  ],
+  '更换商品包装+补贴原商品条码': [
+    { svc: '入库-更换商品包装', icon: '📦', reqs: [['包装类型','请选择']], file: null, price: '$2.00' },
+    { svc: '入库-补贴原商品条码', icon: '🏷️', reqs: [['标签类型','请选择'],['尺寸规格','5cm*2.5cm'],['上架的商品等级','良品']], file: null, price: '$0.75' }
+  ],
+  '更换商品包装+更换新商品条码': [
+    { svc: '入库-更换商品包装', icon: '📦', reqs: [['包装类型','请选择']], file: null, price: '$2.00' },
+    { svc: '入库-更换新商品条码', icon: '🔄', reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' }
+  ],
+  '补贴包裹条码+补贴原商品条码': [
+    { svc: '入库-补贴包裹条码', icon: '📦', reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' },
+    { svc: '入库-补贴原商品条码', icon: '🏷️', reqs: [['标签类型','请选择'],['尺寸规格','5cm*2.5cm'],['上架的商品等级','良品']], file: null, price: '$0.75' }
+  ],
+  '补贴包裹条码+更换新商品条码': [
+    { svc: '入库-补贴包裹条码', icon: '📦', reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' },
+    { svc: '入库-更换新商品条码', icon: '🔄', reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' }
+  ],
+  '补贴包裹条码+更换商品包装+补贴原商品条码': [
+    { svc: '入库-补贴包裹条码', icon: '📦', reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' },
+    { svc: '入库-更换商品包装', icon: '📦', reqs: [['包装类型','请选择']], file: null, price: '$2.00' },
+    { svc: '入库-补贴原商品条码', icon: '🏷️', reqs: [['标签类型','请选择'],['尺寸规格','5cm*2.5cm'],['上架的商品等级','良品']], file: null, price: '$0.75' }
+  ],
+  '补贴包裹条码+更换商品包装+更换新商品条码': [
+    { svc: '入库-补贴包裹条码', icon: '📦', reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' },
+    { svc: '入库-更换商品包装', icon: '📦', reqs: [['包装类型','请选择']], file: null, price: '$2.00' },
+    { svc: '入库-更换新商品条码', icon: '🔄', reqs: [['标签类型','请选择'],['尺寸规格','请选择']], file: { tpl: true, upload: '上传标签对应关系' }, price: '$0.75' }
+  ],
+  '上架前销毁': [
+    { svc: '上架前销毁', icon: '🗑️', reqs: [['销毁方式','仓库处理']], file: null, price: '$5.00' }
+  ],
+  '上架前自提': [
+    { svc: '上架前自提', icon: '🚚', reqs: [['自提时间','请选择'],['联系人','请填写'],['联系电话','请填写']], file: null, price: '$0.00' }
+  ],
+  '入库-商品开箱拍照': [
+    { svc: '入库-商品开箱拍照', icon: '📷', reqs: [['拍照数量','请选择']], file: null, price: '$1.50' }
+  ],
+  '非标增值（特批）': [
+    { svc: '非标增值服务', icon: '⚙️', reqs: [['服务描述','请填写']], file: { tpl: false, upload: '上传附件' }, price: '按报价' }
+  ],
+  '入库其他服务需求': [
+    { svc: '入库其他服务需求', icon: '⚙️', reqs: [['需求背景说明','请填写'],['需求描述','请填写']], file: { tpl: false, upload: '上传操作说明附件' }, price: '按报价' }
+  ]
+};
+
+let selectedMethod = null;
+let selectedSubMethod = null;
+let selectedProduct = null;
+let selectedService = null;
+
+// 第一步：选择处理方式
+function selectMethod(el) {
+  document.querySelectorAll('.m-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedMethod = el.dataset.method;
+
+  // 重置后续选择
+  selectedSubMethod = null;
+  selectedProduct = null;
+  selectedService = null;
+
+  // 如果是上架，显示子处理方式选择
+  if (selectedMethod === '上架') {
+    document.getElementById('subMethodRow').style.display = 'flex';
+    document.getElementById('subMethodSelect').value = '';
+    hideFromStep(2);
+  } else {
+    document.getElementById('subMethodRow').style.display = 'none';
+    // 直接加载增值产品
+    loadProducts(selectedMethod);
+  }
+}
+
+// 选择上架方式
+function onSubMethodChange() {
+  const subMethodSelect = document.getElementById('subMethodSelect');
+  selectedSubMethod = subMethodSelect.value;
+
+  if (!selectedSubMethod) {
+    hideFromStep(2);
+    return;
+  }
+
+  // 根据上架方式加载增值产品
+  loadProductsForShangJia(selectedSubMethod);
+}
+
+// 加载增值产品（非上架类型）
+function loadProducts(method) {
+  const products = METHOD_PRODUCT_MAP[method] || [];
+  const productSelect = document.getElementById('productSelect');
+  productSelect.innerHTML = '<option value="">请选择增值产品</option>';
+
+  products.forEach(p => {
+    productSelect.innerHTML += `<option value="${p}">${p}</option>`;
+  });
+
+  document.getElementById('productSection').style.display = 'flex';
+  document.getElementById('productRow').style.display = 'flex';
+  document.getElementById('productPriceHint').textContent = '';
+
+  // 如果只有一个产品，自动选择
+  if (products.length === 1) {
+    productSelect.value = products[0];
+    onProductChange();
+  } else {
+    hideFromStep(3);
+  }
+}
+
+// 加载增值产品（上架类型）
+function loadProductsForShangJia(subMethod) {
+  const productMap = METHOD_PRODUCT_MAP['上架'];
+  const products = productMap[subMethod] || [];
+  const productSelect = document.getElementById('productSelect');
+  productSelect.innerHTML = '<option value="">请选择增值产品</option>';
+
+  products.forEach(p => {
+    productSelect.innerHTML += `<option value="${p}">${p}</option>`;
+  });
+
+  document.getElementById('productSection').style.display = 'flex';
+  document.getElementById('productRow').style.display = 'flex';
+  document.getElementById('productPriceHint').textContent = '';
+
+  // 如果只有一个产品，自动选择
+  if (products.length === 1) {
+    productSelect.value = products[0];
+    onProductChange();
+  } else {
+    hideFromStep(3);
+  }
+}
+
+// 第二步：选择增值产品
+function onProductChange() {
+  const productSelect = document.getElementById('productSelect');
+  selectedProduct = productSelect.value;
+
+  if (!selectedProduct) {
+    document.getElementById('productPriceHint').textContent = '';
+    hideFromStep(3);
+    return;
+  }
+
+  // 显示产品说明
+  const productInfo = PRODUCT_INFO[selectedProduct];
+  document.getElementById('productPriceHint').textContent = productInfo ? '产品说明：' + productInfo.desc : '';
+
+  // 加载增值服务
+  loadServices();
+}
+
+// 加载增值服务
+function loadServices() {
+  const serviceMap = PRODUCT_SERVICE_MAP[selectedProduct];
+  if (!serviceMap) {
+    hideFromStep(3);
+    return;
+  }
+
+  // 确定使用哪个处理方式key
+  let methodKey = selectedMethod;
+  if (selectedMethod === '上架') {
+    methodKey = selectedSubMethod;
+  }
+
+  const services = serviceMap[methodKey] || [];
+  const serviceSelect = document.getElementById('serviceSelect');
+  serviceSelect.innerHTML = '<option value="">请选择增值服务</option>';
+
+  services.forEach(s => {
+    serviceSelect.innerHTML += `<option value="${s}">${s}</option>`;
+  });
+
+  document.getElementById('serviceSection').style.display = 'flex';
+  document.getElementById('serviceRow').style.display = 'flex';
+  document.getElementById('servicePriceHint').textContent = '';
+
+  // 如果只有一个服务，自动选择
+  if (services.length === 1) {
+    serviceSelect.value = services[0];
+    onServiceChange();
+  } else {
+    hideFromStep(4);
+  }
+}
+
+// 第三步：选择增值服务
+function onServiceChange() {
+  const serviceSelect = document.getElementById('serviceSelect');
+  selectedService = serviceSelect.value;
+
+  if (!selectedService) {
+    hideFromStep(4);
+    return;
+  }
+
+  document.getElementById('servicePriceHint').textContent = '';
+
+  // 显示第四步：服务要求
+  renderDetails(selectedService);
+  renderFees(selectedService);
+}
+
+// 隐藏从某步开始的内容
+function hideFromStep(step) {
+  if (step <= 2) {
+    document.getElementById('productSection').style.display = 'none';
+    document.getElementById('productRow').style.display = 'none';
+  }
+  if (step <= 3) {
+    document.getElementById('serviceSection').style.display = 'none';
+    document.getElementById('serviceRow').style.display = 'none';
+  }
+  if (step <= 4) {
+    document.getElementById('detailSection').style.display = 'none';
+    document.getElementById('detailTable').style.display = 'none';
+    document.getElementById('feeSection').style.display = 'none';
+    document.getElementById('submitBtn').disabled = true;
+  }
+}
+
+// 渲染服务明细
+function renderDetails(serviceName) {
+  const details = SERVICE_DETAILS[serviceName];
+  if (!details) {
+    document.getElementById('detailSection').style.display = 'none';
+    document.getElementById('detailTable').style.display = 'none';
+    return;
+  }
+
+  let html = '';
+  details.forEach(d => {
+    let reqHtml = d.reqs.map(r => {
+      if (d.svc === '入库其他服务需求') {
+        const textareaId = r[0] === '需求背景说明' ? 'field-background' : 'field-description';
+        return `<div class="req-row" style="align-items:flex-start;"><span class="req">*</span><span style="width:82px;flex-shrink:0;">${r[0]}：</span><textarea class="req-textarea" id="${textareaId}" placeholder="${r[1]}"></textarea></div>`;
+      }
+      return `<div class="req-row"><span class="req">*</span> ${r[0]}：<select class="req-select"><option>${r[1]}</option></select></div>`;
+    }).join('');
+    let fileHtml = '-';
+    if (d.file) {
+      fileHtml = '';
+      if (d.file.tpl) fileHtml += '<div class="file-link">📥 点击下载模板文件</div>';
+      fileHtml += `<div class="upload-btn">⬆️ ${d.file.upload}</div>`;
+    }
+    html += `<tr>
+      <td><span class="svc-name"><span class="svc-icon">${d.icon}</span>${d.svc}</span></td>
+      <td>${reqHtml}</td>
+      <td>${fileHtml}</td>
+      <td style="text-align:center">--</td>
+      <td style="text-align:right;font-weight:500;color:#A0792A;">${d.price}</td>
+    </tr>`;
+  });
+  document.getElementById('detailBody').innerHTML = html;
+  document.getElementById('detailSection').style.display = 'flex';
+  document.getElementById('detailTable').style.display = 'block';
+}
+
+// 渲染费用
+function renderFees(serviceName) {
+  const details = SERVICE_DETAILS[serviceName];
+  if (!details) return;
+
+  let total = 0, feeHtml = '';
+  details.forEach(d => {
+    const price = parseFloat(d.price.replace('$','')) || 0;
+    total += price;
+    feeHtml += `<tr><td>增值-${d.svc}</td><td></td><td style="text-align:right">${d.price}</td><td style="text-align:right">${d.price}</td></tr>`;
+  });
+
+  // 最低收费补足
+  if (total > 0 && total < 20) {
+    const diff = 20 - total;
+    feeHtml += `<tr><td>增值-最低收费（差额补足）</td><td style="color:#999;font-size:11px;">订单不满足增值最低收费20.00USD</td><td style="text-align:right">$${diff.toFixed(2)}</td><td style="text-align:right">$${diff.toFixed(2)}</td></tr>`;
+    total = 20;
+  }
+
+  document.getElementById('feeBody').innerHTML = feeHtml;
+  document.getElementById('totalLocal').textContent = '$' + total.toFixed(2);
+  document.getElementById('totalUsd').textContent = '$' + total.toFixed(2);
+  document.getElementById('feeSection').style.display = 'block';
+  document.getElementById('submitBtn').disabled = false;
+}
+
+const AI_FIRST_MESSAGE = `我看到您的异常单 WI46673588 是【商品条码异常(需客户处理)】，当前为有箱单入库。
+
+基于当前场景，建议选择以下增值服务：
+
+📦 上架方向：
+  · 原单上架 - 补贴原商品条码 ⭐推荐
+  · 原单上架 - 更换新商品条码
+  · 原单上架 - 补贴包裹条码+补贴原商品条码
+  · 原单上架 - 直接上架
+  · 新单上架(Winit创建) - 补贴原商品条码
+  · 新单上架(客户创建) - 补贴包裹条码+补贴原商品条码
+
+🗑️ 销毁方向：
+  · 上架前销毁
+
+🚚 自提方向：
+  · 上架前自提
+
+📷 暂存辨识：
+  · 入库-商品开箱拍照
+
+如果以上服务都无法满足您的需求，我可以帮您走非标特批流程。
+
+请告诉我您想怎么处理？`;
+
+const SOP_STEPS = `1. 仓库接收异常货物后，核对入库单号、包裹号、商品 SKU 与实物数量。
+2. 对货物重新测量长、宽、高和重量，并记录实际尺重数据。
+3. 根据客户确认结果，核对需要更换的商品标签内容，确认标签与实物一一对应。
+4. 打印并更换商品标签，确保新标签平整、清晰、可扫描。
+5. 更换标签完成后，将货物按原入库单继续上架。
+6. 作业完成后回传处理结果，如存在异常差异需备注说明。`;
+
+let firstMessageShown = false;
+let aiTypeTimer = null;
+
+function getAiPopup() {
+  return document.getElementById('aiPopup');
+}
+
+function openAiPopup(fromManual) {
+  const popup = getAiPopup();
+  popup.classList.add('show');
+  popup.classList.remove('minimized');
+  if (!firstMessageShown) {
+    setTimeout(() => showFirstAiMessage(), fromManual ? 120 : 500);
+  }
+}
+
+function closeAiPopup() {
+  getAiPopup().classList.remove('show');
+}
+
+function minimizeAiPopup() {
+  getAiPopup().classList.add('minimized');
+}
+
+function setAutoPopupPreference(disabled) {
+  localStorage.setItem('ai-guide-auto-popup', disabled ? 'false' : 'true');
+}
+
+function showFirstAiMessage() {
+  if (firstMessageShown) return;
+  firstMessageShown = true;
+  typeAiMessage(AI_FIRST_MESSAGE);
+}
+
+function addMessage(role, text, extraClass) {
+  const messages = document.getElementById('aiMessages');
+  const msg = document.createElement('div');
+  msg.className = `msg ${role}`;
+  const bubble = document.createElement('div');
+  bubble.className = `bubble${extraClass ? ' ' + extraClass : ''}`;
+  bubble.textContent = text;
+  msg.appendChild(bubble);
+  messages.appendChild(msg);
+  messages.scrollTop = messages.scrollHeight;
+  return bubble;
+}
+
+function typeAiMessage(text, extraClass, done) {
+  if (aiTypeTimer) clearInterval(aiTypeTimer);
+  const bubble = addMessage('ai', '', extraClass);
+  const duration = 1500;
+  const interval = 24;
+  const step = Math.max(1, Math.ceil(text.length / (duration / interval)));
+  let index = 0;
+  aiTypeTimer = setInterval(() => {
+    index = Math.min(text.length, index + step);
+    bubble.textContent = text.slice(0, index);
+    document.getElementById('aiMessages').scrollTop = document.getElementById('aiMessages').scrollHeight;
+    if (index >= text.length) {
+      clearInterval(aiTypeTimer);
+      aiTypeTimer = null;
+      if (done) done();
+    }
+  }, interval);
+}
+
+function sendManualMessage() {
+  const input = document.getElementById('aiInput');
+  const text = input.value.trim();
+  if (!text) return;
+  addMessage('user', text);
+  input.value = '';
+  setTimeout(() => typeAiMessage('收到，我会根据当前异常场景帮您匹配可用增值服务。'), 300);
+}
+
+function clearAiMessages() {
+  if (aiTypeTimer) clearInterval(aiTypeTimer);
+  aiTypeTimer = null;
+  document.getElementById('aiMessages').innerHTML = '';
+  firstMessageShown = false;
+}
+
+function runConversation(steps) {
+  openAiPopup(true);
+  clearAiMessages();
+  let delay = 150;
+  steps.forEach(step => {
+    delay += step.wait || 800;
+    setTimeout(() => {
+      if (step.role === 'user') addMessage('user', step.text);
+      if (step.role === 'ai') typeAiMessage(step.text, step.extraClass, step.done);
+      if (step.action) step.action();
+    }, delay);
+  });
+}
+
+function aiAutoSelect(method, subMethod, product, service) {
+  const card = document.querySelector(`[data-method="${method}"]`);
+  if (card) selectMethod(card);
+
+  if (method === '上架' && subMethod) {
+    setTimeout(() => {
+      const subMethodSelect = document.getElementById('subMethodSelect');
+      subMethodSelect.value = subMethod;
+      onSubMethodChange();
+
+      setTimeout(() => {
+        const productSelect = document.getElementById('productSelect');
+        productSelect.value = product;
+        onProductChange();
+
+        setTimeout(() => {
+          const serviceSelect = document.getElementById('serviceSelect');
+          serviceSelect.value = service;
+          onServiceChange();
+        }, 300);
+      }, 300);
+    }, 300);
+    return;
+  }
+
+  setTimeout(() => {
+    const productSelect = document.getElementById('productSelect');
+    if (product) {
+      productSelect.value = product;
+      onProductChange();
+    }
+    setTimeout(() => {
+      const serviceSelect = document.getElementById('serviceSelect');
+      if (service) {
+        serviceSelect.value = service;
+        onServiceChange();
+      }
+    }, 300);
+  }, 300);
+}
+
+function runStandardDemo() {
+  resetPageSelection();
+  runConversation([
+    { role: 'user', text: '条码扫不了 帮我处理下', wait: 200 },
+    { role: 'ai', text: '收到。您希望怎么处理这批货？是想继续上架（需要重新贴条码），还是不要了（销毁/自提）？', wait: 900 },
+    { role: 'user', text: '上架吧 贴回原来那个码就行', wait: 1200 },
+    { role: 'ai', text: '好的，为您推荐【原单上架 - 补贴原商品条码】。已帮您选中。', wait: 900, action: () => aiAutoSelect('上架', '原单上架', '原单上架', '补贴原商品条码') }
+  ]);
+}
+
+function runPhotoDemo() {
+  resetPageSelection();
+  runConversation([
+    { role: 'user', text: '这个货有问题 我想看看里面什么情况', wait: 200 },
+    { role: 'ai', text: '您是想让仓库开箱拍照确认货物状态吗？还是需要其他处理？', wait: 900 },
+    { role: 'user', text: '对 拍个照给我看看', wait: 1200 },
+    { role: 'ai', text: '为您推荐【入库-商品开箱拍照】，这是免审服务，提交后仓库会直接执行。', wait: 900, action: () => aiAutoSelect('暂存', null, '拍照辨识', '入库-商品开箱拍照') }
+  ]);
+}
+
+function runSpecialDemo() {
+  resetPageSelection();
+  runConversation([
+    { role: 'user', text: '这批货尺寸跟系统登记的对不上 要重新量一下再换标签上架', wait: 200 },
+    { role: 'ai', text: '收到。您的意思是需要仓库重新测量尺重，然后根据实际情况更换标签后上架？请确认以下信息：\n- 是否需要更换商品标签？\n- 换标后上架到原入库单还是新单？', wait: 900 },
+    { role: 'user', text: '对 量完换标签 上原单就行', wait: 1400 },
+    { role: 'ai', text: '您的需求是【尺重/标签辨识后换标上架】，这超出当前标准服务范围，需要走非标特批流程。我来帮您生成操作 SOP。', wait: 900, action: () => aiAutoSelect('上架', '原单上架', '入库非标增值（特批）', '入库其他服务需求') },
+    { role: 'ai', text: '我来帮您生成 SOP。根据您的描述，操作步骤大致如下：', wait: 1700, done: () => setTimeout(showSopCard, 250) }
+  ]);
+}
+
+function showSopCard() {
+  const messages = document.getElementById('aiMessages');
+  const card = document.createElement('div');
+  card.className = 'sop-card';
+  card.innerHTML = `
+    <div class="sop-card-title">操作步骤</div>
+    <div class="sop-steps">${SOP_STEPS}</div>
+    <div class="msg ai" style="margin-top:12px;margin-bottom:10px;">
+      <div class="bubble pending-fee">💰 费用预估（基于 SOP 动作拆解）：
+[待知识库接入] 当前无法自动预估费用。
+接入报价知识库后，将基于以下逻辑计算：
+SOP 动作 → 匹配仓库动作库 → 工时×单价 = 预估费用
+
+您提交后，审核人员会给出正式报价。</div>
+    </div>
+    <div class="sop-actions"><button type="button" onclick="fillSopToForm()">一键填入表单</button></div>
+  `;
+  messages.appendChild(card);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function fillSopToForm() {
+  const background = document.getElementById('field-background');
+  const description = document.getElementById('field-description');
+  if (background) {
+    background.value = '客户反馈货物实际尺重与系统登记信息不一致，需要仓库重新测量尺重，并在确认后更换标签继续按原入库单上架。';
+  }
+  if (description) {
+    description.value = SOP_STEPS;
+  }
+  addMessage('ai', '✅ 已成功填入表单。提交后 SOP 将自动同步至审核后台的【操作SOP】字段。');
+  const btn = document.createElement('button');
+  btn.className = 'audit-preview-btn';
+  btn.type = 'button';
+  btn.textContent = '模拟审核视角 →';
+  btn.onclick = openAuditPreview;
+  document.getElementById('aiMessages').appendChild(btn);
+  document.getElementById('aiMessages').scrollTop = document.getElementById('aiMessages').scrollHeight;
+}
+
+function openAuditPreview() {
+  document.getElementById('auditSopTextarea').value = SOP_STEPS;
+  document.getElementById('auditMask').classList.add('show');
+}
+
+function closeAuditPreview() {
+  document.getElementById('auditMask').classList.remove('show');
+}
+
+function resetPageSelection() {
+  selectedMethod = null;
+  selectedSubMethod = null;
+  selectedProduct = null;
+  selectedService = null;
+  document.querySelectorAll('.m-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('subMethodRow').style.display = 'none';
+  document.getElementById('subMethodSelect').value = '';
+  document.getElementById('productSelect').innerHTML = '<option value="">请选择增值产品</option>';
+  document.getElementById('serviceSelect').innerHTML = '<option value="">请选择增值服务</option>';
+  document.getElementById('productPriceHint').textContent = '';
+  document.getElementById('servicePriceHint').textContent = '';
+  document.getElementById('detailBody').innerHTML = '';
+  document.getElementById('feeBody').innerHTML = '';
+  document.getElementById('totalLocal').textContent = '$0.00';
+  document.getElementById('totalUsd').textContent = '$0.00';
+  hideFromStep(2);
+}
+
+function resetPrototype() {
+  resetPageSelection();
+  clearAiMessages();
+  closeAuditPreview();
+  openAiPopup(true);
+}
+
+function initAiPopupDrag() {
+  const popup = document.getElementById('aiPopup');
+  const header = document.getElementById('aiHeader');
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+
+  header.addEventListener('mousedown', event => {
+    if (event.target.closest('button') || event.target.closest('label')) return;
+    dragging = true;
+    const rect = popup.getBoundingClientRect();
+    startX = event.clientX;
+    startY = event.clientY;
+    startLeft = rect.left;
+    startTop = rect.top;
+    popup.style.left = `${startLeft}px`;
+    popup.style.top = `${startTop}px`;
+    popup.style.right = 'auto';
+    popup.style.bottom = 'auto';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', event => {
+    if (!dragging) return;
+    const nextLeft = Math.max(8, Math.min(window.innerWidth - popup.offsetWidth - 8, startLeft + event.clientX - startX));
+    const nextTop = Math.max(52, Math.min(window.innerHeight - popup.offsetHeight - 8, startTop + event.clientY - startY));
+    popup.style.left = `${nextLeft}px`;
+    popup.style.top = `${nextTop}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    dragging = false;
+    document.body.style.userSelect = '';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const disabled = localStorage.getItem('ai-guide-auto-popup') === 'false';
+  document.getElementById('autoPopupToggle').checked = disabled;
+  initAiPopupDrag();
+  if (!disabled) {
+    setTimeout(() => openAiPopup(false), 800);
+  }
+});
+</script>
+</body>
+</html>

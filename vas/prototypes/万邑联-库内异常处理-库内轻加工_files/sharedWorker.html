@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!-- saved from url=(0075)https://seller.winit.com.cn/Index/sharedWorker?v=1.3.1654-1786518661&debug= -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shared Worker</title>
+</head>
+<body>
+<script>
+    (function(){
+        var _window = window;
+        var _location = location;
+        if (!!_window.SharedWorker) {
+            var customerCode = '10006189';
+            var userId = '265302';
+            var mode = '0';
+            var SockJS_URL = 'https://upush2instation.winit.com.cn/webNotify';
+            var workerPath = '/Public/scripts/lib/shared-worker/worker.js??v=1.3.1654-1786518661';
+            var worker;
+            function createWorker() {
+                if (mode == 1) {
+                    worker = new Worker(workerPath);
+                } else {
+                    worker = new SharedWorker(workerPath).port;
+                }
+                return worker;
+            } 
+            try{
+                worker = createWorker();
+            }catch(e){
+                // chrome worker 绕过跨域检测
+                if (window.Blob && window.URL && window.URL.createObjectURL) {
+                    workerPath = window.URL.createObjectURL(new Blob([workerPath], {
+                        type: 'application/javascript'
+                    }));
+                }
+                worker = createWorker();
+            }
+            worker.onmessage = function(e) {
+                if (e.data.type == 'DEBUG') {
+                    // console.log(e.data.payload);
+                    return;
+                }
+                window.top.postMessage(e.data, _location.protocol + '//' + _location.host);
+            }
+            worker.postMessage({
+                type: 'CREATE_SOCKET',
+                payload: {
+                    SockJS_URL: SockJS_URL,
+                    code: customerCode,
+                    userId: userId,
+                }
+            })
+        }
+    })()
+</script>
+
+</body></html>

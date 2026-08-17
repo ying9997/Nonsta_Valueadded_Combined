@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>异常事件配置 - 可处理的增值方案映射</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f5f5; color: #333; font-size: 13px; }
+
+.top-bar { background: #1a1a2e; color: white; height: 48px; display: flex; align-items: center; padding: 0 20px; }
+.top-bar .logo { font-size: 15px; font-weight: 600; margin-right: 32px; }
+.top-bar .nav-item { padding: 0 16px; height: 48px; display: flex; align-items: center; font-size: 13px; cursor: pointer; opacity: 0.7; }
+.top-bar .nav-item.active { opacity: 1; border-bottom: 2px solid #4a9eff; }
+.top-bar .right { margin-left: auto; font-size: 12px; opacity: 0.7; }
+
+.page-wrap { max-width: 1440px; margin: 0 auto; padding: 20px 24px; }
+.page-title-bar { margin-bottom: 20px; }
+.page-title-bar h1 { font-size: 18px; font-weight: 600; }
+.page-title-bar .breadcrumb { font-size: 12px; color: #999; margin-bottom: 4px; }
+
+.filter-bar { background: white; border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border: 1px solid #f0f0f0; }
+.filter-bar label { font-size: 12px; color: #666; }
+.filter-bar select, .filter-bar input { height: 32px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 10px; font-size: 12px; min-width: 180px; }
+.filter-bar .btn-search { background: #4a9eff; color: white; border: none; border-radius: 4px; padding: 0 16px; height: 32px; font-size: 12px; cursor: pointer; }
+.filter-bar .btn-reset { background: white; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 16px; height: 32px; font-size: 12px; cursor: pointer; }
+
+.main-card { background: white; border-radius: 6px; border: 1px solid #f0f0f0; overflow: hidden; }
+.card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.card-header h2 { font-size: 14px; font-weight: 600; }
+.btn-add { background: #4a9eff; color: white; border: none; border-radius: 4px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+.btn-export { background: white; border: 1px solid #d9d9d9; border-radius: 4px; padding: 6px 14px; font-size: 12px; cursor: pointer; margin-right: 8px; }
+
+/* 主表格 */
+.config-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.config-table th { background: #f7f8fa; padding: 10px 14px; text-align: left; font-weight: 500; color: #666; border-bottom: 1px solid #f0f0f0; }
+.config-table td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+.config-table tr:hover { background: #fafbfc; }
+.exc-name { font-weight: 500; }
+.exc-code { color: #4a9eff; font-family: monospace; }
+.link-btn { color: #4a9eff; cursor: pointer; text-decoration: underline; border: none; background: none; font-size: 12px; }
+.link-btn:hover { color: #1a6ed8; }
+.scene-desc { color: #333; }
+.scene-edit-btn { color: #999; cursor: pointer; margin-left: 6px; font-size: 11px; border: 1px solid #e8e8e8; border-radius: 3px; padding: 1px 6px; background: #fafafa; }
+.scene-edit-btn:hover { color: #4a9eff; border-color: #4a9eff; }
+</style>
+</head>
+<body>
+<div style="position:fixed;top:8px;right:12px;background:#ff4d4f;color:white;padding:4px 10px;border-radius:4px;font-size:11px;z-index:99;">原型 - 异常事件增值配置</div>
+
+<div class="top-bar">
+  <div class="logo">WINIT 运营管理平台</div>
+  <div class="nav-item">首页</div>
+  <div class="nav-item">订单管理</div>
+  <div class="nav-item active">异常管理</div>
+  <div class="nav-item">增值配置</div>
+  <div class="nav-item">系统设置</div>
+  <div class="right">admin@winit.com</div>
+</div>
+
+<div class="page-wrap">
+  <div class="page-title-bar">
+    <div class="breadcrumb">异常管理 / 异常事件配置 / 增值方案映射</div>
+    <h1>异常事件 - 增值处理方案配置</h1>
+  </div>
+
+  <div class="filter-bar">
+    <label>异常名称：</label><input type="text" placeholder="请输入异常名称关键词">
+    <label>异常编码：</label><input type="text" placeholder="请输入编码">
+    <label>增值产品：</label>
+    <select><option value="">全部</option><option>原单上架</option><option>新单上架</option><option>上架前销毁</option><option>上架前自提</option><option>拍照辨识</option><option>入库非标增值</option></select>
+    <button class="btn-search">查询</button>
+    <button class="btn-reset">重置</button>
+  </div>
+
+  <div class="main-card">
+    <div class="card-header">
+      <h2>异常事件列表 <span style="color:#999;font-weight:400;font-size:12px;">（共 5 条异常）</span></h2>
+      <div><button class="btn-export">导出配置</button><button class="btn-add">+ 新增异常配置</button></div>
+    </div>
+    <div id="tableWrap"></div>
+  </div>
+</div>
+
+<!-- 条件配置弹窗 -->
+<div class="modal-overlay" id="conditionModal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header"><h3>适用条件</h3><button class="modal-close" onclick="closeConditionModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="cond-desc-row"><label>适用条件说明</label><textarea id="condDesc" rows="2"></textarea></div>
+      <table class="cond-table">
+        <thead><tr><th></th><th>项目</th><th>条件</th><th>值</th><th>关系</th><th>操作</th></tr></thead>
+        <tbody id="condBody"></tbody>
+      </table>
+      <div class="cond-add"><a href="#" onclick="return false;">+ 新增</a></div>
+      <div class="cond-expr"><span>表达式：</span><code id="condExpr"></code> <button class="copy-btn">Copy</button></div>
+    </div>
+    <div class="modal-footer"><button class="btn-cancel" onclick="closeConditionModal()">取消</button><button class="btn-save">保存</button></div>
+  </div>
+</div>
+
+<!-- 方案列表弹窗 -->
+<div class="modal-overlay" id="planModal" style="display:none;">
+  <div class="modal-box modal-wide">
+    <div class="modal-header"><h3 id="planModalTitle">处理方案</h3><button class="modal-close" onclick="closePlanModal()">&times;</button></div>
+    <div class="modal-body" id="planModalBody"></div>
+    <div class="modal-footer"><button class="btn-cancel" onclick="closePlanModal()">关闭</button></div>
+  </div>
+</div>
+
+<style>
+/* 弹窗 */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-box { background: white; border-radius: 8px; width: 700px; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+.modal-wide { width: 900px; }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.modal-header h3 { font-size: 15px; font-weight: 600; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #999; }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 12px 20px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 8px; }
+.btn-cancel { background: white; border: 1px solid #d9d9d9; border-radius: 4px; padding: 6px 16px; font-size: 12px; cursor: pointer; }
+.btn-save { background: #4a9eff; color: white; border: none; border-radius: 4px; padding: 6px 16px; font-size: 12px; cursor: pointer; }
+
+/* 条件配置 */
+.cond-desc-row { margin-bottom: 16px; }
+.cond-desc-row label { display: block; font-size: 12px; color: #666; margin-bottom: 6px; }
+.cond-desc-row textarea { width: 100%; border: 1px solid #d9d9d9; border-radius: 4px; padding: 8px 10px; font-size: 13px; resize: vertical; }
+.cond-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
+.cond-table th { background: #f7f8fa; padding: 8px 10px; text-align: left; font-weight: 500; color: #666; border-bottom: 1px solid #f0f0f0; }
+.cond-table td { padding: 6px 8px; border-bottom: 1px solid #f5f5f5; }
+.cond-table select { height: 28px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 6px; font-size: 12px; min-width: 100px; }
+.cond-table .val-tag { display: inline-flex; align-items: center; background: #e6f7ff; border: 1px solid #91d5ff; border-radius: 3px; padding: 2px 8px; font-size: 11px; color: #1890ff; gap: 4px; }
+.cond-table .val-tag .x { cursor: pointer; color: #999; }
+.cond-table .del-link { color: #4a9eff; cursor: pointer; font-size: 12px; }
+.cond-add { margin-bottom: 12px; }
+.cond-add a { color: #4a9eff; font-size: 12px; text-decoration: none; }
+.cond-expr { background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 4px; padding: 8px 12px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+.cond-expr code { flex: 1; font-family: monospace; font-size: 11px; color: #333; word-break: break-all; }
+.copy-btn { background: #f0f0f0; border: 1px solid #d9d9d9; border-radius: 3px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+
+/* 方案表 */
+.plan-table { width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #f0f0f0; border-radius: 4px; overflow: hidden; }
+.plan-table th { background: #f0f5ff; padding: 8px 12px; text-align: left; font-weight: 500; color: #555; border-bottom: 1px solid #e8e8e8; }
+.plan-table td { padding: 8px 12px; border-bottom: 1px solid #f5f5f5; }
+.plan-table tr:last-child td { border-bottom: none; }
+.plan-table .plan-no { text-align: center; color: #999; font-weight: 500; width: 50px; }
+.product-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; white-space: nowrap; }
+.tag-shelf { background: #e6f7ff; color: #1890ff; }
+.tag-new { background: #f6ffed; color: #52c41a; }
+.tag-destroy { background: #fff2e8; color: #fa541c; }
+.tag-pickup { background: #f9f0ff; color: #722ed1; }
+.tag-photo { background: #fff7e6; color: #d46b08; }
+</style>
+<script>
+const TAG_CLASSES = { shelf:'tag-shelf', new:'tag-new', destroy:'tag-destroy', pickup:'tag-pickup', photo:'tag-photo' };
+
+const EXCEPTIONS = [
+  {
+    name: '商品条码异常(需客户处理)', code: 'B01E1315',
+    scenes: [
+      {
+        desc: '异常单关联的入库单为有箱单',
+        conditions: [
+          { field: '增值单下单入口', op: '等于', value: '有箱单', rel: '并且' },
+          { field: '异常单是否关联入库单', op: '等于', value: '是', rel: '' }
+        ],
+        expr: '"ADD_VALUE_ENTRY" like "ORDER_LIST..." and "INSPECTION_TYPE" like "WI"',
+        plans: [
+          { no:1, product:'上架前销毁', atom:'上架前销毁', method:'销毁', tag:'destroy' },
+          { no:2, product:'上架前自提', atom:'上架前自提', method:'自提', tag:'pickup' },
+          { no:3, product:'原单上架', atom:'补贴原商品条码', method:'原单上架', tag:'shelf' },
+          { no:4, product:'原单上架', atom:'更换新商品条码', method:'原单上架', tag:'shelf' },
+          { no:5, product:'原单上架', atom:'补贴包裹条码+补贴原商品条码', method:'原单上架', tag:'shelf' },
+          { no:6, product:'原单上架', atom:'补贴包裹条码+更换新商品条码', method:'原单上架', tag:'shelf' },
+          { no:7, product:'原单上架', atom:'直接上架', method:'原单上架', tag:'shelf' },
+          { no:8, product:'原单上架', atom:'更换商品包装+补贴原商品条码', method:'原单上架', tag:'shelf' },
+          { no:9, product:'原单上架', atom:'更换商品包装+更换新商品条码', method:'原单上架', tag:'shelf' },
+          { no:10, product:'原单上架', atom:'补贴包裹条码+更换商品包装+补贴原商品条码', method:'原单上架', tag:'shelf' },
+          { no:11, product:'原单上架', atom:'补贴包裹条码+更换商品包装+更换新商品条码', method:'原单上架', tag:'shelf' },
+          { no:12, product:'新单上架', atom:'补贴原商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:13, product:'新单上架', atom:'更换新商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:14, product:'新单上架', atom:'补贴包裹条码+补贴原商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:15, product:'新单上架', atom:'补贴包裹条码+更换新商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:16, product:'新单上架', atom:'更换商品包装+补贴原商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:17, product:'新单上架', atom:'更换商品包装+更换新商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:18, product:'新单上架', atom:'补贴包裹条码+更换商品包装+补贴原商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:19, product:'新单上架', atom:'补贴包裹条码+更换商品包装+更换新商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:20, product:'拍照辨识', atom:'入库-商品开箱拍照', method:'暂存', tag:'photo' }
+        ]
+      },
+      {
+        desc: '异常单关联的入库单为无箱单',
+        conditions: [
+          { field: '增值单下单入口', op: '等于', value: '无箱单', rel: '并且' },
+          { field: '异常单是否关联入库单', op: '等于', value: '是', rel: '' }
+        ],
+        expr: '"ADD_VALUE_ENTRY" like "ORDER_LIST..." and "INSPECTION_TYPE" like "NO_BOX"',
+        plans: [
+          { no:1, product:'上架前销毁', atom:'上架前销毁', method:'销毁', tag:'destroy' },
+          { no:2, product:'上架前自提', atom:'上架前自提', method:'自提', tag:'pickup' },
+          { no:3, product:'原单上架', atom:'补贴原商品条码', method:'原单上架', tag:'shelf' },
+          { no:4, product:'原单上架', atom:'更换新商品条码', method:'原单上架', tag:'shelf' },
+          { no:5, product:'原单上架', atom:'补贴包裹条码+补贴原商品条码', method:'原单上架', tag:'shelf' },
+          { no:6, product:'原单上架', atom:'补贴包裹条码+更换新商品条码', method:'原单上架', tag:'shelf' },
+          { no:7, product:'原单上架', atom:'直接上架', method:'原单上架', tag:'shelf' },
+          { no:8, product:'新单上架', atom:'补贴原商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:9, product:'新单上架', atom:'更换新商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:10, product:'新单上架', atom:'补贴包裹条码+补贴原商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:11, product:'新单上架', atom:'补贴包裹条码+更换新商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:12, product:'拍照辨识', atom:'入库-商品开箱拍照', method:'暂存', tag:'photo' }
+        ]
+      },
+      {
+        desc: '异常单未登记对应的入库单',
+        conditions: [
+          { field: '异常单是否关联入库单', op: '等于', value: '否', rel: '' }
+        ],
+        expr: '"HAS_INBOUND_ORDER" = "NO"',
+        plans: [
+          { no:1, product:'上架前销毁', atom:'上架前销毁', method:'销毁', tag:'destroy' },
+          { no:2, product:'上架前自提', atom:'上架前自提', method:'自提', tag:'pickup' },
+          { no:3, product:'新单上架', atom:'补贴原商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:4, product:'新单上架', atom:'更换新商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:5, product:'新单上架', atom:'补贴包裹条码+补贴原商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:6, product:'新单上架', atom:'补贴包裹条码+更换新商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:7, product:'拍照辨识', atom:'入库-商品开箱拍照', method:'暂存', tag:'photo' }
+        ]
+      }
+    ]
+  },
+  {
+    name: '包裹条码异常(需客户处理)', code: 'B01E1316',
+    scenes: [
+      {
+        desc: '全部场景（待配置条件）',
+        conditions: [],
+        expr: '',
+        plans: [
+          { no:1, product:'上架前销毁', atom:'上架前销毁', method:'销毁', tag:'destroy' },
+          { no:2, product:'上架前自提', atom:'上架前自提', method:'自提', tag:'pickup' },
+          { no:3, product:'原单上架', atom:'补贴包裹条码+补贴原商品条码', method:'原单上架', tag:'shelf' },
+          { no:4, product:'原单上架', atom:'补贴包裹条码+更换新商品条码', method:'原单上架', tag:'shelf' },
+          { no:5, product:'新单上架', atom:'补贴包裹条码+补贴原商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:6, product:'新单上架', atom:'补贴包裹条码+更换新商品条码', method:'客户创建新单上架', tag:'new' },
+          { no:7, product:'拍照辨识', atom:'入库-商品开箱拍照', method:'暂存', tag:'photo' }
+        ]
+      }
+    ]
+  },
+  {
+    name: '商品破损(需客户处理)', code: 'B01E1320',
+    scenes: [
+      {
+        desc: '全部场景（待配置条件）',
+        conditions: [],
+        expr: '',
+        plans: [
+          { no:1, product:'上架前销毁', atom:'上架前销毁', method:'销毁', tag:'destroy' },
+          { no:2, product:'上架前自提', atom:'上架前自提', method:'自提', tag:'pickup' },
+          { no:3, product:'原单上架', atom:'更换商品包装+补贴原商品条码', method:'原单上架', tag:'shelf' },
+          { no:4, product:'原单上架', atom:'更换商品包装+更换新商品条码', method:'原单上架', tag:'shelf' },
+          { no:5, product:'原单上架', atom:'直接上架', method:'原单上架', tag:'shelf' },
+          { no:6, product:'新单上架', atom:'更换商品包装+补贴原商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:7, product:'新单上架', atom:'更换商品包装+更换新商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:8, product:'拍照辨识', atom:'入库-商品开箱拍照', method:'暂存', tag:'photo' }
+        ]
+      }
+    ]
+  },
+  {
+    name: '多件少件异常(需客户处理)', code: 'B01E1325',
+    scenes: [
+      {
+        desc: '全部场景（待配置条件）',
+        conditions: [],
+        expr: '',
+        plans: [
+          { no:1, product:'上架前销毁', atom:'上架前销毁', method:'销毁', tag:'destroy' },
+          { no:2, product:'上架前自提', atom:'上架前自提', method:'自提', tag:'pickup' },
+          { no:3, product:'原单上架', atom:'直接上架', method:'原单上架', tag:'shelf' },
+          { no:4, product:'新单上架', atom:'补贴原商品条码', method:'Winit创建新单上架', tag:'new' },
+          { no:5, product:'拍照辨识', atom:'入库-商品开箱拍照', method:'暂存', tag:'photo' }
+        ]
+      }
+    ]
+  },
+  {
+    name: '禁售/过期商品异常', code: 'B01E1330',
+    scenes: [
+      {
+        desc: '全部场景（待配置条件）',
+        conditions: [],
+        expr: '',
+        plans: [
+          { no:1, product:'上架前销毁', atom:'上架前销毁', method:'销毁', tag:'destroy' },
+          { no:2, product:'上架前自提', atom:'上架前自提', method:'自提', tag:'pickup' },
+          { no:3, product:'拍照辨识', atom:'入库-商品开箱拍照', method:'暂存', tag:'photo' }
+        ]
+      }
+    ]
+  }
+];
+
+function renderTable() {
+  let html = '<table class="config-table"><thead><tr><th>异常名称</th><th>异常编码</th><th>场景（适用条件）</th><th>异常处理方案</th></tr></thead><tbody>';
+  EXCEPTIONS.forEach((exc, ei) => {
+    exc.scenes.forEach((scene, si) => {
+      html += '<tr>';
+      if (si === 0) {
+        html += `<td class="exc-name" rowspan="${exc.scenes.length}">${exc.name}</td>`;
+        html += `<td class="exc-code" rowspan="${exc.scenes.length}">${exc.code}</td>`;
+      }
+      html += `<td class="scene-desc">${scene.desc} <button class="scene-edit-btn" onclick="openConditionModal(${ei},${si})">编辑条件</button></td>`;
+      html += `<td><button class="link-btn" onclick="openPlanModal(${ei},${si})">处理方案</button></td>`;
+      html += '</tr>';
+    });
+  });
+  html += '</tbody></table>';
+  document.getElementById('tableWrap').innerHTML = html;
+}
+
+function openConditionModal(ei, si) {
+  const scene = EXCEPTIONS[ei].scenes[si];
+  document.getElementById('condDesc').value = scene.desc;
+  let tbody = '';
+  if (scene.conditions.length === 0) {
+    tbody = '<tr><td colspan="6" style="text-align:center;color:#999;padding:16px;">暂无条件配置，点击「新增」添加</td></tr>';
+  } else {
+    scene.conditions.forEach((c, ci) => {
+      tbody += `<tr>
+        <td><select style="width:40px;"><option></option></select></td>
+        <td><select class="cond-table select"><option>${c.field}</option><option>增值单下单入口</option><option>异常单是否关联入库单</option><option>入库单类型</option><option>商品等级</option></select></td>
+        <td><select class="cond-table select"><option>${c.op}</option><option>等于</option><option>不等于</option><option>包含</option></select></td>
+        <td><span class="val-tag">${c.value} <span class="x">×</span></span></td>
+        <td><select class="cond-table select" style="min-width:70px;"><option>${c.rel || ''}</option><option>并且</option><option>或者</option><option></option></select></td>
+        <td><span class="del-link">删除</span></td>
+      </tr>`;
+    });
+  }
+  document.getElementById('condBody').innerHTML = tbody;
+  document.getElementById('condExpr').textContent = scene.expr || '(暂无表达式)';
+  document.getElementById('conditionModal').style.display = 'flex';
+}
+
+function closeConditionModal() {
+  document.getElementById('conditionModal').style.display = 'none';
+}
+
+function openPlanModal(ei, si) {
+  const exc = EXCEPTIONS[ei];
+  const scene = exc.scenes[si];
+  document.getElementById('planModalTitle').textContent = `处理方案 - ${exc.name}【${scene.desc}】`;
+  let html = '<table class="plan-table"><thead><tr><th>方案</th><th>增值产品</th><th>增值原子</th><th>处理方式</th></tr></thead><tbody>';
+  scene.plans.forEach(p => {
+    html += `<tr><td class="plan-no">${p.no}</td><td><span class="product-tag ${TAG_CLASSES[p.tag]}">${p.product}</span></td><td>${p.atom}</td><td>${p.method}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('planModalBody').innerHTML = html;
+  document.getElementById('planModal').style.display = 'flex';
+}
+
+function closePlanModal() {
+  document.getElementById('planModal').style.display = 'none';
+}
+
+renderTable();
+</script>
+</body>
+</html>

@@ -1,0 +1,527 @@
+[
+  {
+    "caseId": "C-2a-002-2026W30-01",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-22/11:15",
+    "vascNumber": "VASC000000323391",
+    "ihNumber": "IH000000106647",
+    "customerCode": "16929223",
+    "customerName": "香港鼎匠科技有限公司",
+    "warehouse": "UKGF Warehouse",
+    "evidenceSnippets": [
+      "许晓妍: VASC000000323391 IH000000106647 UKGF Warehouse 16929223 香港鼎匠科技有限公司@Joanna @曾琦 @刘燕春 同理，采购到仓后，需要让客户下新的sku、入库单和贴标增值",
+      "许晓妍: @曾琦 @史绍玉 请通知客户确认报价，确认后@Joanna 这边根据增值单进行采购，采购后请通知@曾琦 @曾琦 @史绍玉 让客户根据纸箱下新的sku和入库单并提交贴标的增值单"
+    ],
+    "needsEnrichment": [
+      "贴标增值的精确服务项编码",
+      "贴标工时报价"
+    ],
+    "evidenceGap": [
+      "贴标增值的服务项编码（systemScopedVascList的serviceItems需在系统确认）"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "UKGF Warehouse",
+        "operationType": "贴标"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户16929223香港鼎匠科技有限公司 UN箱采购到仓后，需要下新的sku、入库单和贴标增值",
+        "abnormalType": "入库后贴标（具体非标服务）",
+        "isReusable": true
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000323391",
+          "name": "入库非标增值（特批）",
+          "type": "nonstandard",
+          "serviceItems": [
+            "贴标增值",
+            "入库贴标"
+          ]
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "UKGF Warehouse",
+        "serviceType": "入库非标增值（特批）",
+        "operationType": "贴标"
+      },
+      "customerInput": "客户16929223香港鼎匠科技有限公司 纸箱采购到仓后，需要下新的sku、入库单和贴标增值",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "采购到仓后，需要让客户下新的sku、入库单和贴标增值（VASC000000323391 16929223 香港鼎匠科技有限公司）"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "请通知客户确认报价，确认后这边根据增值单进行采购，采购后请通知让客户根据纸箱下新的sku和入库单并提交贴标的增值单"
+        }
+      ],
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedVasc": {
+          "code": "VASC000000323391",
+          "name": "入库非标增值（特批）"
+        },
+        "selectedService": {
+          "code": "（待系统确认）",
+          "name": "贴标增值"
+        },
+        "confirmationSummary": null,
+        "fieldSuggestions": {
+          "background": "客户16929223香港鼎匠科技有限公司 UN箱已采购到仓，需要下入库单+贴标增值",
+          "description": "新sku入库+贴标增值（具体非标服务-贴标）"
+        },
+        "attachmentCheck": {
+          "status": "not_checked",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问流程",
+        "不得推荐'入库其他服务需求'兜底项",
+        "不得推荐候选外产品"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2a-002-2026W30-02",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-22/18:12",
+    "vascNumber": "VASC000000322938",
+    "ihNumber": "IH000000106491",
+    "customerCode": "19304817",
+    "customerName": "臥安科技有限公司",
+    "warehouse": "UKGF Warehouse",
+    "evidenceSnippets": [
+      "许晓妍: VASC000000322938 IH000000106491 UKGF Warehouse 19304817 臥安科技有限公司客户@史绍玉 @曾琦 客户要仓库代采购25*15*10的70个纸箱，仓库没有客制包材的喷码器材，这个能让客户自采下单后送到仓库吗？仓库可以正常做入库",
+      "曾琦: 你好，这个是UN箱哦，客户的产品属于DG，只能装UN箱发货，需要我们这边采购的",
+      "许晓妍: 客户要代采购70件UN箱，还要有\"UN3480\"和\"Lithium Ion Batteries\"字样",
+      "许晓妍: 客户自采的箱子有UN标识吗？没有的话要补贴UN标识在箱外"
+    ],
+    "needsEnrichment": [
+      "UN箱代采的精确服务项编码",
+      "UN标识补贴的精确服务项编码",
+      "代采费用财务流程（bi截图国内拨付）"
+    ],
+    "evidenceGap": [
+      "UN箱代采+UN标识补贴的服务项编码（systemScopedVascList的serviceItems需在系统确认）"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "UKGF Warehouse",
+        "operationType": "UN箱代采+UN标识补贴"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户19304817臥安科技有限公司 需要仓库代采购70个25*15*10 UN箱（含UN3480和Lithium Ion Batteries字样），如客户自采需补贴UN标识",
+        "abnormalType": "DG产品需UN箱+UN标识",
+        "isReusable": true
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000322938",
+          "name": "入库非标增值（特批）",
+          "type": "nonstandard",
+          "serviceItems": [
+            "UN箱代采",
+            "UN标识补贴"
+          ]
+        },
+        {
+          "code": "VASC000000324027",
+          "name": "入库非标增值（特批）",
+          "type": "nonstandard",
+          "serviceItems": [
+            "UN箱代采",
+            "UN标识补贴",
+            "贴标增值"
+          ]
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "UKGF Warehouse",
+        "serviceType": "入库非标增值（特批）",
+        "operationType": "UN箱代采+UN标识补贴",
+        "boxSpec": "25*15*10 70个",
+        "unMark": "UN3480+Lithium Ion Batteries"
+      },
+      "customerInput": "客户19304817臥安科技有限公司 需要仓库代采购70个25*15*10的UN箱（含UN3480和Lithium Ion Batteries字样）",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "客户要仓库代采购25*15*10的70个纸箱，仓库没有客制包材的喷码器材，这个能让客户自采下单后送到仓库吗？仓库可以正常做入库（VASC000000322938 19304817 臥安科技）"
+        },
+        {
+          "role": "auditor",
+          "name": "曾琦",
+          "msg": "你好，这个是UN箱哦，客户的产品属于DG，只能装UN箱发货，需要我们这边采购的"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "客户要代采购70件UN箱，还要有UN3480和Lithium Ion Batteries字样"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "客户自采的箱子有UN标识吗？没有的话要补贴UN标识在箱外"
+        }
+      ],
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedVasc": {
+          "code": "VASC000000322938",
+          "name": "入库非标增值（特批）"
+        },
+        "selectedService": {
+          "code": "（待系统确认）",
+          "name": "UN箱代采+UN标识补贴"
+        },
+        "confirmationSummary": null,
+        "fieldSuggestions": {
+          "background": "客户19304817臥安科技有限公司 DG产品需UN箱（25*15*10 70个），仓库代采或客户自采后补贴UN标识",
+          "description": "UN箱代采+UN标识补贴（具体非标服务组合）"
+        },
+        "attachmentCheck": {
+          "status": "not_checked",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问流程",
+        "不得推荐'入库其他服务需求'兜底项",
+        "不得忽略UN标识补贴环节（DG产品必填）"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2a-002-2026W30-03",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-22/12:29",
+    "vascNumber": "VASC000000288960",
+    "customerCode": "（群聊未提供）",
+    "customerName": "（群聊未提供）",
+    "warehouse": "（需补充）",
+    "mCode": "M010000000006844092",
+    "evidenceSnippets": [
+      "刘燕春: @许晓妍 @Andy.Gu VASC000000288960 这个是客户之前下的辨识增值，客户核实里面是没有没有螺丝钉 ，想要提供物料螺钉过去仓库帮忙协助更换，帮看下是否可以操作的，谢谢",
+      "刘燕春: M010000000006844092 单品数量：27",
+      "刘燕春: [上传视频: VASC000000288960.mp4]",
+      "许晓妍: 文通，帮忙看下，这个仓库能做吗？是不是还要购买工具？",
+      "李文通: 这个加工增值可以操作嘛，这个我们仓库是没有工具的",
+      "许晓妍: 非标准增值，能做的话需要仓库评估下工时"
+    ],
+    "needsEnrichment": [
+      "VASC000000288960 的客户代码（群聊未提供）",
+      "辨识增值的精确服务项编码",
+      "加工增值（更换螺丝钉）的精确服务项编码",
+      "仓库是否已购买工具"
+    ],
+    "evidenceGap": [
+      "客户身份（群聊未提及）",
+      "工具采购的费用承担方"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "（需补充）",
+        "operationType": "辨识增值+更换"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户之前下的辨识增值，核实里面没有螺丝钉，提供物料螺钉过去仓库帮忙协助更换",
+        "abnormalType": "单品缺件（需辨识+更换）",
+        "isReusable": true
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000288960",
+          "name": "入库非标增值（特批）",
+          "type": "nonstandard",
+          "serviceItems": [
+            "辨识增值",
+            "加工增值"
+          ]
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "（需补充）",
+        "serviceType": "入库非标增值（特批）",
+        "operationType": "辨识+更换",
+        "mCode": "M010000000006844092",
+        "singleItemQuantity": 27
+      },
+      "customerInput": "客户之前下的辨识增值，核实里面没有螺丝钉（M010000000006844092 单品数量：27），提供物料螺钉过去仓库帮忙协助更换",
+      "conversationHistory": [
+        {
+          "role": "customer_service",
+          "name": "刘燕春",
+          "msg": "VASC000000288960 这个是客户之前下的辨识增值，客户核实里面是没有没有螺丝钉 ，想要提供物料螺钉过去仓库帮忙协助更换（上传视频）"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "文通，帮忙看下，这个仓库能做吗？是不是还要购买工具？"
+        },
+        {
+          "role": "warehouse",
+          "name": "李文通",
+          "msg": "这个加工增值可以操作嘛，这个我们仓库是没有工具的"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "非标准增值，能做的话需要仓库评估下工时"
+        }
+      ],
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedVasc": {
+          "code": "VASC000000288960",
+          "name": "入库非标增值（特批）"
+        },
+        "selectedService": {
+          "code": "（待系统确认）",
+          "name": "辨识增值+加工增值"
+        },
+        "confirmationSummary": null,
+        "fieldSuggestions": {
+          "background": "客户M010000000006844092单品27件，辨识后发现缺螺丝钉，需提供物料+仓库加工更换",
+          "description": "辨识增值+加工增值（具体非标服务组合）"
+        },
+        "attachmentCheck": {
+          "status": "not_checked",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问流程",
+        "不得推荐'入库其他服务需求'兜底项",
+        "不得忽略工具采购的可行性评估环节"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2a-002-2026W30-04",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-23/17:14",
+    "vascNumber": "VASC000000323733",
+    "customerCode": "（群聊未提供）",
+    "customerName": "佛山市虹创金属制品有限公司",
+    "warehouse": "（需补充）",
+    "evidenceSnippets": [
+      "甘海燕: 佛山市虹创金属制品有限公司 VASC000000323733 货权转移按换标方式操作的，麻烦报价的，谢谢@许晓妍",
+      "许晓妍: @甘海燕 VASC000000323733已审批，请客户确认报价，确认后告诉我，我批出库单",
+      "吴爱红: @许晓妍 客户确认报价了",
+      "许晓妍: @吴爱红 出库单已审批"
+    ],
+    "needsEnrichment": [
+      "VASC000000323733 的客户代码（群聊未提供）",
+      "货权转移换标的精确服务项编码",
+      "换标费用报价"
+    ],
+    "evidenceGap": [
+      "仓库代码（群聊未提供）"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "outbound",
+        "warehouse": "（需补充）",
+        "operationType": "货权转移换标"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户佛山市虹创金属制品有限公司 货权转移按换标方式操作",
+        "abnormalType": "货权转移+换标",
+        "isReusable": true
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000323733",
+          "name": "出库非标增值（特批）",
+          "type": "nonstandard",
+          "serviceItems": [
+            "货权转移换标"
+          ]
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "（需补充）",
+        "serviceType": "出库非标增值（特批）",
+        "operationType": "货权转移换标"
+      },
+      "customerInput": "客户佛山市虹创金属制品有限公司 货权转移按换标方式操作",
+      "conversationHistory": [
+        {
+          "role": "customer_service",
+          "name": "甘海燕",
+          "msg": "佛山市虹创金属制品有限公司 VASC000000323733 货权转移按换标方式操作的，麻烦报价的，谢谢"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "@甘海燕 VASC000000323733已审批，请客户确认报价，确认后告诉我，我批出库单"
+        },
+        {
+          "role": "customer_service",
+          "name": "吴爱红",
+          "msg": "客户确认报价了"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "出库单已审批"
+        }
+      ],
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedVasc": {
+          "code": "VASC000000323733",
+          "name": "出库非标增值（特批）"
+        },
+        "selectedService": {
+          "code": "（待系统确认）",
+          "name": "货权转移换标"
+        },
+        "confirmationSummary": null,
+        "fieldSuggestions": {
+          "background": "客户佛山市虹创金属制品有限公司 货权转移按换标方式操作",
+          "description": "货权转移换标（具体非标服务）"
+        },
+        "attachmentCheck": {
+          "status": "not_checked",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问流程",
+        "不得推荐'出库其他服务需求'兜底项",
+        "不得忽略换标费用的提前报价"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2a-002-2026W30-05",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-21/19:42",
+    "vascNumber": "VASC000000322278",
+    "ihNumber": "IH000000106233",
+    "customerCode": "13947840",
+    "customerName": "FANTASIA TRADING LLC",
+    "warehouse": "USWC Warehouse",
+    "relatedWO": [
+      "WO12115097872",
+      "WO12115106597"
+    ],
+    "evidenceSnippets": [
+      "许晓妍: VASC000000322278 IH000000106233 USWC Warehouse 13947840 FANTASIA TRADING LLC@徐丽红 @杨丽溶 @李超亮 这个增值anker需要在7.23排一位专业人员到仓做检测，要仓库协助提供一个临时办公桌，另外安排一位winit员工协助拿货拆箱，预计1天可以完成，这是出库单：WO12115097872，WO12115106597，仓库帮忙提供下成本",
+      "李超亮: 人工一天按 8h；办公桌有什么要求吗？ 现场应该只有打包台的桌子",
+      "许晓妍: @徐丽红 @杨丽溶",
+      "徐丽红: @李超亮@许晓妍 可以的 主要是放货物",
+      "许晓妍: @徐丽红 VASC000000322278已审批",
+      "徐丽红: @许晓妍 已确认报价，帮忙审核下下架单"
+    ],
+    "needsEnrichment": [
+      "改制增值的精确服务项编码",
+      "工时费报价（人工1天按8h）",
+      "出库单WO11644923544的最终状态"
+    ],
+    "evidenceGap": [],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "USWC Warehouse",
+        "operationType": "改制增值"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户13947840 FANTASIA TRADING LLC（Anker）需要专业人员到仓做检测，仓库提供临时办公桌+winit员工协助拿货拆箱",
+        "abnormalType": "客户驻仓改制",
+        "isReusable": true
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000322278",
+          "name": "入库非标增值（特批）",
+          "type": "nonstandard",
+          "serviceItems": [
+            "改制增值",
+            "驻仓支持",
+            "人工协助"
+          ]
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "USWC Warehouse",
+        "serviceType": "入库非标增值（特批）",
+        "operationType": "改制增值（客户驻仓）",
+        "duration": "1天",
+        "laborHours": "8h"
+      },
+      "customerInput": "客户13947840 FANTASIA TRADING LLC（Anker）需要在7.23排一位专业人员到仓做检测，仓库协助提供临时办公桌+winit员工协助拿货拆箱，预计1天完成",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "这个增值Anker需要在7.23排一位专业人员到仓做检测，要仓库协助提供一个临时办公桌，另外安排一位winit员工协助拿货拆箱，预计1天可以完成（VASC000000322278 13947840 FANTASIA TRADING）"
+        },
+        {
+          "role": "warehouse",
+          "name": "李超亮",
+          "msg": "人工一天按 8h；办公桌有什么要求吗？ 现场应该只有打包台的桌子"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "@徐丽红 VASC000000322278已审批"
+        },
+        {
+          "role": "auditor",
+          "name": "徐丽红",
+          "msg": "已确认报价，帮忙审核下下架单"
+        }
+      ],
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedVasc": {
+          "code": "VASC000000322278",
+          "name": "入库非标增值（特批）"
+        },
+        "selectedService": {
+          "code": "（待系统确认）",
+          "name": "改制增值"
+        },
+        "confirmationSummary": null,
+        "fieldSuggestions": {
+          "background": "客户13947840 FANTASIA TRADING LLC（Anker）驻仓改制，1天完成，需仓库提供临时办公桌+winit员工协助",
+          "description": "改制增值（具体非标服务）+ 驻仓支持"
+        },
+        "attachmentCheck": {
+          "status": "not_checked",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问流程",
+        "不得推荐'入库其他服务需求'兜底项",
+        "不得忽略工时费/临时办公桌/驻仓支持的细节"
+      ]
+    }
+  }
+]

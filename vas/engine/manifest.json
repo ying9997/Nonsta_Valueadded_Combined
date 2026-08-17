@@ -1,0 +1,68 @@
+{
+  "id": "value-add-product-recommendation-v2",
+  "domain": "value-add",
+  "name": "增值产品推荐 v2",
+  "description": "根据系统圈定的 VASC 候选、异常事实、客户处理意图和 value-add-recommendation-rules 决策层进行推荐；严格遵守 systemScopedVascList 边界和 forbidden/H 规则。Use when 客户问某个异常或处理诉求应该选择哪个增值产品/VASC。",
+  "version": "2.0.0",
+  "inputSchema": {
+    "type": "object",
+    "required": [],
+    "properties": {
+      "exceptionCode": {
+        "type": "string",
+        "description": "异常编码"
+      },
+      "exceptionName": {
+        "type": "string",
+        "description": "异常名称"
+      },
+      "exceptionCategory": {
+        "type": "string",
+        "description": "异常类别"
+      },
+      "exceptionObject": {
+        "type": "string",
+        "description": "异常对象，如包裹、商品、单品、托盘"
+      },
+      "customerActionIntent": {
+        "type": "string",
+        "description": "客户处理意图，如继续上架、新单上架、销毁、自提"
+      },
+      "inboundOrderNo": {
+        "type": "string",
+        "description": "关联入库单号，仅作上下文"
+      },
+      "orderStatusHint": {
+        "type": "string",
+        "description": "上游已知入库单状态提示"
+      },
+      "handoffFacts": {
+        "type": "object",
+        "description": "上游异常诊断输出的 handoff facts"
+      },
+      "enrichedContext": {
+        "type": "object",
+        "description": "编排器聚合事实"
+      }
+    }
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "structured": {
+        "type": "object",
+        "description": "VASC 推荐结构化结果"
+      },
+      "analysis": {
+        "type": "string",
+        "description": "对客可读推荐说明"
+      }
+    }
+  },
+  "x_recaller_propagate_previous_enriched_context": true,
+  "x_recaller_enriched_context_preferred_source_experts": [
+    "value-add-exception-diagnosis",
+    "inbound-exception-check",
+    "inbound-order-status"
+  ]
+}

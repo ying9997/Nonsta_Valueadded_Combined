@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AI 推荐一致性校验 — 交互方案原型</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f7fa; }
+  .tab-btn.active { background: #1677ff; color: #fff; box-shadow: 0 2px 8px rgba(22,119,255,.25); }
+  .step-btn.active { background: #1677ff; color: #fff; }
+  .step-btn.done { background: #d9f0d9; color: #237804; }
+  .modal-mask { background: rgba(0,0,0,.45); }
+  .badge-deviation { background: #fff2e8; color: #d4380d; border: 1px solid #ffbb96; }
+  .badge-standard { background: #e6f7ff; color: #096dd9; border: 1px solid #91d5ff; }
+  .badge-ai { background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+  .bubble-user { background: #1677ff; color: #fff; align-self: flex-end; }
+  .bubble-ai { background: #f0f0f0; color: #333; }
+  .form-panel { min-height: 640px; }
+  .sidebar-panel { min-height: 640px; max-height: 720px; overflow-y: auto; }
+  .field-locked { background: #fafafa; color: #999; }
+  .highlight-changed { background: #fff7e6; border-color: #ffa940 !important; }
+  .divider-y { border-left: 1px dashed #d9d9d9; }
+  .arrow-down::after { content: "▼"; margin-left: 6px; font-size: 10px; color: #999; }
+  .fadein { animation: fadein .3s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .stamp { position: absolute; top: 12px; right: 12px; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+</style>
+</head>
+<body class="text-gray-800">
+
+<div class="max-w-[1400px] mx-auto px-6 py-6">
+
+  <!-- Header -->
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">AI 推荐一致性校验 — 交互方案原型</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      场景：客户在「新增库内/入库增值单」等入口，AI 已判定<b>可走标准增值</b>，但客户实际提交<b>非标特批 → 其他服务需求</b>。
+      三种方案对比，点击顶部 Tab 切换。
+    </p>
+  </header>
+
+  <!-- Tabs -->
+  <div class="flex gap-2 mb-4">
+    <button class="tab-btn active px-5 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 transition" data-tab="s1">方案 1 · 提交弹窗 + 强制原因</button>
+    <button class="tab-btn px-5 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 transition" data-tab="s2">方案 2 修订版 · 侧栏前置说服</button>
+    <button class="tab-btn px-5 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 transition" data-tab="s4">方案 4 修订版 · 提交弹窗 + 双选</button>
+  </div>
+
+  <!-- ================= 方案 1 ================= -->
+  <section id="s1" class="scheme">
+    <!-- 方案说明 -->
+    <div class="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+      <div class="flex items-start gap-3">
+        <div class="badge-standard px-2 py-0.5 rounded text-xs font-semibold">方案 1</div>
+        <div class="text-sm text-gray-700 flex-1">
+          <b>提交时弹窗 + 强制填偏离原因 + 打标</b>。客户填完非标特批表单点提交，命中「AI 推标准、客户选非标」偏离时弹窗，必选原因下拉才可继续。原因入库 + 单据打偏离标。
+        </div>
+      </div>
+    </div>
+
+    <!-- 步骤切换 -->
+    <div class="flex items-center gap-2 mb-4 text-sm">
+      <span class="text-gray-400">流程：</span>
+      <button class="step-btn active px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s1" data-step="1">① 客户填完非标表单</button>
+      <span class="text-gray-300">→</span>
+      <button class="step-btn px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s1" data-step="2">② 提交时弹窗</button>
+      <span class="text-gray-300">→</span>
+      <button class="step-btn px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s1" data-step="3">③ 填原因后提交成功（打标）</button>
+    </div>
+
+    <!-- 主视图 -->
+    <div class="grid grid-cols-12 gap-4 relative">
+      <!-- 主表单 -->
+      <div class="col-span-8 form-panel bg-white rounded-lg p-6 border border-gray-200 relative">
+        <div class="stamp badge-deviation" id="s1-stamp" style="display:none;">📌 偏离 AI 推荐（STD_TO_CUSTOM）</div>
+        <h2 class="text-lg font-semibold mb-4 border-b border-gray-100 pb-2">新增库内增值单</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="text-sm text-gray-600 block mb-1">订单号</label>
+            <input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50" value="OSF24WW008234" readonly>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 block mb-1">增值产品</label>
+            <div class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm arrow-down bg-white">非标增值（特批）</div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 block mb-1">增值服务</label>
+            <div class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm arrow-down bg-white">入库/库内其他服务需求</div>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 block mb-1">需求背景说明 <span class="text-red-500">*</span></label>
+            <textarea rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">FBA 补货批次到货较急，标准贴标不足以覆盖，需要额外贴一个红色的"易碎"提示。</textarea>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 block mb-1">需求描述 <span class="text-red-500">*</span></label>
+            <textarea rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">SKU：ABC-001 x 500 pcs；操作动作：在原纸箱正面加贴红色"FRAGILE"警示标，位置在原有标签左侧；参考图见附件。</textarea>
+          </div>
+          <div>
+            <label class="text-sm text-gray-600 block mb-1">附件</label>
+            <div class="text-xs text-gray-500 border border-dashed border-gray-300 rounded-md px-3 py-2">📎 fragile-label-sample.png</div>
+          </div>
+        </div>
+        <div class="mt-6 flex justify-end gap-2">
+          <button class="px-4 py-2 rounded-md text-sm border border-gray-300 bg-white">取消</button>
+          <button id="s1-submit" class="px-5 py-2 rounded-md text-sm bg-blue-600 text-white font-medium hover:bg-blue-700">提交</button>
+        </div>
+      </div>
+
+      <!-- AI 侧栏 -->
+      <div class="col-span-4 sidebar-panel bg-white rounded-lg p-4 border border-gray-200">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+          <span class="w-2 h-2 rounded-full bg-green-500"></span>
+          <span class="text-sm font-semibold">AI 增值助手</span>
+          <span class="badge-ai text-xs px-2 py-0.5 rounded ml-auto">已给出推荐</span>
+        </div>
+        <div class="flex flex-col gap-2 text-xs">
+          <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%]">你好，我看到你要新增增值单，请问需要做什么？</div>
+          <div class="bubble-user rounded-lg px-3 py-2 max-w-[85%]">给箱子贴个红色警示标</div>
+          <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%]">好的。请问：<br>1. 是纸箱正面加贴一个新标签，还是替换原有标签？<br>2. 标签内容是文字还是有图案？</div>
+          <div class="bubble-user rounded-lg px-3 py-2 max-w-[85%]">加贴新标签，红色"FRAGILE"文字</div>
+          <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%]">
+            <div class="font-semibold text-green-700 mb-1">✅ 判定：可走标准增值</div>
+            <div>你的需求命中「<b>标准增值 → 加贴警示标签（红色 FRAGILE）</b>」，<br>无需人工审核，当天可执行，价格 ¥0.5/件。</div>
+            <div class="mt-2 flex flex-col gap-1.5">
+              <button class="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium">一键勾选标准增值</button>
+              <button class="px-3 py-1.5 border border-gray-300 rounded text-xs">我仍要走非标</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 方案 1 弹窗 -->
+      <div id="s1-modal" class="hidden fixed inset-0 modal-mask z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg w-[560px] shadow-2xl fadein">
+          <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+            <span class="text-xl">⚠️</span>
+            <h3 class="font-semibold text-gray-900">你选的与 AI 推荐不一致</h3>
+          </div>
+          <div class="px-5 py-4">
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <div class="border border-green-200 bg-green-50 rounded-md p-3">
+                <div class="text-xs text-green-700 mb-1">🤖 AI 推荐</div>
+                <div class="text-sm font-semibold text-green-900">标准增值 · 加贴警示标签</div>
+                <div class="text-xs text-green-700 mt-1">免人工审核 · 当天执行 · ¥0.5/件</div>
+              </div>
+              <div class="border border-orange-200 bg-orange-50 rounded-md p-3">
+                <div class="text-xs text-orange-700 mb-1">📝 你的选择</div>
+                <div class="text-sm font-semibold text-orange-900">非标特批 · 其他服务需求</div>
+                <div class="text-xs text-orange-700 mt-1">需人工审核 · 24 小时反馈</div>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="text-sm text-gray-700 block mb-1.5">请选择偏离原因 <span class="text-red-500">*</span></label>
+              <select class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                <option>-- 请选择 --</option>
+                <option>AI 推荐的标准产品不能覆盖我的需求</option>
+                <option>我的场景比较特殊，标准产品做不了</option>
+                <option>我更熟悉非标流程</option>
+                <option>AI 会话中途我改了主意</option>
+                <option>其他（请补充说明）</option>
+              </select>
+            </div>
+            <div class="mb-1">
+              <label class="text-sm text-gray-700 block mb-1.5">补充说明（选填）</label>
+              <textarea rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></textarea>
+            </div>
+          </div>
+          <div class="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+            <button class="px-4 py-2 rounded-md text-sm border border-gray-300" onclick="closeModal('s1-modal')">返回修改</button>
+            <button class="px-4 py-2 rounded-md text-sm bg-blue-600 text-white font-medium" onclick="s1Confirm()">确认提交（打标）</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 方案 1 提交成功 -->
+      <div id="s1-success" class="hidden absolute inset-0 bg-white/95 rounded-lg z-40 flex items-center justify-center">
+        <div class="text-center">
+          <div class="text-6xl mb-3">✅</div>
+          <div class="text-xl font-semibold text-gray-900 mb-2">提交成功</div>
+          <div class="text-sm text-gray-600 mb-4">单据号 VAS20260812023456</div>
+          <div class="inline-flex items-center gap-2 badge-deviation px-3 py-1.5 rounded-md text-xs font-medium">
+            📌 已标记：偏离 AI 推荐（STD_TO_CUSTOM）
+          </div>
+          <div class="text-xs text-gray-500 mt-3">原因：AI 推荐的标准产品不能覆盖我的需求</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 方案 2 修订版 ================= -->
+  <section id="s2" class="scheme hidden">
+    <div class="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+      <div class="flex items-start gap-3">
+        <div class="badge-standard px-2 py-0.5 rounded text-xs font-semibold">方案 2 修订版</div>
+        <div class="text-sm text-gray-700 flex-1">
+          <b>AI 侧栏内前置说服 + 双 CTA 分流</b>。AI 追问完成后如判定可走标准，侧栏推荐卡直接给两个按钮：「一键勾选标准增值」/「我仍要走非标」。
+          走标准直接勾选，走非标就把已收集的需求转为 SOP+描述让客户「一键回填」，提交时静默打标。
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-4 text-sm">
+      <span class="text-gray-400">流程：</span>
+      <button class="step-btn active px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s2" data-step="1">① AI 追问完，给出双 CTA 推荐</button>
+      <span class="text-gray-300">→</span>
+      <button class="step-btn px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s2" data-step="2a">②A 点「一键勾选标准」→ 走标准</button>
+      <span class="text-gray-300">|</span>
+      <button class="step-btn px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s2" data-step="2b">②B 点「我仍要走非标」→ 一键回填 + 打标</button>
+    </div>
+
+    <div class="grid grid-cols-12 gap-4 relative">
+      <!-- 主表单：不同 step 有不同内容 -->
+      <div class="col-span-8 form-panel bg-white rounded-lg p-6 border border-gray-200 relative">
+        <div class="stamp badge-deviation" id="s2-stamp" style="display:none;">📌 偏离 AI 推荐（STD_TO_CUSTOM）</div>
+        <h2 class="text-lg font-semibold mb-4 border-b border-gray-100 pb-2">新增库内增值单</h2>
+
+        <!-- s2 step1: 空表单 -->
+        <div class="s2-step-content" data-step="1">
+          <div class="space-y-4 opacity-60 pointer-events-none">
+            <div><label class="text-sm text-gray-600 block mb-1">订单号</label><input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50" value="OSF24WW008234" readonly></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值产品</label><div class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm arrow-down bg-white text-gray-400">请选择</div></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值服务</label><div class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm arrow-down bg-white text-gray-400">请选择</div></div>
+          </div>
+          <div class="mt-4 text-center text-sm text-gray-400 italic">👉 客户正在和右侧 AI 助手对话，尚未填表单</div>
+        </div>
+
+        <!-- s2 step2a: AI 一键勾选后 -->
+        <div class="s2-step-content hidden" data-step="2a">
+          <div class="space-y-4">
+            <div><label class="text-sm text-gray-600 block mb-1">订单号</label><input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50" value="OSF24WW008234" readonly></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值产品</label><div class="w-full px-3 py-2 border rounded-md text-sm arrow-down highlight-changed">标准增值 · 加贴警示标签 <span class="badge-ai text-[10px] px-1.5 py-0.5 rounded ml-2">AI 已勾选</span></div></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值服务</label><div class="w-full px-3 py-2 border rounded-md text-sm arrow-down highlight-changed">红色 FRAGILE 警示标</div></div>
+            <div><label class="text-sm text-gray-600 block mb-1">数量</label><input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" value="500"></div>
+            <div class="p-3 bg-green-50 border border-green-200 rounded-md text-xs text-green-800">
+              ✅ 走标准增值路径 · 免人工审核 · 当天可执行 · 预估费用 ¥250（¥0.5 × 500）
+            </div>
+            <div class="text-xs text-gray-500">💡 标准增值无需填写需求描述和 SOP</div>
+          </div>
+          <div class="mt-6 flex justify-end gap-2">
+            <button class="px-4 py-2 rounded-md text-sm border border-gray-300 bg-white">取消</button>
+            <button class="px-5 py-2 rounded-md text-sm bg-blue-600 text-white font-medium">提交</button>
+          </div>
+        </div>
+
+        <!-- s2 step2b: 我仍要走非标 → 一键回填 -->
+        <div class="s2-step-content hidden" data-step="2b">
+          <div class="space-y-4">
+            <div><label class="text-sm text-gray-600 block mb-1">订单号</label><input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50" value="OSF24WW008234" readonly></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值产品</label><div class="w-full px-3 py-2 border rounded-md text-sm arrow-down">非标增值（特批）</div></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值服务</label><div class="w-full px-3 py-2 border rounded-md text-sm arrow-down">入库/库内其他服务需求</div></div>
+            <div><label class="text-sm text-gray-600 block mb-1">需求背景说明 <span class="text-red-500">*</span></label>
+              <textarea rows="2" class="w-full px-3 py-2 border rounded-md text-sm highlight-changed">FBA 补货批次到货较急，需要在原纸箱正面加贴红色警示标。<span class="text-[10px] text-orange-600">（AI 回填）</span></textarea>
+            </div>
+            <div><label class="text-sm text-gray-600 block mb-1">需求描述 <span class="text-red-500">*</span></label>
+              <textarea rows="3" class="w-full px-3 py-2 border rounded-md text-sm highlight-changed">操作 SOP：<br>1. 拆封纸箱，检查商品完好；2. 在纸箱正面左上角加贴红色 FRAGILE 警示标签；3. 每箱贴一张；4. 拍照留档；5. 复原封装。<br>SKU：ABC-001 x 500 pcs</textarea>
+            </div>
+            <div class="p-3 bg-orange-50 border border-orange-200 rounded-md text-xs text-orange-800">
+              ⚠️ 已选择走非标特批 · 需人工审核 · 预计 24 小时反馈 · 单据将标记「偏离 AI 推荐」
+            </div>
+          </div>
+          <div class="mt-6 flex justify-end gap-2">
+            <button class="px-4 py-2 rounded-md text-sm border border-gray-300 bg-white">取消</button>
+            <button class="px-5 py-2 rounded-md text-sm bg-blue-600 text-white font-medium">提交</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 侧栏：各 step 不同 -->
+      <div class="col-span-4 sidebar-panel bg-white rounded-lg p-4 border border-gray-200">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+          <span class="w-2 h-2 rounded-full bg-green-500"></span>
+          <span class="text-sm font-semibold">AI 增值助手</span>
+          <span class="badge-ai text-xs px-2 py-0.5 rounded ml-auto" id="s2-side-tag">已给出推荐</span>
+        </div>
+        <!-- s2 sidebar step1 -->
+        <div class="s2-sidebar-content" data-step="1">
+          <div class="flex flex-col gap-2 text-xs">
+            <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%]">你要新增增值单，请描述需求</div>
+            <div class="bubble-user rounded-lg px-3 py-2 max-w-[85%]">给箱子贴红色警示标</div>
+            <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%]">纸箱正面加贴新标签还是替换？内容是文字还是图案？</div>
+            <div class="bubble-user rounded-lg px-3 py-2 max-w-[85%]">加贴新标签，红色"FRAGILE"文字，500 件</div>
+            <div class="bubble-ai rounded-lg px-3 py-2 max-w-[92%]">
+              <div class="font-semibold text-green-700 mb-1">✅ 判定：可走标准增值</div>
+              <div class="text-[11px] mb-2">命中「<b>标准增值 → 加贴警示标签（红色 FRAGILE）</b>」<br>免人工审核 · 当天可执行 · ¥0.5/件</div>
+              <div class="border-t border-gray-200 my-2"></div>
+              <div class="flex flex-col gap-1.5">
+                <button class="px-3 py-2 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">✨ 一键勾选标准增值</button>
+                <button class="px-3 py-2 border border-gray-300 rounded text-xs hover:bg-gray-50">我仍要走非标</button>
+              </div>
+              <div class="text-[10px] text-gray-500 mt-1.5">💡 点「我仍要走非标」将自动生成 SOP 和需求描述给你回填</div>
+            </div>
+          </div>
+        </div>
+        <!-- s2 sidebar step2a -->
+        <div class="s2-sidebar-content hidden" data-step="2a">
+          <div class="flex flex-col gap-2 text-xs">
+            <div class="bubble-ai rounded-lg px-3 py-2 max-w-[92%]">
+              <div class="font-semibold text-green-700 mb-1">✅ 已为你勾选标准增值</div>
+              <div class="text-[11px]">「加贴警示标签 · 红色 FRAGILE」已填入表单。<br>数量已默认 500，请核对后提交即可。</div>
+            </div>
+            <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%] italic text-gray-500">如需修改，直接在左侧表单调整</div>
+          </div>
+        </div>
+        <!-- s2 sidebar step2b -->
+        <div class="s2-sidebar-content hidden" data-step="2b">
+          <div class="flex flex-col gap-2 text-xs">
+            <div class="bubble-ai rounded-lg px-3 py-2 max-w-[92%]">
+              <div class="font-semibold text-orange-700 mb-1">📝 已切换到非标特批流程</div>
+              <div class="text-[11px] mb-2">已根据你之前的对话生成 SOP + 需求描述</div>
+              <button class="px-3 py-2 bg-blue-600 text-white rounded text-xs font-medium w-full">✨ 一键回填到表单</button>
+            </div>
+            <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%] text-orange-600">
+              ⚠️ 提示：走非标需人工审核，本次提交将被标记「偏离 AI 推荐」用于业务复盘
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 方案 4 修订版 ================= -->
+  <section id="s4" class="scheme hidden">
+    <div class="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+      <div class="flex items-start gap-3">
+        <div class="badge-standard px-2 py-0.5 rounded text-xs font-semibold">方案 4 修订版</div>
+        <div class="text-sm text-gray-700 flex-1">
+          <b>提交时双选弹窗（挽回 + 打标）</b>。客户按原流程填非标特批表单点提交，命中关键偏离时弹窗。
+          两个按钮：<b>「采纳 AI 建议」→ 主表单自动切到标准增值勾选态</b>；<b>「保留原提交」→ 展开原因下拉 → 打标提交</b>。不涉及作废/重下。
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-4 text-sm">
+      <span class="text-gray-400">流程：</span>
+      <button class="step-btn active px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s4" data-step="1">① 客户填完非标表单点提交</button>
+      <span class="text-gray-300">→</span>
+      <button class="step-btn px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s4" data-step="2">② 弹窗双选（对照 + 两个按钮）</button>
+      <span class="text-gray-300">→</span>
+      <button class="step-btn px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s4" data-step="3a">③A 采纳 AI（切换标准）</button>
+      <span class="text-gray-300">|</span>
+      <button class="step-btn px-3 py-1.5 rounded-md border border-gray-200 bg-white" data-scheme="s4" data-step="3b">③B 保留原提交（填原因）</button>
+    </div>
+
+    <div class="grid grid-cols-12 gap-4 relative">
+      <!-- 主表单 -->
+      <div class="col-span-8 form-panel bg-white rounded-lg p-6 border border-gray-200 relative">
+        <div class="stamp badge-deviation" id="s4-stamp" style="display:none;">📌 偏离 AI 推荐（STD_TO_CUSTOM）</div>
+        <h2 class="text-lg font-semibold mb-4 border-b border-gray-100 pb-2">新增库内增值单</h2>
+
+        <!-- s4 step1&2: 非标表单 -->
+        <div class="s4-step-content" data-step="1,2,3b">
+          <div class="space-y-4">
+            <div><label class="text-sm text-gray-600 block mb-1">订单号</label><input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50" value="OSF24WW008234" readonly></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值产品</label><div class="w-full px-3 py-2 border rounded-md text-sm arrow-down">非标增值（特批）</div></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值服务</label><div class="w-full px-3 py-2 border rounded-md text-sm arrow-down">入库/库内其他服务需求</div></div>
+            <div><label class="text-sm text-gray-600 block mb-1">需求背景说明 <span class="text-red-500">*</span></label><textarea rows="2" class="w-full px-3 py-2 border rounded-md text-sm">FBA 补货批次到货较急，标准贴标不足以覆盖，需要额外贴一个红色的"易碎"提示。</textarea></div>
+            <div><label class="text-sm text-gray-600 block mb-1">需求描述 <span class="text-red-500">*</span></label><textarea rows="3" class="w-full px-3 py-2 border rounded-md text-sm">SKU：ABC-001 x 500 pcs；操作动作：在原纸箱正面加贴红色"FRAGILE"警示标。</textarea></div>
+            <div><label class="text-sm text-gray-600 block mb-1">附件</label><div class="text-xs text-gray-500 border border-dashed border-gray-300 rounded-md px-3 py-2">📎 fragile-label-sample.png</div></div>
+          </div>
+          <div class="mt-6 flex justify-end gap-2">
+            <button class="px-4 py-2 rounded-md text-sm border border-gray-300 bg-white">取消</button>
+            <button id="s4-submit" class="px-5 py-2 rounded-md text-sm bg-blue-600 text-white font-medium hover:bg-blue-700">提交</button>
+          </div>
+        </div>
+
+        <!-- s4 step3a: 采纳 AI 后表单 -->
+        <div class="s4-step-content hidden" data-step="3a">
+          <div class="space-y-4">
+            <div><label class="text-sm text-gray-600 block mb-1">订单号</label><input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-gray-50" value="OSF24WW008234" readonly></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值产品</label><div class="w-full px-3 py-2 border rounded-md text-sm arrow-down highlight-changed">标准增值 · 加贴警示标签 <span class="badge-ai text-[10px] px-1.5 py-0.5 rounded ml-2">已切换</span></div></div>
+            <div><label class="text-sm text-gray-600 block mb-1">增值服务</label><div class="w-full px-3 py-2 border rounded-md text-sm arrow-down highlight-changed">红色 FRAGILE 警示标</div></div>
+            <div><label class="text-sm text-gray-600 block mb-1">数量</label><input class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" value="500"></div>
+            <div class="p-3 bg-green-50 border border-green-200 rounded-md text-xs text-green-800">
+              ✅ 已采纳 AI 建议 · 已切换为标准增值 · 免人工审核 · 预估 ¥250
+            </div>
+            <div class="text-xs text-gray-500">💡 原需求背景说明/需求描述已清除（标准增值无需填写）</div>
+          </div>
+          <div class="mt-6 flex justify-end gap-2">
+            <button class="px-4 py-2 rounded-md text-sm border border-gray-300 bg-white">取消</button>
+            <button class="px-5 py-2 rounded-md text-sm bg-blue-600 text-white font-medium">提交</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 侧栏 -->
+      <div class="col-span-4 sidebar-panel bg-white rounded-lg p-4 border border-gray-200">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+          <span class="w-2 h-2 rounded-full bg-green-500"></span>
+          <span class="text-sm font-semibold">AI 增值助手</span>
+          <span class="badge-ai text-xs px-2 py-0.5 rounded ml-auto">已给出推荐</span>
+        </div>
+        <div class="flex flex-col gap-2 text-xs">
+          <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%]">你要新增增值单，请描述需求</div>
+          <div class="bubble-user rounded-lg px-3 py-2 max-w-[85%]">给箱子贴红色警示标</div>
+          <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%]">纸箱正面加贴新标签还是替换？</div>
+          <div class="bubble-user rounded-lg px-3 py-2 max-w-[85%]">加贴，红色 FRAGILE，500 件</div>
+          <div class="bubble-ai rounded-lg px-3 py-2 max-w-[92%]">
+            <div class="font-semibold text-green-700 mb-1">✅ 判定：可走标准增值</div>
+            <div class="text-[11px]">推荐「标准增值 · 加贴警示标签（红色 FRAGILE）」<br>免人工 · 当天完成 · ¥0.5/件</div>
+          </div>
+          <div class="bubble-ai rounded-lg px-3 py-2 max-w-[85%] italic text-gray-500">你选了非标特批，提交时会二次确认</div>
+        </div>
+      </div>
+
+      <!-- 方案 4 弹窗 -->
+      <div id="s4-modal" class="hidden fixed inset-0 modal-mask z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg w-[620px] shadow-2xl fadein">
+          <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+            <span class="text-xl">⚠️</span>
+            <h3 class="font-semibold text-gray-900">AI 建议走标准增值，是否采纳？</h3>
+          </div>
+          <div class="px-5 py-4">
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <div class="border-2 border-green-400 bg-green-50 rounded-md p-3 relative">
+                <div class="absolute -top-2 left-3 badge-ai text-[10px] px-1.5 py-0.5 rounded font-semibold">AI 推荐</div>
+                <div class="text-sm font-semibold text-green-900 mt-1">标准增值 · 加贴警示标签</div>
+                <div class="text-xs text-green-700 mt-2 space-y-0.5">
+                  <div>✅ 免人工审核</div>
+                  <div>✅ 当天可执行</div>
+                  <div>✅ 预估 ¥250（¥0.5 × 500）</div>
+                </div>
+              </div>
+              <div class="border border-orange-300 bg-orange-50 rounded-md p-3">
+                <div class="text-[10px] text-orange-700 mb-1">📝 你的选择</div>
+                <div class="text-sm font-semibold text-orange-900 mt-1">非标特批 · 其他服务需求</div>
+                <div class="text-xs text-orange-700 mt-2 space-y-0.5">
+                  <div>⏱️ 需人工审核（约 24 小时）</div>
+                  <div>💬 需描述 + SOP + 附件</div>
+                  <div>💰 单独议价</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 保留原提交时展开的原因区域 -->
+            <div id="s4-reason-area" class="hidden mb-3 p-3 bg-gray-50 rounded-md border border-gray-200 fadein">
+              <label class="text-sm text-gray-700 block mb-1.5">保留原提交需要说明原因 <span class="text-red-500">*</span></label>
+              <select class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2">
+                <option>-- 请选择 --</option>
+                <option>AI 推荐的标准产品不能覆盖我的需求</option>
+                <option>我的场景比较特殊，标准产品做不了</option>
+                <option>我更熟悉非标流程</option>
+                <option>AI 会话中途我改了主意</option>
+                <option>其他（请补充说明）</option>
+              </select>
+              <textarea rows="2" placeholder="补充说明（选填）" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></textarea>
+            </div>
+          </div>
+          <div class="px-5 py-3 border-t border-gray-100 flex justify-between items-center">
+            <button class="px-3 py-2 rounded-md text-sm text-gray-500" onclick="closeModal('s4-modal')">← 返回修改</button>
+            <div class="flex gap-2">
+              <button id="s4-keep-btn" class="px-4 py-2 rounded-md text-sm border border-gray-300" onclick="s4Keep()">保留原提交（填原因）</button>
+              <button class="px-5 py-2 rounded-md text-sm bg-green-600 text-white font-medium hover:bg-green-700" onclick="s4Adopt()">✨ 采纳 AI 建议</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  // Tab 切换
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.scheme').forEach(s => s.classList.add('hidden'));
+      document.getElementById(btn.dataset.tab).classList.remove('hidden');
+    });
+  });
+
+  // Step 切换
+  document.querySelectorAll('.step-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const scheme = btn.dataset.scheme;
+      const step = btn.dataset.step;
+      document.querySelectorAll(`.step-btn[data-scheme="${scheme}"]`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyStep(scheme, step);
+    });
+  });
+
+  function applyStep(scheme, step) {
+    if (scheme === 's1') {
+      document.getElementById('s1-modal').classList.add('hidden');
+      document.getElementById('s1-success').classList.add('hidden');
+      document.getElementById('s1-stamp').style.display = 'none';
+      if (step === '2') document.getElementById('s1-modal').classList.remove('hidden');
+      if (step === '3') {
+        document.getElementById('s1-success').classList.remove('hidden');
+        document.getElementById('s1-stamp').style.display = 'block';
+      }
+    }
+    if (scheme === 's2') {
+      document.querySelectorAll('.s2-step-content, .s2-sidebar-content').forEach(el => el.classList.add('hidden'));
+      document.querySelector(`.s2-step-content[data-step="${step}"]`).classList.remove('hidden');
+      document.querySelector(`.s2-sidebar-content[data-step="${step}"]`).classList.remove('hidden');
+      document.getElementById('s2-stamp').style.display = (step === '2b') ? 'block' : 'none';
+    }
+    if (scheme === 's4') {
+      document.querySelectorAll('.s4-step-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById('s4-modal').classList.add('hidden');
+      document.getElementById('s4-reason-area').classList.add('hidden');
+      document.getElementById('s4-stamp').style.display = 'none';
+
+      document.querySelectorAll('.s4-step-content').forEach(el => {
+        const steps = el.dataset.step.split(',');
+        if (steps.includes(step)) el.classList.remove('hidden');
+      });
+      if (step === '2') document.getElementById('s4-modal').classList.remove('hidden');
+      if (step === '3b') {
+        document.getElementById('s4-modal').classList.remove('hidden');
+        document.getElementById('s4-reason-area').classList.remove('hidden');
+        document.getElementById('s4-stamp').style.display = 'block';
+      }
+    }
+  }
+
+  // 交互按钮
+  document.getElementById('s1-submit').addEventListener('click', () => {
+    document.getElementById('s1-modal').classList.remove('hidden');
+    document.querySelector('[data-scheme="s1"][data-step="2"]').click();
+  });
+  function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+  function s1Confirm() {
+    document.getElementById('s1-modal').classList.add('hidden');
+    document.querySelector('[data-scheme="s1"][data-step="3"]').click();
+  }
+
+  document.getElementById('s4-submit').addEventListener('click', () => {
+    document.querySelector('[data-scheme="s4"][data-step="2"]').click();
+  });
+  function s4Keep() {
+    document.querySelector('[data-scheme="s4"][data-step="3b"]').click();
+  }
+  function s4Adopt() {
+    document.getElementById('s4-modal').classList.add('hidden');
+    document.querySelector('[data-scheme="s4"][data-step="3a"]').click();
+  }
+</script>
+
+</body>
+</html>

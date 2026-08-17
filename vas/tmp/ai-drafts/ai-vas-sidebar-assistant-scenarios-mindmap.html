@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 增值指引侧栏助手 — 业务场景脑图</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;background:#f0f4f8;padding:30px}
+h1{text-align:center;color:#1e3a5f;margin-bottom:8px;font-size:20px}
+.sub{text-align:center;color:#5a6b80;font-size:12.5px;margin-bottom:24px}
+.wrap{overflow:auto;padding:30px;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.rel{position:relative;display:inline-block}
+svg.L{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:0}
+svg.L line{stroke:#a0c4e8;stroke-width:1.5}
+.N{display:flex;align-items:center;position:relative;z-index:1}
+.C{display:flex;flex-direction:column;gap:5px;margin-left:30px}
+.lb{display:inline-block;padding:5px 12px;border-radius:5px;font-size:12.5px;line-height:1.6;border:1px solid #c0d0e0;background:#fff;color:#333;flex-shrink:0;white-space:nowrap}
+.lb:hover{box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.lb.root{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;font-size:15px;font-weight:600;padding:10px 20px;border-radius:8px}
+.lb.b{background:#e0ecff;border-color:#7eaadc;font-weight:500}
+.lb.c{background:#fff8e1;border-color:#e6c44d;font-size:12px}
+.lb.a{background:#e8f5e9;border-color:#66bb6a;font-size:12px}
+.lb.d{background:#f5f5f5;border-color:#bbb;color:#999;font-size:12px}
+.lb.t{background:#fff;border-color:#ddd;font-size:11.5px;color:#555}
+.lb.h{background:#fce4ec;border-color:#e57373;font-size:12px;font-weight:500}
+.lb.warn{background:#ffe0e0;border-color:#ff6666;color:#c0392b;font-size:12px}
+.legend{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:16px;font-size:11.5px;color:#555}
+.legend span{display:inline-flex;align-items:center;gap:4px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;border:1px solid}
+</style>
+</head>
+<body>
+<h1>AI 增值指引侧栏助手 — 业务场景脑图</h1>
+<div class="sub">范围：库内/入库非标增值（特批）→ 其他服务需求 · 一个智能体多入口 · Coze 编排</div>
+<div class="wrap"><div class="rel" id="root"></div></div>
+<div class="legend">
+<span><i style="background:#e0ecff;border-color:#7eaadc"></i>业务场景</span>
+<span><i style="background:#fff8e1;border-color:#e6c44d"></i>入口/能力</span>
+<span><i style="background:#e8f5e9;border-color:#66bb6a"></i>输出结果</span>
+<span><i style="background:#fce4ec;border-color:#e57373"></i>关键规则</span>
+<span><i style="background:#ffe0e0;border-color:#ff6666"></i>AI 推导/待确认</span>
+</div>
+<script>
+const T=(t,c,ch)=>({t,c:c||'',ch:ch||[]});
+const data=T('AI 增值指引侧栏助手','root',[
+  T('业务场景 A：库内非标特批（其他服务需求）','b',[
+    T('入口 A1：菜单「新增库内增值单」','c',[
+      T('URL 含 createInstockOrder','t'),
+      T('vaSource = INHOUSE','t')
+    ]),
+    T('入口 A2：订单列表「继续下单」进入库内增值单','c',[T('沿用同一 vaOrderNo','t')]),
+    T('路由结果','a',[
+      T('增值产品名称 = 库内非标增值（特批）','t'),
+      T('增值服务 = 库内其他服务需求','t')
+    ])
+  ]),
+  T('业务场景 B：库内非标特批（库内异常处理）','b',[
+    T('入口 B1：库内异常单列表「处理异常」→第二步','c',[
+      T('vaSource = UNUSUAL 且异常源为库内','t'),
+      T('携带异常单号 eventNo','t')
+    ]),
+    T('路由结果','a',[
+      T('增值产品名称 = 库内非标增值（特批）','t'),
+      T('增值服务 = 库内其他服务需求（库内异常处理）','t')
+    ])
+  ]),
+  T('业务场景 C：入库非标特批（其他服务需求）','b',[
+    T('入口 C1：菜单「新增入库增值单」','c',[T('vaSource = INBOUND','t')]),
+    T('入口 C2：订单列表「继续下单」进入入库增值单','c',[T('沿用同一 vaOrderNo','t')]),
+    T('入口 C3：入库异常单列表「处理异常」→第二步','c',[T('vaSource = UNUSUAL 且异常源为入库','t')]),
+    T('路由结果','a',[
+      T('增值产品名称 = 入库非标增值（特批）','t'),
+      T('增值服务 = 入库其他服务需求','t')
+    ])
+  ]),
+  T('AI 侧栏核心能力（多入口共享）','b',[
+    T('触发：自动打开侧栏','c',[
+      T('进入 4 个入口页面时自动打开','t'),
+      T('通过 postMessage OPEN_AI_CHATBOT 触发','t'),
+      T('复用现有 aiChatbot_open / ai-chatbot-width','t')
+    ]),
+    T('代发固定话术（含上下文）','c',[
+      T('通用字段：客户编码/名称、仓库编码/名称','t'),
+      T('vaSource（INBOUND / INHOUSE / UNUSUAL）','t'),
+      T('当前可选产品列表 listAllVasc','t'),
+      T('订单已填字段快照','t'),
+      T('异常入口 → 追加异常单号 eventNo','t'),
+      T('其他入口 → 追加单据号 + 单据商品信息','t'),
+      T('传入字段清单待评审确认','warn')
+    ]),
+    T('AI 归类判断（Coze expert）','c',[
+      T('硬分流：仅在 listAllVasc 圈定范围内推荐','h'),
+      T('归类命中 → 库内/入库其他服务需求','a'),
+      T('归类未命中 → 提示客户联系人工客服','h')
+    ]),
+    T('多轮对话追问（客户填写层）','c',[
+      T('追问：处理对象/操作动作/数量/单据号/附件','t'),
+      T('客户回答 + 附件上传（Word/Excel/图片）','t'),
+      T('附件能力现状二次确认','warn')
+    ]),
+    T('生成中英双语 SOP','c',[
+      T('结构固定：知识库 + outputSchema 约束','h'),
+      T('字段：背景 / 中文步骤 / Steps in English / 备注 / 附件','t'),
+      T('⚠️ 未确认不能回填（红线）','h')
+    ]),
+    T('客户确认 SOP','c',[
+      T('允许客户修正后再确认','t'),
+      T('确认 ≠ 审核通过（红线）','h')
+    ]),
+    T('一键回填 4 个字段','c',[
+      T('① 增值产品名称','t'),
+      T('② 增值服务','t'),
+      T('③ 需求背景说明','t'),
+      T('④ 需求描述','t'),
+      T('回填后允许客户手动修改','a'),
+      T('修改后 AI 不重新感知','t')
+    ])
+  ]),
+  T('双轨需求描述（新增落库字段）','b',[
+    T('客户原始版（客户初次自述）','c'),
+    T('AI 润色版（AI 生成 + 客户确认版）','c'),
+    T('客户改后版（一键回填后客户再改）','c'),
+    T('三版并存落库，审核可对照','a')
+  ]),
+  T('侧栏关闭记忆','b',[
+    T('客户主动关闭 → 记录「本页面下次不再自动弹」','c'),
+    T('支持客户重新开启自动弹（入口待评审）','warn'),
+    T('缓存键复用 aiChatbotOpenV2_{userId}（或新增子键）','t')
+  ]),
+  T('审核端（TOM 复用现有页面）','b',[
+    T('客户提交时 AI SOP 随增值单一起入库','c'),
+    T('TOM-订单-增值服务管理-增值订单读取','c'),
+    T('复用字段：场景概述（select）+ 操作 SOP（textarea）','c'),
+    T('审核人员可基于 AI 版修改并保存','c'),
+    T('审核端代码路径下轮补做探索','warn')
+  ]),
+  T('埋点统计','b',[
+    T('AI 使用率：侧栏打开率、对话完成率','c'),
+    T('回填采纳率：客户确认并一键回填的比例','c'),
+    T('审核回退率：与一期前基线对比','c')
+  ]),
+  T('灰度与降级','b',[
+    T('客户维度 30% 灰度','c'),
+    T('上线时间：2026 年 8 月','c'),
+    T('降级：Coze 不可用时不阻断，客户自行填写','h')
+  ]),
+  T('本期不做（划出边界）','b',[
+    T('免审 / 自动审核通过','d'),
+    T('自动提交增值单','d'),
+    T('精确报价承诺','d'),
+    T('提交前硬预审','d'),
+    T('多套智能体（多入口仍同一智能体）','d')
+  ]),
+  T('待确认事项','b',[
+    T('WMS 端仓库拿到 SOP 后的展示/交付','warn'),
+    T('回填字段旁是否展示「AI 生成」视觉标识','warn'),
+    T('Coze 侧栏附件上传能力现状','warn'),
+    T('审核端复用还是需扩展 AI 相关字段','warn'),
+    T('金萤 open_id 归属：主账号 or 备用账号','warn')
+  ])
+]);
+
+function buildDOM(node){
+  const div=document.createElement('div');
+  div.className='N';
+  const lb=document.createElement('span');
+  lb.className='lb '+node.c;
+  lb.textContent=node.t;
+  lb.setAttribute('data-node','1');
+  div.appendChild(lb);
+  if(node.ch&&node.ch.length){
+    const ch=document.createElement('div');
+    ch.className='C';
+    node.ch.forEach(c=>ch.appendChild(buildDOM(c)));
+    div.appendChild(ch);
+  }
+  return div;
+}
+
+function drawLines(container){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','L');
+  const rect0=container.getBoundingClientRect();
+  const nodes=container.querySelectorAll('.N');
+  nodes.forEach(n=>{
+    const lb=n.querySelector(':scope > [data-node]');
+    const ch=n.querySelector(':scope > .C');
+    if(!lb||!ch) return;
+    const children=ch.querySelectorAll(':scope > .N');
+    if(!children.length) return;
+    const pRect=lb.getBoundingClientRect();
+    const px=pRect.right-rect0.left;
+    const py=pRect.top+pRect.height/2-rect0.top;
+    const midX=px+15;
+    addLine(svg,px,py,midX,py);
+    const ys=[];
+    children.forEach(cNode=>{
+      const cLb=cNode.querySelector(':scope > [data-node]');
+      const cRect=cLb.getBoundingClientRect();
+      const cx=cRect.left-rect0.left;
+      const cy=cRect.top+cRect.height/2-rect0.top;
+      ys.push(cy);
+      addLine(svg,midX,cy,cx,cy);
+    });
+    if(ys.length>1){
+      addLine(svg,midX,Math.min(...ys),midX,Math.max(...ys));
+    } else {
+      addLine(svg,midX,ys[0],midX,ys[0]);
+    }
+  });
+  const w=container.scrollWidth;
+  const h=container.scrollHeight;
+  svg.setAttribute('width',w);
+  svg.setAttribute('height',h);
+  container.prepend(svg);
+}
+
+function addLine(svg,x1,y1,x2,y2){
+  const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('x1',x1);l.setAttribute('y1',y1);
+  l.setAttribute('x2',x2);l.setAttribute('y2',y2);
+  svg.appendChild(l);
+}
+
+const container=document.getElementById('root');
+container.appendChild(buildDOM(data));
+requestAnimationFrame(()=>drawLines(container));
+</script>
+</body>
+</html>

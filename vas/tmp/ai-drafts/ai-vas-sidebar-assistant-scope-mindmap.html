@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 增值指引侧栏助手 — 功能改造范围</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;background:#f0f4f8;padding:30px}
+h1{text-align:center;color:#1e3a5f;margin-bottom:8px;font-size:20px}
+.sub{text-align:center;color:#5a6b80;font-size:12.5px;margin-bottom:24px}
+.wrap{overflow:auto;padding:30px;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.rel{position:relative;display:inline-block}
+svg.L{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:0}
+svg.L line{stroke:#a0c4e8;stroke-width:1.5}
+.N{display:flex;align-items:center;position:relative;z-index:1}
+.C{display:flex;flex-direction:column;gap:5px;margin-left:30px}
+.lb{display:inline-block;padding:5px 12px;border-radius:5px;font-size:12.5px;line-height:1.6;border:1px solid #c0d0e0;background:#fff;color:#333;flex-shrink:0;white-space:nowrap}
+.lb:hover{box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.lb.root{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;font-size:15px;font-weight:600;padding:10px 20px;border-radius:8px}
+.lb.b{background:#e0ecff;border-color:#7eaadc;font-weight:500}
+.lb.c{background:#fff8e1;border-color:#e6c44d;font-size:12px}
+.lb.a{background:#e8f5e9;border-color:#66bb6a;font-size:12px}
+.lb.d{background:#f5f5f5;border-color:#bbb;color:#999;font-size:12px}
+.lb.t{background:#fff;border-color:#ddd;font-size:11.5px;color:#555}
+.lb.h{background:#fce4ec;border-color:#e57373;font-size:12px;font-weight:500}
+.lb.warn{background:#ffe0e0;border-color:#ff6666;color:#c0392b;font-size:12px}
+.lb.new{background:#fdebd0;border-color:#e67e22;color:#a04000;font-weight:500}
+.legend{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:16px;font-size:11.5px;color:#555}
+.legend span{display:inline-flex;align-items:center;gap:4px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;border:1px solid}
+</style>
+</head>
+<body>
+<h1>AI 增值指引侧栏助手 — 功能改造范围脑图</h1>
+<div class="sub">5 大改造模块 · 一期上线 2026 年 8 月 · 客户 30% 灰度</div>
+<div class="wrap"><div class="rel" id="root"></div></div>
+<div class="legend">
+<span><i style="background:#e0ecff;border-color:#7eaadc"></i>系统模块</span>
+<span><i style="background:#fdebd0;border-color:#e67e22"></i>新增能力</span>
+<span><i style="background:#fff8e1;border-color:#e6c44d"></i>改造点</span>
+<span><i style="background:#e8f5e9;border-color:#66bb6a"></i>规则/字段</span>
+<span><i style="background:#fce4ec;border-color:#e57373"></i>关键约束</span>
+<span><i style="background:#ffe0e0;border-color:#ff6666"></i>待确认</span>
+</div>
+<script>
+const T=(t,c,ch)=>({t,c:c||'',ch:ch||[]});
+const data=T('AI 增值指引侧栏助手（改造范围）','root',[
+  T('① seller 前端（客户端）','b',[
+    T('4 个入口页面接入自动开侧栏','new',[
+      T('入口 1：新增库内增值单（createInstockOrder，vaSource=INHOUSE）','c'),
+      T('入口 2：新增入库增值单（vaSource=INBOUND）','c'),
+      T('入口 3：异常单处理第二步（vaSource=UNUSUAL）','c'),
+      T('入口 4：订单列表继续下单（沿用 vaOrderNo）','c'),
+      T('触发条件：命中场景 + 命中灰度 + 未记忆关闭','h')
+    ]),
+    T('AI 侧栏对话组件（复用现有 AI 客服组件）','new',[
+      T('挂载 aiChatbot_open + ai-chatbot-width 复用','t'),
+      T('接入 postMessage OPEN_AI_CHATBOT','t'),
+      T('展示多轮气泡（用户/助手 role 区分）','t'),
+      T('支持附件上传（图片必支持；Word/Excel 待 Coze 确认）','warn'),
+      T('归类未命中 → 展示「联系人工客服」引导按钮','c')
+    ]),
+    T('上下文组装模块','c',[
+      T('客户编码/名称、仓库编码/名称','t'),
+      T('vaSource（INBOUND/INHOUSE/UNUSUAL）','t'),
+      T('vascList（调 pms.vasc.listAllVasc 获取）','t'),
+      T('订单已填字段快照','t'),
+      T('异常入口追加 eventNo；其他入口追加单据号+商品','t')
+    ]),
+    T('SOP 确认与一键回填','new',[
+      T('侧栏展示 SOP 卡片（含「确认」按钮）','c'),
+      T('⚠️ 未确认前禁用一键回填按钮','h'),
+      T('回填 4 字段：产品名称/服务/需求背景说明/需求描述','a'),
+      T('前端本地保存三版：原始版 / AI 版 / 客户改后版','a'),
+      T('回填后允许客户手动修改（AI 不再感知）','t'),
+      T('字段旁「AI 生成」视觉标识（利弊分析后决定）','warn')
+    ]),
+    T('侧栏关闭记忆','c',[
+      T('客户主动关闭 → 记录不再自动弹','t'),
+      T('缓存键 aiChatbotOpenV2_{userId} 扩展场景子键','t'),
+      T('支持重新开启自动弹（入口位置待评审）','warn')
+    ]),
+    T('埋点上报','new',[
+      T('AI 使用率：侧栏打开率、对话完成率','a'),
+      T('一键回填采纳率：客户确认+一键回填的比例','a'),
+      T('审核回退率：与一期前基线对比（后端埋点+对比）','a')
+    ]),
+    T('灰度开关','new',[
+      T('客户维度 30% 灰度（复用现有灰度框架）','a'),
+      T('降级：AI 不可用时侧栏提示，不阻断下单','h')
+    ])
+  ]),
+  T('② Coze 专家（AI 侧）','b',[
+    T('新增 1 个专家','new',[
+      T('domain = inbound（占位，待与 Coze 维护人对齐）','warn'),
+      T('id = 待定（占位）','warn'),
+      T('建议名 vas-nonstandard/nonstandard-special-approval-guidance','warn')
+    ]),
+    T('结构化输出 structured（8 业务字段）','new',[
+      T('recommendedProductCode（增值产品编码）','a'),
+      T('recommendedServiceCode（增值服务编码）','a'),
+      T('requirementBackground（需求背景说明）','a'),
+      T('requirementDescriptionAiPolished（需求描述 AI 润色版）','a'),
+      T('sopScene（场景概述，仅落库供 TOM 用）','a'),
+      T('sopBackground（SOP 背景，仅落库供 TOM 用）','a'),
+      T('sopStepsZh（SOP 中文步骤数组，仅落库供 TOM 用）','a'),
+      T('sopStepsEn（SOP 英文步骤数组，仅落库供 TOM 用）','a')
+    ]),
+    T('analysis 对客展示','new',[
+      T('自然语言确认摘要（客户在侧栏看到的核心内容）','c'),
+      T('⚠️ 红线：不得提及飞书/内部 Wiki/内部多维表','h'),
+      T('⚠️ 红线：AI 确认 ≠ 审核通过','h')
+    ]),
+    T('硬分流机制','new',[
+      T('调用时把 vascList 传入 inputs','c'),
+      T('Prompt 内明确「只能从 vascList 中选」','h'),
+      T('vascList 内无匹配 → 输出「联系人工客服」','h')
+    ]),
+    T('会话生命周期','c',[
+      T('未提交前同一入口重复进入 → 沿用 conversationId','t'),
+      T('客户提交增值单后 → 结束会话','t'),
+      T('下次新增 → 新建 conversationId','t')
+    ])
+  ]),
+  T('③ 后端接口（复用现有 AI 客服链路）','b',[
+    T('AI 客服后端代理复用','c',[
+      T('前端 → call-expert.ts → Coze 现有链路，不新起服务','a'),
+      T('新增专家挂到现有 experts_recaller 编排','t')
+    ]),
+    T('增值单提交接口扩字段','new',[
+      T('接口：wh.va.order.submit（现有）','t'),
+      T('新增入参：aiScene / aiSopZh / aiSopEn','a'),
+      T('新增入参：originalRequirement（客户原始版）','a'),
+      T('新增入参：aiPolishedRequirement（AI 润色版）','a'),
+      T('新增入参：customerFinalRequirement（客户改后版）','a'),
+      T('新增入参：aiSessionId（Coze conversationId）','a')
+    ]),
+    T('vascList 硬分流参数中转','c',[
+      T('调 Coze 时把 seller 拉到的 vascList 透传','t')
+    ])
+  ]),
+  T('④ OMS 增值单表（数据落库）','b',[
+    T('va_order 表新增字段','new',[
+      T('ai_scene（VARCHAR，AI 场景概述）','a'),
+      T('ai_sop_zh（TEXT，AI 中文 SOP）','a'),
+      T('ai_sop_en（TEXT，AI 英文 SOP）','a'),
+      T('original_requirement（TEXT，客户原始版需求）','a'),
+      T('ai_polished_requirement（TEXT，AI 润色版需求）','a'),
+      T('customer_final_requirement（TEXT，客户最终提交版）','a'),
+      T('ai_session_id（VARCHAR，Coze 会话 ID）','a'),
+      T('ai_source_flag（TINYINT，是否 AI 辅助下单，用于统计）','a')
+    ]),
+    T('数据迁移','c',[
+      T('存量增值单不回填 AI 字段（保持 NULL）','t'),
+      T('新增字段默认 NULL 兼容存量','a')
+    ])
+  ]),
+  T('⑤ TOM 审核端（复用现有页面）','b',[
+    T('订单-增值服务管理-增值订单页面','c',[
+      T('「场景概述」字段复用（AI 生成的 sopScene 回填）','a'),
+      T('「操作 SOP」字段复用（AI 中英双语 SOP 拼接回填）','a'),
+      T('展示客户原始版 + AI 润色版对照（新增只读区）','new'),
+      T('审核员修改后覆盖保存到现有字段','t'),
+      T('审核端代码路径下轮补做代码探索','warn')
+    ]),
+    T('是否新增 AI 相关字段','c',[
+      T('若审核员改动很小 → 复用现有字段即可','t'),
+      T('若需要区分「AI 生成 vs 审核员改动」→ 需新增字段','warn'),
+      T('待下轮代码探索后与审核业务方对齐','warn')
+    ])
+  ]),
+  T('本期不做（明确划边界）','b',[
+    T('免审 / 自动审核通过','d'),
+    T('自动提交增值单','d'),
+    T('精确报价承诺','d'),
+    T('提交前硬预审','d'),
+    T('多套智能体（多入口共用同一专家）','d'),
+    T('WMS 端仓库拿到 SOP 后的展示/交付（待定）','warn')
+  ])
+]);
+
+function buildDOM(node){
+  const div=document.createElement('div');
+  div.className='N';
+  const lb=document.createElement('span');
+  lb.className='lb '+node.c;
+  lb.textContent=node.t;
+  lb.setAttribute('data-node','1');
+  div.appendChild(lb);
+  if(node.ch&&node.ch.length){
+    const ch=document.createElement('div');
+    ch.className='C';
+    node.ch.forEach(c=>ch.appendChild(buildDOM(c)));
+    div.appendChild(ch);
+  }
+  return div;
+}
+
+function drawLines(container){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','L');
+  const rect0=container.getBoundingClientRect();
+  const nodes=container.querySelectorAll('.N');
+  nodes.forEach(n=>{
+    const lb=n.querySelector(':scope > [data-node]');
+    const ch=n.querySelector(':scope > .C');
+    if(!lb||!ch) return;
+    const children=ch.querySelectorAll(':scope > .N');
+    if(!children.length) return;
+    const pRect=lb.getBoundingClientRect();
+    const px=pRect.right-rect0.left;
+    const py=pRect.top+pRect.height/2-rect0.top;
+    const midX=px+15;
+    addLine(svg,px,py,midX,py);
+    const ys=[];
+    children.forEach(cNode=>{
+      const cLb=cNode.querySelector(':scope > [data-node]');
+      const cRect=cLb.getBoundingClientRect();
+      const cx=cRect.left-rect0.left;
+      const cy=cRect.top+cRect.height/2-rect0.top;
+      ys.push(cy);
+      addLine(svg,midX,cy,cx,cy);
+    });
+    if(ys.length>1){
+      addLine(svg,midX,Math.min(...ys),midX,Math.max(...ys));
+    } else {
+      addLine(svg,midX,ys[0],midX,ys[0]);
+    }
+  });
+  const w=container.scrollWidth;
+  const h=container.scrollHeight;
+  svg.setAttribute('width',w);
+  svg.setAttribute('height',h);
+  container.prepend(svg);
+}
+
+function addLine(svg,x1,y1,x2,y2){
+  const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('x1',x1);l.setAttribute('y1',y1);
+  l.setAttribute('x2',x2);l.setAttribute('y2',y2);
+  svg.appendChild(l);
+}
+
+const container=document.getElementById('root');
+container.appendChild(buildDOM(data));
+requestAnimationFrame(()=>drawLines(container));
+</script>
+</body>
+</html>

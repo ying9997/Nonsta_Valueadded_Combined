@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>方案A - 决策树引导（贴合实际页面）</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f5f5; color: #333; font-size: 13px; }
+
+/* 顶部导航 */
+.top-bar { background: linear-gradient(135deg, #8B6914, #A0792A); color: white; height: 48px; display: flex; align-items: center; padding: 0 16px; }
+.top-logo { width: 32px; height: 32px; background: rgba(255,255,255,0.15); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; margin-right: 12px; }
+.top-tabs { display: flex; gap: 2px; flex: 1; }
+.top-tab { padding: 6px 14px; font-size: 12px; border-radius: 4px 4px 0 0; cursor: pointer; position: relative; white-space: nowrap; }
+.top-tab.active { background: white; color: #333; }
+.top-tab:not(.active) { opacity: 0.85; }
+.top-tab .close { margin-left: 6px; font-size: 10px; opacity: 0.6; }
+.top-right { display: flex; align-items: center; gap: 16px; font-size: 12px; margin-left: auto; }
+
+/* 布局 */
+.layout { display: flex; min-height: calc(100vh - 48px); }
+.sidebar { width: 80px; background: #3d3022; color: rgba(255,255,255,0.75); padding-top: 8px; flex-shrink: 0; }
+.sidebar-item { padding: 12px 0; text-align: center; font-size: 12px; cursor: pointer; border-left: 3px solid transparent; }
+.sidebar-item:hover { background: rgba(255,255,255,0.05); }
+.sidebar-item.active { background: rgba(160,121,42,0.3); border-left-color: #A0792A; color: white; }
+.main { flex: 1; display: flex; flex-direction: column; }
+
+/* 页面头部 */
+.page-header { background: white; padding: 16px 24px 0; border-bottom: 1px solid #f0f0f0; }
+.page-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+.steps { display: flex; align-items: center; gap: 0; padding-bottom: 16px; }
+.step { display: flex; align-items: center; gap: 8px; }
+.step-circle { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+.step-circle.active { background: #A0792A; color: white; }
+.step-circle.done { background: #A0792A; color: white; }
+.step-circle.pending { background: #e8e8e8; color: #999; }
+.step-text { font-size: 13px; color: #666; }
+.step-text.active { color: #333; font-weight: 500; }
+.step-line { width: 120px; height: 1px; background: #e8e8e8; margin: 0 12px; }
+
+/* 内容区 */
+.page-body { flex: 1; padding: 20px 24px; overflow-y: auto; background: #fafafa; }
+
+/* 第一步基本信息 */
+.basic-info { background: white; border-radius: 6px; padding: 20px; margin-bottom: 16px; border: 1px solid #f0f0f0; }
+.form-field { display: flex; align-items: center; margin-bottom: 14px; }
+.form-field:last-child { margin-bottom: 0; }
+.field-label { width: 80px; text-align: right; margin-right: 12px; color: #666; }
+.field-label .req { color: #ff4d4f; margin-right: 2px; }
+.field-value { background: #fafafa; border: 1px solid #e8e8e8; padding: 6px 12px; border-radius: 4px; min-width: 200px; color: #333; }
+
+/* 异常明细表格 */
+.section-label { font-size: 13px; font-weight: 600; margin: 16px 0 10px; display: flex; align-items: center; gap: 6px; }
+.section-label::before { content: ''; width: 3px; height: 14px; background: #A0792A; border-radius: 2px; }
+.exc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.exc-table th { background: #fafafa; padding: 10px 12px; text-align: left; font-weight: 500; color: #666; border-bottom: 1px solid #f0f0f0; }
+.exc-table td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+.exc-table .link { color: #A0792A; cursor: pointer; }
+.sub-row { background: #fafafa; }
+.sub-table { width: 100%; margin: 8px 0; font-size: 11px; }
+.sub-table th { padding: 6px 8px; color: #999; font-weight: 400; }
+.sub-table td { padding: 6px 8px; }
+
+/* 第二步 - 决策树方案A */
+.step2-content { background: white; border-radius: 6px; padding: 20px; border: 1px solid #f0f0f0; }
+.balance-bar { background: #fffdf5; border: 1px solid #f5e6c8; border-radius: 4px; padding: 10px 16px; margin-bottom: 20px; font-size: 12px; color: #8B6914; }
+
+.decision-area { }
+.q-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.q-hint { font-size: 12px; color: #999; margin-bottom: 14px; }
+.q-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+.q-opt { border: 1.5px solid #e8e8e8; border-radius: 6px; padding: 14px 12px; cursor: pointer; transition: all 0.2s; text-align: center; }
+.q-opt:hover { border-color: #A0792A; background: #fffdf5; }
+.q-opt.selected { border-color: #A0792A; background: #fffdf5; box-shadow: 0 0 0 1px #A0792A; }
+.q-opt .icon { font-size: 20px; margin-bottom: 6px; }
+.q-opt .name { font-size: 13px; font-weight: 500; }
+.q-opt .desc { font-size: 11px; color: #999; margin-top: 4px; }
+
+.q-options-3 { grid-template-columns: repeat(3, 1fr); }
+.q-options-2 { grid-template-columns: repeat(2, 1fr); max-width: 500px; }
+
+/* 结果+表单 */
+.result-box { background: #f6ffed; border: 1px solid #b7eb8f; border-radius: 6px; padding: 16px; margin-top: 16px; display: none; }
+.result-box.show { display: block; }
+.result-title { color: #52c41a; font-weight: 600; margin-bottom: 10px; font-size: 13px; }
+.result-items { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 24px; font-size: 12px; }
+.result-items .ri { display: flex; gap: 6px; }
+.result-items .ri .k { color: #999; min-width: 60px; }
+.auto-tag { display: inline-block; background: #e6f7ff; color: #1890ff; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+
+.supplement-area { margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0f0f0; display: none; }
+.supplement-area.show { display: block; }
+.sup-row { display: flex; align-items: center; margin-bottom: 12px; }
+.sup-label { width: 100px; font-size: 12px; color: #666; text-align: right; margin-right: 12px; }
+.sup-label .req { color: #ff4d4f; }
+.sup-input { height: 32px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 10px; font-size: 12px; width: 240px; }
+.sup-select { height: 32px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 0 10px; font-size: 12px; width: 240px; }
+.sup-upload { border: 1px dashed #d9d9d9; padding: 8px 16px; border-radius: 4px; font-size: 12px; color: #999; cursor: pointer; }
+
+/* 费用 */
+.fee-section { margin-top: 16px; display: none; }
+.fee-section.show { display: block; }
+.fee-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.fee-title::before { content: ''; width: 3px; height: 14px; background: #A0792A; border-radius: 2px; }
+.fee-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fee-table th { background: #fafafa; padding: 8px 12px; text-align: left; color: #666; border-bottom: 1px solid #f0f0f0; }
+.fee-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
+.fee-footer { display: flex; justify-content: flex-end; gap: 16px; margin-top: 8px; font-size: 12px; }
+.fee-footer .total { color: #ff4d4f; font-weight: 600; font-size: 14px; }
+
+/* 底部 */
+.page-footer { background: white; border-top: 1px solid #f0f0f0; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+.footer-tip { font-size: 11px; color: #999; max-width: 500px; }
+.footer-btns { display: flex; gap: 10px; }
+.btn { padding: 6px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid; }
+.btn-default { background: white; color: #333; border-color: #d9d9d9; }
+.btn-primary { background: #A0792A; color: white; border-color: #A0792A; }
+.btn-primary:disabled { background: #d9d9d9; border-color: #d9d9d9; cursor: not-allowed; }
+.btn-submit { background: #ff4d4f; color: white; border-color: #ff4d4f; }
+
+.demo-tag { position: fixed; top: 56px; right: 12px; background: #ff4d4f; color: white; padding: 4px 10px; border-radius: 4px; font-size: 11px; z-index: 99; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="demo-tag">方案A Demo v2</div>
+
+<!-- 顶部栏 -->
+<div class="top-bar">
+  <div class="top-logo">W</div>
+  <div class="top-tabs">
+    <div class="top-tab">首页</div>
+    <div class="top-tab">异常单 <span class="close">×</span></div>
+    <div class="top-tab">全部增值订单 <span class="close">×</span></div>
+    <div class="top-tab active">创建增值订单 <span class="close">×</span></div>
+  </div>
+  <div class="top-right">
+    <span>🔔</span>
+    <span>kenghong.huang@winit.com<br><small>10006189</small></span>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- 左侧导航 -->
+  <div class="sidebar">
+    <div class="sidebar-item">商品管理</div>
+    <div class="sidebar-item">库存管理</div>
+    <div class="sidebar-item active">海外仓</div>
+    <div class="sidebar-item">国际送仓</div>
+    <div class="sidebar-item">平台同步</div>
+    <div class="sidebar-item">退货管理</div>
+    <div class="sidebar-item">售后管理</div>
+    <div class="sidebar-item">我的钱包</div>
+    <div class="sidebar-item">数据中心</div>
+    <div class="sidebar-item">个人中心</div>
+    <div class="sidebar-item">平台入驻</div>
+  </div>
+
+  <div class="main">
+    <!-- 页面头 -->
+    <div class="page-header">
+      <div class="page-title">新建入库增值订单</div>
+      <div class="steps">
+        <div class="step">
+          <span class="step-circle done" id="s1circle">✓</span>
+          <span class="step-text">基本信息</span>
+        </div>
+        <div class="step-line"></div>
+        <div class="step">
+          <span class="step-circle active" id="s2circle">2</span>
+          <span class="step-text active" id="s2text">增值产品信息</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 页面内容 -->
+    <div class="page-body" id="pageBody">
+
+      <!-- ====== 第二步：决策树 ====== -->
+      <div class="step2-content">
+        <div class="balance-bar">
+          最大可下单金额(USD) ⓘ：<b>109,979.22</b> &nbsp;&nbsp; 账户组总金额(USD)：<b>109,979.22</b>
+        </div>
+
+        <div class="section-label">增值服务</div>
+
+        <div class="decision-area">
+          <!-- Q1 -->
+          <div id="q1">
+            <div class="q-title">这批异常货物，你希望怎么处理？</div>
+            <div class="q-hint">异常类型：包裹条码异常(需客户处理) ｜ 入库单：WI46673588</div>
+            <div class="q-options">
+              <div class="q-opt" onclick="pickQ1('shelve')"><div class="icon">📦</div><div class="name">上架</div><div class="desc">处理后继续上架入库</div></div>
+              <div class="q-opt" onclick="pickQ1('destroy')"><div class="icon">🗑️</div><div class="name">销毁</div><div class="desc">仓库执行销毁</div></div>
+              <div class="q-opt" onclick="pickQ1('pickup')"><div class="icon">🚚</div><div class="name">自提</div><div class="desc">客户自行取回</div></div>
+              <div class="q-opt" onclick="pickQ1('photo')"><div class="icon">📷</div><div class="name">拍照辨识</div><div class="desc">先拍照确认再决定</div></div>
+            </div>
+          </div>
+
+          <!-- Q2 (上架分支) -->
+          <div id="q2" class="hidden">
+            <div class="q-title">是否需要重新贴标？</div>
+            <div class="q-hint">当前为包裹条码异常，通常需要贴标处理</div>
+            <div class="q-options q-options-3" style="max-width:680px;">
+              <div class="q-opt" onclick="pickQ2('pkg_label')"><div class="icon">📋</div><div class="name">贴包裹标</div><div class="desc">重新粘贴包裹条码</div></div>
+              <div class="q-opt" onclick="pickQ2('prod_label')"><div class="icon">🏷️</div><div class="name">贴商品标</div><div class="desc">重新粘贴商品条码</div></div>
+              <div class="q-opt" onclick="pickQ2('both_label')"><div class="icon">🏷️📋</div><div class="name">贴双标</div><div class="desc">商品+包裹都贴</div></div>
+            </div>
+            <div class="q-options q-options-2">
+              <div class="q-opt" onclick="pickQ2('direct')"><div class="icon">✅</div><div class="name">直接上架（不贴标）</div><div class="desc">条码仍可扫描识别</div></div>
+            </div>
+          </div>
+
+          <!-- Q3 (原单/新单) -->
+          <div id="q3" class="hidden">
+            <div class="q-title">上架到哪个入库单？</div>
+            <div class="q-hint">系统检测到原入库单 WI46673588 状态有效</div>
+            <div class="q-options q-options-2">
+              <div class="q-opt" onclick="pickQ3('original')"><div class="icon">📄</div><div class="name">原单上架</div><div class="desc">上架到 WI46673588<br><span style="color:#52c41a;font-size:11px;">✓ 推荐</span></div></div>
+              <div class="q-opt" onclick="pickQ3('new')"><div class="icon">📝</div><div class="name">新单上架</div><div class="desc">创建新入库单上架<br><span style="font-size:11px;">需提供新单号</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 匹配结果 -->
+        <div class="result-box" id="resultBox">
+          <div class="result-title">✅ 系统已自动匹配增值方案</div>
+          <div class="result-items">
+            <div class="ri"><span class="k">增值产品</span><span id="rProduct">-</span></div>
+            <div class="ri"><span class="k">处理方式</span><span id="rMethod">-</span></div>
+            <div class="ri"><span class="k">增值原子</span><span id="rAtom">-</span></div>
+            <div class="ri"><span class="k">订单类型</span><span>有箱单(非100%A+/A)<span class="auto-tag">自动</span></span></div>
+          </div>
+        </div>
+
+        <!-- 补充表单 -->
+        <div class="supplement-area" id="supArea">
+          <div class="sup-row">
+            <span class="sup-label"><span class="req">*</span> 商品等级</span>
+            <select class="sup-select"><option value="">请选择</option><option>良品</option><option>不良品</option></select>
+          </div>
+          <div class="sup-row hidden" id="supLabel">
+            <span class="sup-label"><span class="req">*</span> 标签文件</span>
+            <div class="sup-upload">📎 点击上传标签文件（PDF/PNG/JPG）</div>
+          </div>
+          <div class="sup-row hidden" id="supNewOrder">
+            <span class="sup-label"><span class="req">*</span> 新入库单号</span>
+            <input class="sup-input" placeholder="请输入">
+          </div>
+        </div>
+
+        <!-- 费用 -->
+        <div class="fee-section" id="feeSection">
+          <div style="margin-top:12px;">
+            <span style="font-size:12px;">🏷 服务时效(工作日)：<b>1</b></span>
+          </div>
+          <div class="fee-title" style="margin-top:14px;">预估费用</div>
+          <table class="fee-table">
+            <tr><th>费用名称</th><th>费用说明</th><th style="text-align:right;">价格(原币)</th><th style="text-align:right;">价格(USD) ⓘ</th></tr>
+            <tr><td id="feeName">-</td><td></td><td style="text-align:right;" id="feeAmt">--</td><td style="text-align:right;" id="feeUsd">--</td></tr>
+          </table>
+          <div class="fee-footer">
+            合计(原币) <span class="total" id="feeTotal">--</span> &nbsp; 合计(USD) ⓘ <span class="total" id="feeTotalUsd">--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部 -->
+    <div class="page-footer">
+      <div class="footer-tip">温馨提示：以上费用为系统预估费用，最终收费按实际扣费为准；所有费用由用户直接支付，不接受第三方代为付款</div>
+      <div class="footer-btns">
+        <button class="btn btn-default">上一步</button>
+        <button class="btn btn-default">保存草稿</button>
+        <button class="btn btn-submit" id="btnSubmit" disabled>提交</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let a1='',a2='',a3='';
+function pickQ1(v){
+  a1=v;
+  document.querySelectorAll('#q1 .q-opt').forEach(e=>e.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  document.getElementById('q2').classList.add('hidden');
+  document.getElementById('q3').classList.add('hidden');
+  document.getElementById('resultBox').classList.remove('show');
+  document.getElementById('supArea').classList.remove('show');
+  document.getElementById('feeSection').classList.remove('show');
+  setTimeout(()=>{
+    if(v==='shelve'){document.getElementById('q2').classList.remove('hidden');}
+    else if(v==='destroy'){showResult('上架前销毁','销毁','上架前包裹销毁',false,false,'增值-销毁费','$3.80','$3.80');}
+    else if(v==='pickup'){showResult('上架前自提','自提','-',false,false,'增值-自提费','$5.00','$5.00');}
+    else if(v==='photo'){showResult('拍照辨识（过程增值）','拍照辨识','商品拍照辨识',false,false,'增值-拍照费','$1.50','$1.50');}
+  },200);
+}
+function pickQ2(v){
+  a2=v;
+  document.querySelectorAll('#q2 .q-opt').forEach(e=>e.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  document.getElementById('q3').classList.add('hidden');
+  document.getElementById('resultBox').classList.remove('show');
+  document.getElementById('supArea').classList.remove('show');
+  document.getElementById('feeSection').classList.remove('show');
+  setTimeout(()=>{document.getElementById('q3').classList.remove('hidden');},200);
+}
+function pickQ3(v){
+  a3=v;
+  document.querySelectorAll('#q3 .q-opt').forEach(e=>e.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  let product=a3==='original'?'原单上架':'新单上架';
+  let method={pkg_label:'贴标上架（包裹标）',prod_label:'贴标上架（商品标）',both_label:'贴标上架（包裹标&商品标）',direct:'直接上架'}[a2];
+  let atom=a3==='original'?'-':'客户创建入库单';
+  let needLabel=a2!=='direct';
+  let needNew=a3==='new';
+  let fee=needLabel?'$0.15':'$0.00';
+  setTimeout(()=>{showResult(product,method,atom,needLabel,needNew,'增值-贴标/上架费',fee,fee);},200);
+}
+function showResult(product,method,atom,needLabel,needNew,feeName,feeAmt,feeUsd){
+  document.getElementById('rProduct').textContent=product;
+  document.getElementById('rMethod').textContent=method;
+  document.getElementById('rAtom').textContent=atom;
+  document.getElementById('resultBox').classList.add('show');
+  document.getElementById('supArea').classList.add('show');
+  if(needLabel) document.getElementById('supLabel').classList.remove('hidden'); else document.getElementById('supLabel').classList.add('hidden');
+  if(needNew) document.getElementById('supNewOrder').classList.remove('hidden'); else document.getElementById('supNewOrder').classList.add('hidden');
+  document.getElementById('feeName').textContent=feeName;
+  document.getElementById('feeAmt').textContent=feeAmt;
+  document.getElementById('feeUsd').textContent=feeUsd;
+  document.getElementById('feeTotal').textContent=feeAmt;
+  document.getElementById('feeTotalUsd').textContent=feeUsd;
+  document.getElementById('feeSection').classList.add('show');
+  document.getElementById('btnSubmit').disabled=false;
+}
+</script>
+</body>
+</html>

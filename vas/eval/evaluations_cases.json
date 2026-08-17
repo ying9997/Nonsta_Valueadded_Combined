@@ -1,0 +1,1217 @@
+[
+  {
+    "caseId": "C-2d-001-2026W30-01",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-21/10:40",
+    "vascNumber": "VASC000000321777",
+    "woNumber": "WO12114570671",
+    "customerCode": "19832717",
+    "customerName": "sierra gmbh",
+    "warehouse": "DEBR2",
+    "evidenceSnippets": [
+      "李依宣: VASC000000321777 WO12114570671 DEBR2 Warehouse 19832717 sierra gmbh 出库非标增值（特批）出库其他服务需求 @陈泽森 有个增值需要做完后拍照，帮忙加急审核",
+      "陈泽森: 让客户下个包裹开箱拍照的标准增值就可以了",
+      "李依宣: 这个可以拍到增值放置的文件吗?",
+      "陈泽森: 他下的是补贴在最大面居中的",
+      "李依宣: 因为有一个是dhl的面单不支持自主交货，另外一个文件也没有条码，所以只能按包裹其他标签上传，要是选择文件放置在箱内，线上补拍可以拍到不?",
+      "李依宣: 我看服务定义只针对商品标签和包裹标签拍照，放置箱内的文件不知道是否有提交非标增值去拍照",
+      "陈泽森: 就只是这个订单？@李依宣",
+      "李依宣: 这个订单已出库，增值我让他取消了，还有别的订单要做这个增值，应该只需要拍一次",
+      "陈泽森: 下个这种需求的订单让客户下个开箱拍照的看看能不能符合他的要求",
+      "李依宣: 因为之前有个单，文件放置在箱内，我们说做了，收货方没收到，他只需要拍一次确认仓库确实有放就行",
+      "陈泽森: 是的"
+    ],
+    "needsEnrichment": [
+      "客户 sierra gmbh 的合同信息",
+      "标准增值-包裹开箱拍照的精确服务代码",
+      "改单后实际重新提交的增值单号"
+    ],
+    "evidenceGap": [
+      "客户 sierra gmbh 是否复用此SOP的判断过程"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "outbound",
+        "warehouse": "DEBR2",
+        "operationType": "拍摄照片（文件放置箱内）"
+      },
+      "exceptionContext": {
+        "originalRequest": "文件放置在箱内，需要仓库做增值后拍照确认",
+        "abnormalType": "无法判断（疑似首次出现场景）",
+        "isReusable": false,
+        "reuseBlocker": "文件放置箱内拍照不属于标准增值-包裹开箱拍照的服务定义范围"
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000321777",
+          "type": "outbound_special",
+          "status": "cancelled"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "DEBR2",
+        "serviceType": "出库其他服务需求",
+        "needPhoto": true,
+        "photoTarget": "文件放置箱内的实物"
+      },
+      "customerInput": "客户 sierra gmbh（19832717）在包裹出库时需要将文件放置在箱内，并要求仓库做增值后拍照确认",
+      "conversationHistory": [
+        {
+          "role": "customer_service",
+          "name": "李依宣",
+          "msg": "有个增值需要做完后拍照，帮忙加急审核（VASC000000321777 sierra gmbh）"
+        },
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "让客户下个包裹开箱拍照的标准增值就可以了"
+        },
+        {
+          "role": "customer_service",
+          "name": "李依宣",
+          "msg": "这个可以拍到增值放置的文件吗?"
+        },
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "他下的是补贴在最大面居中的"
+        },
+        {
+          "role": "customer_service",
+          "name": "李依宣",
+          "msg": "我让客户下个开箱拍照的看看能不能符合他的要求"
+        },
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "是的"
+        }
+      ],
+      "expected": {
+        "route": "2d_standard_correction",
+        "selectedVasc": {
+          "vascCode": "（待客户新提交的标准增值单号）",
+          "vascType": "standard",
+          "serviceCode": "出库-包裹开箱拍照"
+        },
+        "selectedService": {
+          "serviceName": "包裹开箱拍照",
+          "serviceCategory": "outbound_other",
+          "scope": "标准增值服务定义范围内（商品标签/包裹标签）"
+        },
+        "missingFields": [
+          "原增值单号已取消，需客户重新提交",
+          "确认能否替代需求：开箱拍照能否拍到文件放置"
+        ],
+        "confirmationSummary": "客户 sierra gmbh 原提的非标增值（文件放置箱内拍照）服务定义范围不覆盖，建议改下标准增值-包裹开箱拍照，并确认能否拍到文件放置",
+        "fieldSuggestions": {
+          "服务类型": "包裹开箱拍照（标准增值）",
+          "拍照对象": "箱内文件（如标准服务定义不支持，则需走非标）"
+        },
+        "attachmentRequirements": [],
+        "attachmentCheck": {
+          "status": "not_checked",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许直接审批原 VASC000000321777（非标）",
+        "不允许建议改用'补贴包裹其他标签'增值（属于其他场景）",
+        "不允许跳过让客户重新提单"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2d-001-2026W30-02",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-21/15:53",
+    "vascNumber": "VASC000000322011",
+    "ihNumber": "IH000000106134",
+    "customerCode": "16877181",
+    "customerName": "无锡澳楷进出口有限公司",
+    "warehouse": "AU Warehouse",
+    "evidenceSnippets": [
+      "许晓妍: VASC000000322011 IH000000106134 AU Warehouse 16877181 无锡澳楷进出口有限公司 1、本单可以让客户走库内轻加工的标准增值；2、如果无法下标准增值，需要让客户提供仓内下架单",
+      "吴爱红: 直接给你提供下架单和上架单吗",
+      "许晓妍: 先走标准增值",
+      "吴爱红: 标准做不了吧 备注不了异常单号",
+      "许晓妍: 原来的sku已经上架了，异常单也关闭了，跟异常单没关系了啊",
+      "吴爱红: 仓库说没有 还在异常区",
+      "许晓妍: 这个不是上架回机区了吗",
+      "吴爱红: 可是库存流水没有上架记录",
+      "susan.li: 货在异常库位",
+      "许晓妍: VASC000000322011已审批"
+    ],
+    "needsEnrichment": [
+      "异常单EB0526071331236810的最终处理状态",
+      "货物实际位置（异常区/回机区）的最终判定"
+    ],
+    "evidenceGap": [
+      "为何库存流水与实物位置不一致的系统原因"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "AU Warehouse",
+        "operationType": "库内轻加工"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户 无锡澳楷进出口有限公司（16877181）要求仓库对已入库货物做库内轻加工",
+        "abnormalType": "货物位置异常（异常区 vs 回机区争议）",
+        "isReusable": true,
+        "reuseBlocker": ""
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000322011",
+          "type": "inbound_special",
+          "status": "approved"
+        },
+        {
+          "code": "EB0526071331236810",
+          "type": "abnormal_order",
+          "status": "争议"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "AU Warehouse",
+        "serviceType": "入库非标特批（轻加工）",
+        "relatedAbnormalOrder": "EB0526071331236810"
+      },
+      "customerInput": "客户 无锡澳楷进出口有限公司（16877181）要求对在库货物做库内轻加工",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "1、本单可以让客户走库内轻加工的标准增值（VASC000000322011）；2、如果无法下标准增值，需要让客户提供仓内下架单"
+        },
+        {
+          "role": "customer_service",
+          "name": "吴爱红",
+          "msg": "标准做不了吧 备注不了异常单号"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "先走标准增值，原来的sku已经上架了，异常单也关闭了，跟异常单没关系了啊"
+        },
+        {
+          "role": "customer_service",
+          "name": "吴爱红",
+          "msg": "仓库说没有 还在异常区"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "这个不是上架回机区了吗"
+        },
+        {
+          "role": "warehouse",
+          "name": "susan.li",
+          "msg": "货在异常库位"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "VASC000000322011已审批"
+        }
+      ],
+      "expected": {
+        "route": "2d_standard_correction",
+        "selectedVasc": {
+          "vascCode": "VASC000000322011",
+          "vascType": "inbound_special",
+          "serviceCode": "库内轻加工"
+        },
+        "selectedService": {
+          "serviceName": "库内轻加工（标准增值）",
+          "serviceCategory": "inbound_light_processing",
+          "scope": "可复用标准SOP"
+        },
+        "missingFields": [
+          "异常单EB0526071331236810是否仍处于开启状态（决定能否走标准）",
+          "仓库对实物位置的最终判定"
+        ],
+        "confirmationSummary": "客户 无锡澳楷进出口有限公司（16877181）建议优先走库内轻加工标准增值，核实货物位置后下架单可豁免",
+        "fieldSuggestions": {
+          "服务类型": "库内轻加工（标准）",
+          "关联异常单": "（如异常单关闭可不填）"
+        },
+        "attachmentRequirements": [],
+        "attachmentCheck": {
+          "status": "not_checked",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许在异常单未确认前直接走非标",
+        "不允许遗漏货物位置确认环节"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2d-001-2026W30-03",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-21/16:14",
+    "vascNumber": "VASC000000322008",
+    "woNumber": "WO12105966580",
+    "customerCode": "19501625",
+    "customerName": "苏州市勤基电子科技有限公司",
+    "warehouse": "USWC5 Warehouse",
+    "evidenceSnippets": [
+      "陈泽森: VASC000000322008 WO12105966580 USWC5 Warehouse 19501625 苏州市勤基电子科技有限公司 出库非标增值（特批） 客户的这个需求，让客户转新单，转新单的时候，清除指定包裹标签，然后在不同包裹其他标签里面传他的标签文件",
+      "李润美: 没太明白，客户是要贴产品标签，下单的时候忘记勾选了要贴产品标签，现在暂存完成了，也是更新出库单，重新提交订单吗？",
+      "陈泽森: 转新单呀，暂存状态，去订单处理那里更新自提出库单 然后转新单的时候选上面2个增值",
+      "李润美: 但是上面那个不是包裹条码的嘛，客户的是产品的条码",
+      "陈泽森: 客户A+包裹。。",
+      "李润美: 嗷嗷，那是不是直接就在暂存可以就可以处理了，不需要转新单了，产品标签就直接选择其他包裹标签，然后他还要贴包裹条码，选那个包裹条码的话，就可以直接覆盖原来的winit标签的吧",
+      "陈泽森: 现在 他补不了补贴包裹其他标签的增值",
+      "陈泽森: 原来的标签只能是清除指定标签的那个增值。他那个是商品标签， 补贴包裹标签覆盖的是包裹标签",
+      "李润美: 好的，明白了"
+    ],
+    "needsEnrichment": [
+      "客户 苏州市勤基电子科技有限公司（19501625）的A+包裹类型（陈泽森原话提到'客户A+包裹'）",
+      "新单最终提交的标准增值单号"
+    ],
+    "evidenceGap": [],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "outbound",
+        "warehouse": "USWC5 Warehouse",
+        "operationType": "清除指定包裹标签+补贴其他标签"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户 苏州市勤基电子科技有限公司（19501625）暂存后需要补提增值（清除原包裹标签+补贴新商品标签）",
+        "abnormalType": "客户条码格式不在标准增值补贴商品条码位覆盖范围",
+        "isReusable": true,
+        "reuseBlocker": "陈泽森原话：'他补不了补贴包裹其他标签的增值'"
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000322008",
+          "type": "outbound_special",
+          "status": "转新单处理中"
+        },
+        {
+          "code": "VASC000000322191",
+          "type": "outbound_special",
+          "status": "已重新提交"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "USWC5 Warehouse",
+        "serviceType": "出库非标增值（特批）",
+        "labelIssue": "商品条码格式不在标准补贴位"
+      },
+      "customerInput": "客户 苏州市勤基电子科技有限公司（19501625）A+包裹暂存完成后，发现忘记勾选贴产品标签，要求补提增值（贴产品标签+贴包裹条码）",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "让客户转新单，转新单的时候，清除指定包裹标签，然后在不同包裹其他标签里面传他的标签文件（VASC000000322008）"
+        },
+        {
+          "role": "customer_service",
+          "name": "李润美",
+          "msg": "没太明白，客户是要贴产品标签，下单的时候忘记勾选了要贴产品标签"
+        },
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "转新单呀，暂存状态，去订单处理那里更新自提出库单"
+        },
+        {
+          "role": "customer_service",
+          "name": "李润美",
+          "msg": "但是上面那个不是包裹条码的嘛，客户的是产品的条码"
+        },
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "现在 他补不了补贴包裹其他标签的增值"
+        },
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "原来的标签只能是清除指定标签的那个增值。他那个是商品标签， 补贴包裹标签覆盖的是包裹标签"
+        }
+      ],
+      "expected": {
+        "route": "2d_standard_correction",
+        "selectedVasc": {
+          "vascCode": "（转新单后新标准增值单号）",
+          "vascType": "standard",
+          "serviceCode": "清除指定包裹标签+补贴其他标签（标准组合）"
+        },
+        "selectedService": {
+          "serviceName": "清除指定包裹标签+补贴其他标签",
+          "serviceCategory": "outbound_label_replacement",
+          "scope": "标准组合增值覆盖商品标签+包裹标签"
+        },
+        "missingFields": [
+          "新单需重新提交对应的标签对应关系附件"
+        ],
+        "confirmationSummary": "客户 苏州市勤基电子科技有限公司（19501625）A+包裹需组合使用「清除指定包裹标签+补贴其他标签」两个标准增值，并在转新单时上传标签对应关系附件",
+        "fieldSuggestions": {
+          "增值1": "清除指定包裹标签（标准）",
+          "增值2": "补贴其他标签（标准，覆盖原winit标签）",
+          "必传附件1": "标签对应关系表（Excel）",
+          "必传附件2": "新标签条码文件（PDF/zip）"
+        },
+        "attachmentRequirements": [
+          {
+            "name": "标签对应关系表",
+            "format": "xlsx",
+            "required": true,
+            "status": "需补充"
+          },
+          {
+            "name": "新标签条码文件",
+            "format": "pdf/zip",
+            "required": true,
+            "status": "需补充"
+          }
+        ],
+        "attachmentCheck": {
+          "status": "fail",
+          "issues": [
+            "VASC000000322008: 客户A+包裹条码格式不在标准上传位"
+          ],
+          "suggestions": [
+            "审单时校验标签类型与上传位匹配（商品标签 vs 包裹标签）",
+            "标签格式不在标准位时，引导客户走转新单组合标准增值"
+          ]
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许将商品标签误传到补贴包裹条码位",
+        "不允许让客户在补贴商品条码位上传非标准格式条码",
+        "不允许忽略标签对应关系附件的必要性"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2d-001-2026W30-04",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-22/15:31",
+    "vascNumber": "VASC000000318096",
+    "vascRelated": "VASC000000321756",
+    "wiNumber": "WI50490812",
+    "ebNumber": "EB0126071431248012",
+    "customerCode": "20109088",
+    "customerName": "何忆华",
+    "warehouse": "USWC Warehouse",
+    "evidenceSnippets": [
+      "耿文文: VASC000000318096、VASC000000321756 WI50490812 EB0126071431248012 USWC Warehouse 20109088 何忆华 入库非标增值（特批） 这个异常可以走标准增值，指引客户走标准增值处理",
+      "陈泽森: VASC000000318096 直接下这个增值就可以了",
+      "耿文文: 那个轻加工的标准增值费用大概多少",
+      "陈泽森: 6美金一个",
+      "耿文文: 600是按包裹数 还是商品数",
+      "HE Junhan: 600是按件",
+      "陈泽森: 实际数量就是客户在库的M010000000010208012的总数"
+    ],
+    "needsEnrichment": [
+      "客户 何忆华（20109088）的合同信息",
+      "关联 VASC000000318096 与 VASC000000321756 的最终处理结果"
+    ],
+    "evidenceGap": [
+      "轻加工标准增值的费用计算基础（按件/按包裹）"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "USWC Warehouse",
+        "operationType": "库内轻加工"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户 何忆华（20109088）需要将异常单中的货物做拆箱/轻加工处理",
+        "abnormalType": "库内异常（需轻加工）",
+        "isReusable": true,
+        "reuseBlocker": ""
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000318096",
+          "type": "inbound_special",
+          "status": "已审批"
+        },
+        {
+          "code": "VASC000000321756",
+          "type": "inbound_special",
+          "status": "已审批"
+        },
+        {
+          "code": "EB0126071431248012",
+          "type": "abnormal_order",
+          "status": "已处理"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "USWC Warehouse",
+        "serviceType": "入库非标增值（特批）",
+        "relatedAbnormalOrder": "EB0126071431248012"
+      },
+      "customerInput": "客户 何忆华（20109088）异常单EB0126071431248012入库，20109088 M010000000010208012需要做库内轻加工",
+      "conversationHistory": [
+        {
+          "role": "customer_service",
+          "name": "耿文文",
+          "msg": "这个异常可以走标准增值，指引客户走标准增值处理（VASC000000318096）"
+        },
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "直接下这个增值就可以了（VASC000000318096）"
+        },
+        {
+          "role": "customer_service",
+          "name": "耿文文",
+          "msg": "那个轻加工的标准增值费用大概多少"
+        },
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "6美金一个"
+        },
+        {
+          "role": "customer_service",
+          "name": "耿文文",
+          "msg": "600是按包裹数 还是商品数"
+        },
+        {
+          "role": "warehouse",
+          "name": "HE Junhan",
+          "msg": "600是按件"
+        }
+      ],
+      "expected": {
+        "route": "2d_standard_correction",
+        "selectedVasc": {
+          "vascCode": "VASC000000318096",
+          "vascType": "inbound_special",
+          "serviceCode": "库内轻加工（标准）"
+        },
+        "selectedService": {
+          "serviceName": "库内轻加工（标准增值）",
+          "serviceCategory": "inbound_light_processing",
+          "scope": "可复用标准SOP，6美金/件"
+        },
+        "missingFields": [
+          "SKU M010000000010208012 的实际数量（仓库按件计费）"
+        ],
+        "confirmationSummary": "客户 何忆华（20109088）异常单EB0126071431248012可走库内轻加工标准增值，6美金/件",
+        "fieldSuggestions": {
+          "服务类型": "库内轻加工（标准）",
+          "关联异常单": "EB0126071431248012",
+          "计费方式": "按件（6美金/件）"
+        },
+        "attachmentRequirements": [],
+        "attachmentCheck": {
+          "status": "not_checked",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许在轻加工标准增值可走时仍走非标特批",
+        "不允许按包裹数而非件数计费"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2b-001-2026W30-05",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-21/18:05",
+    "vascNumber": "VASC000000322284",
+    "wiNumber": "WI51246122",
+    "abnormalOrders": [
+      "EB0526071531307919",
+      "EB0526071431272213",
+      "EB0526071431269288",
+      "EB0526070831136658"
+    ],
+    "customerCode": "（入库单WI51246122，群聊未提供客户名）",
+    "customerName": "（群聊未提供）",
+    "warehouse": "（需补充）",
+    "evidenceSnippets": [
+      "吴洁玲: VASC000000322284 对应异常单：EB0526071531307919、EB0526071431272213、EB0526071431269288、EB0526070831136658 客户要求将货物按照异常单的对应关系补贴商品标签去上架到不良品 入库单：WI51246122 你看下是否需要把对应关系跟标签补充到操作SOP 跟附件中",
+      "许晓妍: 需要把对应关系跟标签补充到操作SOP 跟附件中的",
+      "许晓妍: VASC000000322284，提供下补贴商品条码的对应关系",
+      "许晓妍: 这个增值单需要客户提供标签之间的对应关系，有了吗？",
+      "许晓妍: 还有标签",
+      "吴洁玲: [上传附件: 异常单与补贴标签文件对应关系.xlsx]",
+      "吴洁玲: [上传附件: 1695825020260722144727011.zip]",
+      "许晓妍: VASC000000322284已审批"
+    ],
+    "needsEnrichment": [
+      "客户 （群聊未提供）（（入库单WI51246122，群聊未提供客户名））的具体信息（群聊未提供）",
+      "4个异常单的最终对应关系数据（已上传附件）"
+    ],
+    "evidenceGap": [
+      "客户身份（群聊未提及客户名）"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "（需补充）",
+        "operationType": "补贴商品标签+不良品上架"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户要求将货物按照异常单的对应关系补贴商品标签去上架到不良品",
+        "abnormalType": "库内异常（多个异常单对应关系复杂）",
+        "isReusable": true,
+        "reuseBlocker": "需客户提供SOP+附件才能继续"
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000322284",
+          "type": "inbound_special",
+          "status": "approved"
+        },
+        {
+          "code": "WI51246122",
+          "type": "inbound_order"
+        },
+        {
+          "code": "EB0526071531307919",
+          "type": "abnormal_order"
+        },
+        {
+          "code": "EB0526071431272213",
+          "type": "abnormal_order"
+        },
+        {
+          "code": "EB0526071431269288",
+          "type": "abnormal_order"
+        },
+        {
+          "code": "EB0526070831136658",
+          "type": "abnormal_order"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "（需补充）",
+        "serviceType": "入库非标增值（特批）",
+        "abnormalOrderCount": 4
+      },
+      "customerInput": "VASC000000322284 （群聊未提供） 客户要求将货物按照异常单的对应关系补贴商品标签去上架到不良品",
+      "conversationHistory": [
+        {
+          "role": "customer_service",
+          "name": "吴洁玲",
+          "msg": "VASC000000322284 对应异常单：EB0526071531307919、EB0526071431272213、EB0526071431269288、EB0526070831136658 客户要求将货物按照异常单的对应关系补贴商品标签去上架到不良品"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "需要把对应关系跟标签补充到操作SOP 跟附件中的"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "VASC000000322284，提供下补贴商品条码的对应关系"
+        },
+        {
+          "role": "customer_service",
+          "name": "吴洁玲",
+          "msg": "[上传附件: 异常单与补贴标签文件对应关系.xlsx]"
+        },
+        {
+          "role": "customer_service",
+          "name": "吴洁玲",
+          "msg": "[上传附件: 1695825020260722144727011.zip]"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "VASC000000322284已审批"
+        }
+      ],
+      "expected": {
+        "route": "2b_other_with_sop",
+        "selectedVasc": {
+          "vascCode": "VASC000000322284",
+          "vascType": "inbound_special",
+          "serviceCode": "补贴商品标签+不良品上架"
+        },
+        "selectedService": {
+          "serviceName": "补贴商品标签+不良品上架（多异常单）",
+          "serviceCategory": "inbound_label_replenishment",
+          "scope": "需客户提供SOP+附件"
+        },
+        "missingFields": [
+          "客户身份信息（群聊未提供）"
+        ],
+        "confirmationSummary": "VASC000000322284 需客户提供4个异常单的最终对应关系数据（已上传附件）后才能继续审批",
+        "fieldSuggestions": {
+          "必传附件1": "异常单与补贴标签对应关系表（Excel）",
+          "必传附件2": "补贴商品条码文件（PDF/zip）",
+          "必传附件3": "操作SOP（含异常单-SKU-标签-库位对应关系）"
+        },
+        "attachmentRequirements": [
+          {
+            "name": "异常单与补贴标签文件对应关系.xlsx",
+            "format": "xlsx",
+            "required": true,
+            "status": "已上传"
+          },
+          {
+            "name": "1695825020260722144727011.zip",
+            "format": "zip",
+            "required": true,
+            "status": "已上传"
+          }
+        ],
+        "attachmentCheck": {
+          "status": "pass",
+          "issues": [],
+          "suggestions": [
+            "附件已上传，可在审单时下载核对",
+            "建议将此类多异常单场景沉淀为模板SOP"
+          ]
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许在客户未提供对应关系附件时审批放行",
+        "不允许忽略4个异常单的对应关系核对"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2b-001-2026W30-06",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-22/19:43",
+    "vascNumber": "VASC000000323001",
+    "ihNumber": "IH000000106524",
+    "customerCode": "16585492",
+    "customerName": "CREALITY 3D TECHNOLOGY LLC",
+    "warehouse": "USTX Warehouse",
+    "evidenceSnippets": [
+      "许晓妍: VASC000000323001 IH000000106524 USTX Warehouse 16585492 CREALITY 3D TECHNOLOGY LLC 客户需要销毁的那单有图片吗？仓库怎么辨识？",
+      "许晓妍: VASC000000323001 让客户拍个维修视频 让仓库的同事看下是否可以直接处理",
+      "许晓妍: @赖俊蓉 帮忙关注下这个case的进展",
+      "黄璐: 客户同事去仓库维修，有建群他们互相联系，群里客户反馈了需要销毁的产品，有拍照做指示。",
+      "许晓妍: VASC000000323001 已审批"
+    ],
+    "needsEnrichment": [
+      "客户 CREALITY 3D TECHNOLOGY LLC（16585492）维修群的具体沟通内容",
+      "VASC000000323001 仓库最终销毁的SKU清单"
+    ],
+    "evidenceGap": [
+      "客户维修群与群聊的沟通边界（仓库维修群不在本群聊中）"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "USTX Warehouse",
+        "operationType": "销毁"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户 CREALITY 3D TECHNOLOGY LLC（16585492）需要销毁部分不良品",
+        "abnormalType": "销毁辨认方式不明确",
+        "isReusable": true,
+        "reuseBlocker": "需客户提供操作SOP+维修视频/照片指示"
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000323001",
+          "type": "inbound_special",
+          "status": "approved"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "USTX Warehouse",
+        "serviceType": "销毁",
+        "identificationMethod": "（需补充）"
+      },
+      "customerInput": "客户 CREALITY 3D TECHNOLOGY LLC（16585492）需要销毁部分不良品，但仓库不知道如何辨识销毁对象",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "VASC000000323001 客户需要销毁的那单有图片吗？仓库怎么辨识？"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "VASC000000323001 让客户拍个维修视频 让仓库的同事看下是否可以直接处理"
+        },
+        {
+          "role": "warehouse",
+          "name": "黄璐",
+          "msg": "客户同事去仓库维修，有建群他们互相联系，群里客户反馈了需要销毁的产品，有拍照做指示。"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "VASC000000323001 已审批"
+        }
+      ],
+      "expected": {
+        "route": "2b_other_with_sop",
+        "selectedVasc": {
+          "vascCode": "VASC000000323001",
+          "vascType": "inbound_special",
+          "serviceCode": "销毁"
+        },
+        "selectedService": {
+          "serviceName": "销毁",
+          "serviceCategory": "inbound_disposal",
+          "scope": "需客户提供操作SOP+销毁对象照片指示"
+        },
+        "missingFields": [
+          "销毁对象照片指示（应上传到增值单附件）",
+          "维修视频（如可复用）"
+        ],
+        "confirmationSummary": "客户 CREALITY 3D TECHNOLOGY LLC（16585492）VASC000000323001 销毁辨认需客户提供照片指示+操作SOP",
+        "fieldSuggestions": {
+          "必传附件1": "销毁对象照片（指示）",
+          "必传附件2": "操作SOP",
+          "增值单附件": "建议客户将销毁指示照片+SKU清单上传到增值单附件"
+        },
+        "attachmentRequirements": [
+          {
+            "name": "销毁对象照片",
+            "format": "image",
+            "required": true,
+            "status": "线下维修群有，未上传增值单"
+          },
+          {
+            "name": "操作SOP",
+            "format": "doc/pdf",
+            "required": true,
+            "status": "需补充"
+          }
+        ],
+        "attachmentCheck": {
+          "status": "fail",
+          "issues": [
+            "销毁指示未上传到增值单附件（仅在客户-仓库维修群中）",
+            "无书面操作SOP，依赖线下沟通"
+          ],
+          "suggestions": [
+            "建议客户将销毁指示照片+SKU清单上传到增值单附件",
+            "沉淀SOP到知识库，避免每次都依赖线下沟通"
+          ]
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许在销毁对象不明确时审批",
+        "不允许仅依赖线下维修群沟通而无书面指示"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2b-001-2026W30-07",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-22/19:56",
+    "vascNumber": "VASC000000323010",
+    "ihNumber": "IH000000106530",
+    "customerCode": "17534761",
+    "customerName": "香港樂聚科技有限公司",
+    "warehouse": "DEBR2 Warehouse",
+    "evidenceSnippets": [
+      "许晓妍: VASC000000323010 IH000000106530 DEBR2 Warehouse 17534761 香港樂聚科技有限公司 这个增值的需求看不懂，请线下跟客户沟通好后，提供操作SOP或视频再重新提交，先退回了"
+    ],
+    "needsEnrichment": [
+      "客户 香港樂聚科技有限公司（17534761）的具体需求描述（未在群聊中明确）",
+      "退回后客户是否重新提交了清晰的SOP/视频"
+    ],
+    "evidenceGap": [
+      "客户原增值单的具体需求文本（群聊仅说'需求看不懂'）"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "DEBR2 Warehouse",
+        "operationType": "需求不明确"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户 香港樂聚科技有限公司（17534761）提交的非标增值需求描述不清晰，审单员无法理解",
+        "abnormalType": "需求不明确/看不懂",
+        "isReusable": true,
+        "reuseBlocker": "必须先线下沟通明确需求+SOP/视频"
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000323010",
+          "type": "inbound_special",
+          "status": "已退回"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "DEBR2 Warehouse",
+        "serviceType": "（需补充）",
+        "requirementClarity": "不清晰"
+      },
+      "customerInput": "客户 香港樂聚科技有限公司（17534761）提交的非标增值需求描述不清晰",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "VASC000000323010 这个增值的需求看不懂，请线下跟客户沟通好后，提供操作SOP或视频再重新提交，先退回了"
+        }
+      ],
+      "expected": {
+        "route": "2b_other_with_sop",
+        "selectedVasc": {
+          "vascCode": "VASC000000323010",
+          "vascType": "inbound_special",
+          "serviceCode": "（需客户明确后补充）"
+        },
+        "selectedService": {
+          "serviceName": "（需客户明确后补充）",
+          "serviceCategory": "inbound_undefined",
+          "scope": "必须先线下沟通明确需求"
+        },
+        "missingFields": [
+          "客户需求描述（核心）",
+          "操作SOP 或 操作视频"
+        ],
+        "confirmationSummary": "客户 香港樂聚科技有限公司（17534761）VASC000000323010 需求描述不清晰，必须先线下沟通明确后提供SOP/视频再重新提交",
+        "fieldSuggestions": {
+          "必传附件": "操作SOP文档 或 操作视频"
+        },
+        "attachmentRequirements": [
+          {
+            "name": "操作SOP",
+            "format": "doc/pdf",
+            "required": true,
+            "status": "需补充"
+          },
+          {
+            "name": "操作视频",
+            "format": "video",
+            "required": true,
+            "status": "需补充（与SOP二选一）"
+          }
+        ],
+        "attachmentCheck": {
+          "status": "fail",
+          "issues": [
+            "客户原增值单需求描述不清晰，审单员看不懂",
+            "无SOP/视频附件"
+          ],
+          "suggestions": [
+            "AI应主动识别'需求不清晰'场景并提示客户补充",
+            "AI应建议客户线下沟通后提供SOP/视频再重新提交"
+          ]
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许在需求不清晰时强行选择服务",
+        "不允许跳过SOP/视频要求直接审批"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2a-001-2026W30-08",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-22/16:30",
+    "vascNumber": "VASC000000322938",
+    "ihNumber": "IH000000106491",
+    "customerCode": "19304817",
+    "customerName": "臥安科技有限公司",
+    "warehouse": "UKGF Warehouse",
+    "evidenceSnippets": [
+      "许晓妍: VASC000000322938 IH000000106491 UKGF Warehouse 19304817 臥安科技有限公司 客户要仓库代采购25*15*10的70个纸箱，仓库没有客制包材的喷码器材，这个能让客户自采下单后送到仓库吗？仓库可以正常做入库",
+      "许晓妍: VASC000000322938 客户自采就行了",
+      "许晓妍: 客户自采是可以的，仓库不能代采哦",
+      "客户不需要补贴商品条码，是加贴了个这种条码@陈泽森 这种条码在补贴商品条码的位置上传不了，",
+      "许晓妍: 客户自采的箱子有UN标识吗？没有的话要补贴UN标识在箱外"
+    ],
+    "needsEnrichment": [
+      "客户 臥安科技有限公司（19304817）的UN箱具体规格",
+      "VASC000000322938 客户自采下单后的最终增值单号"
+    ],
+    "evidenceGap": [
+      "客户自采UN箱与仓库代采的成本对比"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "inbound",
+        "warehouse": "UKGF Warehouse",
+        "operationType": "UN箱代采+UN标识补贴"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户 臥安科技有限公司（19304817）要求仓库代采购25*15*10的70个UN箱",
+        "abnormalType": "仓库无法代采（缺喷码器材）",
+        "isReusable": true,
+        "reuseBlocker": "仓库不能代采，需客户自采"
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000322938",
+          "type": "inbound_special",
+          "status": "已审批"
+        },
+        {
+          "code": "VASC000000324027",
+          "type": "inbound_special",
+          "status": "已重新提交"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "UKGF Warehouse",
+        "serviceType": "UN箱代采+UN标识补贴",
+        "boxSpec": "25*15*10 70个"
+      },
+      "customerInput": "客户 臥安科技有限公司（19304817）要求仓库代采购25*15*10的70个UN箱",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "VASC000000322938 客户要仓库代采购25*15*10的70个纸箱，仓库没有客制包材的喷码器材，这个能让客户自采下单后送到仓库吗？仓库可以正常做入库"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "VASC000000322938 客户自采就行了"
+        },
+        {
+          "role": "auditor",
+          "name": "许晓妍",
+          "msg": "客户自采的箱子有UN标识吗？没有的话要补贴UN标识在箱外"
+        }
+      ],
+      "expected": {
+        "route": "2a_named_direct_selection",
+        "selectedVasc": {
+          "vascCode": "VASC000000322938",
+          "vascType": "inbound_special",
+          "serviceCode": "UN箱代采+UN标识补贴"
+        },
+        "selectedService": {
+          "serviceName": "UN箱代采+UN标识补贴（标准命名）",
+          "serviceCategory": "inbound_un_box",
+          "scope": "标准命名服务，可直接定位"
+        },
+        "missingFields": [
+          "客户 臥安科技有限公司（19304817）的UN箱具体规格确认",
+          "UN标识是否需要补贴"
+        ],
+        "confirmationSummary": "客户 臥安科技有限公司（19304817）VASC000000322938 仓库不能代采UN箱，需客户自采+仓库补贴UN标识",
+        "fieldSuggestions": {
+          "箱型规格": "25*15*10",
+          "数量": "70个",
+          "代采方": "客户自采",
+          "补贴项": "UN标识（如客户自采箱无UN标识）"
+        },
+        "attachmentRequirements": [],
+        "attachmentCheck": {
+          "status": "not_required",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许建议仓库代采（仓库无喷码器材）",
+        "不允许在客户自采箱无UN标识时漏掉UN标识补贴步骤"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2d-001-2026W30-09",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-23/14:13",
+    "vascNumber": "VASC000000323442",
+    "woNumber": "WO12109032806",
+    "customerCode": "15701329",
+    "customerName": "深圳市中涵企业管理有限公司",
+    "warehouse": "USKY5 Warehouse",
+    "evidenceSnippets": [
+      "陈泽森: VASC000000323442 WO12109032806 USKY5 Warehouse 15701329 深圳市中涵企业管理有限公司 出库非标增值（特批） 这个是要提换原BOL文件吗？ 暂存的订单可以让客户转新单后下到标准增值 交接BOL里面去的",
+      "李依宣: 好的"
+    ],
+    "needsEnrichment": [
+      "客户 深圳市中涵企业管理有限公司（15701329）的原BOL文件编号",
+      "转新单后提交的标准增值单号"
+    ],
+    "evidenceGap": [],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "outbound",
+        "warehouse": "USKY5 Warehouse",
+        "operationType": "BOL文件补贴"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户 深圳市中涵企业管理有限公司（15701329）要求换原BOL文件",
+        "abnormalType": "暂存订单可走标准增值",
+        "isReusable": true,
+        "reuseBlocker": ""
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000323442",
+          "type": "outbound_special",
+          "status": "暂存中"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "USKY5 Warehouse",
+        "serviceType": "出库非标增值（特批）",
+        "docReplacement": "BOL文件"
+      },
+      "customerInput": "客户 深圳市中涵企业管理有限公司（15701329）要求换原BOL文件",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "VASC000000323442 这个是要提换原BOL文件吗？ 暂存的订单可以让客户转新单后下到标准增值 交接BOL里面去的"
+        },
+        {
+          "role": "customer_service",
+          "name": "李依宣",
+          "msg": "好的"
+        }
+      ],
+      "expected": {
+        "route": "2d_standard_correction",
+        "selectedVasc": {
+          "vascCode": "（转新单后新标准增值单号）",
+          "vascType": "standard",
+          "serviceCode": "交接BOL（标准增值）"
+        },
+        "selectedService": {
+          "serviceName": "交接BOL（标准）",
+          "serviceCategory": "outbound_doc_handover",
+          "scope": "标准增值覆盖BOL文件交接"
+        },
+        "missingFields": [
+          "原BOL文件编号",
+          "新BOL文件编号"
+        ],
+        "confirmationSummary": "客户 深圳市中涵企业管理有限公司（15701329）VASC000000323442 暂存订单可走'交接BOL'标准增值，建议客户转新单后下标准增值",
+        "fieldSuggestions": {
+          "服务类型": "交接BOL（标准）",
+          "操作方式": "暂存订单转新单后下标准增值"
+        },
+        "attachmentRequirements": [
+          {
+            "name": "新BOL文件",
+            "format": "pdf",
+            "required": true,
+            "status": "需补充"
+          }
+        ],
+        "attachmentCheck": {
+          "status": "not_checked",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许直接审批 VASC000000323442（非标）",
+        "不允许忽略暂存转新单的标准路径"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2d-001-2026W30-10",
+    "sourceType": "feishu_group_chat",
+    "sourceRef": "feishu_group_chat://【增值】异常沟通(oc_7438535419642937372)/2026-07-24/15:07",
+    "vascNumber": "VASC000000323802",
+    "woNumber": "WO12118664427",
+    "customerCode": "10008901",
+    "customerName": "歐馬零部件實業有限公司",
+    "warehouse": "USWC Warehouse",
+    "evidenceSnippets": [
+      "陈泽森: VASC000000323802 WO12118664427 USWC Warehouse 10008901 歐馬零部件實業有限公司 出库非标增值（特批）出库其他服务需求 这个需求让客户下一个打托后拍照的标准增值就可以了"
+    ],
+    "needsEnrichment": [
+      "客户 歐馬零部件實業有限公司（10008901）的合同信息",
+      "标准增值-打托后拍照的精确服务代码"
+    ],
+    "evidenceGap": [
+      "客户 歐馬零部件實業有限公司 是否复用此SOP的判断过程"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "pageContext": {
+        "page": "非标增值提交页",
+        "submissionType": "outbound",
+        "warehouse": "USWC Warehouse",
+        "operationType": "打托后拍照"
+      },
+      "exceptionContext": {
+        "originalRequest": "客户 歐馬零部件實業有限公司（10008901）要求仓库打托后拍照",
+        "abnormalType": "可走标准增值",
+        "isReusable": true,
+        "reuseBlocker": ""
+      },
+      "systemScopedVascList": [
+        {
+          "code": "VASC000000323802",
+          "type": "outbound_special",
+          "status": "已审批"
+        }
+      ],
+      "currentPageValues": {
+        "warehouse": "USWC Warehouse",
+        "serviceType": "出库其他服务需求",
+        "needPhoto": true,
+        "photoTarget": "打托后"
+      },
+      "customerInput": "客户 歐馬零部件實業有限公司（10008901）要求仓库打托后拍照",
+      "conversationHistory": [
+        {
+          "role": "auditor",
+          "name": "陈泽森",
+          "msg": "VASC000000323802 这个需求让客户下一个打托后拍照的标准增值就可以了"
+        }
+      ],
+      "expected": {
+        "route": "2d_standard_correction",
+        "selectedVasc": {
+          "vascCode": "（待客户新提交的标准增值单号）",
+          "vascType": "standard",
+          "serviceCode": "出库-打托后拍照"
+        },
+        "selectedService": {
+          "serviceName": "打托后拍照",
+          "serviceCategory": "outbound_other",
+          "scope": "标准增值服务定义范围内"
+        },
+        "missingFields": [
+          "原增值单号已审批（按特批走的）",
+          "客户是否需重新提交标准增值"
+        ],
+        "confirmationSummary": "客户 歐馬零部件實業有限公司（10008901）VASC000000323802 建议改下标准增值-打托后拍照",
+        "fieldSuggestions": {
+          "服务类型": "打托后拍照（标准增值）",
+          "拍照对象": "打托后的托盘"
+        },
+        "attachmentRequirements": [],
+        "attachmentCheck": {
+          "status": "not_required",
+          "issues": [],
+          "suggestions": []
+        }
+      },
+      "forbiddenOutputs": [
+        "不允许直接审批 VASC000000323802（非标）",
+        "不允许跳过让客户改下标准增值"
+      ]
+    }
+  }
+]

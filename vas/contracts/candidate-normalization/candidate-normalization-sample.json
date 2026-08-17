@@ -1,0 +1,231 @@
+{
+  "candidateListVersion": "candidate-normalization-v1",
+  "normalizationGeneratedAt": "2026-07-28T18:00:00+08:00",
+  "systemScopedVascList": [
+    {
+      "candidateId": "VASC_STD_REPACK:STD_REPACK_001",
+      "vascCode": "VASC_STD_REPACK",
+      "vascName": "标准换包装服务",
+      "serviceCode": "STD_REPACK_001",
+      "serviceName": "标准换包装",
+      "vascType": "standard",
+      "serviceKind": "standard_service",
+      "serviceDomain": "in_warehouse",
+      "sourceApi": "middleware.normalizedCandidateList",
+      "rawSourceApis": [
+        "pms.vasc.listAllVasc",
+        "pms.vasc.getVascInfo"
+      ],
+      "normalizationStatus": "middleware_enriched",
+      "routeBranch": "2d_standard_redirect",
+      "candidateScope": "system_scoped",
+      "isCandidateSelectable": true,
+      "confidence": 0.94,
+      "originalFields": {
+        "listAllVasc.vascCode": "VASC_STD_REPACK",
+        "listAllVasc.vascName": "标准换包装服务",
+        "getVascInfo.serviceCode": "STD_REPACK_001",
+        "getVascInfo.serviceName": "标准换包装"
+      },
+      "sourceFieldMap": {
+        "vascCode": "listAllVasc.vascCode",
+        "vascName": "listAllVasc.vascName",
+        "serviceCode": "getVascInfo.serviceCode",
+        "serviceName": "getVascInfo.serviceName",
+        "vascType": "middleware.standardVascDictionary",
+        "serviceKind": "middleware.serviceKindDictionary",
+        "serviceDomain": "middleware.serviceDomainDictionary"
+      },
+      "relationshipMappingRefs": [
+        "relationship-mappings/vasc-product-to-service-item-orchestration-mapping.md"
+      ],
+      "normalizationNotes": [
+        "listAllVasc/getVascInfo 原生无 vascType/serviceKind；本条由中间层字典补充。",
+        "Agent 仅可将本条作为 2d 标准增值纠偏候选，不得生成非标 SOP 字段建议。"
+      ]
+    },
+    {
+      "candidateId": "VASC_NONSTD_SPECIAL:OW01V1501",
+      "vascCode": "VASC_NONSTD_SPECIAL",
+      "vascName": "入库非标增值（特批）",
+      "serviceCode": "OW01V1501",
+      "serviceName": "包裹串仓异常调拨",
+      "vascType": "nonstandard",
+      "serviceKind": "named_nonstandard",
+      "serviceDomain": "inbound",
+      "sourceApi": "middleware.normalizedCandidateList",
+      "rawSourceApis": [
+        "pms.vasc.listAllVasc",
+        "pms.vasc.getVascInfo"
+      ],
+      "normalizationStatus": "middleware_enriched",
+      "routeBranch": "2a_named_nonstandard_direct",
+      "candidateScope": "current_page",
+      "isCandidateSelectable": true,
+      "confidence": 0.91,
+      "originalFields": {
+        "listAllVasc.vascCode": "VASC_NONSTD_SPECIAL",
+        "listAllVasc.vascName": "入库非标增值（特批）",
+        "getVascInfo.serviceCode": "OW01V1501",
+        "getVascInfo.serviceName": "包裹串仓异常调拨"
+      },
+      "sourceFieldMap": {
+        "vascType": "middleware.nonstandardVascDictionary",
+        "serviceKind": "middleware.serviceKindDictionary.named_nonstandard",
+        "serviceDomain": "middleware.serviceDomainDictionary.inbound"
+      },
+      "relationshipMappingRefs": [
+        "relationship-mappings/vasc-product-to-service-item-orchestration-mapping.md"
+      ],
+      "normalizationNotes": [
+        "命名类具体非标服务项，命中后进入 2a 直选。",
+        "不得把本服务泛化为入库其他服务需求。"
+      ]
+    },
+    {
+      "candidateId": "VASC_NONSTD_INBOUND:OW01V1602",
+      "vascCode": "VASC_NONSTD_INBOUND",
+      "vascName": "入库非标增值（特批）",
+      "serviceCode": "OW01V1602",
+      "serviceName": "入库其他服务需求",
+      "vascType": "nonstandard",
+      "serviceKind": "other_service_request",
+      "serviceDomain": "inbound",
+      "sourceApi": "middleware.normalizedCandidateList",
+      "rawSourceApis": [
+        "pms.vasc.listAllVasc",
+        "pms.vasc.getVascInfo"
+      ],
+      "normalizationStatus": "middleware_enriched",
+      "routeBranch": "2b_other_service_sop",
+      "candidateScope": "current_page",
+      "isCandidateSelectable": true,
+      "confidence": 0.93,
+      "originalFields": {
+        "listAllVasc.vascCode": "VASC_NONSTD_INBOUND",
+        "listAllVasc.vascName": "入库非标增值（特批）",
+        "getVascInfo.serviceCode": "OW01V1602",
+        "getVascInfo.serviceName": "入库其他服务需求"
+      },
+      "sourceFieldMap": {
+        "vascType": "middleware.nonstandardVascDictionary",
+        "serviceKind": "middleware.serviceKindDictionary.other_service_request",
+        "serviceDomain": "middleware.serviceDomainDictionary.inbound"
+      },
+      "relationshipMappingRefs": [
+        "relationship-mappings/vasc-product-to-service-item-orchestration-mapping.md"
+      ],
+      "normalizationNotes": [
+        "入库类其他服务需求，允许进入 2b SOP 分支。",
+        "Agent 不得仅凭 serviceName 推断类型；本类型由中间层注入。"
+      ]
+    },
+    {
+      "candidateId": "VASC_NONSTD_WAREHOUSE:IW_OTHER_001",
+      "vascCode": "VASC_NONSTD_WAREHOUSE",
+      "vascName": "库内非标增值（特批）",
+      "serviceCode": "IW_OTHER_001",
+      "serviceName": "库内其他服务需求",
+      "vascType": "nonstandard",
+      "serviceKind": "other_service_request",
+      "serviceDomain": "in_warehouse",
+      "sourceApi": "middleware.normalizedCandidateList",
+      "rawSourceApis": [
+        "pms.vasc.listAllVasc",
+        "pms.vasc.getVascInfo"
+      ],
+      "normalizationStatus": "middleware_enriched",
+      "routeBranch": "2b_other_service_sop",
+      "candidateScope": "system_scoped",
+      "isCandidateSelectable": true,
+      "confidence": 0.9,
+      "originalFields": {
+        "listAllVasc.vascCode": "VASC_NONSTD_WAREHOUSE",
+        "listAllVasc.vascName": "库内非标增值（特批）",
+        "getVascInfo.serviceCode": "IW_OTHER_001",
+        "getVascInfo.serviceName": "库内其他服务需求"
+      },
+      "sourceFieldMap": {
+        "vascType": "middleware.nonstandardVascDictionary",
+        "serviceKind": "middleware.serviceKindDictionary.other_service_request",
+        "serviceDomain": "middleware.serviceDomainDictionary.in_warehouse"
+      },
+      "relationshipMappingRefs": [],
+      "normalizationNotes": [
+        "库内类其他服务需求，允许进入 2b SOP 分支。",
+        "本样例为结构化契约样例，不代表已联调接口。"
+      ]
+    },
+    {
+      "candidateId": "VASC_NONSTD_OUTBOUND:OB_OTHER_001",
+      "vascCode": "VASC_NONSTD_OUTBOUND",
+      "vascName": "出库非标增值（特批）",
+      "serviceCode": "OB_OTHER_001",
+      "serviceName": "出库其他服务需求",
+      "vascType": "nonstandard",
+      "serviceKind": "other_service_request",
+      "serviceDomain": "outbound",
+      "sourceApi": "middleware.normalizedCandidateList",
+      "rawSourceApis": [
+        "pms.vasc.listAllVasc",
+        "pms.vasc.getVascInfo"
+      ],
+      "normalizationStatus": "middleware_enriched",
+      "routeBranch": "2b_other_service_sop",
+      "candidateScope": "system_scoped",
+      "isCandidateSelectable": true,
+      "confidence": 0.89,
+      "originalFields": {
+        "listAllVasc.vascCode": "VASC_NONSTD_OUTBOUND",
+        "listAllVasc.vascName": "出库非标增值（特批）",
+        "getVascInfo.serviceCode": "OB_OTHER_001",
+        "getVascInfo.serviceName": "出库其他服务需求"
+      },
+      "sourceFieldMap": {
+        "vascType": "middleware.nonstandardVascDictionary",
+        "serviceKind": "middleware.serviceKindDictionary.other_service_request",
+        "serviceDomain": "middleware.serviceDomainDictionary.outbound"
+      },
+      "relationshipMappingRefs": [],
+      "normalizationNotes": [
+        "出库类其他服务需求，允许进入 2b SOP 分支。",
+        "本样例仅定义候选输入结构，不定义出库 SOP 追问逻辑。"
+      ]
+    },
+    {
+      "candidateId": "UNKNOWN_VASC:UNKNOWN_SERVICE",
+      "vascCode": "UNKNOWN_VASC",
+      "vascName": "未知增值产品",
+      "serviceCode": "UNKNOWN_SERVICE",
+      "serviceName": "未知服务项",
+      "vascType": "unknown",
+      "serviceKind": "unknown",
+      "serviceDomain": "unknown",
+      "sourceApi": "pms.vasc.listAllVasc",
+      "rawSourceApis": [
+        "pms.vasc.listAllVasc"
+      ],
+      "normalizationStatus": "missing_required_type",
+      "routeBranch": "manual_fallback",
+      "candidateScope": "unknown",
+      "isCandidateSelectable": false,
+      "confidence": 0,
+      "originalFields": {
+        "listAllVasc.vascCode": "",
+        "listAllVasc.vascName": "",
+        "listAllVasc.vascAttributeMap": {}
+      },
+      "sourceFieldMap": {
+        "vascType": "missing_from_raw_and_not_enriched",
+        "serviceKind": "missing_from_raw_and_not_enriched",
+        "serviceDomain": "missing_from_raw_and_not_enriched"
+      },
+      "relationshipMappingRefs": [],
+      "normalizationNotes": [
+        "listAllVasc 原生无 vascType/serviceKind，且中间层未能补齐。",
+        "Agent 必须进入 manual_fallback，不得根据名称或上下文猜测分支。"
+      ]
+    }
+  ]
+}
+

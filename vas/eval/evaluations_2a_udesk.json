@@ -1,0 +1,155 @@
+[
+  {
+    "caseId": "C-2a-udesk-001",
+    "sourceType": "customer_service_db",
+    "sourceRef": "对话ID字段缺失；udesk-2a-filtered.csv:L152-L154",
+    "customerName": "广州拓野服饰有限公司",
+    "matchedAtom": {
+      "eventCode": "OW01V1594",
+      "name": "上架前自提（无需WINIT打托）"
+    },
+    "evidenceSnippets": [
+      "客户: 具体怎么操作自提",
+      "客服: 买家安排司机这种提货的话，司机拿着BOL去提货，异常那里您点击处理选择上架前自提，上传BOL，如果是提供面单的话，上传面单，我们贴好面单，快递员这边报异常单或者他的快递单号这些去提货"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "customerInput": "买家寄错的入库异常包裹想让司机到仓库提货，怎么操作上架前自提？",
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedAtom": {
+          "eventCode": "OW01V1594",
+          "name": "上架前自提（无需WINIT打托）"
+        },
+        "confirmationSummary": null
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问",
+        "不得推荐'入库其他服务需求'兜底项"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2a-udesk-002",
+    "sourceType": "customer_service_db",
+    "sourceRef": "对话ID字段缺失；udesk-2a-filtered.csv:L291-L292",
+    "customerName": "Keychron Technology, Inc.",
+    "matchedAtom": {
+      "eventCode": "OW01V1622",
+      "name": "入库-提供无箱单预报单上架"
+    },
+    "evidenceSnippets": [
+      "客服: 然后到异常单页面，点处理异常按钮，增值选择：【新单上架（客户提供预报单）】+【入库-提供无箱单预报单上架「非标」】",
+      "客服: [file] https://pro-cs-freq.udeskcs.com/doc/im/tid23926/7._无箱单预报入库1781168997980.docx"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "customerInput": "异常包裹要按新入库单上架，客服让我走无箱单预报入库，应该选哪个增值？",
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedAtom": {
+          "eventCode": "OW01V1622",
+          "name": "入库-提供无箱单预报单上架"
+        },
+        "confirmationSummary": null
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问",
+        "不得推荐'入库其他服务需求'兜底项"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2a-udesk-003",
+    "sourceType": "customer_service_db",
+    "sourceRef": "对话ID字段缺失；udesk-2a-filtered.csv:L339-L341",
+    "customerName": "Keychron Technology, Inc.",
+    "matchedAtom": {
+      "eventCode": "OW01V1610",
+      "name": "入库-单品指定位置开箱拍照"
+    },
+    "evidenceSnippets": [
+      "客户: 可以让海外仓开箱拍照一下吗",
+      "客服: 异常是包裹内出现订单外商品，这个无法选择到开箱拍照增值了，需要在入库单那里提交一下非标增值，就不要再异常那里这里点击处理",
+      "客服: 背景就输入：错装异常，需要单品开箱拍照实物，异常里面无法沟通到拍照增值，因此提交非标增值"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "customerInput": "入库错装异常，需要让海外仓把单品开箱拍照实物确认一下。",
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedAtom": {
+          "eventCode": "OW01V1610",
+          "name": "入库-单品指定位置开箱拍照"
+        },
+        "confirmationSummary": null
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问",
+        "不得推荐'入库其他服务需求'兜底项"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2a-udesk-004",
+    "sourceType": "customer_service_db",
+    "sourceRef": "对话ID字段缺失；udesk-2a-filtered.csv:L324-L328",
+    "customerName": "Keychron Technology, Inc.",
+    "matchedAtom": {
+      "eventCode": "OW01V1674",
+      "name": "入库-异常包裹开箱拍照"
+    },
+    "evidenceSnippets": [
+      "客户: 我理解的是这个包裹开箱拍照就可以实现，换标后的贴标效果拍照",
+      "客服: 重新提交增值，选择入库非标拍照或提供视频\t入库-异常包裹开箱拍照「非标」",
+      "客服: 不要选择库内-商品开箱拍照"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "customerInput": "这个入库异常包裹需要开箱拍照，确认换标后的贴标效果。",
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedAtom": {
+          "eventCode": "OW01V1674",
+          "name": "入库-异常包裹开箱拍照"
+        },
+        "confirmationSummary": null
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问",
+        "不得推荐'入库其他服务需求'兜底项"
+      ]
+    }
+  },
+  {
+    "caseId": "C-2a-udesk-005",
+    "sourceType": "customer_service_db",
+    "sourceRef": "对话ID字段缺失；udesk-2a-filtered.csv:L222-L225",
+    "customerName": "Keychron Technology, Inc.",
+    "matchedAtom": {
+      "eventCode": "OW01V1599",
+      "name": "提供海外仓监控视频-少包裹调查"
+    },
+    "evidenceSnippets": [
+      "客户: Y0101726297查监控视频",
+      "客服: 仓库不会提供操作图片，建议和发货方核实是否发少了的，对仓库收货数量有异议，可提交入库增值-提供海外仓监控视频-少包裹调查「非标」，仓库提供当时入库视频",
+      "客服: 目前这个包裹仓库至收到了3件sku，建议和发货方核实是否发少了的，仓库不会提供操作图片，建议和发货方核实是否发少了的，对仓库收货数量有异议，可提交入库增值-提供海外仓监控视频-少包裹调查「非标」，仓库提供当时入库视频"
+    ],
+    "humanReviewStatus": "pending",
+    "testCase": {
+      "customerInput": "入库收货数量有异议，怀疑发少了，想让仓库提供当时入库监控视频。",
+      "expected": {
+        "route": "2a_named_nonstandard_direct",
+        "selectedAtom": {
+          "eventCode": "OW01V1599",
+          "name": "提供海外仓监控视频-少包裹调查"
+        },
+        "confirmationSummary": null
+      },
+      "forbiddenOutputs": [
+        "不得进入 SOP 追问",
+        "不得推荐'入库其他服务需求'兜底项"
+      ]
+    }
+  }
+]
