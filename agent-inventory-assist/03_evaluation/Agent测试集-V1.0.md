@@ -2,8 +2,9 @@
 
 - 版本：V1.0
 - 状态：初稿
-- **试点标记（2026-08-28）**：`out-of-scope-pilot-f001` — 本文件全量保留供日后全场景评测；**F-001 试点不跑本集除 B-001 以外的用例**。试点最小集见 `experts/value-add/nonstandard-sop-guide/tests/pilot-f001/`。B-001 仅可作合成种子，须按 2.1 口径修正 `serviceAtom=OW01V1602` 并补 `need_parcel_label`。
-- 测试集来源：1）人工构造业务用例；2）脱敏真实客服日志抽取Eval样本
+- **试点标记（2026-08-28）**：`out-of-scope-pilot-f001` — 本文件全量保留供日后全场景评测；**F-001 试点不跑本集除 B-001 以外的用例**。试点最小集见 `experts/value-add/nonstandard-sop-guide/tests/pilot-f001/`。
+- **全量真实抽样（2026-08-29）**：现行抽样规则见 `抽样规则草稿-真实客服会话-V0.1.md`；权威入口 `EVAL-AUTHORITY.md`。本测试集文档在 Udesk 分层集落地前**不作为执行清单**。
+- 测试集来源（目标态）：1）Udesk 真实客户–客服分层样本；2）F-001 工程金标；3）人工构造边界/P0。**排除内部群聊作主源。**
 - 生成依据：BRD-V1.0、PRD-V1.0
 - 适用环境：Coze测试空间
 

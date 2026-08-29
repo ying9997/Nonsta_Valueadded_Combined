@@ -57,12 +57,32 @@
 |------|------|
 | `agent-inventory-assist/03_evaluation/Agent测试集-V1.0.md` | `out-of-scope-pilot-f001`：全量保留供日后全场景评测；**试点只允许引用 B-001 作合成种子，其余用例本轮不跑** |
 
+## F. 与「全量真实 Udesk 分层抽样」共识冲突的旧链路（2026-08-29）
+
+权威入口：`agent-inventory-assist/03_evaluation/EVAL-AUTHORITY.md`  
+抽样规则：`agent-inventory-assist/03_evaluation/抽样规则草稿-真实客服会话-V0.1.md`
+
+| 路径 | 冲突点 | 处理 |
+|------|--------|------|
+| `workspace/data/raw/飞书群聊_*.xlsx` 及待整理群聊 xlsx | 今天共识：**排除内部群聊**作评测主源 | 保留生数据；**禁止**当现行评测抽样池 |
+| `ai/agentic/qa-gen_base.csv` + `outputs/nonstandard_guidance_eval_cases/` | 非完整客服多轮；旧 taxonomy | 仅历史候选；不作金标 |
+| `workspace/eval/cases/*`（含 candidate） | 旧候选/群聊抽评测残留 | 已有 `DEPRECATED-FOR-PILOT-F001.md`；全量真实抽样不以本目录为准 |
+| `workspace/eval/queue-regression/data/extracted-*.json` | 旧 `extract-udesk.ts` 产出 | 见 `queue-regression/DEPRECATED.md`；新样本写入 `03_evaluation/datasets/` |
+| `ai/study/.../extract-udesk.ts` | 旧评测抽取脚本 | **可复用 `parseMessages`**；产出路径不作权威 |
+| `experts/.../eval/eval-customer-inputs*` | 489 条旧分类 | deprecated；亦非新分层集 |
+| `Agent测试集-V1.0.md` 默认「跑全量」 | 与「先 Udesk 分层再建全量」冲突 | 以 EVAL-AUTHORITY 为准 |
+
 ---
 
-## 试点权威清单（勿废弃）
+## 试点 / 现行权威清单（勿废弃）
 
-- `tests/pilot-f001/` — 最小 4 条用例
+- `tests/pilot-f001/` — 最小 4 条用例（规则门禁干跑）
 - `workspace/knowledge/sop/2.1-inbound-relabel-shelving.md`
 - `workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md` §2.1
+- `agent-inventory-assist/03_evaluation/F-001-SIMULATED-BUSINESS-RULES.md`
+- `agent-inventory-assist/03_evaluation/抽样规则草稿-真实客服会话-V0.1.md`
+- `agent-inventory-assist/03_evaluation/EVAL-AUTHORITY.md`
+- `agent-inventory-assist/03_evaluation/VASC-SOP补齐链路探测.md`
+- `workspace/data/raw/data_udesk_log_database_增值.csv` — 全量真实抽样主源
 - `workspace/experiments/nonstandard-submission-guide/01-business-reference/value-add-nonstandard-submission-guide.md`
-- `agent-inventory-assist/03_evaluation/非标增值生成Agent完整评测链路图-V1.0.md`（F-001 框架；字段口径以 2.1 为准）
+- `agent-inventory-assist/03_evaluation/非标增值生成Agent完整评测链路图-V1.0.md`（框架；口径以 2.1 / 抽样规则为准）
