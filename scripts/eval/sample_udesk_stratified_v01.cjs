@@ -42,16 +42,17 @@ const BUCKET_ZH = {
 const FIELD_LEGEND_ZH = {
   finalByPrimaryBucket: "各粗桶最终选中了多少通会话（按主桶统计）",
   quotaTarget: "抽样开始前设定的各粗桶目标通数",
-  relabel21InSelected: "被标成「像审核SOP§2.1 尺重/标签辨识后换标上架」的会话通数（亲缘，不是细类金标）",
-  coverageGaps: "没抽满的粗桶清单（桶代号、目标、实得、原因）",
+  relabel21InSelected: "OMS 审核场景名确认的 §2.1/换商品标签上架亲缘通数（须对话含 VASC 且 sceneOverviewName 命中）",
+  coverageGaps: "没抽满的粗桶清单（桶代号、目标、实得、原因）；也可能含 2.1 OMS 亲缘不足",
   highRiskTagged: "带高危标签的会话通数（可与粗桶重叠）",
   withVasc: "对话文本里能抽出 VASC 增值单号的会话通数",
   sessionCount: "终选会话总通数",
   primaryBucket: "本通会话的主粗桶代号（B1～B8）",
   primaryBucketName: "主粗桶中文名",
-  likelyRelabel21: "是否像 §2.1 换标场景（true=像）",
+  likelyRelabel21: "是否 OMS 确认的 §2.1 亲缘（true=sceneOverviewName 命中；不再用口语正则冒充）",
+  omsRelabel21: "OMS 对照详情（匹配的 VASC、场景名、是否精确 2.1）",
   leafPlan: "本通计划切哪些叶子：intent=首轮意图，missing=中段缺信息，sop_gate=延后",
-  selectionReason: "为何入选（配额/高危补强/补抽底线等）",
+  selectionReason: "为何入选（配额/高危补强/OMS-2.1补抽等）",
 };
 
 const BUCKET_PRIORITY = ["B1", "B5", "B6", "B7", "B2", "B3", "B8", "B4"];
@@ -112,7 +113,31 @@ const HIGH_RISK = [
   { id: "H5", re: /异常单号.*(多少|什么|哪个)|WI.*(多少|什么)|仓库是哪个/i },
 ];
 
-const RELABEL_21 = /尺重|标签辨识|换标上架|条码不符|补贴新标签|商品条码.*换成|换成.*商品条码/i;
+/** OMS 亲缘命中表（由 TOM/oms.VaOrderService_getVasList 打标，见 _tmp/.../build_oms_relabel21_cache.py） */
+const OMS_RELABEL21_HITS_PATHS = [
+  path.join(ROOT, "_runs/20260829_udesk_sample/oms_relabel21_hits.json"),
+  path.join(ROOT, "_tmp/20260829_udesk_probe/oms_relabel21_hits.json"),
+];
+
+function loadOmsRelabel21Hits() {
+  for (const p of OMS_RELABEL21_HITS_PATHS) {
+    if (!fs.existsSync(p)) continue;
+    const doc = JSON.parse(fs.readFileSync(p, "utf8"));
+    const byId = new Map();
+    for (const h of doc.hits || []) {
+      byId.set(h.conversationId, {
+        exact21: !!h.exact21,
+        matchedVascs: h.matchedVascs || [],
+        matchedScenes: [
+          ...new Set((h.details || []).flatMap((d) => d.matchedScenes || [])),
+        ],
+        source: "oms.VaOrderService_getVasList.sceneOverviewName",
+      });
+    }
+    return { byId, path: p, poolSize: byId.size, exact21: doc.exact21 || 0 };
+  }
+  return { byId: new Map(), path: null, poolSize: 0, exact21: 0 };
+}
 
 function parseCSV(content) {
   const rows = [];
@@ -301,6 +326,16 @@ function main() {
   };
   writeJson(path.join(RUN_DIR, "00_probe.json"), probe);
 
+  const omsRelabel = loadOmsRelabel21Hits();
+  if (omsRelabel.path) {
+    // durable copy for resampling
+    fs.mkdirSync(RUN_DIR, { recursive: true });
+    const durable = path.join(RUN_DIR, "oms_relabel21_hits.json");
+    if (path.resolve(omsRelabel.path) !== path.resolve(durable)) {
+      fs.copyFileSync(omsRelabel.path, durable);
+    }
+  }
+
   // ── Phase 1: recall ──
   const candidates = [];
   for (const r of eligible) {
@@ -313,6 +348,8 @@ function main() {
     if (!primary) continue;
     const highRisk = hitHighRisk(blob);
     const vascNos = extractVascNos(blob);
+    const conversationId = r["对话ID"] || "";
+    const omsHit = omsRelabel.byId.get(conversationId) || null;
     const customerTurns = msgs.filter((m) => m.sender === "customer" && m.content.length > 5).length;
     const agentAsks = msgs.filter(
       (m) =>
@@ -320,7 +357,7 @@ function main() {
         (m.content.includes("？") || m.content.includes("?") || /吗$|呢$|是否|还需|请提供|请上传/.test(m.content))
     ).length;
     candidates.push({
-      conversationId: r["对话ID"] || "",
+      conversationId,
       date: r["对话开始时间"] || r.date || "",
       sceneClassification: r["场景分类"] || "",
       customerMsgCount: parseInt(r["对话客户消息数"] || "0", 10) || 0,
@@ -332,14 +369,15 @@ function main() {
       bucketHits: hits,
       primaryBucket: primary,
       highRisk,
-      likelyRelabel21: RELABEL_21.test(blob),
+      likelyRelabel21: !!omsHit,
+      omsRelabel21: omsHit,
       vascNos,
       leafPlan: {
         intent: true,
         missing: agentAsks > 0 || /附件|标签|对应关系|上传|缺少|还需要/.test(blob),
         sop_gate: "deferred",
       },
-      sortKey: stableHash(r["对话ID"] || firstIntent),
+      sortKey: stableHash(conversationId || firstIntent),
     });
   }
 
@@ -434,23 +472,17 @@ function main() {
     highRiskAdded++;
   }
 
-  // Ensure likelyRelabel21 count >= 10 across all selected (not only B1 primary)
-  let relabel21Selected = selected.filter((s) => s.likelyRelabel21).length;
-  if (relabel21Selected < 10) {
-    const extra = candidates
-      .filter((c) => c.likelyRelabel21 && !selectedIds.has(c.conversationId))
-      .sort((a, b) => {
-        if (a.primaryBucket === "B1" && b.primaryBucket !== "B1") return -1;
-        if (b.primaryBucket === "B1" && a.primaryBucket !== "B1") return 1;
-        return b.customerTurns - a.customerTurns || a.sortKey - b.sortKey;
-      });
-    for (const c of extra) {
-      if (relabel21Selected >= 10) break;
-      selectedIds.add(c.conversationId);
-      selected.push({ ...c, selectionReason: "relabel21_floor" });
-      relabel21Selected++;
-    }
+  // Ensure OMS-confirmed §2.1 亲缘全部入选（Udesk 全池目前不足 10 则记 gap）
+  const RELABEL21_TARGET = 10;
+  for (const c of candidates.filter((x) => x.likelyRelabel21)) {
+    if (selectedIds.has(c.conversationId)) continue;
+    selectedIds.add(c.conversationId);
+    selected.push({
+      ...c,
+      selectionReason: c.omsRelabel21 && c.omsRelabel21.exact21 ? "oms_relabel21_exact" : "oms_relabel21_affinity",
+    });
   }
+  let relabel21Selected = selected.filter((s) => s.likelyRelabel21).length;
 
   // Refresh coverage gaps after floors
   const finalByBucket = {};
@@ -469,6 +501,16 @@ function main() {
         noteZh: `仍不足：目标至少${Math.min(10, quota)}，实得${got}（Udesk池可能不够）`,
       });
     }
+  }
+  relabel21Selected = selected.filter((s) => s.likelyRelabel21).length;
+  if (relabel21Selected < RELABEL21_TARGET) {
+    coverageGapsFinal.push({
+      bucket: "relabel21_oms",
+      bucketNameZh: "§2.1 OMS亲缘（sceneOverviewName）",
+      requested: RELABEL21_TARGET,
+      got: relabel21Selected,
+      noteZh: `Udesk 全池经 OMS getVasList 对照后仅 ${omsRelabel.poolSize} 通命中（精确2.1=${omsRelabel.exact21}）；禁止用口语正则凑数。证据：${omsRelabel.path || "missing"}`,
+    });
   }
 
   const finalByBucketZh = {};
@@ -501,6 +543,11 @@ function main() {
     finalByPrimaryBucket: finalByBucket,
     finalByPrimaryBucketZh: finalByBucketZh,
     relabel21InSelected: selected.filter((s) => s.likelyRelabel21).length,
+    relabel21RuleZh:
+      "仅当对话含 VASC，且 OMS oms.VaOrderService_getVasList 的 sceneOverviewName 命中「尺重/标签辨识后换标上架」或入库换标上架亲缘（含包裹类异常换商品标签上架等）时标 true",
+    relabel21OmsPoolSize: omsRelabel.poolSize,
+    relabel21OmsExact21: omsRelabel.exact21,
+    relabel21EvidencePath: omsRelabel.path,
     highRiskTagged: selected.filter((s) => s.highRisk.length).length,
     withVasc: selected.filter((s) => s.vascNos.length).length,
     coverageGaps: coverageGapsFinal,
@@ -513,6 +560,7 @@ function main() {
       bucketHitsZh: (s.bucketHits || []).map((id) => BUCKET_ZH[id] || id),
       highRisk: s.highRisk,
       likelyRelabel21: s.likelyRelabel21,
+      omsRelabel21: s.omsRelabel21 || null,
       vascNos: s.vascNos,
       sceneClassification: s.sceneClassification,
       customerMsgCount: s.customerMsgCount,
@@ -564,7 +612,15 @@ function main() {
     "| `leaves.jsonl` | 切好的单轮叶子（阶段3重跑后更新） |",
     "| `leaves.manifest.json` | 叶子计数 |",
     "",
-    `会话数：**${selected.length}** · 2.1亲缘：**${sessionsPayload.relabel21InSelected}** · 权威：EVAL-AUTHORITY.md`,
+    `会话数：**${selected.length}** · 2.1 OMS亲缘：**${sessionsPayload.relabel21InSelected}**（全池可证 ${omsRelabel.poolSize}，精确2.1=${omsRelabel.exact21}） · 权威：EVAL-AUTHORITY.md`,
+    "",
+    "## §2.1 亲缘打标（已收紧）",
+    "",
+    "- **不再**用对话口语正则冒充 `likelyRelabel21`",
+    "- 须对话抽出 VASC，且 TOM/`oms.VaOrderService_getVasList` 的 `sceneOverviewName` 命中：",
+    "  - 精确：`【入库】尺重/标签辨识后换标上架`",
+    "  - 亲缘：入库「换商品标签上架 / …换标上架…」等",
+    `- 证据：\`${omsRelabel.path || "missing"}\``,
     "",
     "## 粗桶代号（BN）对照",
     "",
