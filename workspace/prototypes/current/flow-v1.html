@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>非标增值Agent · 业务流程图 V1.0（对照文档）</title>
+  <script src="_files/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --surface: #fff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --accent: #b45309;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    .page { max-width: 1280px; margin: 0 auto; padding: 24px; }
+    .banner {
+      padding: 16px 18px;
+      margin-bottom: 18px;
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      border-radius: 10px;
+    }
+    .banner strong { color: #1d4ed8; }
+    .banner p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .err {
+      display: none;
+      margin: 12px 0;
+      padding: 12px 14px;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      color: #991b1b;
+      font-size: 13px;
+    }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    .meta { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 18px;
+      align-items: start;
+    }
+    .canvas { display: flex; flex-direction: column; gap: 16px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+    }
+    .card h2 { margin: 0 0 6px; font-size: 16px; }
+    .card .note { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .mermaid-wrap { overflow-x: auto; }
+    .mermaid { display: flex; justify-content: center; }
+    .side {
+      position: sticky;
+      top: 16px;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .side h2 { margin: 0 0 10px; font-size: 15px; }
+    .side h3 { margin: 14px 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; }
+    .side ul { margin: 0; padding-left: 18px; }
+    .side code { font-size: 12px; background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
+    .edit-hint {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .side { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="banner">
+      <strong>文档对照流程图（非交互原型）</strong>
+      <p>
+        <strong>交互原型权威版</strong>请打开：
+        <a href="B_侧边栏真实体验版.html"><code>current/B_侧边栏真实体验版.html</code></a><br>
+        本页依据 <code>agent-inventory-assist</code> PRD/评测链路整理，便于对照改交互原型。
+        若图不显示：请用 Chrome/Edge 直接打开本文件（不要用 Cursor 内置预览）；或打开同目录
+        <a href="flow-v1.html"><code>flow-v1.html</code></a>（英文短名）。
+      </p>
+    </div>
+    <div class="err" id="loadErr"></div>
+
+    <h1>非标增值生成 Agent · 业务流程图</h1>
+    <p class="meta">
+      版本：V1.0 · 来源：PRD §3 / §5.0 · 评测链路图 §0.2<br>
+      约束：禁止最终审核结论；提交须人工确认；不做费用/时效/可执行承诺。<br>
+      主路径产物（字段齐全）：① 需求描述 + 需求背景说明（OMS 表单）；② 仓库操作 SOP。勿压成「单一客户确认 SOP」。<br>
+      F-001 试点范围：Top1「【入库】尺重/标签辨识后换标上架」+ 原子 <code>OW01V1602 入库其他服务需求</code>；本轮不含页面联动 / 写入 / Copilot。
+    </p>
+
+    <div class="layout">
+      <section class="canvas">
+
+        <article class="card">
+          <h2>0. 产品双侧定位</h2>
+          <p class="note">BRD/PRD：客户侧采集 + 审核侧 Copilot。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart LR
+  CUST[外部客户] --> CS[客户侧：非标需求采集 Agent]
+  CS --> OMS[OMS 结构化非标增值单]
+  OMS --> AUD[审核侧：Copilot]
+  AUD --> HUMAN[审核人员人工确认/流转]
+  CS -.->|不做审核结论| X1[追问补齐 + 需求描述/背景 + 仓库SOP]
+  AUD -.->|不做自动审核| X2[场景/完整性/仓库SOP初稿/风险提示]
+  classDef a fill:#fff7ed,stroke:#ea580c,color:#9a3412
+  classDef b fill:#eff6ff,stroke:#2563eb,color:#1e3a8a
+  classDef c fill:#f0fdf4,stroke:#16a34a,color:#14532d
+  class CUST,HUMAN a
+  class CS,AUD b
+  class OMS c
+            </pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>1. 客户侧入口（4 个）</h2>
+          <p class="note">PRD §1.2：AI 侧栏自动打开（灰度）。V1.0 优先入库+库内。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+  START([客户进入万邑联增值相关页面]) --> E1[入口1 新增库内增值单<br/>vaSource=INHOUSE]
+  START --> E2[入口2 新增入库增值单<br/>vaSource=INBOUND]
+  START --> E3[入口3 异常单处理第二步<br/>vaSource=UNUSUAL<br/>异常单号/WI/仓库注入免追问]
+  START --> E4[入口4 订单列表继续下单<br/>沿用原 vaSource]
+  E1 --> SIDE[AI 侧栏打开<br/>采集 pageContext]
+  E2 --> SIDE
+  E3 --> SIDE
+  E4 --> SIDE
+  SIDE --> PLAN[Planner 意图识别<br/>+ enrichedContext]
+  classDef e fill:#fef3c7,stroke:#d97706,color:#92400e
+  classDef p fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  class E1,E2,E3,E4 e
+  class SIDE,PLAN p
+            </pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>2. 客户侧 Expert 内部 DAG（主链路）</h2>
+          <p class="note">PRD §3.1：nonstandard-sop-guide Expert。试点兜底原子：<code>OW01V1602 入库其他服务需求</code>。<b>校验与追问拆开</b>：Expert 内只做完整性判定（齐/缺 + <code>missingFields</code>）；对客追问由 Planner/侧栏编排，不在本 DAG 内开口。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+  A[validate-input<br/>输入合法性校验] --> B{是否兜底原子场景?}
+  B -->|不是 / A类命名服务| C[outputPath: invalid_input<br/>回退 Planner]
+  B -->|是| D[match-template<br/>场景匹配]
+  D --> E{匹配结果分类}
+  E -->|C类: 无模板| G[outputPath: transfer_human<br/>转人工客服]
+  E -->|B类: 有模板| F0{standard-diversion<br/>标准增值可覆盖?}
+  F0 -->|是| F1[outputPath: recommend_standard<br/>Planner 路由产品推荐]
+  F0 -->|否: 需走非标| F[check-completeness<br/>完整性校验：只判齐/缺]
+  F --> H{校验结果<br/>对照必填附件白名单}
+  H -->|不齐| J[format-output<br/>needs_clarification<br/>输出 missingFields 清单]
+  J --> JX[交还 Planner<br/>本轮 Expert 结束·不开口追问]
+  H -->|齐全| I[llm-generate-sop<br/>①需求描述+需求背景<br/>②仓库操作SOP]
+  I --> K[format-output<br/>客户确认版三类草稿]
+  K --> K1[pre-submit-validation<br/>输出动态校验规则]
+  K1 --> L[outputPath: sop_generated<br/>交 Planner 展示确认]
+  classDef node fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+  classDef decision fill:#fef9c3,stroke:#ca8a04,color:#713f12
+  classDef ok fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef route fill:#f3e8ff,stroke:#9333ea,color:#581c87
+  class A,D,F,I,K,K1 node
+  class B,E,F0,H decision
+  class L,F1 ok
+  class C,G bad
+  class J,JX route
+            </pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>3. 全链路：编排器路由 / 确认 / 提交 / 审核侧</h2>
+          <p class="note">PRD §3.2。追问发生在 Planner/侧栏，不在 Expert 校验节点内。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+  A[客户输入自然语言非标需求] --> B[Planner 意图识别]
+  B --> C[触发 nonstandard-sop-guide Expert]
+  C --> D[Expert：匹配 + 校验判缺 + 生成<br/>不含对客追问]
+  D --> E{outputPath 路由}
+  E -->|sop_generated| F[Planner 展示三类草稿<br/>需求描述/背景 + 仓库SOP<br/>请客户确认]
+  E -->|needs_clarification| G[Planner/侧栏追问或引导补齐<br/>依据 missingFields]
+  E -->|transfer_human| H[转人工客服]
+  E -->|invalid_input| I[回退：非本 Expert 职责]
+  E -->|recommend_standard| RS[路由 product-recommendation Expert]
+  RS --> RT[标准增值推荐<br/>+ 页面联动选中]
+  G -->|客户补充后| C
+  F --> J[客户人工确认/编辑]
+  J --> V{前端提交前校验<br/>描述清晰度+附件完整性}
+  V -->|不通过| VP[提示补充信息/附件]
+  VP -->|客户补充后| J
+  V -->|通过| K[写 API 到 OMS<br/>三版需求+差异快照]
+  K --> L[OMS 生成非标增值单<br/>触发审核侧 Copilot]
+  L --> M[读取结构化需求<br/>模板库/历史案例/场景规则]
+  M --> N[1. 场景识别 + 置信度 + 相似案例]
+  N --> O[2. 资料完整性校验 + 缺失项]
+  O --> P[3. 仓库 SOP 初稿]
+  P --> Q[4. 风险疑点标记]
+  Q --> R[全部辅助信息展示给审核人员]
+  R --> S{置信度与风险}
+  S -->|低置信度/高风险| T[建议重点复核<br/>禁止自动流转]
+  S -->|正常| U[仅展示<br/>仍须人工操作审核]
+  classDef blue fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef green fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef red fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef purple fill:#f3e8ff,stroke:#9333ea,color:#581c87
+  classDef yellow fill:#fef9c3,stroke:#ca8a04,color:#713f12
+  class A,B,C,D,F,J,K blue
+  class RT,U green
+  class H,I,T red
+  class L,M,N,O,P,Q,R purple
+  class E,V,S,G yellow
+            </pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>4. 五节点输入输出契约</h2>
+          <p class="note">PRD §5.0：uiActionProposal 须客户确认后由前端执行。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart LR
+  N1["1. 页面状态采集<br/>前端 到 pageContext"]
+  N2["2. 自然语言输入<br/>客户/侧栏 到 customerIntent"]
+  N3["3. 结构化建议生成<br/>Planner/Coze/Expert<br/>到 outputPath + structured<br/>+ uiActionProposal"]
+  N4["4. 页面联动执行<br/>前端白名单动作<br/>到 executionResult + readback"]
+  N5["5. 后端提交写入<br/>OMS<br/>到 单号 / 错误码"]
+  N1 --> N2 --> N3 --> N4 --> N5
+  classDef n fill:#ecfeff,stroke:#0891b2,color:#155e75
+  class N1,N2,N3,N4,N5 n
+            </pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>5. 评测视角端到端链路</h2>
+          <p class="note">评测链路图 §0.2</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+  A["用户输入 + pageContext + enrichedContext"] --> B["1. 输入上下文接入与意图识别"]
+  B --> C{"是否本 Expert 职责?"}
+  C -->|否/A类 invalid_input| C1[回退 Planner/标准流程]
+  C -->|是| D["2. 场景分类与路由决策"]
+  D --> E{"A/B/C / 标准增值分流"}
+  E -->|recommend_standard| E1[路由 product-recommendation]
+  E -->|C类/低置信度/高风险 transfer_human| E2[转人工客服]
+  E -->|B类有模板| F["3. 完整性校验：判齐/缺 + missingFields"]
+  F --> G{"校验是否齐全?"}
+  G -->|不齐 → needs_clarification| H["4. Planner/侧栏追问补齐<br/>与校验节点分离 · 最多3轮"]
+  H --> B
+  G -->|齐全| I["5. 工具调用与事实校验"]
+  I --> J{"工具/数据/权限异常?"}
+  J -->|异常：最多3次恢复| K["8. 异常恢复与人工兜底"]
+  K --> D
+  J -->|正常| L["6. 需求描述/背景 + 仓库SOP 生成"]
+  L --> M["7. 页面联动建议与客户确认"]
+  M --> N{"客户确认且前端白名单校验通过?"}
+  N -->|否：最多1次回修| F
+  N -->|是| O["9. 幻觉/安全/权限检测"]
+  O --> P{"P0 风险或事实幻觉?"}
+  P -->|是：最多2次回查| I
+  P -->|否| Q["10. 最终输出与提交边界"]
+  Q --> R["审核侧 Copilot"]
+  R --> S["端到端基线对比与评测报告"]
+  classDef step fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+  classDef dec fill:#fef9c3,stroke:#ca8a04,color:#713f12
+  classDef endn fill:#f3e8ff,stroke:#9333ea,color:#581c87
+  class A,B,D,F,H,I,K,L,M,O,Q step
+  class C,E,G,J,N,P dec
+  class R,S endn
+            </pre>
+          </div>
+        </article>
+
+      </section>
+
+      <aside class="side">
+        <h2>速查卡</h2>
+        <h3>交互原型权威</h3>
+        <ul>
+          <li><a href="B_侧边栏真实体验版.html">B_侧边栏真实体验版.html</a></li>
+        </ul>
+        <h3>outputPath</h3>
+        <ul>
+          <li><code>sop_generated</code></li>
+          <li><code>needs_clarification</code></li>
+          <li><code>transfer_human</code></li>
+          <li><code>invalid_input</code></li>
+          <li><code>recommend_standard</code></li>
+        </ul>
+        <h3>场景三类</h3>
+        <ul>
+          <li><strong>A</strong> 命名服务：不进本 Expert</li>
+          <li><strong>B</strong> 有模板：校验字段后生成需求描述/背景 + 仓库SOP</li>
+          <li><strong>C</strong> 无模板：转人工</li>
+        </ul>
+        <div class="edit-hint">
+          打开方式：资源管理器双击，或拖到 Chrome/Edge。<br>
+          英文短名：<a href="flow-v1.html">flow-v1.html</a>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var err = document.getElementById("loadErr");
+      function show(msg) {
+        err.style.display = "block";
+        err.textContent = msg;
+      }
+      if (typeof mermaid === "undefined") {
+        show("Mermaid 未加载。请确认同目录存在 _files/mermaid.min.js，并用浏览器直接打开（不要用 Cursor 内置预览）。也可试 flow-v1.html。");
+        return;
+      }
+      try {
+        mermaid.initialize({
+          startOnLoad: true,
+          securityLevel: "loose",
+          theme: "base",
+          themeVariables: {
+            fontFamily: '"Microsoft YaHei", "PingFang SC", sans-serif',
+            fontSize: "13px"
+          },
+          flowchart: {
+            htmlLabels: true,
+            curve: "basis",
+            padding: 14,
+            nodeSpacing: 36,
+            rankSpacing: 44
+          }
+        });
+      } catch (e) {
+        show("Mermaid 初始化失败：" + (e && e.message ? e.message : e));
+      }
+    })();
+  </script>
+</body>
+</html>

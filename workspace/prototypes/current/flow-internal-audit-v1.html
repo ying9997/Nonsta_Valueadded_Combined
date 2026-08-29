@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>内部审核咨询智能体 · 流程图 V0.1（与客户侧区分）</title>
+  <script src="_files/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f6f5;
+      --surface: #fff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --accent: #0f766e;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+    .page { max-width: 1280px; margin: 0 auto; padding: 24px; }
+    .banner {
+      padding: 16px 18px;
+      margin-bottom: 18px;
+      background: #ecfdf5;
+      border: 1px solid #5eead4;
+      border-radius: 10px;
+    }
+    .banner strong { color: #0f766e; }
+    .banner p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .warn {
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #92400e;
+    }
+    .warn strong { color: #b45309; }
+    .err {
+      display: none;
+      margin: 12px 0;
+      padding: 12px 14px;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      color: #991b1b;
+      font-size: 13px;
+    }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    .meta { color: var(--muted); font-size: 13px; margin-bottom: 18px; line-height: 1.55; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 18px;
+      align-items: start;
+    }
+    .canvas { display: flex; flex-direction: column; gap: 16px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+    }
+    .card h2 { margin: 0 0 6px; font-size: 16px; }
+    .card .note { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .mermaid-wrap { overflow-x: auto; }
+    .mermaid { display: flex; justify-content: center; }
+    table.diff {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    table.diff th, table.diff td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    table.diff th { background: #f0fdfa; color: #115e59; }
+    .side {
+      position: sticky;
+      top: 16px;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .side h2 { margin: 0 0 10px; font-size: 15px; }
+    .side h3 { margin: 14px 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; }
+    .side ul { margin: 0; padding-left: 18px; }
+    .side code { font-size: 12px; background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .side { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="banner">
+      <strong>内部向 · 审核咨询智能体（非客户侧栏）</strong>
+      <p>
+        本页与客户侧 <a href="flow-v1.html"><code>flow-v1.html</code></a> <b>并列、勿混用</b>。
+        用户：审核同事 + 销售/客服（群内协作）；不直连外部客户智能客服。
+        若图不显示：用 Chrome/Edge 直接打开本文件。
+      </p>
+    </div>
+
+    <div class="warn">
+      <strong>链路开放点（画图已标 ◆，需业务/产品拍板）：</strong>
+      ① 描述不完整时是否同时带出附件缺失，避免群内两轮 @；
+      ② 销售/客服补齐后如何回写 OMS、如何再触发智能体（群回复 / 改单后定时扫 / 人工点跑）；
+      ③ 与客户侧提交后「审核 Copilot」是同一套能力复用还是本链路独立批跑；
+      ④ SOP 生成后是仅展示给审核、还是写回单据草稿；
+      ⑤ 定时任务幂等：同一待审单勿反复开话题刷屏。
+    </div>
+    <div class="err" id="loadErr"></div>
+
+    <h1>内部审核咨询智能体 · 流程图</h1>
+    <p class="meta">
+      版本：V0.1（业务沟通后初稿）· 与客户侧 F-001 试点并列，非替代<br>
+      入口：定时任务拉取「待审核」增值单 → 库表取全量（核心：需求描述 / 需求背景说明 + 附件状态）→ 复用既有智能体能力（完整度评估 / 附件校验 / SOP 生成）<br>
+      追问对象：<b>不直问客户</b>；飞书群开新话题 @ 销售 + 客服（找客户）并 @ 审核同事知会<br>
+      约束：不做最终审核结论；不承诺时效/费用；校验与追问仍拆开（智能体判缺 → 编排层开口）
+    </p>
+
+    <div class="layout">
+      <section class="canvas">
+
+        <article class="card">
+          <h2>0. 与客户侧对照（细微差距）</h2>
+          <p class="note">同一套「完整度 / 附件白名单 / SOP」能力，编排与受众不同。</p>
+          <table class="diff">
+            <thead>
+              <tr>
+                <th>维度</th>
+                <th>客户侧（flow-v1）</th>
+                <th>本页 · 内部审核咨询</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>触发</td>
+                <td>客户进页面 / 侧栏对话</td>
+                <td>定时任务扫「待审核」单</td>
+              </tr>
+              <tr>
+                <td>上下文来源</td>
+                <td>pageContext / 异常入口注入</td>
+                <td>增值单库表全量（已填描述+背景+附件）</td>
+              </tr>
+              <tr>
+                <td>先评什么</td>
+                <td>场景匹配后附件校验为主（描述多在对话中写）</td>
+                <td><b>先评需求描述是否完整</b>，完整后再校附件</td>
+              </tr>
+              <tr>
+                <td>追问落点</td>
+                <td>Planner/侧栏对客追问</td>
+                <td>群话题 @销售/@客服（代找客户）+ @审核知会</td>
+              </tr>
+              <tr>
+                <td>齐备后产物</td>
+                <td>需求描述+背景草稿 + 仓库 SOP（客户确认）</td>
+                <td>仓库 SOP（服务审核）；描述已在单上</td>
+              </tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="card">
+          <h2>1. 总览：批跑接入 + 能力复用</h2>
+          <p class="note">绿色=本链路新增编排；蓝色=复用既有智能体能力。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart LR
+  CRON[定时任务<br/>查待审核增值单列表] --> DB[按单号查库<br/>需求描述/背景/附件等]
+  DB --> AGENT[接入既有智能体能力]
+  AGENT --> R1[评估需求描述完整度]
+  AGENT --> R2[校验附件完整度]
+  AGENT --> R3[生成仓库 SOP]
+  R1 -.->|不完整| IM[飞书群新话题<br/>@销售 @客服 @审核]
+  R2 -.->|附件缺| IM
+  R3 -.->|完整| AUD[审核同事查看 SOP]
+  classDef new fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+  classDef reuse fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef out fill:#fef3c7,stroke:#d97706,color:#92400e
+  class CRON,DB,IM new
+  class AGENT,R1,R2,R3 reuse
+  class AUD out
+            </pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>2. 主链路 DAG（内部编排）</h2>
+          <p class="note">校验=判齐/缺；追问=群内开口。二者不在同一步。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+  A[定时任务：拉取待审核增值单号] --> B[按单号加载库表全量信息]
+  B --> C[组装内部咨询上下文<br/>需求描述 + 需求背景说明 + 附件状态]
+  C --> D{幂等/已处理?<br/>◆ 防重复开话题}
+  D -->|跳过| Z[结束本单]
+  D -->|待处理| E[智能体：评估需求描述是否完整<br/>仅判定 · 不开口]
+  E --> F{描述完整?}
+  F -->|否| G[结构化缺失项清单<br/>描述类 missingFields]
+  G --> H{◆ 是否同时扫附件缺失?}
+  H -->|建议一次带齐| I[合并：描述缺失 + 附件缺失]
+  H -->|仅描述| J[仅描述缺失清单]
+  I --> K[编排：群聊开新话题]
+  J --> K
+  K --> L["@销售 @客服：请代找客户补齐<br/>@审核同事：知会"]
+  L --> M[◆ 回写/再触发等待<br/>改单后重跑或群内回执]
+  M --> A
+
+  F -->|是| N[智能体：校验增值单附件是否完整<br/>仅白名单真字段 · 判齐/缺]
+  N --> O{附件完整?}
+  O -->|否| P[输出需补充附件清单<br/>OMS 真实字段名]
+  P --> Q[编排：群聊开新话题]
+  Q --> R["@销售 @客服：请客户补传附件<br/>@审核同事：知会"]
+  R --> M
+
+  O -->|是| S[智能体：生成仓库操作 SOP]
+  S --> T[交付审核同事阅览<br/>◆ 是否写回单据草稿]
+  T --> U[人工审核仍由人做结论<br/>智能体不做通过/驳回]
+  U --> Z
+
+  classDef step fill:#ecfdf5,stroke:#0f766e,color:#134e4a
+  classDef judge fill:#fef9c3,stroke:#ca8a04,color:#713f12
+  classDef ask fill:#ffedd5,stroke:#ea580c,color:#9a3412
+  classDef ok fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef end fill:#f3f4f6,stroke:#6b7280,color:#374151
+  class A,B,C,E,N,S,T step
+  class D,F,H,O judge
+  class G,I,J,P,K,L,Q,R,M ask
+  class U ok
+  class Z end
+            </pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>3. 「校验 vs 追问」在本链路的落点</h2>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+  subgraph EXP[智能体 / Expert 能力 · 只判定]
+    E1[描述完整度评估 → 齐/缺 + 结构化缺失]
+    E2[附件完整度校验 → 齐/缺 + 真实附件名]
+    E3[SOP 生成]
+  end
+  subgraph ORCH[内部编排层 · 才开口]
+    O1[选群 / 开话题 / @人]
+    O2[话术：请销售客服代找客户]
+    O3[把 SOP 推给审核同事]
+  end
+  E1 -->|不齐| O1
+  E2 -->|不齐| O1
+  O1 --> O2
+  E3 --> O3
+  classDef e fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef o fill:#ccfbf1,stroke:#0f766e,color:#134e4a
+  class E1,E2,E3 e
+  class O1,O2,O3 o
+            </pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>4. 与客户侧提交流程的关系（避免重复建设）</h2>
+          <p class="note">客户侧 flow-v1 §3 在写 API 后已有「审核侧 Copilot」。本链路是待审队列批跑，需产品定边界。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart LR
+  CUST[客户侧 Agent] -->|客户确认提交| OMS[OMS 待审核单]
+  OMS --> PATH_A[路径A：提交事件触发<br/>既有审核 Copilot]
+  OMS --> PATH_B[路径B：本页定时批跑<br/>内部咨询智能体]
+  PATH_A --> HUMAN[审核同事]
+  PATH_B --> HUMAN
+  PATH_A -.->|◆ 能力复用同一套评估/SOP?| SHARE[共享 Expert]
+  PATH_B -.-> SHARE
+  classDef a fill:#fff7ed,stroke:#ea580c,color:#9a3412
+  classDef b fill:#ecfdf5,stroke:#0f766e,color:#134e4a
+  classDef c fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  class CUST,PATH_A a
+  class PATH_B,OMS b
+  class SHARE,HUMAN c
+            </pre>
+          </div>
+        </article>
+
+      </section>
+
+      <aside class="side">
+        <h2>目录命名建议</h2>
+        <p>推荐把「客户侧 / 内部审核侧」在命名上钉死，避免再塞进同一个 flow-v1。</p>
+        <h3>原型（本仓已用）</h3>
+        <ul>
+          <li><code>flow-v1.html</code> → 客户侧（保留）</li>
+          <li><code>flow-internal-audit-v1.html</code> → <b>本页</b></li>
+          <li>可选子目录：<code>current/customer/</code>、<code>current/internal-audit/</code>（文件一多再拆）</li>
+        </ul>
+        <h3>产品/Expert 包</h3>
+        <ul>
+          <li>客户侧：现有 <code>nonstandard-sop-guide</code></li>
+          <li>内部侧建议：<code>experts/value-add/audit-order-assist/</code><br/>或 <code>internal-audit-vas-consult/</code></li>
+          <li>共享能力：<code>shared/</code> 或复用同一节点，编排分离</li>
+        </ul>
+        <h3>文档前缀</h3>
+        <ul>
+          <li><code>customer-*</code> / <code>internal-audit-*</code></li>
+          <li>飞书标题带「内部审核咨询」勿写「客户侧栏」</li>
+        </ul>
+        <h3>本页定位</h3>
+        <ul>
+          <li>受众：审核 + 销售/客服</li>
+          <li>不直连外部客户</li>
+          <li>V0.1：流程共识稿，非交互原型</li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+  <script>
+    mermaid.initialize({ startOnLoad: true, securityLevel: "loose", theme: "neutral" });
+    window.addEventListener("error", function (e) {
+      var el = document.getElementById("loadErr");
+      if (el) { el.style.display = "block"; el.textContent = "脚本错误：" + (e.message || e); }
+    });
+  </script>
+</body>
+</html>

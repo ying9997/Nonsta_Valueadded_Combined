@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI指引流程 - 业务规则标注</title>
+  <script src="AI指引流程_业务规则标注_files/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --surface: #ffffff;
+      --text: #27313f;
+      --muted: #667085;
+      --line: #e4e7ec;
+      --rule: #111827;
+      --shadow: 0 10px 26px rgba(18, 38, 63, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+
+    .page {
+      min-width: 1180px;
+      padding: 24px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 2px solid currentColor;
+      background: currentColor;
+      opacity: 0.75;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(900px, 1fr) 330px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .canvas {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .diagram-card {
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .diagram-card h2 {
+      margin: 0 0 12px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .mermaid-wrap {
+      overflow-x: auto;
+      padding: 8px 4px;
+    }
+
+    .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+
+    .side-panel {
+      position: sticky;
+      top: 18px;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .side-panel h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .side-panel .target {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .rules-list {
+      margin: 0;
+      padding-left: 18px;
+      color: #344054;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .hint {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #edf0f5;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .footnote {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+<div id="proto-status-banner" style="position:sticky;top:0;z-index:99999;padding:10px 16px;background:#fef2f2;border-bottom:2px solid #ef4444;color:#991b1b;font:13px/1.45 'Microsoft YaHei',sans-serif;">
+<strong>【DEPRECATED 废弃历史版本】</strong> 请勿用于评审/开发。当前权威交互原型：
+<a href="current/B_侧边栏真实体验版.html" style="color:#b91c1c;font-weight:600;">workspace/prototypes/current/B_侧边栏真实体验版.html</a>
+</div>
+  <main class="page">
+    <div class="toolbar">
+      <h1>AI指引流程与业务规则标注</h1>
+      <div class="legend" aria-label="图例">
+        <span class="legend-item"><span class="dot" style="color:#ffca28"></span>入口/追问</span>
+        <span class="legend-item"><span class="dot" style="color:#3498db"></span>AI主链路</span>
+        <span class="legend-item"><span class="dot" style="color:#8e44ad"></span>回填校验</span>
+        <span class="legend-item"><span class="dot" style="color:#e74c3c"></span>拦截/异常</span>
+        <span class="legend-item"><span class="dot" style="color:#111827"></span>业务规则影响节点（可点击）</span>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="canvas" aria-label="AI指引业务流程图">
+        <article class="diagram-card">
+          <h2>1. 入口分流</h2>
+          <p class="footnote">客户进入库内增值单页面后，可选择 AI 指引或手动填写两条并行路径。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart LR
+    START([用户操作入口]) --> P1[路径1：点击AI指引按钮]
+    START --> P2[路径2：不点击AI按钮<br/>直接手动填表单]
+    P1 --> OPEN[弹出AI客服侧边栏<br/>系统自动发送预置消息]
+    P2 --> MANUAL[用户填写需求描述<br/>选择处理方式=其他服务需求]
+
+    classDef orange fill:#fff3cd,stroke:#ffca28,color:#333
+    classDef blue fill:#d6eaf8,stroke:#3498db,color:#333
+    classDef yellow fill:#fcf3cf,stroke:#f1c40f,color:#333
+
+    class START orange
+    class P1,OPEN blue
+    class P2,MANUAL yellow
+            </pre>
+          </div>
+        </article>
+
+        <article class="diagram-card">
+          <h2>2. 路径1：AI对话主链路</h2>
+          <p class="footnote">带「规则」标记的节点可点击查看业务方需提供的规则清单。</p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+    IN[客户输入需求描述] --> D["AI Agent：识别需求信息完整性<br/>【规则 D】"]
+    D -->|信息不完整| E["AI追问缺失项<br/>回到客户补充输入<br/>【规则 E】"]
+    E --> IN
+    D -->|信息完整| F{"标准增值服务<br/>可覆盖?<br/>【规则 F】"}
+    F -->|可覆盖| F1["输出标准增值原子组合<br/>JSON：原子组合、必填附件、必填信息项<br/>【规则 F1】"]
+    F1 --> F2{客户是否选择<br/>该推荐组合}
+    F2 -->|否| BLOCK1[拦截提交<br/>提示必须选用推荐组合]
+    F2 -->|是| CONFIRM[客户点击【确认】]
+    F -->|不可覆盖| I{"历史模板场景<br/>是否匹配<br/>【规则 I】"}
+    I -->|不匹配| HUMAN[直接转人工]
+    I -->|匹配| K["取置信度TOP1场景<br/>输出：原子组合、场景名、必填附件、必填信息项<br/>【规则 K】"]
+    K --> L{"已包含全部<br/>必填信息项?<br/>【规则 L】"}
+    L -->|否| M["AI追问客户补充<br/>回到客户输入<br/>【规则 M】"]
+    M --> IN
+    L -->|是| N["生成仓库操作SOP<br/>按钮：确认使用<br/>【规则 N】"]
+    N --> ALT[客户不认可：可手动编辑表单<br/>或关闭AI侧栏自行填写]
+
+    classDef blue fill:#d6eaf8,stroke:#3498db,color:#333
+    classDef orange fill:#fff3cd,stroke:#ffca28,color:#333
+    classDef green fill:#d5f5e3,stroke:#27ae60,color:#333
+    classDef red fill:#fadbd8,stroke:#e74c3c,color:#333
+    classDef gray fill:#ebeef3,stroke:#95a5a6,color:#666,stroke-dasharray:5 5
+    classDef rule fill:#ffffff,stroke:#111827,stroke-width:3px,color:#111827
+
+    class IN blue
+    class D,E,F,F1,I,K,L,M,N rule
+    class CONFIRM green
+    class BLOCK1,HUMAN red
+    class ALT gray
+
+    click D call showRule("D")
+    click E call showRule("E")
+    click F call showRule("F")
+    click F1 call showRule("F1")
+    click I call showRule("I")
+    click K call showRule("K")
+    click L call showRule("L")
+    click M call showRule("M")
+    click N call showRule("N")
+            </pre>
+          </div>
+        </article>
+
+        <article class="diagram-card">
+          <h2>3. 确认后回填与校验</h2>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+    C1[客户点击【确认】] --> Q["AI输出结构化JSON<br/>处理方式、增值原子组合、场景名、<br/>必填附件[]、必填信息项[]、SOP、原始需求描述<br/>【规则 Q】"]
+    Q --> FILL[前端执行：一键回填表单<br/>自动选中对应增值/处理方式<br/>SOP回填后台]
+    FILL --> S{"JSON中存在<br/>必填附件数组?"}
+    S -->|存在| T["前端校验：检查用户是否上传全部必填附件<br/>【规则 T】"]
+    T -->|缺失| U["弹窗拦截：提醒补充必填附件<br/>【规则 U】"]
+    T -->|齐全| OK1[允许提交表单]
+    S -->|无必填附件| OK2[允许提交表单]
+
+    classDef green fill:#d5f5e3,stroke:#27ae60,color:#333
+    classDef purple fill:#e8daef,stroke:#8e44ad,color:#333
+    classDef red fill:#fadbd8,stroke:#e74c3c,color:#333
+    classDef rule fill:#ffffff,stroke:#111827,stroke-width:3px,color:#111827
+
+    class C1 green
+    class Q,T,U rule
+    class FILL,OK1,OK2 purple
+    class U red
+
+    click Q call showRule("Q")
+    click T call showRule("T")
+    click U call showRule("U")
+            </pre>
+          </div>
+        </article>
+
+        <article class="diagram-card">
+          <h2>4. 路径2：手动填写表单链路</h2>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+    Y1[用户填写需求描述<br/>选择处理方式=其他服务需求] --> Y2[用户点击提交按钮]
+    Y2 --> Y3{"一期逻辑：是否经过AI对话、<br/>存在AI输出JSON?"}
+    Y3 -->|有AI输出JSON| Y4[复用同样的前端<br/>必填附件校验逻辑]
+    Y3 -->|无AI输出JSON【一期】| Z["不做附件校验<br/>仅做需求描述文本清晰度规则校验<br/>【规则 Z】"]
+    Z -->|不清晰| AA["弹窗拦截：引导打开AI侧边栏进入路径1<br/>【规则 AA】"]
+    Z -->|清晰| Y5[允许直接提交表单]
+
+    classDef yellow fill:#fcf3cf,stroke:#f1c40f,color:#333
+    classDef red fill:#fadbd8,stroke:#e74c3c,color:#333
+    classDef rule fill:#ffffff,stroke:#111827,stroke-width:3px,color:#111827
+
+    class Y1,Y2,Y4,Y5 yellow
+    class Z,AA rule
+    class AA red
+
+    click Z call showRule("Z")
+    click AA call showRule("AA")
+            </pre>
+          </div>
+        </article>
+
+        <article class="diagram-card">
+          <h2>5. 二期能力（规划）</h2>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart TD
+    AC["【二期新增】无AI对话<br/>提交时静默调用AI<br/>【规则 AC】"] --> AD{"AI判定<br/>需求完整性<br/>【规则 AD】"}
+    AD -->|信息缺失| AE["弹窗，唤起AI侧边栏<br/>要求补充信息<br/>【规则 AE】"]
+    AD -->|信息完整| AF["AI输出必填附件、原子组合<br/>执行校验，校验通过后提交<br/>【规则 AF】"]
+
+    classDef gray fill:#ebeef3,stroke:#95a5a6,color:#666,stroke-dasharray:5 5
+    classDef rule fill:#ffffff,stroke:#111827,stroke-width:3px,color:#111827
+
+    class AC,AD,AE,AF gray
+    class AC,AD,AE,AF rule
+
+    click AC call showRule("AC")
+    click AD call showRule("AD")
+    click AE call showRule("AE")
+    click AF call showRule("AF")
+            </pre>
+          </div>
+        </article>
+      </section>
+
+      <aside class="side-panel" aria-live="polite">
+        <h2 id="ruleTitle">业务规则影响节点</h2>
+        <p class="target" id="ruleTarget">点击流程图中带【规则】标记的节点查看详情</p>
+        <ul class="rules-list" id="ruleList">
+          <li>需求完整性判断规则</li>
+          <li>标准增值服务原子库与组合规则</li>
+          <li>历史模板场景库与置信度阈值</li>
+          <li>SOP生成知识库</li>
+          <li>附件校验与清晰度校验规则</li>
+        </ul>
+        <div class="hint">建议评审时按这些节点逐项向业务方确认：规则 owner、维护方式、样例数据、兜底策略。</div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const ruleMap = {
+      D: {
+        title: "D：识别需求信息完整性",
+        rules: [
+          "不同服务类型下的必填信息项清单",
+          "字段缺失、语义不明确、附件缺失的判定边界",
+          "缺失项追问顺序与追问话术模板",
+          "无法判断时是否转人工的兜底规则"
+        ]
+      },
+      E: {
+        title: "E：AI追问缺失项",
+        rules: [
+          "按缺失字段生成追问的标准话术",
+          "一次追问多个缺失项还是分轮追问",
+          "客户多次未补充时的兜底策略"
+        ]
+      },
+      F: {
+        title: "F：标准增值服务是否可覆盖",
+        rules: [
+          "标准增值服务原子库",
+          "标准服务覆盖边界与不可覆盖样例",
+          "需求到原子服务的映射规则",
+          "多原子服务组合的允许/禁止规则"
+        ]
+      },
+      F1: {
+        title: "F1：输出标准增值原子组合",
+        rules: [
+          "原子服务编码、名称、说明",
+          "原子组合与必填附件的映射",
+          "原子组合与必填信息项的映射",
+          "JSON字段枚举值与前端表单字段映射"
+        ]
+      },
+      I: {
+        title: "I：历史模板场景是否匹配",
+        rules: [
+          "历史模板场景库",
+          "场景触发关键词、语义样例、反例",
+          "匹配成功/失败的置信度阈值",
+          "不匹配时直接转人工的条件"
+        ]
+      },
+      K: {
+        title: "K：取置信度TOP1场景",
+        rules: [
+          "场景名标准枚举",
+          "场景与原子组合映射",
+          "场景与必填附件/必填信息项映射",
+          "TOP1置信度不足时的处理策略"
+        ]
+      },
+      L: {
+        title: "L：是否包含全部必填信息项",
+        rules: [
+          "按场景定义的必填信息项",
+          "可接受的字段表达方式与同义词",
+          "缺失项再次追问的判定规则"
+        ]
+      },
+      M: {
+        title: "M：AI追问客户补充",
+        rules: [
+          "场景化追问话术",
+          "必填信息项的补充格式要求",
+          "多轮追问上限与转人工条件"
+        ]
+      },
+      N: {
+        title: "N：生成仓库操作SOP",
+        rules: [
+          "SOP模板库",
+          "不同场景的仓库操作步骤",
+          "必须包含的动作、字段和提示",
+          "禁止动作、异常处理和人工确认点",
+          "V1.0仅提供确认按钮，不提供再改一版"
+        ]
+      },
+      Q: {
+        title: "Q：AI输出结构化JSON",
+        rules: [
+          "JSON字段定义、必填/选填约束",
+          "处理方式、增值原子组合、场景名枚举",
+          "必填附件[]、必填信息项[]的数据结构",
+          "SOP文本格式与后台入参映射"
+        ]
+      },
+      T: {
+        title: "T：前端必填附件校验",
+        rules: [
+          "附件类型、数量、格式、大小限制",
+          "不同原子组合/场景对应的附件清单",
+          "附件是否允许豁免以及豁免条件",
+          "附件校验失败的错误码和文案"
+        ]
+      },
+      U: {
+        title: "U：附件缺失弹窗拦截",
+        rules: [
+          "缺失附件的展示文案",
+          "是否允许暂存、返回补传或转人工",
+          "客户补齐附件后的重新校验规则"
+        ]
+      },
+      Z: {
+        title: "Z：需求描述文本清晰度校验",
+        rules: [
+          "最小描述标准",
+          "清晰/不清晰样例库",
+          "模糊词、缺少对象、缺少操作方式的识别规则",
+          "一期不做附件校验时的风险接受范围"
+        ]
+      },
+      AA: {
+        title: "AA：引导打开AI侧边栏",
+        rules: [
+          "拦截弹窗文案",
+          "进入AI侧边栏后携带原需求描述的规则",
+          "客户取消引导后的处理策略"
+        ]
+      },
+      AC: {
+        title: "AC：二期静默调用AI",
+        rules: [
+          "静默调用触发条件",
+          "调用超时、失败、无结果时的兜底策略",
+          "是否允许用户感知调用过程",
+          "与一期AI对话结果的优先级关系"
+        ]
+      },
+      AD: {
+        title: "AD：二期AI判定需求完整性",
+        rules: [
+          "复用一期完整性规则的范围",
+          "二期提交场景下的阻断阈值",
+          "信息缺失时是否必须唤起AI侧边栏"
+        ]
+      },
+      AE: {
+        title: "AE：二期弹窗补充信息",
+        rules: [
+          "弹窗文案与按钮",
+          "补充信息进入侧边栏的上下文传递规则",
+          "用户关闭弹窗后的提交策略"
+        ]
+      },
+      AF: {
+        title: "AF：二期输出并校验后提交",
+        rules: [
+          "二期AI输出字段与一期JSON结构是否一致",
+          "自动校验通过后是否直接提交",
+          "校验失败时前端拦截与人工兜底规则"
+        ]
+      }
+    };
+
+    const ruleTitle = document.getElementById("ruleTitle");
+    const ruleTarget = document.getElementById("ruleTarget");
+    const ruleList = document.getElementById("ruleList");
+
+    window.showRule = function (id) {
+      const item = ruleMap[id];
+      if (!item) return;
+      ruleTitle.textContent = item.title;
+      ruleTarget.textContent = "业务方需提供：";
+      ruleList.innerHTML = item.rules.map(rule => `<li>${rule}</li>`).join("");
+    };
+
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "base",
+      themeVariables: {
+        fontFamily: '"Microsoft YaHei", "PingFang SC", Arial, sans-serif',
+        fontSize: "13px"
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: "basis",
+        padding: 16,
+        nodeSpacing: 40,
+        rankSpacing: 48
+      }
+    });
+  </script>
+</body>
+</html>
