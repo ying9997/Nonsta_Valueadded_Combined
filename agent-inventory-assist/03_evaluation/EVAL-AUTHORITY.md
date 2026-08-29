@@ -10,6 +10,7 @@
 | F-001 工程金标（4 条干跑） | `experts/value-add/nonstandard-sop-guide/tests/pilot-f001/` |
 | F-001 模拟必填 | `03_evaluation/F-001-SIMULATED-BUSINESS-RULES.md` |
 | 全量真实会话抽样规则 | `03_evaluation/抽样规则草稿-真实客服会话-V0.1.md` |
+| 全量真实会话清单（阶段0～2） | `03_evaluation/datasets/udesk-stratified-v0.1/sessions.json` |
 | 主数据源（客户–客服） | `workspace/data/raw/data_udesk_log_database_增值.csv` |
 | 场景细类对照 | `workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md` |
 | 字段/场景 2.1 | `workspace/knowledge/sop/2.1-inbound-relabel-shelving.md` |
