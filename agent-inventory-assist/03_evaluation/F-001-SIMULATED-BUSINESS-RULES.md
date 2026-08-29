@@ -44,4 +44,6 @@
 
 ## 5. 业务覆盖时怎么改
 
-改本文件 §3 勾选 → 同步 `2.1` / `BUSINESS-REVIEW` / cases / 飞书 → 再干跑。
+改本文件 §3 勾选 → 同步 `workspace/knowledge/sop/2.1-inbound-relabel-shelving.md`、`experts/.../tests/pilot-f001/`（BUSINESS-REVIEW / cases）/ 飞书 → 再干跑。
+
+工程用例目录：`experts/value-add/nonstandard-sop-guide/tests/pilot-f001/`（规则权威在本文件，不在用例目录内复制正文）。

@@ -1,85 +1,85 @@
-{
-  "caseId": "P-002",
-  "name": "clarify-missing-multi-attachments",
-  "sceneKey": "inbound_label_identify",
-  "sceneName": "【入库】尺重/标签辨识后换标上架",
-  "serviceAtom": "OW01V1602",
-  "serviceAtomName": "入库其他服务需求",
-  "vascCode": "VASC202411192246131",
-  "vascName": "入库非标增值（特批）",
-  "gate": "must_pass",
-  "ruleRef": "SIMULATED-BUSINESS-RULES.md",
-  "customerIntent": "请按尺重辨识后换标上架：SKU-A 换成 SKU-B，共100件。",
-  "pageContext": {
-    "entryScene": "UNUSUAL_INBOUND",
-    "vaSource": "UNUSUAL",
-    "warehouseCode": "USLA",
-    "customerCode": "CUST_001",
-    "eventNo": "EB0326062258",
-    "businessOrderNo": "WI46673588",
-    "attachmentStatus": {
-      "操作说明附件": "missing",
-      "商品和标签的对应关系": "missing",
-      "包裹和标签的对应关系": "uploaded",
-      "视频拍摄SOP（中文+英文）": "uploaded",
-      "标签文件": "uploaded"
-    }
-  },
-  "enrichedContext": {
-    "customerCode": "CUST_001",
-    "customerName": "脱敏客户A",
-    "warehouseCode": "USLA",
-    "warehouseName": "美国洛杉矶仓",
-    "vaSource": "UNUSUAL",
-    "entryScene": "UNUSUAL_INBOUND",
-    "exceptionType": "包裹条码异常(需客户处理)",
-    "vascList": [
-      {
-        "vascCode": "VASC202411192246131",
-        "vascName": "入库非标增值（特批）"
-      }
-    ],
-    "businessOrderNo": "WI46673588",
-    "businessMerchandise": [
-      {
-        "sku": "SKU-A",
-        "qty": 100
-      }
-    ],
-    "eventNo": "EB0326062258"
-  },
-  "providedFields": {},
-  "expected": {
-    "outputPath": "needs_clarification",
-    "sceneKey": "inbound_label_identify",
-    "mustNotAskAgain": [
-      "eventNo",
-      "businessOrderNo",
-      "warehouseCode",
-      "warehouseName"
-    ],
-    "missingFieldsMustInclude": [
-      "操作说明附件",
-      "商品和标签的对应关系"
-    ],
-    "missingFieldsAskOnce": true,
-    "missingFieldsWhitelistOnly": true,
-    "forbiddenMissingFieldKeys": [
-      "event_no",
-      "wi_order_no",
-      "need_parcel_label",
-      "sku_mapping",
-      "scope_qty",
-      "label_file"
-    ],
-    "forbidden": [
-      "sop_generated",
-      "编造WI单号",
-      "向客户追问WI46673588或仓库",
-      "完整requirementDescription",
-      "完整requirementBackground",
-      "完整warehouseSop"
-    ]
-  },
-  "notes": "按模拟规则：缺两项均为 required=true。一次性用真实字段名追问。业务覆盖若改必填集则改写。"
-}
+{
+  "caseId": "P-002",
+  "name": "clarify-missing-multi-attachments",
+  "sceneKey": "inbound_label_identify",
+  "sceneName": "【入库】尺重/标签辨识后换标上架",
+  "serviceAtom": "OW01V1602",
+  "serviceAtomName": "入库其他服务需求",
+  "vascCode": "VASC202411192246131",
+  "vascName": "入库非标增值（特批）",
+  "gate": "must_pass",
+  "ruleRef": "agent-inventory-assist/03_evaluation/F-001-SIMULATED-BUSINESS-RULES.md",
+  "customerIntent": "请按尺重辨识后换标上架：SKU-A 换成 SKU-B，共100件。",
+  "pageContext": {
+    "entryScene": "UNUSUAL_INBOUND",
+    "vaSource": "UNUSUAL",
+    "warehouseCode": "USLA",
+    "customerCode": "CUST_001",
+    "eventNo": "EB0326062258",
+    "businessOrderNo": "WI46673588",
+    "attachmentStatus": {
+      "操作说明附件": "missing",
+      "商品和标签的对应关系": "missing",
+      "包裹和标签的对应关系": "uploaded",
+      "视频拍摄SOP（中文+英文）": "uploaded",
+      "标签文件": "uploaded"
+    }
+  },
+  "enrichedContext": {
+    "customerCode": "CUST_001",
+    "customerName": "脱敏客户A",
+    "warehouseCode": "USLA",
+    "warehouseName": "美国洛杉矶仓",
+    "vaSource": "UNUSUAL",
+    "entryScene": "UNUSUAL_INBOUND",
+    "exceptionType": "包裹条码异常(需客户处理)",
+    "vascList": [
+      {
+        "vascCode": "VASC202411192246131",
+        "vascName": "入库非标增值（特批）"
+      }
+    ],
+    "businessOrderNo": "WI46673588",
+    "businessMerchandise": [
+      {
+        "sku": "SKU-A",
+        "qty": 100
+      }
+    ],
+    "eventNo": "EB0326062258"
+  },
+  "providedFields": {},
+  "expected": {
+    "outputPath": "needs_clarification",
+    "sceneKey": "inbound_label_identify",
+    "mustNotAskAgain": [
+      "eventNo",
+      "businessOrderNo",
+      "warehouseCode",
+      "warehouseName"
+    ],
+    "missingFieldsMustInclude": [
+      "操作说明附件",
+      "商品和标签的对应关系"
+    ],
+    "missingFieldsAskOnce": true,
+    "missingFieldsWhitelistOnly": true,
+    "forbiddenMissingFieldKeys": [
+      "event_no",
+      "wi_order_no",
+      "need_parcel_label",
+      "sku_mapping",
+      "scope_qty",
+      "label_file"
+    ],
+    "forbidden": [
+      "sop_generated",
+      "编造WI单号",
+      "向客户追问WI46673588或仓库",
+      "完整requirementDescription",
+      "完整requirementBackground",
+      "完整warehouseSop"
+    ]
+  },
+  "notes": "按模拟规则：缺两项均为 required=true。一次性用真实字段名追问。业务覆盖若改必填集则改写。"
+}

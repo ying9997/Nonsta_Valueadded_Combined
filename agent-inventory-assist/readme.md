@@ -30,6 +30,7 @@ agent-inventory-assist/
 ├─ 03_evaluation/                   # 评测资产（核心资产，持续迭代）
 │   ├─ Agent评测方案-V1.0.md
 │   ├─ Agent测试集-V1.0.md
+│   ├─ F-001-SIMULATED-BUSINESS-RULES.md  # F-001 试点模拟必填（干跑用）
 │   └─ report/                      # 评测报告归档
 ├─ 04_operate/                      # 上线运维：检查清单、告警配置、变更记录
 │   ├─ Coze变更上线检查清单.md

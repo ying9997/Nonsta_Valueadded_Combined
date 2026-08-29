@@ -6,7 +6,7 @@
 
 - 产物口径（2026-08-28）：字段齐全时生成 **① 需求描述 + 需求背景说明** 与 **② 仓库操作 SOP**。
 
-- 字段口径（同日修订）：**异常入口上下文免追问**；完整性校验 **只含 OMS 真实增值文件 5 项**；尺重换标必填子集见 [`SIMULATED-BUSINESS-RULES.md`](SIMULATED-BUSINESS-RULES.md)（**模拟干跑**，业务签批可覆盖）。
+- 字段口径（同日修订）：**异常入口上下文免追问**；完整性校验 **只含 OMS 真实增值文件 5 项**；尺重换标必填子集见 [`F-001-SIMULATED-BUSINESS-RULES.md`](../../../../../agent-inventory-assist/03_evaluation/F-001-SIMULATED-BUSINESS-RULES.md)（**模拟干跑**，业务签批可覆盖）。
 
 
 
@@ -92,7 +92,7 @@
 | 视频拍摄SOP（中文+英文） | ☐ 是 / ☐ 否 | 否 |
 | 标签文件 | ☐ 是 / ☐ 否 | **是** |
 
-模拟依据与覆盖方式见 [`SIMULATED-BUSINESS-RULES.md`](SIMULATED-BUSINESS-RULES.md)。业务勾选与模拟不一致时，以签批为准并改用例。
+模拟依据与覆盖方式见 [`F-001-SIMULATED-BUSINESS-RULES.md`](../../../../../agent-inventory-assist/03_evaluation/F-001-SIMULATED-BUSINESS-RULES.md)。业务勾选与模拟不一致时，以签批为准并改用例。
 
 **另请确认：**
 
