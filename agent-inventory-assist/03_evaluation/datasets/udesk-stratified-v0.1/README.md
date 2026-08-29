@@ -27,3 +27,14 @@ Udesk 全量真实分层抽样（阶段 0～2）。叶子本发布仅规划 `int
 2.1 亲缘（likelyRelabel21）：9
 高危标签会话：36
 含 VASC 号：28
+## 阶段 3 叶子（intent / missing）
+
+| leaves.jsonl | 188 条叶子（每通最多 intent+missing；无 sop_gate） |
+| leaves.manifest.json | 计数与分桶统计 |
+
+生成时间：2026-08-29T09:57:37.571Z
+
+| leaf_role | 条数 |
+|-----------|------|
+| intent | 103 |
+| missing | 85 |
