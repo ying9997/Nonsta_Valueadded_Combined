@@ -1,14 +1,44 @@
 {
   "version": "udesk-stratified-v0.1",
   "phase": "0-2",
+  "说明": "本文件是从Udesk真实客服对话里分层抽出的会话清单。B1～B8是粗桶代号；请先看 fieldLegendZh 与 bucketNamesZh。",
+  "fieldLegendZh": {
+    "finalByPrimaryBucket": "各粗桶最终选中了多少通会话（按主桶统计）",
+    "quotaTarget": "抽样开始前设定的各粗桶目标通数",
+    "relabel21InSelected": "被标成「像审核SOP§2.1 尺重/标签辨识后换标上架」的会话通数（亲缘，不是细类金标）",
+    "coverageGaps": "没抽满的粗桶清单（桶代号、目标、实得、原因）",
+    "highRiskTagged": "带高危标签的会话通数（可与粗桶重叠）",
+    "withVasc": "对话文本里能抽出 VASC 增值单号的会话通数",
+    "sessionCount": "终选会话总通数",
+    "primaryBucket": "本通会话的主粗桶代号（B1～B8）",
+    "primaryBucketName": "主粗桶中文名",
+    "likelyRelabel21": "是否像 §2.1 换标场景（true=像）",
+    "leafPlan": "本通计划切哪些叶子：intent=首轮意图，missing=中段缺信息，sop_gate=延后",
+    "selectionReason": "为何入选（配额/高危补强/补抽底线等）"
+  },
+  "bucketNamesZh": {
+    "B1": "入库·换标/辨识上架",
+    "B2": "入库·异常调拨/串仓",
+    "B3": "入库·拍照/视频/暂存",
+    "B4": "入库·其它",
+    "B5": "库内·换标/货权/SKU",
+    "B6": "库内·拍照/盘点/尺重",
+    "B7": "库内·其它（冻结/销毁/加固等）",
+    "B8": "入口/怎么填/报价审核咨询"
+  },
   "leafRolesThisRelease": [
     "intent",
     "missing"
   ],
+  "leafRolesZh": {
+    "intent": "首轮意图叶子（用户第一句，评场景识别）",
+    "missing": "中段缺信息叶子（客服追问后客户再答，评该不该追问/追什么）",
+    "sop_gate": "是否该出仓库SOP（本版不做，等VASC对齐事实表）"
+  },
   "sopGate": "deferred_see_VASC-SOP补齐链路探测.md",
   "sourceCsv": "workspace/data/raw/data_udesk_log_database_增值.csv",
   "rulesRef": "agent-inventory-assist/03_evaluation/抽样规则草稿-真实客服会话-V0.1.md",
-  "generatedAt": "2026-08-29T09:53:08.128Z",
+  "generatedAt": "2026-08-29T15:44:02.065Z",
   "quotaTarget": {
     "B1": 18,
     "B2": 11,
@@ -16,40 +46,59 @@
     "B4": 9,
     "B5": 13,
     "B6": 11,
-    "B7": 9,
+    "B7": 10,
     "B8": 9
   },
-  "sessionCount": 103,
+  "quotaTargetZh": {
+    "B1 入库·换标/辨识上架": 18,
+    "B2 入库·异常调拨/串仓": 11,
+    "B3 入库·拍照/视频/暂存": 11,
+    "B4 入库·其它": 9,
+    "B5 库内·换标/货权/SKU": 13,
+    "B6 库内·拍照/盘点/尺重": 11,
+    "B7 库内·其它（冻结/销毁/加固等）": 10,
+    "B8 入口/怎么填/报价审核咨询": 9
+  },
+  "sessionCount": 110,
   "finalByPrimaryBucket": {
     "B1": 27,
     "B2": 11,
     "B3": 12,
-    "B4": 8,
+    "B4": 10,
     "B5": 13,
     "B6": 14,
-    "B7": 7,
-    "B8": 11
+    "B7": 10,
+    "B8": 13
   },
-  "relabel21InSelected": 9,
-  "highRiskTagged": 36,
+  "finalByPrimaryBucketZh": {
+    "B1 入库·换标/辨识上架": 27,
+    "B2 入库·异常调拨/串仓": 11,
+    "B3 入库·拍照/视频/暂存": 12,
+    "B4 入库·其它": 10,
+    "B5 库内·换标/货权/SKU": 13,
+    "B6 库内·拍照/盘点/尺重": 14,
+    "B7 库内·其它（冻结/销毁/加固等）": 10,
+    "B8 入口/怎么填/报价审核咨询": 13
+  },
+  "relabel21InSelected": 10,
+  "highRiskTagged": 38,
   "withVasc": 28,
-  "coverageGaps": [
-    {
-      "bucket": "B7",
-      "requested": 9,
-      "got": 7,
-      "note": "below_soft_floor_10"
-    }
-  ],
+  "coverageGaps": [],
   "sessions": [
     {
       "conversationId": "#h292ox4h",
       "date": "2026-05-07 09:32:34",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": true,
@@ -68,10 +117,16 @@
       "conversationId": "#h28xcw6x",
       "date": "2026-03-28 13:42:09",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -92,10 +147,16 @@
       "conversationId": "#h292wcnl",
       "date": "2026-05-08 15:39:06",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -116,10 +177,16 @@
       "conversationId": "#h28t57vj",
       "date": "2026-03-02 15:23:37",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": true,
@@ -138,10 +205,16 @@
       "conversationId": "#h28uw7b1",
       "date": "2026-03-11 14:04:37",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B4"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入库·其它"
       ],
       "highRisk": [],
       "likelyRelabel21": true,
@@ -160,9 +233,14 @@
       "conversationId": "#h28ysycd",
       "date": "2026-04-07 16:10:32",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": true,
@@ -183,9 +261,14 @@
       "conversationId": "#h28vyvyl",
       "date": "2026-03-18 16:02:22",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓"
       ],
       "highRisk": [],
       "likelyRelabel21": true,
@@ -206,12 +289,20 @@
       "conversationId": "#h28s2szd",
       "date": "2026-02-25 14:32:10",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B3",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -232,11 +323,18 @@
       "conversationId": "#h28ta1bp",
       "date": "2026-03-03 10:04:58",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -255,12 +353,20 @@
       "conversationId": "#h28ye9qx",
       "date": "2026-04-04 11:49:08",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B4",
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -281,12 +387,20 @@
       "conversationId": "#h292045j",
       "date": "2026-04-30 14:37:57",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B3",
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3",
@@ -308,10 +422,16 @@
       "conversationId": "#h28v65nb",
       "date": "2026-03-13 09:54:41",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -333,10 +453,16 @@
       "conversationId": "#h28s0smd",
       "date": "2026-02-25 10:52:40",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -357,10 +483,16 @@
       "conversationId": "#h28tvrbd",
       "date": "2026-03-06 09:43:37",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -379,8 +511,12 @@
       "conversationId": "#h2907tz9",
       "date": "2026-04-17 10:07:40",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -401,12 +537,20 @@
       "conversationId": "#h28ve7of",
       "date": "2026-03-14 17:23:56",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B3",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -425,10 +569,16 @@
       "conversationId": "#h28x8uhn",
       "date": "2026-03-27 15:27:13",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2",
         "B3",
         "B4"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "入库·其它"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -447,10 +597,16 @@
       "conversationId": "#h28tlce5",
       "date": "2026-03-04 16:48:25",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -471,9 +627,14 @@
       "conversationId": "#h28v47ld",
       "date": "2026-03-12 18:13:35",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -494,10 +655,16 @@
       "conversationId": "#h28x42j3",
       "date": "2026-03-26 16:27:01",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -516,10 +683,16 @@
       "conversationId": "#h28ylpsx",
       "date": "2026-04-06 10:13:24",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2",
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -540,9 +713,14 @@
       "conversationId": "#h29149r9",
       "date": "2026-04-23 17:10:14",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2",
         "B3"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -563,9 +741,14 @@
       "conversationId": "#h28uxynl",
       "date": "2026-03-11 17:32:35",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -584,10 +767,16 @@
       "conversationId": "#h292m7ch",
       "date": "2026-05-06 15:05:55",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H5"
@@ -608,8 +797,12 @@
       "conversationId": "#h28w9fq9",
       "date": "2026-03-20 15:29:22",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -628,8 +821,12 @@
       "conversationId": "#h28s55bh",
       "date": "2026-02-25 18:05:49",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -650,8 +847,12 @@
       "conversationId": "#h28sfmkb",
       "date": "2026-02-27 09:31:01",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -670,9 +871,14 @@
       "conversationId": "#h28znrqz",
       "date": "2026-04-13 15:02:52",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H1",
@@ -694,9 +900,14 @@
       "conversationId": "#h28t1nwv",
       "date": "2026-03-02 09:51:31",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -715,9 +926,14 @@
       "conversationId": "#h292p4dv",
       "date": "2026-05-07 09:57:48",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -733,36 +949,19 @@
       "selectionReason": "quota:B3"
     },
     {
-      "conversationId": "#h28xn7pd",
-      "date": "2026-03-30 16:27:49",
-      "primaryBucket": "B3",
-      "bucketHits": [
-        "B3",
-        "B8"
-      ],
-      "highRisk": [],
-      "likelyRelabel21": false,
-      "vascNos": [
-        "VASC000000259632"
-      ],
-      "sceneClassification": "增值操作指引 → 其他增值服务",
-      "customerMsgCount": 33,
-      "firstIntentPreview": "我们现在暂时先申请重新上架，仓库会重新包装再上架吗，会的话能否取消这一步骤，因为后面我们还有下个非标增值 我怎么继续下增值订单 刚右边还有这个选项，现在没有了",
-      "leafPlan": {
-        "intent": true,
-        "missing": true,
-        "sop_gate": "deferred"
-      },
-      "selectionReason": "quota:B3"
-    },
-    {
       "conversationId": "#h28v25gh",
       "date": "2026-03-12 14:15:20",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -783,9 +982,14 @@
       "conversationId": "#h28w8wt5",
       "date": "2026-03-20 14:21:02",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -804,9 +1008,14 @@
       "conversationId": "#h28xwpal",
       "date": "2026-04-01 11:24:51",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -825,9 +1034,14 @@
       "conversationId": "#h28uxqex",
       "date": "2026-03-11 17:01:46",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -846,10 +1060,18 @@
       "conversationId": "#h292vs5j",
       "date": "2026-05-08 14:24:17",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B4",
+        "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -865,12 +1087,45 @@
       "selectionReason": "quota:B3"
     },
     {
+      "conversationId": "#h292k6st",
+      "date": "2026-05-06 10:14:08",
+      "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
+      "bucketHits": [
+        "B3",
+        "B4",
+        "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
+      ],
+      "highRisk": [],
+      "likelyRelabel21": false,
+      "vascNos": [],
+      "sceneClassification": "增值操作指引 → 其他增值服务",
+      "customerMsgCount": 26,
+      "firstIntentPreview": "有一个wayfiar订单，我们们提供XDP快递面单，我要怎么创建面单 我要怎么创建订单 这边仓库应该XDP每天都会去你们仓库提货吧，到时候随物流发出就行",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "quota:B3"
+    },
+    {
       "conversationId": "#h28uqwfd",
       "date": "2026-03-10 15:48:57",
       "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
       "bucketHits": [
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -889,9 +1144,14 @@
       "conversationId": "#h292pg1l",
       "date": "2026-05-07 10:35:56",
       "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
       "bucketHits": [
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -910,8 +1170,12 @@
       "conversationId": "#h292mrc7",
       "date": "2026-05-06 16:13:15",
       "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
       "bucketHits": [
         "B4"
+      ],
+      "bucketHitsZh": [
+        "入库·其它"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -927,33 +1191,17 @@
       "selectionReason": "quota:B4"
     },
     {
-      "conversationId": "#h28zudpx",
-      "date": "2026-04-14 16:45:24",
+      "conversationId": "#h28wa42n",
+      "date": "2026-03-20 16:49:23",
       "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
       "bucketHits": [
         "B4",
         "B8"
       ],
-      "highRisk": [],
-      "likelyRelabel21": false,
-      "vascNos": [],
-      "sceneClassification": "",
-      "customerMsgCount": 23,
-      "firstIntentPreview": "RT16000284597015CN 你好，我想问一下这单退回仓库的运费是多少？ 那之前寄送过去的时候也是收了一笔寄送的运费吗？还是只是收取了一次？ 那就派送失败退回又收取了一次，就是去一次，退回一次，收了2次了",
-      "leafPlan": {
-        "intent": true,
-        "missing": true,
-        "sop_gate": "deferred"
-      },
-      "selectionReason": "quota:B4"
-    },
-    {
-      "conversationId": "#h28wa42n",
-      "date": "2026-03-20 16:49:23",
-      "primaryBucket": "B4",
-      "bucketHits": [
-        "B4",
-        "B8"
+      "bucketHitsZh": [
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -974,9 +1222,14 @@
       "conversationId": "#h290w2sx",
       "date": "2026-04-22 10:08:37",
       "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
       "bucketHits": [
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -995,8 +1248,12 @@
       "conversationId": "#h28x6kur",
       "date": "2026-03-27 09:58:19",
       "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
       "bucketHits": [
         "B4"
+      ],
+      "bucketHitsZh": [
+        "入库·其它"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1015,8 +1272,12 @@
       "conversationId": "#h28vn88l",
       "date": "2026-03-16 15:39:22",
       "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
       "bucketHits": [
         "B4"
+      ],
+      "bucketHitsZh": [
+        "入库·其它"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1035,8 +1296,12 @@
       "conversationId": "#h28y3w9d",
       "date": "2026-04-02 13:38:31",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B5"
+      ],
+      "bucketHitsZh": [
+        "库内·换标/货权/SKU"
       ],
       "highRisk": [
         "H1"
@@ -1057,10 +1322,16 @@
       "conversationId": "#h28yxt3r",
       "date": "2026-04-08 14:05:06",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B1",
         "B3",
         "B5"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·换标/货权/SKU"
       ],
       "highRisk": [],
       "likelyRelabel21": true,
@@ -1079,9 +1350,16 @@
       "conversationId": "#h28wxetd",
       "date": "2026-03-25 13:48:13",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B4",
-        "B5"
+        "B5",
+        "B7"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "库内·换标/货权/SKU",
+        "库内·其它（冻结/销毁/加固等）"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1100,11 +1378,18 @@
       "conversationId": "#h28z7s4r",
       "date": "2026-04-10 10:04:49",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B1",
         "B3",
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1123,10 +1408,16 @@
       "conversationId": "#h28ui92r",
       "date": "2026-03-09 13:32:28",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B1",
         "B3",
         "B5"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·换标/货权/SKU"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1145,11 +1436,18 @@
       "conversationId": "#h28tom1z",
       "date": "2026-03-05 09:45:29",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B1",
         "B3",
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -1170,9 +1468,14 @@
       "conversationId": "#h2913ugp",
       "date": "2026-04-23 16:15:33",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1191,9 +1494,14 @@
       "conversationId": "#h28v34sz",
       "date": "2026-03-12 16:01:20",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1214,9 +1522,14 @@
       "conversationId": "#h292m92p",
       "date": "2026-05-06 15:11:36",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1235,10 +1548,16 @@
       "conversationId": "#h292rt25",
       "date": "2026-05-07 16:25:07",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B1",
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -1259,10 +1578,16 @@
       "conversationId": "#h28uoq3n",
       "date": "2026-03-10 11:33:36",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B1",
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1281,10 +1606,16 @@
       "conversationId": "#h28xa39b",
       "date": "2026-03-27 17:56:48",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B4",
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1303,11 +1634,18 @@
       "conversationId": "#h290l0hh",
       "date": "2026-04-20 09:56:09",
       "primaryBucket": "B5",
+      "primaryBucketName": "库内·换标/货权/SKU",
       "bucketHits": [
         "B1",
         "B3",
         "B5",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·换标/货权/SKU",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -1328,12 +1666,20 @@
       "conversationId": "#h28w760b",
       "date": "2026-03-20 10:02:48",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B2",
         "B3",
         "B6",
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "库内·拍照/盘点/尺重",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H4"
@@ -1356,10 +1702,16 @@
       "conversationId": "#h2930l0v",
       "date": "2026-05-09 14:32:28",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B3",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1378,6 +1730,7 @@
       "conversationId": "#h28rabcv",
       "date": "2026-02-20 18:12:56",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B1",
         "B2",
@@ -1385,6 +1738,14 @@
         "B5",
         "B6",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "库内·换标/货权/SKU",
+        "库内·拍照/盘点/尺重",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1406,12 +1767,22 @@
       "conversationId": "#h28ym7w1",
       "date": "2026-04-06 11:57:24",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B1",
         "B3",
         "B4",
         "B6",
+        "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "库内·拍照/盘点/尺重",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": true,
@@ -1430,8 +1801,12 @@
       "conversationId": "#h28uquz5",
       "date": "2026-03-10 15:44:27",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B6"
+      ],
+      "bucketHitsZh": [
+        "库内·拍照/盘点/尺重"
       ],
       "highRisk": [
         "H4"
@@ -1452,11 +1827,18 @@
       "conversationId": "#h28xltiz",
       "date": "2026-03-30 13:44:29",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B3",
         "B4",
         "B6",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "库内·拍照/盘点/尺重",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1477,12 +1859,20 @@
       "conversationId": "#h290xi1n",
       "date": "2026-04-22 13:42:38",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B1",
         "B3",
         "B5",
         "B6",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·换标/货权/SKU",
+        "库内·拍照/盘点/尺重",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1505,12 +1895,20 @@
       "conversationId": "#h28xzej5",
       "date": "2026-04-01 16:43:35",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B1",
         "B3",
         "B6",
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·拍照/盘点/尺重",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1529,11 +1927,18 @@
       "conversationId": "#h28z57yz",
       "date": "2026-04-09 16:54:09",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B1",
         "B3",
         "B6",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·拍照/盘点/尺重",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1552,11 +1957,18 @@
       "conversationId": "#h28sgkpr",
       "date": "2026-02-27 11:03:36",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B2",
         "B3",
         "B6",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "库内·拍照/盘点/尺重",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -1579,12 +1991,20 @@
       "conversationId": "#h291yrhb",
       "date": "2026-04-30 10:57:05",
       "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
       "bucketHits": [
         "B1",
         "B3",
         "B4",
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1606,11 +2026,18 @@
       "conversationId": "#h2916gmf",
       "date": "2026-04-24 10:16:42",
       "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
       "bucketHits": [
         "B1",
         "B4",
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1626,13 +2053,49 @@
       "selectionReason": "quota:B7"
     },
     {
+      "conversationId": "#h28xn7pd",
+      "date": "2026-03-30 16:27:49",
+      "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
+      "bucketHits": [
+        "B3",
+        "B7",
+        "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
+      ],
+      "highRisk": [],
+      "likelyRelabel21": false,
+      "vascNos": [
+        "VASC000000259632"
+      ],
+      "sceneClassification": "增值操作指引 → 其他增值服务",
+      "customerMsgCount": 33,
+      "firstIntentPreview": "我们现在暂时先申请重新上架，仓库会重新包装再上架吗，会的话能否取消这一步骤，因为后面我们还有下个非标增值 我怎么继续下增值订单 刚右边还有这个选项，现在没有了",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "quota:B7"
+    },
+    {
       "conversationId": "#h28t5yyj",
       "date": "2026-03-02 16:25:34",
       "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
       "bucketHits": [
         "B4",
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1648,13 +2111,47 @@
       "selectionReason": "quota:B7"
     },
     {
-      "conversationId": "#h28uwu5t",
-      "date": "2026-03-11 15:20:28",
+      "conversationId": "#h28zudpx",
+      "date": "2026-04-14 16:45:24",
       "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
       "bucketHits": [
         "B4",
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
+      ],
+      "highRisk": [],
+      "likelyRelabel21": false,
+      "vascNos": [],
+      "sceneClassification": "",
+      "customerMsgCount": 23,
+      "firstIntentPreview": "RT16000284597015CN 你好，我想问一下这单退回仓库的运费是多少？ 那之前寄送过去的时候也是收了一笔寄送的运费吗？还是只是收取了一次？ 那就派送失败退回又收取了一次，就是去一次，退回一次，收了2次了",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "quota:B7"
+    },
+    {
+      "conversationId": "#h28uwu5t",
+      "date": "2026-03-11 15:20:28",
+      "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
+      "bucketHits": [
+        "B4",
+        "B7",
+        "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1673,9 +2170,14 @@
       "conversationId": "#h292jx3x",
       "date": "2026-05-06 09:42:37",
       "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
       "bucketHits": [
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1691,12 +2193,69 @@
       "selectionReason": "quota:B7"
     },
     {
+      "conversationId": "#h290w2pb",
+      "date": "2026-04-22 10:08:19",
+      "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
+      "bucketHits": [
+        "B4",
+        "B7",
+        "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
+      ],
+      "highRisk": [],
+      "likelyRelabel21": false,
+      "vascNos": [],
+      "sceneClassification": "",
+      "customerMsgCount": 10,
+      "firstIntentPreview": "您好！货物破损了我们想换个包装，但是换包装的话尺寸和我们这个差的太多了，那些空的地方应该怎么办，因为这个怕晃 换个包装尽可能的和原尺寸差不多，麻烦报一下价吧 这个货可能有点不一样",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "quota:B7"
+    },
+    {
+      "conversationId": "#h28x1fxj",
+      "date": "2026-03-26 10:22:43",
+      "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
+      "bucketHits": [
+        "B7"
+      ],
+      "bucketHitsZh": [
+        "库内·其它（冻结/销毁/加固等）"
+      ],
+      "highRisk": [],
+      "likelyRelabel21": false,
+      "vascNos": [],
+      "sceneClassification": "",
+      "customerMsgCount": 11,
+      "firstIntentPreview": "RT16000287897377CN 可以吧这个上面写的字拍清晰一点 要不然无法判断是哪个客户",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "quota:B7"
+    },
+    {
       "conversationId": "#h292lm2x",
       "date": "2026-05-06 13:50:58",
       "primaryBucket": "B7",
+      "primaryBucketName": "库内·其它（冻结/销毁/加固等）",
       "bucketHits": [
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1712,32 +2271,15 @@
       "selectionReason": "quota:B7"
     },
     {
-      "conversationId": "#h28x4ez5",
-      "date": "2026-03-26 17:10:25",
-      "primaryBucket": "B7",
-      "bucketHits": [
-        "B7",
-        "B8"
-      ],
-      "highRisk": [],
-      "likelyRelabel21": false,
-      "vascNos": [],
-      "sceneClassification": "",
-      "customerMsgCount": 4,
-      "firstIntentPreview": "怎么把指定批次的库存锁定，先不要发货 只能冻结所有库存么 库存里指定批次先不要发货，这个需求，要怎么解决呢",
-      "leafPlan": {
-        "intent": true,
-        "missing": true,
-        "sop_gate": "deferred"
-      },
-      "selectionReason": "quota:B7"
-    },
-    {
       "conversationId": "#h290lknb",
       "date": "2026-04-20 10:55:14",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1756,8 +2298,12 @@
       "conversationId": "#h292ql2t",
       "date": "2026-05-07 13:47:04",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -1781,9 +2327,14 @@
       "conversationId": "#h2914mfd",
       "date": "2026-04-23 18:06:12",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1802,8 +2353,12 @@
       "conversationId": "#h28ta1y7",
       "date": "2026-03-03 10:06:27",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1822,8 +2377,12 @@
       "conversationId": "#h28u0cv3",
       "date": "2026-03-06 17:28:42",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1844,8 +2403,12 @@
       "conversationId": "#h28z1t8x",
       "date": "2026-04-09 09:53:34",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1864,8 +2427,12 @@
       "conversationId": "#h2905e3x",
       "date": "2026-04-16 16:46:59",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -1886,8 +2453,12 @@
       "conversationId": "#h28x35t1",
       "date": "2026-03-26 14:33:05",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1906,8 +2477,12 @@
       "conversationId": "#h28vnhg9",
       "date": "2026-03-16 16:05:30",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [],
       "likelyRelabel21": false,
@@ -1923,14 +2498,129 @@
       "selectionReason": "quota:B8"
     },
     {
+      "conversationId": "#h28wadbp",
+      "date": "2026-03-20 17:22:19",
+      "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
+      "bucketHits": [
+        "B4",
+        "B7",
+        "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
+      ],
+      "highRisk": [
+        "H3"
+      ],
+      "likelyRelabel21": false,
+      "vascNos": [],
+      "sceneClassification": "增值操作指引 → 包装要求指引",
+      "customerMsgCount": 10,
+      "firstIntentPreview": "我得一些包裹入仓，反馈包装受损，我提交更换包装，显示没有包材 是不是尺寸不够？ 都是A+的包裹",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "soft_floor_10:B4"
+    },
+    {
+      "conversationId": "#h28wadbp",
+      "date": "2026-03-20 17:21:36",
+      "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
+      "bucketHits": [
+        "B4",
+        "B7",
+        "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
+      ],
+      "highRisk": [
+        "H3"
+      ],
+      "likelyRelabel21": false,
+      "vascNos": [],
+      "sceneClassification": "",
+      "customerMsgCount": 10,
+      "firstIntentPreview": "我得一些包裹入仓，反馈包装受损，我提交更换包装，显示没有包材 是不是尺寸不够？ 都是A+的包裹",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "soft_floor_10:B4"
+    },
+    {
+      "conversationId": "#h29279mp",
+      "date": "2026-05-02 13:38:02",
+      "primaryBucket": "B4",
+      "primaryBucketName": "入库·其它",
+      "bucketHits": [
+        "B4"
+      ],
+      "bucketHitsZh": [
+        "入库·其它"
+      ],
+      "highRisk": [],
+      "likelyRelabel21": false,
+      "vascNos": [],
+      "sceneClassification": "",
+      "customerMsgCount": 10,
+      "firstIntentPreview": "这个能查得到退回来的吗 能不能找得到订单号 是的，因产品漏油，销毁处理了",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "soft_floor_10:B4"
+    },
+    {
+      "conversationId": "#h292w5vf",
+      "date": "2026-05-08 15:14:43",
+      "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
+      "bucketHits": [
+        "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
+      ],
+      "highRisk": [],
+      "likelyRelabel21": false,
+      "vascNos": [],
+      "sceneClassification": "",
+      "customerMsgCount": 23,
+      "firstIntentPreview": "这些可以正常出货的吗？ 横着放的吗？ 打托的话，是把整个包裹围着一起打吗？",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "soft_floor_10:B8"
+    },
+    {
       "conversationId": "#h291wmeb",
       "date": "2026-04-29 18:07:35",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3",
@@ -1952,8 +2642,12 @@
       "conversationId": "#h28vqrod",
       "date": "2026-03-17 10:32:42",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3",
@@ -1975,9 +2669,14 @@
       "conversationId": "#h290tkt7",
       "date": "2026-04-21 16:34:53",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H5"
@@ -1998,9 +2697,14 @@
       "conversationId": "#h291o2a3",
       "date": "2026-04-28 09:38:24",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓"
       ],
       "highRisk": [
         "H4"
@@ -2021,8 +2725,12 @@
       "conversationId": "#h2930rob",
       "date": "2026-05-09 14:58:31",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架"
       ],
       "highRisk": [
         "H3"
@@ -2043,9 +2751,14 @@
       "conversationId": "#h291ol6x",
       "date": "2026-04-28 10:40:47",
       "primaryBucket": "B3",
+      "primaryBucketName": "入库·拍照/视频/暂存",
       "bucketHits": [
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2066,9 +2779,14 @@
       "conversationId": "#h292gtyj",
       "date": "2026-05-05 11:33:48",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2089,12 +2807,20 @@
       "conversationId": "#h292rsw1",
       "date": "2026-05-07 16:24:34",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B3",
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2115,9 +2841,14 @@
       "conversationId": "#h28r4bgn",
       "date": "2026-02-19 15:27:39",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B3",
         "B4"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "入库·其它"
       ],
       "highRisk": [
         "H3"
@@ -2142,10 +2873,16 @@
       "conversationId": "#h28s8yf1",
       "date": "2026-02-26 11:29:28",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H5"
@@ -2166,10 +2903,16 @@
       "conversationId": "#h28t337t",
       "date": "2026-03-02 11:46:42",
       "primaryBucket": "B2",
+      "primaryBucketName": "入库·异常调拨/串仓",
       "bucketHits": [
         "B2",
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2190,9 +2933,14 @@
       "conversationId": "#h28snd3j",
       "date": "2026-02-28 09:37:21",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B3",
         "B6"
+      ],
+      "bucketHitsZh": [
+        "入库·拍照/视频/暂存",
+        "库内·拍照/盘点/尺重"
       ],
       "highRisk": [
         "H3"
@@ -2215,11 +2963,18 @@
       "conversationId": "#h28u6xw5",
       "date": "2026-03-07 17:48:19",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B3",
         "B7",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·其它（冻结/销毁/加固等）",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2240,10 +2995,16 @@
       "conversationId": "#h28tm177",
       "date": "2026-03-04 18:00:24",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B2",
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·异常调拨/串仓",
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H5"
@@ -2266,10 +3027,16 @@
       "conversationId": "#h28v2355",
       "date": "2026-03-12 14:09:14",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H4"
@@ -2293,10 +3060,16 @@
       "conversationId": "#h28tp679",
       "date": "2026-03-05 10:38:51",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2317,10 +3090,16 @@
       "conversationId": "#h28v5xu7",
       "date": "2026-03-13 09:31:10",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B2",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·异常调拨/串仓",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2343,11 +3122,18 @@
       "conversationId": "#h28v8h69",
       "date": "2026-03-13 15:05:34",
       "primaryBucket": "B6",
+      "primaryBucketName": "库内·拍照/盘点/尺重",
       "bucketHits": [
         "B1",
         "B3",
         "B6",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "库内·拍照/盘点/尺重",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2368,9 +3154,14 @@
       "conversationId": "#h28ujsiv",
       "date": "2026-03-09 15:54:59",
       "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
       "bucketHits": [
         "B4",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·其它",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2391,10 +3182,16 @@
       "conversationId": "#h28upo93",
       "date": "2026-03-10 13:42:41",
       "primaryBucket": "B1",
+      "primaryBucketName": "入库·换标/辨识上架",
       "bucketHits": [
         "B1",
         "B3",
         "B8"
+      ],
+      "bucketHitsZh": [
+        "入库·换标/辨识上架",
+        "入库·拍照/视频/暂存",
+        "入口/怎么填/报价审核咨询"
       ],
       "highRisk": [
         "H3"
@@ -2412,6 +3209,30 @@
         "sop_gate": "deferred"
       },
       "selectionReason": "high_risk_boost"
+    },
+    {
+      "conversationId": "#h290yyon",
+      "date": "2026-04-22 16:46:06",
+      "primaryBucket": "B8",
+      "primaryBucketName": "入口/怎么填/报价审核咨询",
+      "bucketHits": [
+        "B8"
+      ],
+      "bucketHitsZh": [
+        "入口/怎么填/报价审核咨询"
+      ],
+      "highRisk": [],
+      "likelyRelabel21": true,
+      "vascNos": [],
+      "sceneClassification": "",
+      "customerMsgCount": 14,
+      "firstIntentPreview": "你好，客户退货回来的包裹可以每个型号分类好？ 像这样一种型号分成一个处理 上面有型号，这张图片里面有DP01223/DP01224/KC-ZSH-972三种型号",
+      "leafPlan": {
+        "intent": true,
+        "missing": true,
+        "sop_gate": "deferred"
+      },
+      "selectionReason": "relabel21_floor"
     }
   ]
 }

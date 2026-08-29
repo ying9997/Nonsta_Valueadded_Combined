@@ -23,8 +23,35 @@ const BUCKET_QUOTA = {
   B4: 9,
   B5: 13,
   B6: 11,
-  B7: 9,
+  B7: 10, // 软底线提到 10，便于验收
   B8: 9,
+};
+
+/** 粗桶 ID → 中文名（给人看的） */
+const BUCKET_ZH = {
+  B1: "入库·换标/辨识上架",
+  B2: "入库·异常调拨/串仓",
+  B3: "入库·拍照/视频/暂存",
+  B4: "入库·其它",
+  B5: "库内·换标/货权/SKU",
+  B6: "库内·拍照/盘点/尺重",
+  B7: "库内·其它（冻结/销毁/加固等）",
+  B8: "入口/怎么填/报价审核咨询",
+};
+
+const FIELD_LEGEND_ZH = {
+  finalByPrimaryBucket: "各粗桶最终选中了多少通会话（按主桶统计）",
+  quotaTarget: "抽样开始前设定的各粗桶目标通数",
+  relabel21InSelected: "被标成「像审核SOP§2.1 尺重/标签辨识后换标上架」的会话通数（亲缘，不是细类金标）",
+  coverageGaps: "没抽满的粗桶清单（桶代号、目标、实得、原因）",
+  highRiskTagged: "带高危标签的会话通数（可与粗桶重叠）",
+  withVasc: "对话文本里能抽出 VASC 增值单号的会话通数",
+  sessionCount: "终选会话总通数",
+  primaryBucket: "本通会话的主粗桶代号（B1～B8）",
+  primaryBucketName: "主粗桶中文名",
+  likelyRelabel21: "是否像 §2.1 换标场景（true=像）",
+  leafPlan: "本通计划切哪些叶子：intent=首轮意图，missing=中段缺信息，sop_gate=延后",
+  selectionReason: "为何入选（配额/高危补强/补抽底线等）",
 };
 
 const BUCKET_PRIORITY = ["B1", "B5", "B6", "B7", "B2", "B3", "B8", "B4"];
@@ -36,7 +63,7 @@ const BUCKET_PATTERNS = {
   B4: /自提|销毁|包材|合箱|收集SN|透明标签|拆包|拆箱上架|加急入库/i,
   B5: /货权|拆分SKU|商品组合|库内换标|更换SKU|不良品上架|良品转不良|不良品转良品/i,
   B6: /审计盘点|盘点|重新拍照|尺重测量|良品\/不良|不良品检测|外观辨识|库内拍照|库内视频/i,
-  B7: /冻结|解冻|取消出库|库内销毁|代采购|加固|作废出库|指令性标签/i,
+  B7: /冻结|解冻|取消出库|库内销毁|代采购|加固|作废出库|指令性标签|锁定库存|批次.*锁|不要发货|销毁库存|破损.*包装|重新包装|买.*纸箱/i,
   B8: /怎么填|如何填|需求描述|需求背景|怎么提交|怎么下单|非标特批|报价|费用|审核后|模板/i,
 };
 
@@ -365,10 +392,28 @@ function main() {
     if (take.length < Math.min(10, quota)) {
       coverageGaps.push({
         bucket: id,
+        bucketNameZh: BUCKET_ZH[id],
         requested: quota,
         got: take.length,
         note: take.length < 10 ? "below_soft_floor_10" : "below_quota",
+        noteZh:
+          take.length < 10
+            ? `未达到软底线10通（目标${quota}，实得${take.length}）`
+            : `未达到配额（目标${quota}，实得${take.length}）`,
       });
+    }
+  }
+
+  // Soft floor: each bucket至少尽量补到 10（池子够的话）
+  for (const id of Object.keys(BUCKET_QUOTA)) {
+    let have = selected.filter((s) => s.primaryBucket === id).length;
+    if (have >= 10) continue;
+    const extra = (byBucket[id] || []).filter((c) => !selectedIds.has(c.conversationId));
+    for (const c of extra) {
+      if (have >= 10) break;
+      selectedIds.add(c.conversationId);
+      selected.push({ ...c, selectionReason: `soft_floor_10:${id}` });
+      have++;
     }
   }
 
@@ -389,46 +434,83 @@ function main() {
     highRiskAdded++;
   }
 
-  // Ensure B1 relabel21 count >= 10 if possible
-  const b1Selected = selected.filter((s) => s.primaryBucket === "B1");
-  let relabel21Selected = b1Selected.filter((s) => s.likelyRelabel21).length;
+  // Ensure likelyRelabel21 count >= 10 across all selected (not only B1 primary)
+  let relabel21Selected = selected.filter((s) => s.likelyRelabel21).length;
   if (relabel21Selected < 10) {
-    const extra = (byBucket.B1 || []).filter(
-      (c) => c.likelyRelabel21 && !selectedIds.has(c.conversationId)
-    );
+    const extra = candidates
+      .filter((c) => c.likelyRelabel21 && !selectedIds.has(c.conversationId))
+      .sort((a, b) => {
+        if (a.primaryBucket === "B1" && b.primaryBucket !== "B1") return -1;
+        if (b.primaryBucket === "B1" && a.primaryBucket !== "B1") return 1;
+        return b.customerTurns - a.customerTurns || a.sortKey - b.sortKey;
+      });
     for (const c of extra) {
       if (relabel21Selected >= 10) break;
       selectedIds.add(c.conversationId);
-      selected.push({ ...c, selectionReason: "b1_relabel21_floor" });
+      selected.push({ ...c, selectionReason: "relabel21_floor" });
       relabel21Selected++;
     }
   }
 
+  // Refresh coverage gaps after floors
   const finalByBucket = {};
   for (const s of selected) {
     finalByBucket[s.primaryBucket] = (finalByBucket[s.primaryBucket] || 0) + 1;
+  }
+  const coverageGapsFinal = [];
+  for (const [id, quota] of Object.entries(BUCKET_QUOTA)) {
+    const got = finalByBucket[id] || 0;
+    if (got < Math.min(10, quota)) {
+      coverageGapsFinal.push({
+        bucket: id,
+        bucketNameZh: BUCKET_ZH[id],
+        requested: Math.max(quota, 10),
+        got,
+        noteZh: `仍不足：目标至少${Math.min(10, quota)}，实得${got}（Udesk池可能不够）`,
+      });
+    }
+  }
+
+  const finalByBucketZh = {};
+  for (const [id, n] of Object.entries(finalByBucket)) {
+    finalByBucketZh[`${id} ${BUCKET_ZH[id]}`] = n;
   }
 
   const sessionsPayload = {
     version: "udesk-stratified-v0.1",
     phase: "0-2",
+    说明:
+      "本文件是从Udesk真实客服对话里分层抽出的会话清单。B1～B8是粗桶代号；请先看 fieldLegendZh 与 bucketNamesZh。",
+    fieldLegendZh: FIELD_LEGEND_ZH,
+    bucketNamesZh: BUCKET_ZH,
     leafRolesThisRelease: ["intent", "missing"],
+    leafRolesZh: {
+      intent: "首轮意图叶子（用户第一句，评场景识别）",
+      missing: "中段缺信息叶子（客服追问后客户再答，评该不该追问/追什么）",
+      sop_gate: "是否该出仓库SOP（本版不做，等VASC对齐事实表）",
+    },
     sopGate: "deferred_see_VASC-SOP补齐链路探测.md",
     sourceCsv: "workspace/data/raw/data_udesk_log_database_增值.csv",
     rulesRef: "agent-inventory-assist/03_evaluation/抽样规则草稿-真实客服会话-V0.1.md",
     generatedAt: new Date().toISOString(),
     quotaTarget: BUCKET_QUOTA,
+    quotaTargetZh: Object.fromEntries(
+      Object.entries(BUCKET_QUOTA).map(([id, n]) => [`${id} ${BUCKET_ZH[id]}`, n])
+    ),
     sessionCount: selected.length,
     finalByPrimaryBucket: finalByBucket,
+    finalByPrimaryBucketZh: finalByBucketZh,
     relabel21InSelected: selected.filter((s) => s.likelyRelabel21).length,
     highRiskTagged: selected.filter((s) => s.highRisk.length).length,
     withVasc: selected.filter((s) => s.vascNos.length).length,
-    coverageGaps,
+    coverageGaps: coverageGapsFinal,
     sessions: selected.map((s) => ({
       conversationId: s.conversationId,
       date: s.date,
       primaryBucket: s.primaryBucket,
+      primaryBucketName: BUCKET_ZH[s.primaryBucket],
       bucketHits: s.bucketHits,
+      bucketHitsZh: (s.bucketHits || []).map((id) => BUCKET_ZH[id] || id),
       highRisk: s.highRisk,
       likelyRelabel21: s.likelyRelabel21,
       vascNos: s.vascNos,
@@ -470,30 +552,40 @@ function main() {
   fs.writeFileSync(path.join(RUN_DIR, "00_probe_report.md"), probeMd, "utf8");
 
   const readme = [
-    "# udesk-stratified-v0.1",
+    "# udesk-stratified-v0.1（Udesk 分层抽样）",
     "",
-    "Udesk 全量真实分层抽样（阶段 0～2）。叶子本发布仅规划 `intent` / `missing`；`sop_gate` 见 `../VASC-SOP补齐链路探测.md`。",
+    "从真实客户–客服对话抽出的评测会话。叶子本版只做 `intent`（首轮意图）/ `missing`（中段缺信息）；`sop_gate` 延后。",
+    "",
+    "## 文件",
     "",
     "| 文件 | 说明 |",
     "|------|------|",
-    "| `sessions.json` | 终选会话配额清单 |",
-    "| `README.md` | 本说明 |",
+    "| `sessions.json` | 终选会话清单（开头有中文字段说明） |",
+    "| `leaves.jsonl` | 切好的单轮叶子（阶段3重跑后更新） |",
+    "| `leaves.manifest.json` | 叶子计数 |",
     "",
-    `会话数：${selected.length} · 规则：抽样规则草稿 V0.1 · 权威：EVAL-AUTHORITY.md`,
+    `会话数：**${selected.length}** · 2.1亲缘：**${sessionsPayload.relabel21InSelected}** · 权威：EVAL-AUTHORITY.md`,
     "",
-    "中间产物：`_runs/20260829_udesk_sample/`",
+    "## 粗桶代号（BN）对照",
     "",
-    "## 粗桶实得",
-    "",
-    "| 桶 | 目标 | 实得 |",
-    "|----|------|------|",
+    "| 代号 | 中文 | 目标 | 实得 |",
+    "|------|------|------|------|",
     ...Object.keys(BUCKET_QUOTA).map(
-      (id) => `| ${id} | ${BUCKET_QUOTA[id]} | ${finalByBucket[id] || 0} |`
+      (id) => `| ${id} | ${BUCKET_ZH[id]} | ${BUCKET_QUOTA[id]} | ${finalByBucket[id] || 0} |`
     ),
     "",
-    `2.1 亲缘（likelyRelabel21）：${sessionsPayload.relabel21InSelected}`,
-    `高危标签会话：${sessionsPayload.highRiskTagged}`,
-    `含 VASC 号：${sessionsPayload.withVasc}`,
+    "## sessions.json 顶部字段（中文）",
+    "",
+    "| 英文字段 | 意思 |",
+    "|----------|------|",
+    ...Object.entries(FIELD_LEGEND_ZH).map(([k, v]) => `| \`${k}\` | ${v} |`),
+    "",
+    "缺口：",
+    sessionsPayload.coverageGaps.length
+      ? sessionsPayload.coverageGaps.map((g) => `- ${g.bucket} ${g.bucketNameZh}：${g.noteZh}`).join("\n")
+      : "- 无（各桶已达软底线或配额）",
+    "",
+    "中间产物：`_runs/20260829_udesk_sample/`",
   ].join("\n");
   fs.writeFileSync(path.join(OUT_DIR, "README.md"), readme, "utf8");
 
@@ -504,8 +596,9 @@ function main() {
         candidates: candidates.length,
         selected: selected.length,
         finalByBucket,
+        finalByBucketZh,
         relabel21: sessionsPayload.relabel21InSelected,
-        coverageGaps,
+        coverageGaps: coverageGapsFinal,
         out: OUT_DIR,
         run: RUN_DIR,
       },
