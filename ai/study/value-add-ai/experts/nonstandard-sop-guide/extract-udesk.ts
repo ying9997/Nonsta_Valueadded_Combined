@@ -169,7 +169,12 @@ function extractClarificationPattern(messages: Message[]): {
 // ─── 主逻辑 ────────────────────────────────────────────────────
 
 function main() {
-  const csvPath = "D:/DA/AI_EXPERT/_workflow/20260720_增值预配置和客户引导助手规划/module_异常单增值客户引导/data_udesk_log_database_增值.csv";
+  // In-repo copy (2026-08-29). Old path is gone:
+  // D:/DA/AI_EXPERT/_workflow/20260720_增值预配置和客户引导助手规划/module_异常单增值客户引导/data_udesk_log_database_增值.csv
+  const csvPath = path.resolve(
+    __dirname,
+    "../../../../../workspace/data/raw/data_udesk_log_database_增值.csv"
+  );
   console.log("读取 Udesk 对话日志...");
   const raw = readFileSync(csvPath, "utf-8");
   const rows = parseCSV(raw);
