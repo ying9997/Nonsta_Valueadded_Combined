@@ -2,6 +2,7 @@
 
 - 版本：V1.0
 - 状态：初稿
+- **试点标记（2026-08-28）**：`out-of-scope-pilot-f001` — 本文件全量保留供日后全场景评测；**F-001 试点不跑本集除 B-001 以外的用例**。试点最小集见 `experts/value-add/nonstandard-sop-guide/tests/pilot-f001/`。B-001 仅可作合成种子，须按 2.1 口径修正 `serviceAtom=OW01V1602` 并补 `need_parcel_label`。
 - 测试集来源：1）人工构造业务用例；2）脱敏真实客服日志抽取Eval样本
 - 生成依据：BRD-V1.0、PRD-V1.0
 - 适用环境：Coze测试空间

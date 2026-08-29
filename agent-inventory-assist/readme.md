@@ -1,5 +1,7 @@
 # agent-inventory-assist / 非标增值生成Agent
 
+> **唯一工作副本**（2026-08-27 Batch-0）。勿再使用 `D:\DA\agent-inventory-assist\`（已归档，见同目录 `MOVED.md`）。
+
 非标增值需求采集与审核 Copilot：在客户提交需求时把真实意图问完整，在审核环节把自然语言需求转成标准场景和可执行 SOP。
 
 ---
