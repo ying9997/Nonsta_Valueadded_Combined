@@ -1,6 +1,9 @@
 /**
  * check-completeness — 对照 B 类模板的必填字段检查已提供信息。
  * FaaS 单文件闭环，无外部 import。
+ *
+ * DEPRECATED（2026-08-28）: SCENARIO_FIELDS（场景 1–23）对 F-001/Top1 试点已废弃。
+ * 见 ../DEPRECATED.md；试点字段口径以 2.1 六必填为准，需另写规则后再启用本节点逻辑。
  */
 
 function asText(value: unknown): string {

@@ -1,0 +1,119 @@
+{
+  "caseId": "P-001",
+  "name": "happy-path-unusual-context-required-attachments",
+  "sceneKey": "inbound_label_identify",
+  "sceneName": "【入库】尺重/标签辨识后换标上架",
+  "serviceAtom": "OW01V1602",
+  "serviceAtomName": "入库其他服务需求",
+  "vascCode": "VASC202411192246131",
+  "vascName": "入库非标增值（特批）",
+  "gate": "must_pass",
+  "ruleRef": "SIMULATED-BUSINESS-RULES.md",
+  "customerIntent": "请按尺重辨识后换标上架：实物条码 SKU-A 换成 SKU-B，共100件；不需要补贴新入库单包裹标签。必填附件已上传。",
+  "pageContext": {
+    "entryScene": "UNUSUAL_INBOUND",
+    "vaSource": "UNUSUAL",
+    "warehouseCode": "USLA",
+    "customerCode": "CUST_001",
+    "eventNo": "EB0326062258",
+    "businessOrderNo": "WI46673588",
+    "attachmentStatus": {
+      "操作说明附件": "uploaded",
+      "商品和标签的对应关系": "uploaded",
+      "包裹和标签的对应关系": "missing",
+      "视频拍摄SOP（中文+英文）": "missing",
+      "标签文件": "uploaded"
+    },
+    "availableOptions": {
+      "note": "pilot stub; page联动本轮不验收"
+    }
+  },
+  "enrichedContext": {
+    "customerCode": "CUST_001",
+    "customerName": "脱敏客户A",
+    "warehouseCode": "USLA",
+    "warehouseName": "美国洛杉矶仓",
+    "vaSource": "UNUSUAL",
+    "entryScene": "UNUSUAL_INBOUND",
+    "exceptionType": "包裹条码异常(需客户处理)",
+    "vascList": [
+      {
+        "vascCode": "VASC202411192246131",
+        "vascName": "入库非标增值（特批）"
+      }
+    ],
+    "businessOrderNo": "WI46673588",
+    "businessMerchandise": [
+      {
+        "sku": "SKU-A",
+        "qty": 100
+      }
+    ],
+    "eventNo": "EB0326062258"
+  },
+  "providedFields": {},
+  "expected": {
+    "outputPath": "sop_generated",
+    "sceneKey": "inbound_label_identify",
+    "missingFields": [],
+    "mustNotAskAgain": [
+      "eventNo",
+      "businessOrderNo",
+      "warehouseCode",
+      "warehouseName"
+    ],
+    "mustNotRequireOptionalAttachments": [
+      "包裹和标签的对应关系",
+      "视频拍摄SOP（中文+英文）"
+    ],
+    "attachmentWhitelistOnly": true,
+    "requiredAttachmentsSimulated": [
+      "操作说明附件",
+      "商品和标签的对应关系",
+      "标签文件"
+    ],
+    "extractedContext": {
+      "eventNo": "EB0326062258",
+      "businessOrderNo": "WI46673588",
+      "warehouseCode": "USLA"
+    },
+    "artifactsRequired": [
+      "requirementDescription",
+      "requirementBackground",
+      "warehouseSop"
+    ],
+    "prdFieldMap": {
+      "requirementDescription": "requirementDescriptionAiPolished",
+      "requirementBackground": "requirementBackground",
+      "warehouseSop": "sopDraft"
+    },
+    "requirementBackgroundMustInclude": [
+      "条码不符或辨识换标背景",
+      "上架到关联入库单或指定入库单"
+    ],
+    "requirementDescriptionMustInclude": [
+      "EB0326062258",
+      "WI46673588",
+      "SKU-A",
+      "SKU-B",
+      "100",
+      "不需要补贴新入库单包裹标签或等价表述"
+    ],
+    "warehouseSopMustInclude": [
+      "异常单或EB0326062258",
+      "WI46673588",
+      "换标或条码对应关系",
+      "上架"
+    ],
+    "confirmBoundaryRequired": "确认不等于审核通过",
+    "forbidden": [
+      "审核通过",
+      "保证今天完成",
+      "确定费用",
+      "编造未提供的单号或映射",
+      "向客户追问已注入的异常单号或WI或仓库",
+      "因缺视频拍摄SOP或包裹和标签的对应关系而 needs_clarification"
+    ]
+  },
+  "notes": "按 SIMULATED 规则：三必填齐即可生成；两可选 missing 不得阻断。业务正式勾选后若改必填集，同步改本用例。"
+}

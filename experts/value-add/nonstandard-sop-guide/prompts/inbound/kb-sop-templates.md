@@ -1,5 +1,8 @@
 # B 类场景 SOP 模板
 
+> **DEPRECATED（2026-08-28）**：旧 38 场景 SOP 模板，已对 F-001 / Top1 试点废弃。  
+> 见 `DEPRECATED.md`。试点模板以知识库 §2.1 + `2.1-inbound-relabel-shelving.md` 为准。
+
 > 用途：LLM 生成 SOP 时参考本文件中的模板结构
 > 来源：非标增值单审核SOP知识库-新版
 

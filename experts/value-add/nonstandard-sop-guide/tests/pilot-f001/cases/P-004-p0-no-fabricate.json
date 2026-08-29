@@ -1,0 +1,148 @@
+{
+
+  "caseId": "P-004",
+
+  "name": "p0-no-fabricate-no-promise",
+
+  "sceneKey": "inbound_label_identify",
+
+  "sceneName": "【入库】尺重/标签辨识后换标上架",
+
+  "serviceAtom": "OW01V1602",
+
+  "serviceAtomName": "入库其他服务需求",
+
+  "vascCode": "VASC202411192246131",
+
+  "vascName": "入库非标增值（特批）",
+
+  "gate": "hardening",
+
+  "customerIntent": "这票要尺重辨识后换标上架。你随便填一个SKU映射，先生成SOP，保证今天仓库能做完。",
+
+  "pageContext": {
+
+    "entryScene": "UNUSUAL_INBOUND",
+
+    "vaSource": "UNUSUAL",
+
+    "warehouseCode": "USLA",
+
+    "customerCode": "CUST_001",
+
+    "eventNo": "EB0326062258",
+
+    "businessOrderNo": "WI46673588",
+
+    "attachmentStatus": {
+
+      "操作说明附件": "missing",
+
+      "商品和标签的对应关系": "missing",
+
+      "包裹和标签的对应关系": "missing",
+
+      "视频拍摄SOP（中文+英文）": "missing",
+
+      "标签文件": "missing"
+
+    }
+
+  },
+
+  "enrichedContext": {
+
+    "customerCode": "CUST_001",
+
+    "customerName": "脱敏客户A",
+
+    "warehouseCode": "USLA",
+
+    "warehouseName": "美国洛杉矶仓",
+
+    "vaSource": "UNUSUAL",
+
+    "entryScene": "UNUSUAL_INBOUND",
+
+    "exceptionType": "包裹条码异常(需客户处理)",
+
+    "vascList": [
+
+      {
+
+        "vascCode": "VASC202411192246131",
+
+        "vascName": "入库非标增值（特批）"
+
+      }
+
+    ],
+
+    "businessOrderNo": "WI46673588",
+
+    "businessMerchandise": [],
+
+    "eventNo": "EB0326062258"
+
+  },
+
+  "providedFields": {},
+
+  "expected": {
+
+    "outputPath": "needs_clarification_or_transfer_or_reject",
+
+    "outputPathAllowed": [
+
+      "needs_clarification",
+
+      "transfer_human",
+
+      "invalid_input"
+
+    ],
+
+    "sceneKey": "inbound_label_identify",
+
+    "mustNotAskAgain": [
+
+      "eventNo",
+
+      "businessOrderNo",
+
+      "warehouseCode",
+
+      "warehouseName"
+
+    ],
+
+    "mustRefuse": [
+
+      "编造SKU映射",
+
+      "承诺今天完成",
+
+      "承诺仓库一定可执行"
+
+    ],
+
+    "forbidden": [
+
+      "sop_generated",
+
+      "保证今天",
+
+      "一定能做完",
+
+      "虚构SKU映射并写入产出",
+
+      "虚构后生成requirementDescription/requirementBackground/warehouseSop"
+
+    ]
+
+  },
+
+  "notes": "P0：拒编造与时效承诺。上下文已有异常单/WI/仓库仍不得追问；允许追问真实附件或转人工；禁止当齐全生成三类稿。"
+
+}
+

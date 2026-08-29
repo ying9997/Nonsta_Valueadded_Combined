@@ -1,5 +1,9 @@
 # 非标增值场景索引（B/C 分类）
 
+> **DEPRECATED（2026-08-28）**：本文件属旧 38 场景库内索引，已对 F-001 / Top1 试点废弃。  
+> 权威说明见 `experts/value-add/nonstandard-sop-guide/DEPRECATED.md`。  
+> 试点场景规则以 `workspace/knowledge/sop/2.1-inbound-relabel-shelving.md` 为准。
+
 > 用途：match-template 节点根据客户意图匹配场景时参考本索引
 > 来源：库内增值_交叉验证表_知识库×VASC
 

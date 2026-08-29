@@ -1,5 +1,8 @@
 # 非标页内嵌智能引导候选评测用例抽取报告
 
+> **DEPRECATED（2026-08-28）**：路由 taxonomy 为 `2a/2b/2d`，已对 F-001 / Top1 试点废弃。  
+> 见 `experts/value-add/nonstandard-sop-guide/DEPRECATED.md`。试点用例见 `experts/value-add/nonstandard-sop-guide/tests/pilot-f001/`。
+
 ## 产物
 
 - `candidate_eval_cases.json`: JSON 数组，供人工复核和后续导入。

@@ -1,5 +1,8 @@
 # nonstandard_sop_guide_staging_1 逐节点调试手册
 
+> **DEPRECATED（2026-08-28）**：基于场景 6（库内换标）+ 旧 test case1 的推演，已对 F-001 / Top1 试点废弃。  
+> 见 `../DEPRECATED.md`。试点调试以 `tests/pilot-f001/` 为准。
+
 本文按 `debug-coze-task.md` 要求，用给定 Start 输入手动推演每个节点的预期输入/输出，并重点对比 `llm-generate-sop` 与 `experts-push` 中成功运行的 `llm-recommend` 节点配置差异。
 
 关键结论：

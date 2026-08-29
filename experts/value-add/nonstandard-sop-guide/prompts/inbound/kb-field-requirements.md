@@ -1,5 +1,8 @@
 # 各场景必填/可选字段及追问话术
 
+> **DEPRECATED（2026-08-28）**：旧 38 场景字段规则，已对 F-001 / Top1 试点废弃。  
+> 见 `DEPRECATED.md`。试点字段以 `2.1-inbound-relabel-shelving.md` 六必填为准。
+
 > 用途：check-completeness 节点检查字段完整性时参考
 > 规则：required=true 的字段缺失时输出对应的 clarificationPrompt 追问客户
 

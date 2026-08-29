@@ -1,0 +1,73 @@
+{
+  "caseId": "P-003",
+  "name": "clarify-only-label-file",
+  "sceneKey": "inbound_label_identify",
+  "sceneName": "【入库】尺重/标签辨识后换标上架",
+  "serviceAtom": "OW01V1602",
+  "serviceAtomName": "入库其他服务需求",
+  "vascCode": "VASC202411192246131",
+  "vascName": "入库非标增值（特批）",
+  "gate": "hardening",
+  "customerIntent": "请按尺重辨识后换标上架：SKU-A 换成 SKU-B，共100件；不需要补贴新入库单包裹标签。",
+  "pageContext": {
+    "entryScene": "UNUSUAL_INBOUND",
+    "vaSource": "UNUSUAL",
+    "warehouseCode": "USLA",
+    "customerCode": "CUST_001",
+    "eventNo": "EB0326062258",
+    "businessOrderNo": "WI46673588",
+    "attachmentStatus": {
+      "操作说明附件": "uploaded",
+      "商品和标签的对应关系": "uploaded",
+      "包裹和标签的对应关系": "uploaded",
+      "视频拍摄SOP（中文+英文）": "uploaded",
+      "标签文件": "missing"
+    }
+  },
+  "enrichedContext": {
+    "customerCode": "CUST_001",
+    "customerName": "脱敏客户A",
+    "warehouseCode": "USLA",
+    "warehouseName": "美国洛杉矶仓",
+    "vaSource": "UNUSUAL",
+    "entryScene": "UNUSUAL_INBOUND",
+    "exceptionType": "包裹条码异常(需客户处理)",
+    "vascList": [
+      {
+        "vascCode": "VASC202411192246131",
+        "vascName": "入库非标增值（特批）"
+      }
+    ],
+    "businessOrderNo": "WI46673588",
+    "businessMerchandise": [
+      {
+        "sku": "SKU-A",
+        "qty": 100
+      }
+    ],
+    "eventNo": "EB0326062258"
+  },
+  "providedFields": {},
+  "expected": {
+    "outputPath": "needs_clarification",
+    "sceneKey": "inbound_label_identify",
+    "mustNotAskAgain": [
+      "eventNo",
+      "businessOrderNo",
+      "warehouseCode",
+      "warehouseName"
+    ],
+    "missingFieldsMustInclude": [
+      "标签文件"
+    ],
+    "missingFieldsPrimary": "标签文件",
+    "missingFieldsWhitelistOnly": true,
+    "forbidden": [
+      "sop_generated",
+      "默认跳过标签文件并生成需求描述/背景/仓库SOP",
+      "追问是否补包裹标作为校验字段"
+    ]
+  },
+  "ruleRef": "SIMULATED-BUSINESS-RULES.md",
+  "notes": "按模拟规则：标签文件 required=true。业务若判非必填则改写或作废。"
+}

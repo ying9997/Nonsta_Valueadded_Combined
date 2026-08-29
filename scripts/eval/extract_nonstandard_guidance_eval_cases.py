@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Extract candidate eval cases for non-standard in-page VAS guidance.
 
+DEPRECATED (2026-08-28): Output taxonomy 2a/2b/2d is out of scope for F-001 /
+Top1 pilot. See experts/value-add/nonstandard-sop-guide/DEPRECATED.md.
+Pilot cases live in experts/value-add/nonstandard-sop-guide/tests/pilot-f001/.
+
 This prototype intentionally avoids enriching cases with system data that is
 not present in the source CSV. Page context, scoped VASC lists, audit outcome,
 fees, and final service support status must be injected or reviewed later.

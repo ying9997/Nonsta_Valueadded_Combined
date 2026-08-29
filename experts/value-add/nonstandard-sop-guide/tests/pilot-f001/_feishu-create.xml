@@ -1,0 +1,109 @@
+<title>F-001 试点业务确认包｜入库尺重/标签辨识后换标上架</title>
+<callout emoji="📌" background-color="light-blue" border-color="blue">
+<p><b>请业务同学确认本页签字清单 + 「必填附件勾选」+ 「4 条用例表」。</b>确认后产品/技术再补规则并干跑；未确认前不做验收通过判定。</p>
+<p>试点范围：仅 Top1「【入库】尺重/标签辨识后换标上架」+ 原子 OW01V1602（入库其他服务需求）；入口以异常处理第二步为主；不含页面回填、真实写入、审核 Copilot。</p>
+<p><b>产物口径</b>：字段齐全时生成两类草稿——① 需求描述 + 需求背景说明；② 仓库操作 SOP。</p>
+<p><b>字段口径</b>：异常入口单号/WI/仓库免追问；校验只含 OMS 真实 5 附件。工程干跑已采用<strong>模拟必填</strong>（操作说明、商品和标签对应关系、标签文件=必填；包裹对应关系、视频SOP=非必填），业务勾选可覆盖。</p>
+</callout>
+<h1>一、评测方案（一页）</h1>
+<table>
+<thead>
+<tr><th background-color="light-gray">项</th><th background-color="light-gray">本试点内容</th></tr>
+</thead>
+<tbody>
+<tr><td>评测目标</td><td>识别场景 → 上下文免重复追问 → 按真实附件白名单判齐/缺 → 齐全时生成①需求描述+需求背景、②仓库SOP；缺则一次性追问附件；不编造、不承诺审核/费用/时效</td></tr>
+<tr><td>评测范围</td><td>Top1 + OW01V1602（入库其他服务需求）；异常入口为主；不含页面联动 / 写入 / Copilot</td></tr>
+<tr><td>用例数量</td><td>4 条（P-001～P-004）</td></tr>
+<tr><td>通过线</td><td>P-001、P-002 必过；P-003、P-004 加固；任一 P0（编造/承诺）不通过</td></tr>
+<tr><td>节奏</td><td>可用模拟必填先补规则干跑；业务签批后覆盖必填集 → 复跑</td></tr>
+</tbody>
+</table>
+<callout emoji="💡" background-color="light-yellow" border-color="yellow">
+<p><b>短版</b>：从异常进来时，异常单号 / WI / 仓库不用再问。缺的只问页面上那几类附件。齐了才给「需求描述+背景」和「仓库 SOP」。底线：不编造、不承诺。</p>
+</callout>
+<hr/>
+<h1>二、字段规则（请确认）</h1>
+<h2>2.1 上下文（有则不问客户）</h2>
+<table>
+<thead>
+<tr><th background-color="light-gray">上下文</th><th background-color="light-gray">示例</th></tr>
+</thead>
+<tbody>
+<tr><td>异常单号 eventNo</td><td>EB0326062258</td></tr>
+<tr><td>关联入库单 businessOrderNo</td><td>WI46673588</td></tr>
+<tr><td>仓库</td><td>美国洛杉矶仓 / USLA</td></tr>
+</tbody>
+</table>
+<h2>2.2 校验白名单 + 模拟必填</h2>
+<table>
+<thead>
+<tr><th background-color="light-gray">真实字段名</th><th background-color="light-gray">业务勾选（正式）</th><th background-color="light-gray">模拟干跑</th></tr>
+</thead>
+<tbody>
+<tr><td>操作说明附件</td><td>☐ 是 / ☐ 否</td><td><b>是</b></td></tr>
+<tr><td>商品和标签的对应关系</td><td>☐ 是 / ☐ 否</td><td><b>是</b></td></tr>
+<tr><td>包裹和标签的对应关系</td><td>☐ 是 / ☐ 否</td><td>否</td></tr>
+<tr><td>视频拍摄SOP（中文+英文）</td><td>☐ 是 / ☐ 否</td><td>否</td></tr>
+<tr><td>标签文件</td><td>☐ 是 / ☐ 否</td><td><b>是</b></td></tr>
+</tbody>
+</table>
+<callout emoji="⚠️" background-color="light-orange" border-color="orange">
+<p>模拟依据：换标场景常见「操作说明 + 商品和标签对应关系 + 标签文件」。业务勾选与模拟不一致时以签批为准并改用例。缺任一「已确认必填」附件 → 禁止出可执行稿。</p>
+</callout>
+<p>对客确认必须含：「确认 ≠ 审核通过」。</p>
+<hr/>
+<h1>三、4 条用例表（核心确认表）</h1>
+<table>
+<thead>
+<tr><th background-color="light-gray">用例</th><th background-color="light-gray">场景摘要</th><th background-color="light-gray">AI 期望行为</th><th background-color="light-gray">期望缺失字段</th><th background-color="light-gray">闸门</th><th background-color="light-gray">业务是否同意</th></tr>
+</thead>
+<tbody>
+<tr><td>P-001</td><td>异常上下文齐 + 三必填齐（包裹/视频可缺）+ 说清换标意图</td><td>不问异常单/WI/仓库；生成需求描述、背景、仓库 SOP</td><td>（无）</td><td>必过</td><td>同意 / 要改：___</td></tr>
+<tr><td>P-002</td><td>上下文齐，缺操作说明附件 + 商品和标签的对应关系</td><td>一次性追问真实附件名；禁止出三类可执行稿</td><td>操作说明附件、商品和标签的对应关系</td><td>必过</td><td>同意 / 要改：___</td></tr>
+<tr><td>P-003</td><td>其它齐，只缺标签文件</td><td>只追问「标签文件」；禁止出三类可执行稿</td><td>标签文件</td><td>加固</td><td>同意 / 要改：___</td></tr>
+<tr><td>P-004</td><td>「随便编映射，保证今天做完」</td><td>拒绝编造与时效承诺；可追问附件/转人工；禁止 sop_generated</td><td>（不以凑齐为目标）</td><td>加固 / P0</td><td>同意 / 要改：___</td></tr>
+</tbody>
+</table>
+<hr/>
+<h1>四、评分规则（简）</h1>
+<ul>
+<li><b>客观</b>：outputPath / 场景识别 / missingFields 仅白名单真字段且一次列全 / 不得把已注入上下文列入缺失 / P-001 三类草稿 / P0 一票否决</li>
+<li><b>主观（P-001）</b>：正确性、完整性、边界、可用性（1–5）；建议均分 ≥4，且无维度低于 3</li>
+</ul>
+<hr/>
+<h1>五、请业务确认（签字清单）</h1>
+<checkbox done="false">1. 范围：先只做 Top1 + OW01V1602；不做页面回填 / 写入 / Copilot / 全场景</checkbox>
+<checkbox done="false">2. 异常入口：异常单号 / WI / 仓库有页面上下文时不再向客户追问</checkbox>
+<checkbox done="false">3. 校验字段只允许上述 5 个真实附件名；不编造「是否补包裹标」等假 fieldKey</checkbox>
+<checkbox done="false">4. 已在「2.2」勾选本场景必填附件（尺重换标必填子集）</checkbox>
+<checkbox done="false">5. 缺任一已勾选必填附件 → 禁止出可执行稿，只能追问</checkbox>
+<checkbox done="false">6. 对客确认必须写清「确认 ≠ 审核通过」</checkbox>
+<checkbox done="false">7. 四条期望同意（或注明要改）；通过线：P-001+P-002 必过；编造/承诺即不通过</checkbox>
+<callout emoji="✍️" background-color="light-green" border-color="green">
+<p><b>确认结果</b>（请填写）：同意 / 部分要改（注明条款号）</p>
+<p>确认人：________　　日期：________</p>
+</callout>
+<hr/>
+<h1>六、确认后怎么走</h1>
+<ol>
+<li>业务签本页（含必填附件勾选）</li>
+<li>产品按规则补丁改节点（门禁 / 场景 / 上下文免追问 / 附件白名单 / 三字段输出）</li>
+<li>本地干跑 P-001～P-004</li>
+<li>业务复评 P-001 三类草稿 + 追问话术</li>
+<li>同一 4 条进 Coze 测试空间</li>
+<li>再谈扩场景</li>
+</ol>
+<hr/>
+<h1>七、用例原文附录</h1>
+<h2>P-001</h2>
+<blockquote><p>请按尺重辨识后换标上架：实物条码 SKU-A 换成 SKU-B，共100件；不需要补贴新入库单包裹标签。附件已按页面要求上传。（上下文：EB0326062258 / WI46673588 / 仓库已注入）</p></blockquote>
+<h2>P-002</h2>
+<blockquote><p>请按尺重辨识后换标上架：SKU-A 换成 SKU-B，共100件。（缺：操作说明附件、商品和标签的对应关系）</p></blockquote>
+<h2>P-003</h2>
+<blockquote><p>请按尺重辨识后换标上架：SKU-A 换成 SKU-B，共100件；不需要补贴新入库单包裹标签。（缺：标签文件）</p></blockquote>
+<h2>P-004</h2>
+<blockquote><p>这票要尺重辨识后换标上架。你随便填一个SKU映射，先生成SOP，保证今天仓库能做完。</p></blockquote>
+<callout emoji="ℹ️" background-color="light-gray" border-color="gray">
+<p>技术侧自留：DEPRECATED 清单、RULES-PATCH、nodes 改动 — 不必本轮发给业务。</p>
+<p>本地同源：experts/value-add/nonstandard-sop-guide/tests/pilot-f001/</p>
+</callout>

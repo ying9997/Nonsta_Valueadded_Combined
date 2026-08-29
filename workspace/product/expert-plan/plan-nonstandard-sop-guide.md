@@ -1,5 +1,9 @@
 # 计划：增值AI智能化 — 非标增值 SOP 引导 Expert 设计与实现
 
+> **DEPRECATED（2026-08-28）**：早期 38 场景 + 库内 KB 规划，已对 F-001 / Top1 试点废弃。  
+> 见 `experts/value-add/nonstandard-sop-guide/DEPRECATED.md`。  
+> 业务权威改看：`workspace/experiments/nonstandard-submission-guide/01-business-reference/value-add-nonstandard-submission-guide.md` + `2.1-inbound-relabel-shelving.md`。
+
 ## Context
 
 用户在做万邑通 AI 客服"增值AI智能化"项目。现有入库增值链路（exception-diagnosis → product-recommendation-v2 → service-config）在推荐非标产品后，客户仍然不知道怎么写需求描述和 SOP。需要新增一个 expert 接在 product-recommendation 之后，专门负责：识别客户场景 → 匹配历史 SOP 模板 → 追问补齐字段 → 生成 SOP 摘要 → 客户确认。

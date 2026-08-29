@@ -1,6 +1,9 @@
 /**
  * match-template — 用客户意图匹配 kb-template-index，判断 B/C 分类。
  * FaaS 单文件闭环，无外部 import。
+ *
+ * DEPRECATED（2026-08-28）: SCENARIO_INDEX（38 库内场景）对 F-001/Top1 试点已废弃。
+ * 见 ../DEPRECATED.md；试点不得依赖本索引命中 inbound_label_identify。
  */
 
 function asText(value: unknown): string {
