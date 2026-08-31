@@ -1,6 +1,9 @@
 # udesk-stratified-v0.1（Udesk 分层抽样）
 
-从真实客户–客服对话抽出的评测会话。叶子本版只做 `intent`（首轮意图）/ `missing`（中段缺信息）；`sop_gate` 延后。
+> **已归档（2026-08-31）** · 见同目录 [`ARCHIVED.md`](./ARCHIVED.md)。  
+> **勿再当现行评测主源。** 试用 P0 改看：`../oms-scene-f001-v0.1/` · 权威索引：`../EVAL-AUTHORITY.md`。
+
+从真实客户–客服对话抽出的评测会话（历史试点）。叶子本版只做 `intent`（首轮意图）/ `missing`（中段缺信息）；`sop_gate` 延后。**未做需求收束**，切叶偏早/噪音大。
 
 ## 文件
 

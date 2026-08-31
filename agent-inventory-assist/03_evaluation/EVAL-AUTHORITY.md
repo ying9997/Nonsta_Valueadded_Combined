@@ -1,48 +1,54 @@
-# 评测资产权威索引（2026-08-29）
+# 评测资产权威索引（2026-08-31 修订）
 
-> 今天脑暴共识后的**唯一入口**。旧链路一律看「归档/废弃」表，禁止再当现行金标。
+> **唯一入口。** 旧链路一律看「归档/废弃」表，禁止再当现行金标。
 
 ## 现行权威（用这些）
 
 | 用途 | 路径 |
 |------|------|
-| 产品/评测文档根 | `agent-inventory-assist/`（本目录为评测入口） |
+| 产品/评测文档根 | `agent-inventory-assist/` |
+| **试用 · 核心场景真实集（P0）** | `03_evaluation/datasets/oms-scene-f001-v0.1/`（OMS 场景倒查；先 3 通深做） |
 | F-001 工程金标（4 条干跑） | `experts/value-add/nonstandard-sop-guide/tests/pilot-f001/` |
 | F-001 模拟必填 | `03_evaluation/F-001-SIMULATED-BUSINESS-RULES.md` |
-| 全量真实会话抽样规则（含叶子金标来源与评分规则 / rubric，§4.3） | `03_evaluation/抽样规则草稿-真实客服会话-V0.1.md` |
-| 评测方案后续改进点（角色分工/H2/时效 SLA 等） | `03_evaluation/Agent评测方案-V1.0.md` §11 |
-| 全量真实会话清单（阶段0～2） | `03_evaluation/datasets/udesk-stratified-v0.1/sessions.json` |
-| 全量真实叶子（intent/missing） | `03_evaluation/datasets/udesk-stratified-v0.1/leaves.jsonl` |
-| 主数据源（客户–客服） | `workspace/data/raw/data_udesk_log_database_增值.csv` |
-| 场景细类对照 | `workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md` |
 | 字段/场景 2.1 | `workspace/knowledge/sop/2.1-inbound-relabel-shelving.md` |
+| 场景细类对照 | `workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md` |
+| 主数据源（客户–客服，倒查用） | `workspace/data/raw/data_udesk_log_database_增值.csv` |
+| 抽样/金标约定（方向标签与评分规则仍有效；分层大盘已归档） | `03_evaluation/抽样规则草稿-真实客服会话-V0.1.md` §4.2～4.3 |
+| 评测方案改进点 | `03_evaluation/Agent评测方案-V1.0.md` §11 |
 
-**两套评测不互相替代**：F-001 四条 = 规则门禁干跑；Udesk 分层抽样 = 真实分布评测原料。
+**两套不互相替代：** F-001 四条 = 规则门禁干跑；`oms-scene-f001-v0.1` = 真实对话 + OMS 场景/SOP 试用小集。
+
+**试用阶段原则：** 少数真实、可懂、带权威金标的闭环题；核心场景先与业务共识，边界后迭代。八桶分层 **不是** 上线试用 P0。
 
 ## 明确排除（不得当评测主源）
 
 | 类型 | 路径/说明 | 原因 |
 |------|-----------|------|
-| 内部飞书群聊 | `workspace/data/raw/飞书群聊_*.xlsx` 及待整理群聊 xlsx | 不可仿真、内部转述偏差（今天共识） |
-| qa-gen 候选当金标 | `ai/agentic/qa-gen_base.csv` → `outputs/nonstandard_guidance_eval_cases/` | QA 导出形态，非完整多轮会话；taxonomy 旧 2a/2b/2d |
-| 旧 Udesk 派生「评测集」 | `workspace/eval/queue-regression/data/extracted-*.json`；`experts/.../eval/eval-customer-inputs*` | 旧抽取口径；脚本 `extract-udesk.ts` **仅可复用 parseMessages 技术**，产出不作现行金标 |
+| **Udesk 粗桶分层试点** | `03_evaluation/datasets/udesk-stratified-v0.1/` | **已归档（2026-08-31）**：未做需求收束；勿再引用为现行集。见该目录 `ARCHIVED.md` |
+| 分层抽样运行痕迹 | `_runs/20260829_udesk_sample/` | 同归档；仅历史探针 |
+| 内部飞书群聊 | `workspace/data/raw/飞书群聊_*.xlsx` 等 | 不可仿真、内部转述偏差 |
+| qa-gen 候选当金标 | `ai/agentic/qa-gen_base.csv` 等 | 非完整多轮会话 |
+| 旧 Udesk 派生「评测集」 | `workspace/eval/queue-regression/data/extracted-*.json` 等 | 旧抽取口径 |
 
-## 归档 / 废弃指针（冲突旧链路）
-
-总表见：`experts/value-add/nonstandard-sop-guide/DEPRECATED.md`（已扩「全量真实抽样」节）。  
-试点副本标记：`workspace/eval/cases/DEPRECATED-FOR-PILOT-F001.md`。
+## 归档 / 废弃指针
 
 | 旧资产 | 状态 | 改去看 |
 |--------|------|--------|
-| `candidate_eval_cases.json`（agentic / workspace/eval） | deprecated | 本文件 + 抽样规则 V0.1 |
-| `scripts/eval/extract_nonstandard_guidance_eval_cases.py` | deprecated-for-current-gold | 新抽样脚本（待建） |
-| `ai/study/.../extract-udesk.ts` 产出 JSON | archived-as-tool-output | 仅解析参考；新样本落 `03_evaluation/datasets/` |
-| `Agent测试集-V1.0.md` 全量用例 | out-of-scope-until-udesk-set | 待 Udesk 分层集落地后重对齐 |
-| 群聊抽评测（vas/eval、群聊 xlsx） | excluded-as-eval-source | Udesk only |
+| `datasets/udesk-stratified-v0.1` | **archived-no-requirement-convergence** | `oms-scene-f001-v0.1` + 本文件 |
+| 凡「未做需求收束」的前期会话切叶金标尝试 | archived | 本文件；勿引用 |
+| `candidate_eval_cases.json` 等 | deprecated | 本文件 |
+| 群聊抽评测 | excluded | Udesk / OMS 倒查 |
 
-## sop_gate 补齐（后续任务，本轮不切叶子）
+## 现行主路径（P0）
 
-链路：**Udesk 会话抽 VASC → 对齐事实表/接口 → 回填需求描述/背景 + sceneOverviewName + sop**。  
-若锚点单无 sop，可按抽样规则 §4.2 向后找强相关后继单，并区分 `anchor_vasc` / `sop_source_vasc` / `sop_provenance`；禁止编造。
+```text
+定场景名（如【入库】尺重/标签辨识后换标上架）
+  → 拉该场景 VASC（含 sop）
+  → 抽 EB/WI
+  → Udesk 反查命中会话
+  → 会话摘要 / 需求收束
+  → 切叶 / 方向标签
+  → 评测（小集试用）
+```
 
-探测结论见同目录 `VASC-SOP补齐链路探测.md`。
+脚本：`scripts/eval/build_oms_scene_f001.py`
