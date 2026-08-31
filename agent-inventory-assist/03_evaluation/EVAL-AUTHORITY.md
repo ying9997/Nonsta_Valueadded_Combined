@@ -9,7 +9,8 @@
 | 产品/评测文档根 | `agent-inventory-assist/`（本目录为评测入口） |
 | F-001 工程金标（4 条干跑） | `experts/value-add/nonstandard-sop-guide/tests/pilot-f001/` |
 | F-001 模拟必填 | `03_evaluation/F-001-SIMULATED-BUSINESS-RULES.md` |
-| 全量真实会话抽样规则 | `03_evaluation/抽样规则草稿-真实客服会话-V0.1.md` |
+| 全量真实会话抽样规则（含叶子金标来源与评分规则 / rubric，§4.3） | `03_evaluation/抽样规则草稿-真实客服会话-V0.1.md` |
+| 评测方案后续改进点（角色分工/H2/时效 SLA 等） | `03_evaluation/Agent评测方案-V1.0.md` §11 |
 | 全量真实会话清单（阶段0～2） | `03_evaluation/datasets/udesk-stratified-v0.1/sessions.json` |
 | 全量真实叶子（intent/missing） | `03_evaluation/datasets/udesk-stratified-v0.1/leaves.jsonl` |
 | 主数据源（客户–客服） | `workspace/data/raw/data_udesk_log_database_增值.csv` |
@@ -41,6 +42,7 @@
 
 ## sop_gate 补齐（后续任务，本轮不切叶子）
 
-链路：**Udesk 会话抽 VASC → 对齐事实表/接口 → 回填需求描述/背景 + sceneOverviewName + sop**。
+链路：**Udesk 会话抽 VASC → 对齐事实表/接口 → 回填需求描述/背景 + sceneOverviewName + sop**。  
+若锚点单无 sop，可按抽样规则 §4.2 向后找强相关后继单，并区分 `anchor_vasc` / `sop_source_vasc` / `sop_provenance`；禁止编造。
 
 探测结论见同目录 `VASC-SOP补齐链路探测.md`。
