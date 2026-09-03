@@ -1,0 +1,105 @@
+{
+  "sceneKey": "inbound_package_exception_relabel_shelving",
+  "sceneName": "【入库】包裹类异常换商品标签上架",
+  "status": "candidate_supported",
+  "category": "inbound",
+  "omsSceneCode": "",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.5",
+      "credibility": "authority",
+      "note": "场景定义：包裹条码正常，商品条码异常。模板极短：补包裹标/商品标后上新 WI、关异常单。无独立 2.5 运行规则文件"
+    },
+    {
+      "path": "workspace/knowledge/sop/非标增值服务SOP模板及填写示例.md",
+      "credibility": "authority",
+      "note": "SOP 完整栏目权威。不是本场景匹配权威，也不含 OMS 场景定义"
+    },
+    {
+      "path": "workspace/knowledge/sop/2.1-inbound-relabel-shelving.md",
+      "credibility": "authority",
+      "note": "仅用于对照边界：2.1 典型触发已含「商品条码与包裹条码不对应 / 供应商贴错条码后换商品标签」，与本场景重叠"
+    },
+    {
+      "path": "workspace/knowledge/sop/库内增值_知识库_SOP模板场景清单.md",
+      "credibility": "deprecated_reference",
+      "note": "库内清单，错范围，不能当本场景权威"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "包裹类异常",
+      "包裹条码正常",
+      "商品条码异常",
+      "换商品标签"
+    ],
+    "weak": [
+      "补贴包裹标签",
+      "补贴商品标签",
+      "商品标签",
+      "上架",
+      "新入库单",
+      "关闭异常单"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "拦截不上架",
+      "先放在一边",
+      "暂存不上架",
+      "直接扫描上架",
+      "尺重辨识",
+      "绿标"
+    ],
+    "soft": [
+      "指定商品拍照暂存",
+      "称重拍照",
+      "库内拍摄照片/视频"
+    ]
+  },
+  "boundaryRules": [
+    "与 F-001 都可能含换标+上架。仅当正文明确「包裹条码正常、商品条码异常 / 包裹类异常」且换商品标上架时，才高置信标本场景。",
+    "有尺重/辨识/绿标/混SKU/对应关系时优先 F-001，不要抢标本场景。",
+    "区分不了时 decision=ambiguous，supported=false，转人工，不得进入 check-completeness。",
+    "拦截不上架 / 先放一边不是本场景。",
+    "拍照暂存、库内拍照/视频不是本场景。",
+    "不能仅凭 OW01V1602 或「入库其他服务需求」命中。",
+    "sceneKey 为本次拟新增，仓库内原先无此 key；PRD §4.2 未列此 key。"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：异常包裹 / 商品条码",
+    "动作：换商品标签（可含补包裹标）",
+    "去向：上架到新入库单并关闭异常单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "none",
+    "omsWhitelistFieldKeys": [],
+    "simulatedRequiredFieldKeys": [],
+    "note": "无独立签批附件表。不得借用 F-001 三必填，不得把 PRD 自造 fieldKey（如 sku_mapping）写成 OMS 校验字段。命中后不得进入正式附件校验。"
+  },
+  "sopTemplateHints": [
+    "补贴包裹标签 × 数量（若需求写了）",
+    "补贴商品标签 × 数量",
+    "上架到新入库单",
+    "将异常单状态变更为已完成"
+  ],
+  "examples": [
+    {
+      "id": "a-positive-2-5",
+      "kind": "positive",
+      "sourceType": "derived_example",
+      "text": "包裹类异常，包裹条码正常但商品条码异常，请换商品标签后上架到新入库单",
+      "note": "从新版知识库 §2.5 定义+模板抽出，不是历史 gold"
+    },
+    {
+      "id": "a-boundary-348477",
+      "kind": "boundary",
+      "sourceType": "shadow_pending",
+      "text": "物流标签盖住绿标 SKU，撕开后按 SKU 换商品条码再上架",
+      "note": "VASC000000348477 边界待判，不能当 A 的金标正例"
+    }
+  ],
+  "notes": "candidate_supported。可召回进 topK，不得与 F-001 同级自动放行，不得按未签批字段拦单。"
+}

@@ -1,0 +1,66 @@
+{
+  "version": "0.2",
+  "notes": "Minimum smoke for scenario cards + match-template v0.2. Not a gold set. A/B positives are derived SOP examples. 16 pending review orders must not be treated as gold.",
+  "cases": [
+    {
+      "id": "smoke-f001-positive",
+      "layer": "L2_template_routing",
+      "gold_status": "derived",
+      "input_message": "到仓后请按尺重和标签辨识，换标后上架到新入库单 WI12345678",
+      "expected_decision": "supported",
+      "expected_topk_contains": ["inbound_label_identify"],
+      "must_not": [],
+      "notes": "F-001 正例：辨识/换标/上架/新入库单。应 auto-run。"
+    },
+    {
+      "id": "smoke-a-positive",
+      "layer": "L2_template_routing",
+      "gold_status": "derived",
+      "input_message": "包裹类异常，包裹条码正常但商品条码异常，请换商品标签后上架到新入库单",
+      "expected_decision": "supported",
+      "expected_topk_contains": ["inbound_package_exception_relabel_shelving"],
+      "must_not": [],
+      "notes": "A 正例来自 §2.5 定义。decision 可以是 supported（识别到场景），但 card status=candidate，不得进入正式附件校验。"
+    },
+    {
+      "id": "smoke-b-positive",
+      "layer": "L2_template_routing",
+      "gold_status": "derived",
+      "input_message": "指定商品需要拍照，拍照后放入暂存区，等客户确认后再处理",
+      "expected_decision": "supported",
+      "expected_topk_contains": ["inbound_photo_hold"],
+      "must_not": [],
+      "notes": "B 正例来自 §2.7。可进 topK；附件策略 pending，不得 auto-run 附件校验。"
+    },
+    {
+      "id": "smoke-intercept-hold-negative",
+      "layer": "L2_template_routing",
+      "gold_status": "shadow",
+      "input_message": "这个入库单所有包裹需要拦截不上架，需要对这个入库单的所有包裹进行拦截，不上架，先放在一边",
+      "expected_decision": "unsupported",
+      "expected_topk_contains": [],
+      "must_not": ["inbound_label_identify", "inbound_photo_hold"],
+      "notes": "本批 14 条拦截同文。不能命中 F-001，也不能命中 B。shadow，不计入准确率。"
+    },
+    {
+      "id": "smoke-photo-destination-unclear",
+      "layer": "L2_template_routing",
+      "gold_status": "derived",
+      "input_message": "请对异常包裹内指定商品拍照核实外观",
+      "expected_decision": ["ambiguous", "unsupported"],
+      "expected_topk_contains": [],
+      "must_not": ["inbound_label_identify"],
+      "notes": "有拍照但没有暂存/客户确认后处理。去向不清，不能强行 B。"
+    },
+    {
+      "id": "smoke-f001-vs-a-boundary",
+      "layer": "L2_template_routing",
+      "gold_status": "derived",
+      "input_message": "到仓商品需要换商品标签并上架到新入库单",
+      "expected_decision": "ambiguous",
+      "expected_topk_contains": ["inbound_label_identify", "inbound_package_exception_relabel_shelving"],
+      "must_not": [],
+      "notes": "换标+上架，但没有辨识也没有包裹类异常。F-001 与 A 边界不清 → ambiguous，不要进 check-completeness。"
+    }
+  ]
+}

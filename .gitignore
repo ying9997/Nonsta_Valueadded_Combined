@@ -14,6 +14,41 @@ workspace/data/raw/*.csv
 **/*auth-qr*
 **/*auth*screenshot*
 
+# Secrets / env
+.env
+**/.env
+!**/.env.example
+
+# Internal review copilot local state
+internal-review-copilot/data/
+internal-review-copilot/.feishu-user-token.json
+
+# _tmp: local scratch (node_modules, cursor prompts with credentials, probes)
+_tmp/
+
+# _runs: large OMS data pulls (details.json / pagequery_raw.json can be 8-23MB each)
+# Keep summary.md and small analysis files; exclude raw JSON blobs
+_runs/**/details.json
+_runs/**/details_checkpoint.json
+_runs/**/pagequery_raw.json
+_runs/**/va_atoms.json
+_runs/**/events.json
+_runs/**/agent-inputs.json
+_runs/**/dryrun-results.json
+_runs/**/case-store.json
+# But keep summary / README / small reports
+!_runs/**/summary.md
+!_runs/**/summary.json
+!_runs/**/README.md
+!_runs/**/how_to_read.md
+!_runs/**/gate-comparison.md
+!_runs/**/selection.md
+!_runs/**/demo_commands.md
+!_runs/**/integration-report.md
+
+# node_modules anywhere
+**/node_modules/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

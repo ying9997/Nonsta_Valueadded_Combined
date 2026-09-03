@@ -1,0 +1,134 @@
+{
+  "sceneKey": "inbound_label_identify",
+  "sceneName": "【入库】尺重/标签辨识后换标上架",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "20250407004",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/2.1-inbound-relabel-shelving.md",
+      "credibility": "authority",
+      "note": "F-001 主规则：定义、A 层免追问、5 个 OMS 真附件名、模拟三必填、两类草稿"
+    },
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.1",
+      "credibility": "authority",
+      "note": "历史审核 SOP 定义与模板原文；已沉淀到独立 2.1 文件"
+    },
+    {
+      "path": "workspace/knowledge/sop/非标增值服务SOP模板及填写示例.md",
+      "credibility": "authority",
+      "note": "SOP 完整栏目权威。不是场景匹配权威"
+    },
+    {
+      "path": "agent-inventory-assist/03_evaluation/F-001-SIMULATED-BUSINESS-RULES.md",
+      "credibility": "derived",
+      "note": "附件三必填模拟表，业务未签批"
+    },
+    {
+      "path": "workspace/knowledge/cases/f001-inbound-relabel-shelving/",
+      "credibility": "derived",
+      "note": "教材 casebook / rules.md，不是自动金标"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "尺重",
+      "辨识",
+      "换标",
+      "更换标签",
+      "绿标",
+      "露出的SKU",
+      "SKU对应",
+      "对应的商品条码",
+      "商品条码与包裹条码不对应",
+      "混SKU",
+      "换商品标签"
+    ],
+    "weak": [
+      "贴标",
+      "补贴",
+      "贴条码",
+      "商品标签",
+      "包裹标签",
+      "SKU标签",
+      "上架",
+      "新单",
+      "新入库单"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "拦截不上架",
+      "先放在一边",
+      "暂存不上架",
+      "直接扫描上架",
+      "第三方箱唛已关联"
+    ],
+    "soft": [
+      "称重拍照且无换标",
+      "指定商品拍照暂存",
+      "库内拍摄照片/视频"
+    ]
+  },
+  "boundaryRules": [
+    "有尺重/辨识/绿标/混SKU/SKU对应关系时优先本场景，不要标成场景 A。",
+    "仅有换商品标签+上架、没有辨识也没有「包裹条码正常/商品条码异常」时，与 A 边界不清 → ambiguous，不得强行 supported。",
+    "拦截不上架/先放一边/暂存不上架不得命中本场景。",
+    "称重/拍照且无换标，不是本场景（CASEBOOK 第 7/8 组）。",
+    "不能仅凭 serviceAtom=OW01V1602、入库其他服务需求、或 OMS 场景码 20250407004 单独命中。"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：异常包裹/SKU/标签/入库单",
+    "动作：辨识后换标或补贴标签",
+    "去向：上架到指定 WI / 新入库单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "simulated_pending_business_confirmation",
+    "enforcement": "simulated_only",
+    "omsWhitelistFieldKeys": [
+      "操作说明附件",
+      "商品和标签的对应关系",
+      "包裹和标签的对应关系",
+      "视频拍摄SOP（中文+英文）",
+      "标签文件"
+    ],
+    "simulatedRequiredFieldKeys": [
+      "操作说明附件",
+      "商品和标签的对应关系",
+      "标签文件"
+    ],
+    "note": "三必填仍是模拟，待业务签批。不得写成已确认必填。禁止自造 fieldKey。"
+  },
+  "sopTemplateHints": [
+    "按异常单定位待处理货物",
+    "按对应关系辨识后换标/补贴标签",
+    "换标完成后上架到指定入库单",
+    "操作完成后回传；确认不等于审核通过"
+  ],
+  "examples": [
+    {
+      "id": "f001-positive-identify",
+      "kind": "positive",
+      "sourceType": "derived_example",
+      "text": "到仓后请按尺重和标签辨识，换标后上架到新入库单",
+      "note": "2.1 典型触发：辨识后换标再上架"
+    },
+    {
+      "id": "f001-shadow-348477",
+      "kind": "boundary",
+      "sourceType": "shadow_pending",
+      "text": "撕开外标签，根据绿标上的SKU进行补贴，再入库上架",
+      "note": "本批待审核 VASC000000348477。无最终审核结论，不能当 gold。也可能被理解成场景 A，须靠辨识信号优先 F-001。"
+    },
+    {
+      "id": "f001-negative-weigh-photo",
+      "kind": "negative",
+      "sourceType": "casebook",
+      "text": "称重拍照后暂存，不换标",
+      "note": "CASEBOOK 第 7/8 组：称重/拍照不是换标"
+    }
+  ],
+  "notes": "当前唯一 status=supported 的自动模板。附件三必填仍 simulated/pending。命中后才进入 check-completeness。OMS 场景码 20250407004 可辅助，不能单独当命中。"
+}

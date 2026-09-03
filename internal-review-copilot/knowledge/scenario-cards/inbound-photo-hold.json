@@ -1,0 +1,119 @@
+{
+  "sceneKey": "inbound_photo_hold",
+  "sceneName": "【入库】指定商品拍照暂存",
+  "status": "candidate_supported",
+  "category": "inbound",
+  "omsSceneCode": "",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.7",
+      "credibility": "authority",
+      "note": "场景定义：异常包裹需拍照核实后再决定处理方式。含数字标识、拍照要求、回传命名、暂存区。无独立 2.7 规则文件"
+    },
+    {
+      "path": "workspace/knowledge/sop/非标增值服务SOP模板及填写示例.md",
+      "credibility": "authority",
+      "note": "SOP 完整栏目权威。填写示例「库内库存验证拍照」是库内近邻，不是本场景"
+    },
+    {
+      "path": "workspace/knowledge/sop/库内增值_知识库_SOP模板场景清单.md",
+      "credibility": "deprecated_reference",
+      "note": "#7「拍摄照片/视频」是库内场景，不能当本场景权威"
+    },
+    {
+      "path": "workspace/knowledge/cases/f001-inbound-relabel-shelving/rules.md",
+      "credibility": "derived",
+      "note": "规则 2：称重/拍照不是换标；第 7/8 组是本场景的近邻反例"
+    },
+    {
+      "path": "agent-inventory-assist/02_design/PRD-非标增值生成Agent-V1.0.md",
+      "section": "§4.2",
+      "credibility": "derived",
+      "note": "产品草案有 inbound_photo_hold 字段表。photo_requirement / numbering_rule 是自造 fieldKey，不得写入校验槽"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "指定商品",
+      "拍照暂存",
+      "数字标识",
+      "暂存区",
+      "客户确认后再处理",
+      "客户确认后"
+    ],
+    "weak": [
+      "拍照",
+      "拍摄",
+      "暂存",
+      "回传照片",
+      "拍照核实"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标后上架",
+      "拦截不上架且无拍照要求",
+      "先放在一边且无拍照要求",
+      "库内拍摄照片/视频",
+      "库存验证拍照"
+    ],
+    "soft": [
+      "称重拍照",
+      "暂存一词单独出现",
+      "直接扫描上架"
+    ]
+  },
+  "boundaryRules": [
+    "必须同时有拍照/拍摄，以及暂存/暂存区/客户确认后再处理。缺去向时 ambiguous 或 unsupported，不能强行 supported。",
+    "拦截不上架/先放一边不能命中本场景，除非同时有明确拍照要求。",
+    "换标后上架走 F-001 或 A，不是本场景。",
+    "称重拍照/暂存（CASEBOOK 第 7/8 组）不是指定商品拍照暂存。",
+    "库内「拍摄照片/视频」、库存验证拍照不得并进本场景。",
+    "不能把「暂存」一词单独当成命中。",
+    "不能仅凭 OW01V1602 命中。本批 16 条待审核无正例。"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：指定商品或异常包裹",
+    "动作：拍照/拍摄（含标识、回传要求更佳）",
+    "去向：暂存区暂存，待客户确认后再处理"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "none",
+    "omsWhitelistFieldKeys": [],
+    "simulatedRequiredFieldKeys": [],
+    "note": "无签批附件。PRD 的 photo_requirement / numbering_rule 不是 OMS 真字段，只能进 SOP 自然语言，不能当 missingFields。命中后不得进入正式附件校验。"
+  },
+  "sopTemplateHints": [
+    "对每个包裹做明显数字标识",
+    "写明包裹拍照要求",
+    "照片回传命名要求",
+    "标识保留和清理要求",
+    "拍照后货物先放置在暂存区"
+  ],
+  "examples": [
+    {
+      "id": "b-positive-2-7",
+      "kind": "positive",
+      "sourceType": "derived_example",
+      "text": "指定商品需要拍照，拍照后放入暂存区，等客户确认后再处理",
+      "note": "从新版知识库 §2.7 定义+示例抽出，不是待审核 OMS 真单"
+    },
+    {
+      "id": "b-negative-intercept",
+      "kind": "negative",
+      "sourceType": "shadow_pending",
+      "text": "这个入库单所有包裹需要拦截不上架，先放在一边",
+      "note": "本批 14 条拦截单：无拍照要求，不得收成拍照暂存"
+    },
+    {
+      "id": "b-negative-weigh",
+      "kind": "negative",
+      "sourceType": "casebook",
+      "text": "称重拍照后暂存，不指定商品拍照核实",
+      "note": "CASEBOOK 第 7/8 组近邻反例"
+    }
+  ],
+  "notes": "candidate_supported。可召回进 topK，完整性 pending。口语「拍照暂存」不等于本场景。当前 16 条待审核池没有正例。"
+}
