@@ -1,0 +1,133 @@
+[
+  {
+    "vascNo": "VASC000000183069",
+    "requirementComplete": false,
+    "missingRequirements": [
+      "操作动作不清"
+    ],
+    "sceneMatch": {
+      "decision": "",
+      "topScene": "",
+      "confidence": ""
+    },
+    "materialsComplete": false,
+    "missingMaterials": [],
+    "outputPath": "needs_requirement_clarification",
+    "llmGeneratedText": "您好，这张增值单还缺以下信息：\n\n**增值单号：** VASC000000183069  \n**客户：** 梦幻岛网路科技有限公司 / 1000173  \n**仓库：** USWC Warehouse / US0001  \n**异常单：** EB0125102923669250\n\n**您已提交的需求：**  \n- 需求背景说明：产品搞混了  \n- 需求描述：请撕掉透明膜 然后根据包装盒背部的 型号进行区分 以及反馈数量\n\n**还需要补充：**  \n目前的需求描述里看不出具体要做什么操作。您提到\"撕掉透明膜\"\"区分型号\"\"反馈数量\"，但没有说明后续处理动作——是要重新贴标？换包装？分拣入库？还是其他操作？麻烦您明确说明一下撕膜和区分型号之后，仓库需要对这些货物做什么处理，这样我们才能匹配对应的操作场景和报价。\n\n另外，您已经上传了操作说明附件和多张图片，但系统提示还缺少以下附件（如果不需要可以说明）：\n- 商品和标签的对应关系\n- 包裹和标签的对应关系\n- 视频拍摄SOP（中文+英文）\n- 标签文件\n\n请您补充完整后我们再进行下一步处理。AI 不代填事实、不自动审核。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  },
+  {
+    "vascNo": "VASC000000344421",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "ambiguous",
+      "topScene": "inbound_label_identify",
+      "confidence": 0.4166666666666667
+    },
+    "materialsComplete": false,
+    "missingMaterials": [],
+    "outputPath": "transfer_human",
+    "llmGeneratedText": "该增值单涉及63件货物需要换标上架，但仓库无法定位原入库单，且实际数量与登记数量不符（登记33件，实际63件）。由于涉及多个入库单号、数量差异较大，且需要根据SN码和参考图进行货物定位匹配，场景复杂度超出当前自动处理能力，需要人工核实货物实际情况和上架关系。",
+    "transferReason": "ambiguous_below_high_confidence",
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  },
+  {
+    "vascNo": "VASC000000343821",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_label_identify",
+      "confidence": 1
+    },
+    "materialsComplete": false,
+    "missingMaterials": [
+      "操作说明附件",
+      "商品和标签的对应关系"
+    ],
+    "outputPath": "needs_field_clarification",
+    "llmGeneratedText": "您好，该增值单需求内容已确认，但还缺少以下资料：\n\n**增值单号：** VASC000000343821  \n**客户：** 广州德诺汽配有限公司 / 11177690  \n**仓库：** CATO Warehouse / CATO  \n**已识别场景：** 【入库】尺重/标签辨识后换标上架  \n\n**已提交需求摘要：**  \n包裹外包装贴有SKU标签，需要仓库逐箱查看SKU，根据SKU对应的商品条码重新贴标后入库上架。已绑定入库单 WI52118288、WI50893267，异常单 EB0126082632490213。\n\n**已上传附件：**  \n- 标签文件（1.jpg）  \n- 标签文件（Order - 2026-08-28T191518.312.pdf）\n\n**还缺少的资料：**  \n1. **操作说明附件** — 用于明确具体操作步骤和注意事项  \n2. **商品和标签的对应关系** — 用于仓库核对每个SKU应该贴哪个条码，可以是Excel表格或清晰的对照图片\n\n请补充以上资料后再提交审核。AI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  },
+  {
+    "vascNo": "VASC000000333147",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_label_identify",
+      "confidence": 0.9166666666666666
+    },
+    "materialsComplete": true,
+    "missingMaterials": [],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "【需求背景】\n工厂端将第三方箱唛标签覆盖，导致仓库无法正常扫描上架，需按箱序辨识并补贴原Winit包裹条码标签后上架。\n\n【操作要求】\n1. 根据异常单 EB0126080632030982 定位待处理货物（共36箱）；\n2. 辨识外箱上的装箱单标签，确认箱序（如1/36、2/36等），参考已上传图片 lQLPJxau-Mx4Rg_NAo3NAhCwFU6hfX26oYAKSFU9MGhdAA_528_653.png；\n3. 按附件「WI51547628非标.xlsx」中的对应关系，为每箱补贴对应的Winit包裹条码标签（如箱序1补贴B0400000001441165842）；\n4. 使用补贴后的包裹条码扫描上架到入库单 WI51547628；\n5. 全部处理完成后关闭异常单 EB0126080632030982。\n\n【注意事项】\n- 严格按照「WI51547628非标.xlsx」中箱序与包裹条码的对应关系操作，共36个包裹；\n- 标签文件见「WYT包裹条码.pdf」，详细操作说明见「操作说明.pdf」。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  },
+  {
+    "vascNo": "VASC000000326061",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_label_identify",
+      "confidence": 0.5833333333333334
+    },
+    "materialsComplete": true,
+    "missingMaterials": [],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "【需求背景】\n客户下了多个入库单（WI51383223、WI51383191），同一包裹内包含多个产品，标准流程无法一起操作，需按新入库单补贴包裹标签后分别上架。\n\n【操作要求】\n1. 根据异常单 EB0326072531612017 定位待处理包裹；\n2. 核对实物产品条码：6975820906631 对应 SKU M010000000011392253（入库单 WI51383223），6975820905849 对应 SKU M010000000011392213（入库单 WI51383191）；\n3. 按「商品标签对应关系.xlsx」和已上传的标签文件（WI51383191.pdf、WI51383223.pdf）补贴新的包裹标签；\n4. 将贴好标签的商品分别扫描上架到对应入库单（WI51383223 和 WI51383191）；\n5. 完成后在系统中关闭/推进异常单 EB0326072531612017。\n\n【注意事项】\n- 实物产品条码正确，第三方编码已在系统关联，按新入库单操作即可；\n- 详细操作说明见「操作说明.pdf」附件。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  },
+  {
+    "vascNo": "VASC000000143515",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_label_identify",
+      "confidence": 0.9166666666666666
+    },
+    "materialsComplete": true,
+    "missingMaterials": [],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "【需求背景】\n到仓商品条码与系统登记不符，需按客户提供的实物型号与新商品条码对应关系补贴新标签后上架到指定入库单。\n\n【操作要求】\n1. 根据异常单 EB0125081521891412 定位包裹号 DE4359761009（共 6PCS）；\n2. 按「商品标签对应关系.xlsx」及「操作说明.pdf」辨识商品型号；\n3. 型号为 Brave 4 Pro 的商品补贴条码 M010000000005194631；型号为 EK7000 的商品补贴条码 M010000000005393699；\n4. 使用「新M条码.zip」「Order (2)(1).pdf」「Order (3)(1).pdf」中的标签文件打印并粘贴；\n5. 使用入库单 WI45365806 扫描上架；\n6. 完成后关闭/推进异常单 EB0125081521891412。\n\n【注意事项】\n- 需严格按型号辨识后贴对应条码，避免混贴；\n- 参考已上传的实物照片（3 张 JPEG）核对商品外观。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  },
+  {
+    "vascNo": "VASC000000080416",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_label_identify",
+      "confidence": 1
+    },
+    "materialsComplete": true,
+    "missingMaterials": [],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "# 仓库操作指引 - 入库尺重/标签辨识后换标上架\n\n## 需求背景\n入库单 WI41289403 共 60 箱异常货物为多出货物，需按客户提供的尺寸重量规则和已开箱标识进行 SKU 辨识，补贴新标签后按新入库单 WI43089765 上架。\n\n## 操作要求\n\n1. 根据异常单（EB0125031518682708 等 60 个异常单）定位 WI41289403 的 60 箱待处理货物\n\n2. 对附件「实物图片.xls」中箭头所指的 12 箱已开箱货物，按以下编号对应 SKU 换标：\n   - 编号 1、3、4、6、7、9 → M010000000005914961\n   - 编号 2、5、8、10、11、12 → M010000000006223815\n   - 使用「Order (6).pdf」和「Order (7).pdf」中的标签文件补贴新标签\n\n3. 对剩余 48 箱未开箱货物，测量尺寸和重量进行辨识：\n   - 尺寸 31×23×7cm、重量 2.3kg → M010000000006223815\n   - 尺寸 27×26×8.5cm、重量 1.7kg → M010000000005914961\n   - 辨识后补贴对应标签\n\n4. 检查最中间的大箱子，若为空箱则直接销毁\n\n5. 所有处理完成的货物按新入库单 WI43089765 扫描上架\n\n6. 完成后关闭/推进相关异常单\n\n## 注意事项\n\n- 详细的 SKU 与标签对应关系见附件「商品标签对应关系.xlsx」\n- 操作过程中如有疑问参考「实物图片.xls」中的实物标识\n- 严格按尺寸重量标准辨识，避免混淆两个 SKU",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+]

@@ -35,7 +35,101 @@ function buildClarificationText(missingFields: Array<{ field: string; clarificat
   return `为了帮您生成完整的 SOP，还需要以下信息：\n${lines.join("\n")}`;
 }
 
-async function main({ params }: { params: Record<string, unknown> }) {
+function firstText(...values: unknown[]): string {
+  for (const value of values) {
+    const text = asText(value);
+    if (text) return text;
+  }
+  return "";
+}
+
+function pickProvided(provided: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const text = asText(provided[key]);
+    if (text) return text;
+  }
+  return "";
+}
+
+function isInboundGoldPath(sopInput: Record<string, unknown>, matchResult: Record<string, unknown>): boolean {
+  const atom = asText(sopInput.serviceAtom);
+  const vasc = asRecord(sopInput.recommendedVasc);
+  const vascCode = asText(vasc.vascCode);
+  const sceneKey = asText(matchResult.sceneKey) || asText(sopInput.sceneKey);
+  const sceneName = asText(matchResult.scenarioName);
+  if (atom === "OW01V1602" || atom.includes("入库其他服务需求")) return true;
+  if (vascCode === "VASC202411192246131") return true;
+  if (sceneKey === "inbound_label_identify") return true;
+  if (sceneName.includes("尺重") && sceneName.includes("换标")) return true;
+  return false;
+}
+
+function buildInboundUiActionProposal(
+  sopInput: Record<string, unknown>,
+  matchResult: Record<string, unknown>,
+  sopText: string,
+  scenarioName: string,
+): Record<string, unknown> {
+  const provided = asRecord(sopInput.providedFields);
+  const customerIntent = asText(sopInput.customerIntent);
+  const background = firstText(
+    pickProvided(provided, ["BEOR", "需求背景说明", "背景", "requirementBackground"]),
+    customerIntent,
+    scenarioName ? `【${scenarioName}】客户确认后按入库其他服务需求处理。` : "",
+  );
+  const description = firstText(
+    pickProvided(provided, ["VAS_ATTR_REL_RD", "需求描述", "增值单需求描述", "requirementDescription"]),
+    sopText,
+    customerIntent,
+  );
+
+  return {
+    requiresUserConfirm: true,
+    proposalReason: "客户已确认 SOP；按测环境金标回放：客户创建新单上架 → 入库其他服务需求 → 填写背景与描述。不含提交。",
+    actions: [
+      {
+        type: "select",
+        fieldKey: "shelveWayCode",
+        valueCode: "INBOUND_ORDER_OF_CUSTOMER",
+        valueLabel: "客户创建新单上架",
+        reason: "页上处理方式卡文案；接口 shelveWayCode。不要用接口中文「客户提供入库单上架」或产品名「入库非标增值（特批）」去点卡。",
+      },
+      {
+        type: "select",
+        fieldKey: "serviceCode",
+        valueCode: "OW01V1602",
+        valueLabel: "入库其他服务需求",
+        reason: "getEventSolutionList 第 3 条原子；表单 vaAtoms_OW01V1602_serviceCode。",
+      },
+      {
+        type: "fill",
+        fieldKey: "BEOR",
+        value: background,
+        reason: "创建页 SUBMIT 必填：需求背景说明。id=vaAtoms_OW01V1602_attributes_BEOR_attributeValue。",
+      },
+      {
+        type: "fill",
+        fieldKey: "VAS_ATTR_REL_RD",
+        value: description,
+        reason: "创建页 SUBMIT 必填：需求描述。id=vaAtoms_OW01V1602_attributes_VAS_ATTR_REL_RD_attributeValue。",
+      },
+    ],
+    validationRules: [
+      {
+        ruleKey: "no_submit_click",
+        severity: "block",
+        message: "禁止点击「提交」。暂存是处理方式，不是拉黑对象。",
+      },
+      {
+        ruleKey: "candidate_in_current_page_options",
+        severity: "block",
+        message: "处理方式与 OW01V1602 必须仍出现在当前页可选范围内。",
+      },
+    ],
+  };
+}
+
+export async function main({ params }: { params: Record<string, unknown> }) {
   const sopInput = asRecord(params.sopInput);
   const matchResult = asRecord(params.matchResult);
   const completenessResult = asRecord(params.completenessResult);
@@ -106,6 +200,9 @@ async function main({ params }: { params: Record<string, unknown> }) {
 
   const sopResult = coerceSopResult(sopGenerationResult);
   const scenarioName = sopResult.scenarioName || asText(matchResult.scenarioName as unknown);
+  const uiActionProposal = isInboundGoldPath(sopInput, matchResult)
+    ? buildInboundUiActionProposal(sopInput, matchResult, sopResult.sopText, scenarioName)
+    : undefined;
 
   return {
     structured: {
@@ -115,6 +212,7 @@ async function main({ params }: { params: Record<string, unknown> }) {
       scenarioName,
       sopText: sopResult.sopText,
       fieldsUsed: sopResult.fieldsUsed,
+      ...(uiActionProposal ? { uiActionProposal } : {}),
     },
     analysis: sopResult.sopText || `已为"${scenarioName}"场景生成 SOP，请确认以下内容是否准确。`,
     outputContext: {
@@ -129,12 +227,13 @@ async function main({ params }: { params: Record<string, unknown> }) {
         scenarioId: matchResult.scenarioId,
         scenarioName,
         sopText: sopResult.sopText,
+        ...(uiActionProposal ? { uiActionProposal } : {}),
       },
     },
   };
 }
 
-if (typeof process !== "undefined" && process.argv[1]?.includes("format-output")) {
+if (typeof process !== "undefined" && /[/\\]format-output\.(ts|js)$/.test(process.argv[1] || "")) {
   const params = JSON.parse(process.argv[2] || "{}");
   main({ params })
     .then((r) => process.stdout.write(JSON.stringify(r)))

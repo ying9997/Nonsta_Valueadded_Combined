@@ -21,11 +21,21 @@ function latestContext(enrichedContext: Record<string, unknown>, key: string): R
 
 const CATCHALL_ATOMS = ["库内其他服务需求", "库内其他服务需求（库内异常处理）"];
 const CATCHALL_CODES = ["OSF6V1603", "OSF6V1841"];
+const INBOUND_CATCHALL_ATOMS = ["入库其他服务需求"];
+const INBOUND_CATCHALL_CODES = ["OW01V1602"];
+const INBOUND_VASC_CODES = ["VASC202411192246131"];
 
 const NAMED_SERVICE_CODES = ["OSF6V1648", "OSF6V1660", "OSF6V1644", "OSF6V1646", "OSF6V1647"];
 const NAMED_SERVICE_NAMES = ["代采购包材物料", "审计盘点", "DG商品销毁", "货权转移（换标模式）", "货权转移（改数模式）"];
 
+function isInboundCatchall(serviceAtom: string, vascCode: string): boolean {
+  if (INBOUND_CATCHALL_CODES.includes(serviceAtom)) return true;
+  if (INBOUND_VASC_CODES.includes(vascCode)) return true;
+  return INBOUND_CATCHALL_ATOMS.some((name) => serviceAtom.includes(name));
+}
+
 function isCatchallAtom(serviceAtom: string, vascCode: string): boolean {
+  if (isInboundCatchall(serviceAtom, vascCode)) return true;
   if (CATCHALL_CODES.includes(vascCode)) return true;
   return CATCHALL_ATOMS.some((name) => serviceAtom.includes(name));
 }
@@ -35,7 +45,7 @@ function isNamedService(vascCode: string, vascName: string): boolean {
   return NAMED_SERVICE_NAMES.some((name) => vascName.includes(name));
 }
 
-async function main({ params }: { params: Record<string, unknown> }) {
+export async function main({ params }: { params: Record<string, unknown> }) {
   const inputs = asRecord(params.inputs);
   const enrichedContext = asRecord(params.enrichedContext) || asRecord(inputs.enrichedContext);
 
@@ -47,12 +57,21 @@ async function main({ params }: { params: Record<string, unknown> }) {
   const exceptionCode = asText(params.exceptionCode) || asText(inputs.exceptionCode);
   const exceptionName = asText(params.exceptionName) || asText(inputs.exceptionName);
 
-  const recommendedVasc = asRecord(params.recommendedVasc) || asRecord(inputs.recommendedVasc) || asRecord(recStructured.primaryRecommendation);
-  const vascCode = asText(recommendedVasc.vascCode);
-  const vascName = asText(recommendedVasc.vascName);
+  const recommendedVasc = {
+    ...asRecord(recStructured.primaryRecommendation),
+    ...asRecord(inputs.recommendedVasc),
+    ...asRecord(params.recommendedVasc),
+  };
+  const vascCode = asText(recommendedVasc.vascCode) || asText(params.vascCode) || asText(inputs.vascCode);
+  const vascName = asText(recommendedVasc.vascName) || asText(params.vascName) || asText(inputs.vascName);
+  if (vascCode) recommendedVasc.vascCode = vascCode;
+  if (vascName) recommendedVasc.vascName = vascName;
 
   const serviceAtom = asText(params.serviceAtom) || asText(inputs.serviceAtom);
   const providedFields = asRecord(params.providedFields) || asRecord(inputs.providedFields);
+  const pageContext = asRecord(params.pageContext) || asRecord(inputs.pageContext);
+  const sceneKey = asText(params.sceneKey) || asText(inputs.sceneKey);
+  const sceneName = asText(params.sceneName) || asText(inputs.sceneName);
 
   if (isNamedService(vascCode, vascName)) {
     return {
@@ -95,13 +114,16 @@ async function main({ params }: { params: Record<string, unknown> }) {
       recommendedVasc,
       serviceAtom,
       providedFields,
+      pageContext,
+      sceneKey,
+      sceneName,
       enrichedContext,
     },
     validationResult: { ok: true },
   };
 }
 
-if (typeof process !== "undefined" && process.argv[1]?.includes("validate-input")) {
+if (typeof process !== "undefined" && /[/\\]validate-input\.(ts|js)$/.test(process.argv[1] || "")) {
   const params = JSON.parse(process.argv[2] || "{}");
   main({ params })
     .then((r) => process.stdout.write(JSON.stringify(r)))

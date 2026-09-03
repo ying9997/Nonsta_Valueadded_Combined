@@ -1,0 +1,24 @@
+轮次	用例ID	动作	指令类型	指令内容	是否成功	实际DOM值	报错	备注
+1	I-1	注入CDN	初始化	https://cdn.jsdelivr.net/npm/page-agent@1.12.2/dist/iife/page-agent.demo.js?autoInit=false	是			autoInit=false
+1	I-2	检查全局对象	初始化	typeof window.PageAgent	是	function		存在 window.PageAgent
+1	I-3	new PageAgent	初始化	language=zh-CN + demo LLM	是	execute=function；pageController=true		拿到 pageController
+1	I-4	列出控制器方法	初始化	Object methods	是			addEventListener, assertIndexed, cleanUpHighlights, clickElement, dispatchEvent, dispose, executeJavascript, getBrowserState, getCurrentUrl, getLastUpdateTime, hideMask, initMask, inputText, removeEventListener, scroll, scrollHorizontally, selectOption, showMask, updateTree, when
+1	J-0	取可点框编号	JSON探测	pageController.updateTree()	是			前 30 条： | [0] <a >current/B_侧边栏真实体验版.html /> | [1] <div >首页 /> | [2] <div >异常单 /> | [3] <div >创建增值订单 /> | [4] <div >商品管理 /> | [5] <div >库存管理 /> | [6] <div >海外仓 /> | [7] <div >国际送仓 /> | [8] <div >退货管理 /> | [9] <div >我的钱包 /> | [10] <button >🤖 AI 指引 /> | [11] <div id=progress-1>1 | [12] <div id=progress-2>2 | [13] <div id=progress-4>3 | [14] <div >✓ | [15] <div >✓ | [16] <div >✓ | [17] <div >✓ | [18] <div >✓ | [19] <div >✓ | [20] <button >上一步 /> | [21] <button >保存草稿 /> | [22] <button >× /> | [23] <textarea placeholder=描述您的增值需求... id=aiUserInput /> | [24] <button >发送 />
+1	J-2	点处理方式原单上架	JSON	clickElement(14)  via selectorMap.ref	是	处理方式=原单上架		截图JSON不存在，用的是官方 clickElement(编号)
+1	J-2b	点增值服务入库其他服务需求	JSON	clickElement(26)  via selectorMap.ref	是	增值服务=✓ 入库其他服务需求		
+1	J-1	填需求背景说明	JSON	inputText(28, "探针背景")	是	需求背景="探针背景"		
+1	J-4	填需求描述	JSON	inputText(30, "探针描述")	是	需求描述="探针描述"		
+1	J-3	故意用错误编号	JSON	clickElement(99999)	是	处理方式=原单上架；增值服务=✓ 入库其他服务需求；需求背景="探针背景"；需求描述="探针描述"		期望失败且不改其它字段；返回={"success":false,"message":"❌ Failed to click element: Error: No interactive element found at index 99999"}
+1	S-0	能不能直接把选择器交给它	JSON探测	{action:"click", selector:"#methodCards .card-item[data-key="原单上架"]"}	不能（单独记，不代替翻译）			疑似方法=dispatchEvent,dispatchEvent；tools=done,wait,ask_user,click_element_by_index,input_text,select_dropdown_option,scroll,scroll_horizontally；尝试=[]
+1	S-1	直接用选择器点原单上架	JSON-selector	{"action":"click","selector":"#methodCards .card-item[data-key=\"原单上架\"]","value":"原单上架"}	未测			S-0 为不能：没有把选择器直接交给它的 API，本步跳过
+1	S-1b	直接用选择器点入库其他服务需求	JSON-selector	{"action":"click","selector":"#atomCards .card-item","value":"入库其他服务需求"}	未测			S-0 为不能：没有把选择器直接交给它的 API，本步跳过
+1	S-1c	直接用选择器填需求背景	JSON-selector	{"action":"type","selector":"#requirementBackground","text":"探针背景"}	未测			S-0 为不能：没有把选择器直接交给它的 API，本步跳过
+1	S-1d	直接用选择器填需求描述	JSON-selector	{"action":"type","selector":"#requirementDescription","text":"探针描述"}	未测			S-0 为不能：没有把选择器直接交给它的 API，本步跳过
+1	S-3	选择器译成编号后点原单上架	JSON-映射	#methodCards .card-item[data-key="原单上架"] → index=14	是	处理方式=原单上架		
+1	S-3b	选择器译成编号后点入库其他服务需求	JSON-映射	#atomCards .card-item + 文字「入库其他服务需求」 → index=26	是	增值服务=✓ 入库其他服务需求		
+1	S-3c	选择器译成编号后填需求背景	JSON-映射	#requirementBackground → index=28 → 探针背景	是	需求背景="探针背景"		
+1	S-3d	选择器译成编号后填需求描述	JSON-映射	#requirementDescription → index=30 → 探针描述	是	需求描述="探针描述"		
+1	N-1	人话做同一套动作	自然语言	点击处理方式里的原单上架，再点击增值服务里的入库其他服务需求，把需求背景说明填成探针背景，把需求描述填成探针描述	请对照DOM	处理方式=原单上架；增值服务=✓ 入库其他服务需求；需求背景="探针背景"；需求描述="探针描述"｜卡片=处理方式=原单上架；已选服务=✓ 入库其他服务需求		execute.success=true；data=已成功完成所有操作： | 1. ✅ 点击处理方式里的
+1	N-2	含糊说「选择上架」	自然语言	选择上架	请对照DOM	处理方式=原单上架；增值服务=✓ 直接上架；需求背景="(框不存在)"；需求描述="(框不存在)"｜卡片=处理方式=原单上架；已选服务=✓ 直接上架		execute.success=true；data=✅ 上架操作已完成！ |  | 已成功创建入库增值订单： | - 处理方式：原单上架 | - 增值服务：直接上架 | - 状态：提交成功 |  | 系统已确认订单提交成功。
+1	N-3	含糊说「选择入库」	自然语言	选择入库	请对照DOM	处理方式=原单上架；增值服务=✓ 入库-补贴包裹条码；需求背景="(框不存在)"；需求描述="(框不存在)"｜卡片=处理方式=原单上架；已选服务=✓ 入库-补贴包裹条码		execute.success=true；data=已成功选择入库服务。具体操作：选择了"入库 - 补贴包裹条码"增值服务选项。当前页面显示该服务已被选中，并展示了相关服务要求填写区域（包括标签类型、尺寸规格等）。如需继续完成订单提交，还需填写服务要求并点击提交按钮。
+1	N-4	冲突页再用JSON点原单上架	JSON	clickElement(14)	是	处理方式=原单上架		与 N-2/N-3 同一套近义词卡片，看 JSON 是否仍点对

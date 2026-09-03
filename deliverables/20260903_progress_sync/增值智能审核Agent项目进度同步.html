@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>增值智能审核 Agent · 过会后执行进度看板</title>
+  <style>
+    :root {
+      --bg: #eef1f5;
+      --surface: #fff;
+      --text: #1f2937;
+      --muted: #4b5563;
+      --line: #d5dde7;
+      --head: #16324f;
+      --done-bg: #e8f7ef;
+      --done-fg: #166534;
+      --done-bd: #86efac;
+      --risk-bg: #fff3e0;
+      --risk-fg: #9a3412;
+      --risk-bd: #fdba74;
+      --biz-bg: #e8f1ff;
+      --biz-fg: #1e40af;
+      --biz-bd: #93c5fd;
+      --hold-bg: #f1f5f9;
+      --hold-fg: #475569;
+      --hold-bd: #cbd5e1;
+      --dark: #12263c;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: #16324f;
+      color: #fff;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 16px;
+      padding: 10px 28px;
+      font-size: 14px;
+    }
+
+    .nav b { margin-right: 4px; }
+    .nav a { color: #dbeafe; text-decoration: none; }
+    .nav a:hover { text-decoration: underline; }
+
+    .page {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 18px 22px 48px;
+    }
+
+    .sec {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px 22px 18px;
+      margin-bottom: 12px;
+    }
+
+    .sec-h {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin: 0 0 14px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #16324f;
+    }
+
+    .sec-h .no {
+      color: #16324f;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .sec-h h2 {
+      margin: 0;
+      font-size: 21px;
+      color: var(--head);
+    }
+
+    .sec-h .hint {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 28px;
+      line-height: 1.25;
+      color: var(--head);
+    }
+
+    .meta {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    p { margin: 0 0 8px; }
+    ul, ol { margin: 0; padding-left: 1.15em; }
+    li { margin: 0 0 5px; }
+
+    .promise {
+      margin: 0 0 12px;
+      padding: 14px 16px;
+      background: var(--dark);
+      color: #fff;
+      border-radius: 6px;
+    }
+
+    .promise b {
+      display: block;
+      font-size: 20px;
+      line-height: 1.35;
+    }
+
+    .promise span {
+      display: block;
+      margin-top: 6px;
+      font-size: 15px;
+      color: #dbeafe;
+      font-weight: 600;
+    }
+
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .fact {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px 12px 10px;
+      background: #f8fafc;
+    }
+
+    .fact.dark {
+      background: var(--dark);
+      border-color: #0f1c2b;
+      color: #fff;
+    }
+
+    .fact.done { background: var(--done-bg); border-color: var(--done-bd); }
+    .fact.risk { background: var(--risk-bg); border-color: var(--risk-bd); }
+    .fact.biz { background: var(--biz-bg); border-color: var(--biz-bd); }
+    .fact.hold { background: var(--hold-bg); border-color: var(--hold-bd); }
+
+    .fact .k {
+      margin: 0 0 4px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .fact.dark .k { color: #93c5fd; }
+
+    .fact .v {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .scope {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 10px;
+    }
+
+    .layers, .pilot {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px 14px;
+      background: #f8fafc;
+    }
+
+    .layers h3, .pilot h3, .park h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      color: var(--head);
+    }
+
+    .layer-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .layer {
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 8px 10px;
+      background: #fff;
+    }
+
+    .layer.on { border-color: var(--done-bd); background: var(--done-bg); }
+    .layer.off { border-color: var(--hold-bd); background: var(--hold-bg); }
+
+    .layer b { display: block; font-size: 14px; margin-bottom: 2px; }
+    .layer small { color: var(--muted); font-size: 12px; }
+
+    .pilot {
+      background: var(--biz-bg);
+      border-color: var(--biz-bd);
+    }
+
+    .pilot ul { padding-left: 1.1em; }
+    .pilot li { font-size: 14px; font-weight: 600; color: #1e3a8a; }
+
+    .park {
+      margin-top: 10px;
+      border: 1px dashed var(--risk-bd);
+      background: var(--risk-bg);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+
+    .park p { margin: 0; font-size: 14px; color: var(--risk-fg); font-weight: 600; }
+
+    .st {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .st-done { background: var(--done-bg); color: var(--done-fg); border-color: var(--done-bd); }
+    .st-risk { background: var(--risk-bg); color: var(--risk-fg); border-color: var(--risk-bd); }
+    .st-wait { background: var(--hold-bg); color: var(--hold-fg); border-color: var(--hold-bd); }
+    .st-biz { background: var(--biz-bg); color: var(--biz-fg); border-color: var(--biz-bd); }
+    .st-now { background: #12263c; color: #fff; border-color: #12263c; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #e8eef6;
+      color: #1e3a5f;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    td.mod {
+      font-weight: 700;
+      color: #1e3a5f;
+      background: #f8fafc;
+      white-space: nowrap;
+    }
+
+    .strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .strip article {
+      border: 1px solid var(--line);
+      border-top: 4px solid #64748b;
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #fff;
+    }
+
+    .strip article.now { border-top-color: #c2410c; background: var(--risk-bg); }
+    .strip article.next { border-top-color: #1d4ed8; background: var(--biz-bg); }
+    .strip article.key { border-top-color: #12263c; background: #12263c; color: #fff; }
+    .strip .t { font-size: 12px; font-weight: 700; color: var(--muted); }
+    .strip article.key .t { color: #93c5fd; }
+    .strip b { display: block; margin: 2px 0 4px; font-size: 15px; }
+    .strip p { margin: 0; font-size: 13px; }
+
+    .days { display: grid; gap: 10px; }
+
+    .day {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .day.now { border-color: var(--risk-bd); }
+    .day.key { border-color: #16324f; }
+
+    .day-h {
+      display: grid;
+      grid-template-columns: 88px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 12px;
+      background: #f1f5f9;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .day.now .day-h { background: var(--risk-bg); }
+    .day.key .day-h { background: var(--dark); color: #fff; }
+    .day.next .day-h { background: var(--biz-bg); }
+
+    .day-h .tag { font-size: 18px; font-weight: 800; }
+    .day-h .goal { font-size: 15px; font-weight: 700; }
+    .day-h .when { font-size: 13px; color: var(--muted); font-weight: 700; }
+    .day.key .day-h .when { color: #93c5fd; }
+
+    .day-b {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .day-b > div { padding: 10px 12px; }
+    .day-b > div + div { border-left: 1px solid var(--line); }
+    .day-b h4 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .ckl { margin: 0; padding: 0; list-style: none; }
+    .ckl li {
+      position: relative;
+      padding: 3px 0 3px 20px;
+      font-size: 14px;
+    }
+
+    .ckl li::before {
+      content: "□";
+      position: absolute;
+      left: 0;
+      color: #64748b;
+      font-weight: 700;
+    }
+
+    .ckl li.ok::before { content: "✓"; color: #166534; }
+    .ckl li.biz::before { content: "◇"; color: #1d4ed8; }
+
+    .legend {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .task-out { font-size: 13px; color: var(--muted); }
+
+    .rules {
+      display: grid;
+      grid-template-columns: 0.7fr 1.3fr;
+      gap: 10px;
+    }
+
+    .soft, .hard {
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+
+    .soft {
+      background: var(--biz-bg);
+      border: 1px solid var(--biz-bd);
+    }
+
+    .hard {
+      background: #fff;
+      border: 1px solid var(--risk-bd);
+    }
+
+    .soft h3, .hard h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .soft h3 { color: var(--biz-fg); }
+    .hard h3 { color: var(--risk-fg); }
+
+    .hard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .hard-item {
+      background: var(--risk-bg);
+      border: 1px solid var(--risk-bd);
+      border-radius: 4px;
+      padding: 7px 9px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--risk-fg);
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 6px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 8px 7px;
+      background: #f8fafc;
+      min-height: 100%;
+    }
+
+    .step .n {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      line-height: 22px;
+      text-align: center;
+      border-radius: 50%;
+      background: #16324f;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .step b { display: block; font-size: 13px; line-height: 1.35; }
+    .step.human { background: var(--biz-bg); border-color: var(--biz-bd); }
+    .step.ai { background: var(--done-bg); border-color: var(--done-bd); }
+
+    .std {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .std article {
+      border: 1px solid var(--done-bd);
+      background: var(--done-bg);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+
+    .std article.limit {
+      background: var(--risk-bg);
+      border-color: var(--risk-bd);
+    }
+
+    .std b { display: block; margin-bottom: 4px; font-size: 15px; }
+    .std p { margin: 0; font-size: 13px; }
+
+    .note {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1200px) {
+      .facts, .strip, .std, .layer-row { grid-template-columns: 1fr 1fr; }
+      .steps { grid-template-columns: repeat(3, 1fr); }
+      .scope, .rules, .day-b { grid-template-columns: 1fr; }
+      .day-b > div + div { border-left: 0; border-top: 1px solid var(--line); }
+    }
+
+    @media (max-width: 760px) {
+      .facts, .strip, .std, .layer-row, .steps, .hard-grid { grid-template-columns: 1fr; }
+      .nav { position: static; }
+      .day-h { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <b>过会后执行看板</b>
+    <a href="#s1">1 口径与承诺</a>
+    <a href="#s2">2 四天倒排</a>
+    <a href="#s3">3 Cursor 任务</a>
+    <a href="#s4">4 硬规则</a>
+    <a href="#s5">5 D+2 Demo</a>
+    <a href="#s6">6 D+4 上线标准</a>
+    <a href="#s7">7 外部依赖</a>
+  </nav>
+
+  <div class="page">
+    <section class="sec" id="s1">
+      <div class="sec-h">
+        <span class="no">01</span>
+        <h2>项目口径与当前承诺</h2>
+        <span class="hint">2026-09-03 过会确认 · 先跑通再补准</span>
+      </div>
+      <h1>增值智能审核 Agent · 过会后执行进度看板</h1>
+      <p class="meta">围绕业务方已确认的短期方案倒排。本页不是项目汇报，而是 D+2 看效果、D+4 试点上线的每日事项与验收标准。</p>
+
+      <div class="promise">
+        <b>D+2（09-07 周一）给业务方看真实链路效果　·　D+4（09-09 周三）给业务方试点使用</b>
+        <span>D+2 不是 mock，必须接线上飞书 Bot 和真实 LLM。D+4 不是全自动审核，而是内部试点群可用、审核员人工兜底。优先目标：先跑通、先让业务用起来，再逐步补准确率和规则。</span>
+      </div>
+
+      <div class="facts">
+        <article class="fact dark">
+          <p class="k">当前承诺</p>
+          <p class="v">2 天看效果，4 天试点上线</p>
+        </article>
+        <article class="fact biz">
+          <p class="k">D+2 验收</p>
+          <p class="v">真实 Bot + 真实 LLM + 实操用例</p>
+        </article>
+        <article class="fact done">
+          <p class="k">D+4 验收</p>
+          <p class="v">试点群真实使用 + 审核员兜底</p>
+        </article>
+        <article class="fact hold">
+          <p class="k">不阻塞项</p>
+          <p class="v">万邑联页面改造</p>
+        </article>
+      </div>
+
+      <div class="scope">
+        <div class="layers">
+          <h3>三层能力仍然存在，短期只推一三合并</h3>
+          <div class="layer-row">
+            <article class="layer on">
+              <b>① 智能审核 · 本期做</b>
+              <small>读增值单、判完整性、校验、追问、转人工</small>
+            </article>
+            <article class="layer off">
+              <b>② 万邑联页面 · 本期不做</b>
+              <small>下单校验与指引交互，外部排期未定</small>
+            </article>
+            <article class="layer on">
+              <b>③ SOP 草稿 · 本期做</b>
+              <small>事实齐后出仓库可执行 SOP，供人工确认</small>
+            </article>
+          </div>
+        </div>
+        <div class="pilot">
+          <h3>短期试点内部方案（已确认）</h3>
+          <ul>
+            <li>智能审核 + SOP 草稿，不依赖万邑联页面改造</li>
+            <li>先接飞书群聊、真实 LLM、真实 / 准真实增值单</li>
+            <li>审核员人工兜底，AI 不自动放行</li>
+            <li>场景概述可人工兜底；单据硬校验必须严</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="s2">
+      <div class="sec-h">
+        <span class="no">02</span>
+        <h2>4 天倒排执行看板</h2>
+        <span class="hint">工作日倒排 · 周末不计入关键路径</span>
+      </div>
+
+      <div class="strip">
+        <article class="now">
+          <div class="t">D0 · 今天</div>
+          <b>09-03 周四</b>
+          <p>锁定试点范围和短期方案</p>
+        </article>
+        <article class="next">
+          <div class="t">D1</div>
+          <b>09-04 周五</b>
+          <p>打通最小真实链路</p>
+        </article>
+        <article class="key">
+          <div class="t">D+2 · 看效果</div>
+          <b>09-07 周一</b>
+          <p>给业务方看真实 Demo</p>
+        </article>
+        <article>
+          <div class="t">D3</div>
+          <b>09-08 周二</b>
+          <p>修正反馈，准备试点</p>
+        </article>
+        <article class="key">
+          <div class="t">D+4 · 试点上线</div>
+          <b>09-09 周三</b>
+          <p>业务方试点使用</p>
+        </article>
+      </div>
+
+      <div class="days">
+        <article class="day now">
+          <div class="day-h">
+            <div class="tag">D0</div>
+            <div class="goal">锁定试点范围和短期方案</div>
+            <div class="when">2026-09-03 周四 · 今日</div>
+          </div>
+          <div class="day-b">
+            <div>
+              <h4>事项</h4>
+              <ul class="ckl">
+                <li class="ok">确认短期方案只做内部智能审核 + SOP 草稿</li>
+                <li class="ok">明确不等万邑联页面改造</li>
+                <li>确认试点场景 1–2 个</li>
+                <li>确认测试群 / 试点群 / 审核员 / 销售客服 @ 规则</li>
+              </ul>
+            </div>
+            <div>
+              <h4>验收</h4>
+              <ul class="ckl">
+                <li class="ok">业务方认可先跑内部群聊试点</li>
+                <li class="ok">明确 AI 只辅助审核，人工兜底</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="day next">
+          <div class="day-h">
+            <div class="tag">D1</div>
+            <div class="goal">打通最小真实链路</div>
+            <div class="when">2026-09-04 周五</div>
+          </div>
+          <div class="day-b">
+            <div>
+              <h4>事项</h4>
+              <ul class="ckl">
+                <li>接线上飞书 Bot</li>
+                <li>接真实 LLM</li>
+                <li>支持指定增值单手动触发</li>
+                <li>打通 OMS / 增值单读取</li>
+                <li>Bot 可在测试群发消息、@ 人、带 AI 标记</li>
+                <li>输出结构化审核结果和 SOP 草稿</li>
+              </ul>
+            </div>
+            <div>
+              <h4>验收</h4>
+              <ul class="ckl">
+                <li>至少 1 条真实或准真实增值单能跑通</li>
+                <li>LLM 非 mock</li>
+                <li>Bot 能发起追问</li>
+                <li>能生成审核辅助信息和 SOP 草稿</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="day key">
+          <div class="day-h">
+            <div class="tag">D+2</div>
+            <div class="goal">给业务方看效果 Demo</div>
+            <div class="when">2026-09-07 周一 · 关键承诺</div>
+          </div>
+          <div class="day-b">
+            <div>
+              <h4>事项</h4>
+              <ul class="ckl">
+                <li>选 1 条尽量未人工审过的真实单</li>
+                <li>演示读取增值单</li>
+                <li>演示 AI 判断需求完整性</li>
+                <li>演示缺失信息识别和追问话术</li>
+                <li>演示飞书群 @ 销售 / 客服 / 审核员</li>
+                <li>演示业务回复后的 AI 总结</li>
+                <li>演示 SOP 草稿生成</li>
+              </ul>
+            </div>
+            <div>
+              <h4>验收</h4>
+              <ul class="ckl">
+                <li class="biz">业务方能看到端到端效果</li>
+                <li class="biz">能判断是否节省沟通时间</li>
+                <li>覆盖需求完整性、单据校验、场景概述、SOP 总结</li>
+                <li>失败或低置信度能转人工</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="day">
+          <div class="day-h">
+            <div class="tag">D3</div>
+            <div class="goal">修正 Demo 反馈，准备试点上线</div>
+            <div class="when">2026-09-08 周二</div>
+          </div>
+          <div class="day-b">
+            <div>
+              <h4>事项</h4>
+              <ul class="ckl">
+                <li>修正 D+2 反馈</li>
+                <li>补充话术模板</li>
+                <li>补充字段 / 附件 / 单号硬校验规则</li>
+                <li>增加低置信度转人工</li>
+                <li>增加重复通知防刷屏</li>
+                <li>增加处理日志</li>
+              </ul>
+            </div>
+            <div>
+              <h4>验收</h4>
+              <ul class="ckl">
+                <li>连续跑通 3–5 条样本单</li>
+                <li>关键硬校验不误判通过</li>
+                <li>每条单有处理日志</li>
+                <li>试点说明和兜底机制准备好</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="day key">
+          <div class="day-h">
+            <div class="tag">D+4</div>
+            <div class="goal">业务方试点使用</div>
+            <div class="when">2026-09-09 周三 · 关键承诺</div>
+          </div>
+          <div class="day-b">
+            <div>
+              <h4>事项</h4>
+              <ul class="ckl">
+                <li>接入正式试点群</li>
+                <li>开启 10 分钟轮询</li>
+                <li>限定 1–2 个试点场景</li>
+                <li>审核员开始真实使用</li>
+                <li>每日汇总试点结果</li>
+              </ul>
+            </div>
+            <div>
+              <h4>验收</h4>
+              <ul class="ckl">
+                <li class="biz">试点群可实际使用</li>
+                <li>AI 输出可被审核员复核</li>
+                <li>AI 不自动审核通过</li>
+                <li>错误可追溯</li>
+                <li class="biz">业务方同意进入试点观察期</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </div>
+      <p class="legend">色标：<span class="st st-now">关键承诺</span>　<span class="st st-risk">今日 / 风险</span>　<span class="st st-biz">业务确认</span>　<span class="st st-done">已完成</span>　<span class="st st-wait">外部不阻塞</span></p>
+    </section>
+
+    <section class="sec" id="s3">
+      <div class="sec-h">
+        <span class="no">03</span>
+        <h2>Cursor 任务拆解与验收</h2>
+        <span class="hint">6 个任务并行推进 · 以 D+2 / D+4 闸门收口</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>任务</th>
+            <th>状态</th>
+            <th>交付物</th>
+            <th>D+2 验收（09-07）</th>
+            <th>D+4 验收（09-09）</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mod">1. 真实 LLM 接入</td>
+            <td><span class="st st-risk">待接入</span></td>
+            <td class="task-out">线上 LLM 调用；结构化审核输出；失败降级</td>
+            <td>真实调用线上 LLM；输入真实增值单后输出结构化结果，含需求完整性、缺失项、追问话术、场景初判、单据校验、SOP 草稿、置信度、是否转人工</td>
+            <td>试点场景稳定可用；LLM 失败时降级转人工，不假装成功</td>
+          </tr>
+          <tr>
+            <td class="mod">2. 飞书 Bot 群聊链路</td>
+            <td><span class="st st-risk">待接线上</span></td>
+            <td class="task-out">测试群 / 试点群消息、@、话题、回读、防刷屏</td>
+            <td>Bot 能在测试群发消息、@ 销售 / 客服 / 审核员；消息带 [AI辅助审核] 标记；能发起追问</td>
+            <td>试点群可用；能按增值单号创建或复用话题；能读取话题回复；同一单同一缺失项不重复刷屏</td>
+          </tr>
+          <tr>
+            <td class="mod">3. OMS / 增值单轮询</td>
+            <td><span class="st st-risk">待打通</span></td>
+            <td class="task-out">指定单触发；10 分钟轮询；处理状态与日志</td>
+            <td>支持指定单手动触发；能读取 OMS / 增值单；至少 1 条真实或准真实单跑通</td>
+            <td>10 分钟轮询待审核单；有状态记录避免重复处理；记录单号 / 客户 / 仓库 / 销售客服 / 审核状态 / AI 状态 / 处理时间；接口失败进日志</td>
+          </tr>
+          <tr>
+            <td class="mod">4. 审核规则与单据硬校验</td>
+            <td><span class="st st-wait">规则待补</span></td>
+            <td class="task-out">1–2 个试点场景硬规则；不确定转人工</td>
+            <td>先覆盖 1–2 个试点场景；演示业务单据号、入库单号 / 新单号、客户、仓库、附件、处理方式等硬校验</td>
+            <td>关键硬校验不误判通过；规则不确定时输出「需人工确认」；不允许低置信度硬判通过</td>
+          </tr>
+          <tr>
+            <td class="mod">5. 回复总结 + 回写 / 备注</td>
+            <td><span class="st st-wait">待做</span></td>
+            <td class="task-out">群回复提炼；可复制备注；回写审慎</td>
+            <td>群内回复后能提炼为审核员可用信息；先生成可复制备注（客户原始需求、AI 补全后需求、补充来源、仍缺失项、建议审核动作、SOP 草稿）</td>
+            <td>若回写风险高，先不强制系统回写，避免改坏正式单据；人工复核后再落备注</td>
+          </tr>
+          <tr>
+            <td class="mod">6. Demo 与试点验收包</td>
+            <td><span class="st st-wait">待准备</span></td>
+            <td class="task-out">演示脚本；试点说明；每日汇总；回滚方案</td>
+            <td>有端到端演示脚本 + 1 条尽量未审过的真实单</td>
+            <td>有试点说明、问题记录、回滚 / 暂停方案；每天汇总跑单数、AI 判对 / 判错、人工修正点、节省沟通点、新增规则</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="sec" id="s4">
+      <div class="sec-h">
+        <span class="no">04</span>
+        <h2>硬规则优先级</h2>
+        <span class="hint">第一期不追求场景 100% 准，硬校验必须严</span>
+      </div>
+      <div class="rules">
+        <div class="soft">
+          <h3>可人工兜底</h3>
+          <ul>
+            <li>场景识别准确率不追求 100%</li>
+            <li>场景概述可以人工确认 / 改</li>
+            <li>时效字段本期不改</li>
+            <li>处理方式默认暂存，不轻易改系统值</li>
+          </ul>
+          <p class="note">业务确认：最大耗时在与销售 / 客服沟通，不在场景勾选。</p>
+        </div>
+        <div class="hard">
+          <h3>必须严的硬规则</h3>
+          <div class="hard-grid">
+            <div class="hard-item">业务单据号是否存在</div>
+            <div class="hard-item">入库单号 / 新单号是否符合规则</div>
+            <div class="hard-item">是否同一客户 / 同一仓库</div>
+            <div class="hard-item">必填附件是否齐</div>
+            <div class="hard-item">处理方式是否合理</div>
+            <div class="hard-item">上架 / 暂存相关字段是否冲突</div>
+            <div class="hard-item">低置信度必须转人工</div>
+            <div class="hard-item">不能硬判通过</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="s5">
+      <div class="sec-h">
+        <span class="no">05</span>
+        <h2>D+2 Demo 演示脚本</h2>
+        <span class="hint">09-07 周一 · 业务方将按此顺序看到效果</span>
+      </div>
+      <div class="steps">
+        <article class="step">
+          <span class="n">1</span>
+          <b>选 1 条真实或未审过的增值单</b>
+        </article>
+        <article class="step">
+          <span class="n">2</span>
+          <b>系统 / 手动触发 AI 审核</b>
+        </article>
+        <article class="step ai">
+          <span class="n">3</span>
+          <b>AI 读取单据信息</b>
+        </article>
+        <article class="step ai">
+          <span class="n">4</span>
+          <b>LLM 输出缺失项和校验结果</b>
+        </article>
+        <article class="step">
+          <span class="n">5</span>
+          <b>Bot 在飞书群发起话题并 @ 相关人</b>
+        </article>
+        <article class="step human">
+          <span class="n">6</span>
+          <b>销售 / 客服回复</b>
+        </article>
+        <article class="step ai">
+          <span class="n">7</span>
+          <b>AI 总结回复并生成审核辅助信息</b>
+        </article>
+        <article class="step ai">
+          <span class="n">8</span>
+          <b>AI 输出 SOP 草稿</b>
+        </article>
+        <article class="step human">
+          <span class="n">9</span>
+          <b>审核员人工确认</b>
+        </article>
+      </div>
+      <p class="note">演示必须覆盖：需求完整性、单据校验、场景概述、SOP 总结。失败或低置信度当场转人工。用未审过的真单，避免模仿历史人工结论。</p>
+    </section>
+
+    <section class="sec" id="s6">
+      <div class="sec-h">
+        <span class="no">06</span>
+        <h2>D+4 试点上线标准</h2>
+        <span class="hint">09-09 周三 · 内部试点可用，不是全自动放行</span>
+      </div>
+      <div class="std">
+        <article>
+          <b>内部试点群可用</b>
+          <p>正式试点群接入；审核员开始真实使用</p>
+        </article>
+        <article>
+          <b>10 分钟轮询可用</b>
+          <p>待审核增值单按周期拉取，不靠纯手工点单</p>
+        </article>
+        <article>
+          <b>只覆盖 1–2 个试点场景</b>
+          <p>先跑通再扩面，不追求全场景</p>
+        </article>
+        <article>
+          <b>AI 输出供审核员复核</b>
+          <p>辅助信息 + SOP 草稿可被人工改</p>
+        </article>
+        <article class="limit">
+          <b>人工审核兜底</b>
+          <p>AI 不自动审核通过，不自动放行</p>
+        </article>
+        <article>
+          <b>全链路有日志</b>
+          <p>单号、状态、处理时间、错误可追溯</p>
+        </article>
+        <article class="limit">
+          <b>可暂停 / 可回滚</b>
+          <p>出问题能立刻停轮询、停群发</p>
+        </article>
+        <article>
+          <b>每日汇总试点效果</b>
+          <p>跑单数、对错、修正点、节省沟通、新增规则</p>
+        </article>
+      </div>
+      <p class="note">业务方同意进入试点观察期，才算 D+4 过关。准确率后续在观察期补，不挡本次上线。</p>
+    </section>
+
+    <section class="sec" id="s7">
+      <div class="sec-h">
+        <span class="no">07</span>
+        <h2>外部依赖 / 暂不阻塞主路径</h2>
+        <span class="hint">万邑联页面交互不进入这 4 天关键路径</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>依赖</th>
+            <th>状态</th>
+            <th>影响范围</th>
+            <th>本期处理</th>
+            <th>后续再议</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mod">万邑联页面校验 &amp; 指引交互</td>
+            <td><span class="st st-wait">外部排期未定</span></td>
+            <td>客户下单前引导、页面预填、一键生成，短期实现不了</td>
+            <td>从 4 天关键路径移出；不占用 Demo / 试点排期</td>
+            <td>研发中心入库端 + AI 客服接口排期确认后再单独立项</td>
+          </tr>
+          <tr>
+            <td class="mod">系统正式回写增值单字段</td>
+            <td><span class="st st-risk">D+4 不强制</span></td>
+            <td>改坏正式单据的风险高于试点收益</td>
+            <td>D+2 先出可复制备注；回写用审慎手段，人工确认后再落</td>
+            <td>试点跑稳后再讨论直接改系统</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="park">
+        <h3>停放说明</h3>
+        <p>三层能力都还在。本期只执行「一三合并」内部方案。② 万邑联页面改造等外部排期，不挡 D+2 看效果、不挡 D+4 试点上线。</p>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

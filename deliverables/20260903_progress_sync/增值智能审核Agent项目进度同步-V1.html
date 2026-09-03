@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>增值智能审核 Agent · 项目进度同步 V1</title>
+  <style>
+    :root {
+      --bg: #eef1f5;
+      --surface: #fff;
+      --text: #1f2937;
+      --muted: #4b5563;
+      --line: #d5dde7;
+      --head: #16324f;
+      --done-bg: #e8f7ef;
+      --done-fg: #166534;
+      --done-bd: #86efac;
+      --risk-bg: #fff3e0;
+      --risk-fg: #9a3412;
+      --risk-bd: #fdba74;
+      --biz-bg: #e8f1ff;
+      --biz-fg: #1e40af;
+      --biz-bd: #93c5fd;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+      font-size: 17px;
+      line-height: 1.55;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: #16324f;
+      color: #fff;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 18px;
+      padding: 10px 28px;
+      font-size: 14px;
+    }
+
+    .nav b { margin-right: 8px; }
+    .nav a { color: #dbeafe; text-decoration: none; }
+    .nav a:hover { text-decoration: underline; }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 20px 24px 48px;
+    }
+
+    .sec {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px 24px 20px;
+      margin-bottom: 14px;
+    }
+
+    .sec-h {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin: 0 0 14px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #16324f;
+    }
+
+    .sec-h .no {
+      color: #16324f;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .sec-h h2 {
+      margin: 0;
+      font-size: 22px;
+      color: var(--head);
+    }
+
+    .sec-h .hint {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 30px;
+      line-height: 1.25;
+      color: var(--head);
+    }
+
+    .meta {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    p { margin: 0 0 10px; }
+    ul { margin: 0; padding-left: 1.2em; }
+    li { margin: 0 0 6px; }
+
+    .map {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 0 0 12px;
+    }
+
+    .map article {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #f8fafc;
+    }
+
+    .map article.done { background: var(--done-bg); border-color: var(--done-bd); }
+    .map article.risk { background: var(--risk-bg); border-color: var(--risk-bd); }
+    .map article.wait { background: #f1f5f9; border-color: #cbd5e1; }
+
+    .map .k {
+      margin: 0 0 4px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .map h3 {
+      margin: 0 0 4px;
+      font-size: 17px;
+      color: var(--head);
+    }
+
+    .map p {
+      margin: 0;
+      font-size: 15px;
+      color: var(--text);
+    }
+
+    .focus {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-left: 4px solid #16324f;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+
+    .verdict {
+      margin: 0 0 14px;
+      padding: 14px 16px;
+      background: var(--done-bg);
+      border: 1px solid var(--done-bd);
+      border-left: 6px solid #166534;
+      border-radius: 4px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--done-fg);
+    }
+
+    .verdict span {
+      display: block;
+      margin-top: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--risk-fg);
+    }
+
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .fact {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px 12px 10px;
+      background: #f8fafc;
+    }
+
+    .fact.done { background: var(--done-bg); border-color: var(--done-bd); }
+    .fact.risk { background: var(--risk-bg); border-color: var(--risk-bd); }
+    .fact.biz { background: var(--biz-bg); border-color: var(--biz-bd); }
+
+    .fact .k {
+      margin: 0 0 4px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .fact .v {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .ask {
+      background: var(--biz-bg);
+      border: 1px solid var(--biz-bd);
+      border-left: 6px solid #1d4ed8;
+      border-radius: 4px;
+      padding: 14px 16px;
+    }
+
+    .ask h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: var(--biz-fg);
+    }
+
+    .ask ol {
+      margin: 0;
+      padding-left: 1.25em;
+    }
+
+    .ask li {
+      margin: 0 0 8px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e3a8a;
+    }
+
+    .ask li:last-child { margin-bottom: 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #e8eef6;
+      color: #1e3a5f;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    td.mod {
+      font-weight: 700;
+      color: #1e3a5f;
+      background: #f8fafc;
+      white-space: nowrap;
+    }
+
+    .st {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 3px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .st-done { background: var(--done-bg); color: var(--done-fg); border-color: var(--done-bd); }
+    .st-risk { background: var(--risk-bg); color: var(--risk-fg); border-color: var(--risk-bd); }
+    .st-wait { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+    .st-biz { background: var(--biz-bg); color: var(--biz-fg); border-color: var(--biz-bd); }
+
+    .mark-risk,
+    .mark-biz,
+    .mark-done {
+      display: inline;
+      padding: 0 0.22em;
+      border-radius: 3px;
+    }
+
+    .mark-risk { background: var(--risk-bg); color: var(--risk-fg); }
+    .mark-biz { background: var(--biz-bg); color: var(--biz-fg); }
+    .mark-done { background: var(--done-bg); color: var(--done-fg); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 8px 0 10px;
+    }
+
+    .node {
+      border: 1px solid var(--done-bd);
+      background: var(--done-bg);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+
+    .node .k { font-size: 13px; color: var(--done-fg); font-weight: 700; }
+    .node b { display: block; margin: 2px 0 6px; font-size: 16px; }
+    .node .fail {
+      margin: 0;
+      font-size: 14px;
+      color: var(--risk-fg);
+      background: #fff;
+      border: 1px solid var(--risk-bd);
+      border-radius: 4px;
+      padding: 4px 6px;
+    }
+
+    .node .ok {
+      margin: 0;
+      font-size: 14px;
+      color: var(--done-fg);
+    }
+
+    .legend {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .gates {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 12px;
+    }
+
+    .gate-box {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px 14px;
+      background: #f8fafc;
+    }
+
+    .gate-box h3 {
+      margin: 0 0 10px;
+      font-size: 17px;
+      color: var(--head);
+    }
+
+    .checks {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .gate-box.sop .checks { grid-template-columns: 1fr; }
+
+    .ck {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .ck.done { background: var(--done-bg); border-color: var(--done-bd); }
+    .ck.todo { background: var(--risk-bg); border-color: var(--risk-bd); }
+    .ck.biz { background: var(--biz-bg); border-color: var(--biz-bd); }
+
+    .box {
+      flex: 0 0 22px;
+      width: 22px;
+      height: 22px;
+      border: 2px solid #64748b;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+
+    .ck.done .box { border-color: #166534; color: #166534; background: #fff; }
+    .ck.todo .box { border-color: #c2410c; color: #c2410c; background: #fff; }
+    .ck.biz .box { border-color: #1d4ed8; color: #1d4ed8; background: #fff; }
+
+    .ck b { display: block; font-size: 15px; }
+    .ck small { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
+
+    .tl {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .tl article {
+      border: 1px solid var(--line);
+      border-top: 4px solid #64748b;
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+
+    .tl article.now { border-top-color: #c2410c; background: var(--risk-bg); }
+    .tl article.next { border-top-color: #1d4ed8; background: var(--biz-bg); }
+    .tl article.ok { border-top-color: #166534; background: var(--done-bg); }
+
+    .tl .t { font-size: 13px; font-weight: 700; color: var(--muted); }
+    .tl b { display: block; margin: 2px 0 6px; font-size: 16px; }
+    .tl p { margin: 0; font-size: 14px; color: var(--text); }
+
+    .note {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 1100px) {
+      .facts, .flow, .tl, .map, .gates { grid-template-columns: 1fr 1fr; }
+      .checks { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .facts, .flow, .tl, .map, .gates { grid-template-columns: 1fr; }
+      .nav { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <b>进度同步 V1</b>
+    <a href="#s1">1 总览</a>
+    <a href="#s2">2 模块总表</a>
+    <a href="#s3">3 智能审核主流程</a>
+    <a href="#s4">4 风险与解法</a>
+    <a href="#s5">5 时间线</a>
+    <a href="#s6">6 上线闸门</a>
+  </nav>
+
+  <div class="page">
+    <section class="sec" id="s1">
+      <div class="sec-h">
+        <span class="no">01</span>
+        <h2>项目状态总览</h2>
+        <span class="hint">2026-09-03 · B 端项目会议</span>
+      </div>
+      <h1>增值智能审核 Agent 项目进度同步</h1>
+      <p class="meta">先看三层能力地图（约 20–30 秒），再进入当前进度和卡点。</p>
+
+      <div class="map">
+        <article class="done">
+          <p class="k">① 当前主推进</p>
+          <h3>智能审核</h3>
+          <p>四节点主流程已本地跑通</p>
+        </article>
+        <article class="risk">
+          <p class="k">② 页面线</p>
+          <h3>万邑联页面校验 &amp; 指引交互</h3>
+          <p>方案已对齐，待测试环境接口</p>
+        </article>
+        <article class="wait">
+          <p class="k">③ SOP 线</p>
+          <h3>SOP 生成</h3>
+          <p>单场景已跑通，待批量评测和业务核对</p>
+        </article>
+      </div>
+
+      <p class="focus"><strong>本次汇报重点：</strong>本次优先同步见效最快的智能审核模块，同时同步页面交互、SOP 生成的现状、缺口和后续动作。</p>
+
+      <p class="verdict">
+        Agent 主流程已本地跑通。
+        <span>当前主要卡点不是 Agent 本身，而是样本治理、工程闭环、外部接口。</span>
+      </p>
+
+      <div class="facts">
+        <article class="fact done">
+          <p class="k">已完成</p>
+          <p class="v">Agent 四节点主流程本地验证通过</p>
+        </article>
+        <article class="fact risk">
+          <p class="k">主阻滞</p>
+          <p class="v">样本治理预计额外 2 天</p>
+        </article>
+        <article class="fact">
+          <p class="k">样本就绪后</p>
+          <p class="v">1–2 天可输出评测报告</p>
+        </article>
+        <article class="fact biz">
+          <p class="k">上线闸门</p>
+          <p class="v">评测报告业务评审通过 → 群聊试用</p>
+        </article>
+      </div>
+
+      <div class="ask">
+        <h3>本次会议要对齐的 3 个问题</h3>
+        <ol>
+          <li>是否认可「评测报告评审通过」作为群聊试用上线条件？</li>
+          <li>样本报告产出后，业务方是否能参与评审，并确认易混场景判定规则？</li>
+          <li>固定审核员名单、通知群、@ 人规则由谁确认？</li>
+        </ol>
+      </div>
+      <p class="legend" style="margin-top:10px;">色标：<span class="st st-done">已完成 / 已跑通</span>　<span class="st st-risk">风险 / 卡点</span>　<span class="st st-biz">业务确认</span>　上线条件不是口头承诺日期，而是「评测报告评审通过」。</p>
+    </section>
+
+    <section class="sec" id="s2">
+      <div class="sec-h">
+        <span class="no">02</span>
+        <h2>模块进度总表</h2>
+        <span class="hint">上半部分是三层产品能力进度；下半部分是上线验收支撑项</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>模块</th>
+            <th>当前状态</th>
+            <th>已完成</th>
+            <th>当前卡点</th>
+            <th>下一步</th>
+            <th>业务参与点</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mod">智能审核</td>
+            <td><span class="st st-done">主流程已跑通</span></td>
+            <td>四节点本地验证；L1 补需求 / L2 转人工 / L3 补资料 / L4 出 SOP 草稿可分流；F-001 为首个可自动支持场景</td>
+            <td><span class="mark-risk">OMS 定时拉单、群内 @ 人未补齐</span>；高相似度场景易错配</td>
+            <td>补工程闭环；随样本补易混场景规则</td>
+            <td><span class="mark-biz">确认审核员名单、通知群、@ 人规则；确认易混场景口径</span></td>
+          </tr>
+          <tr>
+            <td class="mod">万邑联页面交互</td>
+            <td><span class="st st-risk">等测试环境</span></td>
+            <td>需求已宣讲；接口已梳理并与 PDM / 开发达成共识；方案定为 AI 建议 + 前端白名单回填，客户确认提交</td>
+            <td><span class="mark-risk">页面接口原计划周三出测试环境，已延期</span></td>
+            <td>跟进外部排期，接口可用后立刻联调</td>
+            <td><span class="mark-biz">必要时催排期并验收接口字段</span>；不挡群聊试用</td>
+          </tr>
+          <tr>
+            <td class="mod">SOP 生成</td>
+            <td><span class="st st-wait">单场景已跑通</span></td>
+            <td>工作流已搭建；F-001 casebook / 规则 / 试点用例已沉淀；能判断哪些单可进 SOP、哪些须先补资料或转人工</td>
+            <td><span class="mark-risk">尚未完成批量评测和业务验收</span>；当前为本地 mock / 演示链路</td>
+            <td>下周补规则，下下周业务核对</td>
+            <td><span class="mark-biz">下下周核对，业务规则为准</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="legend" style="margin-top:16px;"><strong>上线验收支撑项 · 样本集 / 评测</strong></p>
+      <table>
+        <thead>
+          <tr>
+            <th>当前状态</th>
+            <th>已完成</th>
+            <th>当前卡点</th>
+            <th>下一步</th>
+            <th>业务参与点</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="st st-risk">主阻滞</span></td>
+            <td>数据源已明确：客服对话、群聊、OMS 真实增值工单</td>
+            <td><span class="mark-risk">多源关联困难，样本可用性不足，预计额外 2 天</span></td>
+            <td>样本治理 → 1–2 天出评测报告 → 业务评审</td>
+            <td><span class="mark-biz">评审报告，确认对错口径与可接受边界</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="sec" id="s3">
+      <div class="sec-h">
+        <span class="no">03</span>
+        <h2>智能审核主流程</h2>
+        <span class="hint">四节点本地已验证</span>
+      </div>
+      <p class="legend">三层能力已在首屏说明，本节聚焦当前主推进的智能审核链路。四节点依次判定，不一次给结论。A/B 场景目前只有候选识别，不进入正式自动生成。</p>
+      <div class="flow">
+        <article class="node">
+          <div class="k">L1 · 已跑通</div>
+          <b>需求完整性判断 / 追问</b>
+          <p class="fail">不完整 → 停 L1，生成补充需求话术</p>
+        </article>
+        <article class="node">
+          <div class="k">L2 · 已跑通</div>
+          <b>场景不匹配分支 / 转人工</b>
+          <p class="fail">不确定 / 模板未覆盖 → 停 L2，转固定审核员</p>
+        </article>
+        <article class="node">
+          <div class="k">L3 · 已跑通</div>
+          <b>字段附件校验 / 补资料</b>
+          <p class="fail">不齐 → 停 L3，生成资料补充话术</p>
+        </article>
+        <article class="node">
+          <div class="k">L4 · 已跑通</div>
+          <b>生成 SOP 草稿 / 人工复核</b>
+          <p class="ok">都齐 → 出 SOP 草稿，供审核员确认</p>
+        </article>
+      </div>
+      <p class="note">本地链路：输入校验 → 绑定已有事实 → 需求完整性 → 场景匹配 → 字段附件校验 → 输出。群内开口、定时拉单属于编排层，尚未补齐。</p>
+    </section>
+
+    <section class="sec" id="s4">
+      <div class="sec-h">
+        <span class="no">04</span>
+        <h2>风险、解法与预期</h2>
+        <span class="hint">4 列：风险 · 影响 · 解法/时间/产出 · 需要业务确认</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>风险</th>
+            <th>影响</th>
+            <th>解法 / 时间预期</th>
+            <th>需要业务确认</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="st st-risk">工程</span><br><strong>OMS 定时任务、群内 @ 人通知未补齐</strong></td>
+            <td>能判定停在哪一层，但无法自动拉待审单、无法通知到销售 / 客服 / 审核员</td>
+            <td>补定时拉单 + 群内 @ 人。<br>时间：工程排期内。<br>产出：可定时扫待审单、群内能通知到人的最小闭环。</td>
+            <td><span class="mark-biz">固定审核员名单、通知群、@ 人规则由谁确认</span></td>
+          </tr>
+          <tr>
+            <td><span class="st st-risk">外部依赖</span><br><strong>万邑联页面测试环境延期</strong></td>
+            <td>页面「建议 → 回填 → 客户确认」无法联调</td>
+            <td>跟进外部排期，接口可用后立刻联调；与群聊试用拆开。<br>时间：取决于外部研发排期。<br>产出：测试环境接口可用。</td>
+            <td><span class="mark-biz">必要时催排期，验收接口字段</span></td>
+          </tr>
+          <tr>
+            <td><span class="st st-risk">样本 · 主阻滞</span><br><strong>多源样本关联困难，可用性不足</strong></td>
+            <td>评测报告出不来，业务评审和群聊试用闸门推不动</td>
+            <td>治理客服对话 / 群聊 / OMS 可关联样本，再出评测报告。<br>时间：额外 2 天治理，就绪后再 1–2 天出报告。<br>产出：高质量样本集 + 评测报告。</td>
+            <td><span class="mark-biz">报告产出后参与评审，确认对错口径</span></td>
+          </tr>
+          <tr>
+            <td><span class="st st-risk">AI 边界</span><br><strong>高相似度业务场景容易混淆</strong></td>
+            <td>相近作业会被吸到错误场景，或在支持 / 不支持 / 不确定之间抖动</td>
+            <td>补专项判定规则，写入场景卡 / 知识库。<br>时间：与规则迭代同期。<br>产出：易混场景判定规则。</td>
+            <td><span class="mark-biz">确认易混场景边界与判定口径</span></td>
+          </tr>
+          <tr>
+            <td><span class="st st-risk">验收</span><br><strong>SOP 尚未完成批量评测和业务验收</strong></td>
+            <td>本地可出草稿，但不能把演示稿当成已上线能力</td>
+            <td>下周补 SOP 知识库规则，下下周业务核对；规则冲突以业务为准。<br>产出：对齐后的 SOP 规则 + 核对记录。</td>
+            <td><span class="mark-biz">下下周业务核对，业务规则为准</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="sec" id="s5">
+      <div class="sec-h">
+        <span class="no">05</span>
+        <h2>下一步时间线</h2>
+        <span class="hint">样本治理 → 评测报告 → 业务评审 → 群聊试用</span>
+      </div>
+      <div class="tl">
+        <article class="ok">
+          <div class="t">已完成</div>
+          <b>Agent 主流程</b>
+          <p>四节点本地跑通。卡点解决后不再重做主链路。</p>
+        </article>
+        <article class="now">
+          <div class="t">现在 · 主阻滞</div>
+          <b>样本治理 2 天</b>
+          <p>多源关联、把能用的样本收齐。这是当前评测闭环的前置。</p>
+        </article>
+        <article class="next">
+          <div class="t">样本就绪后</div>
+          <b>1–2 天出评测报告</b>
+          <p>提交业务评审；同期确认易混场景判定规则。</p>
+        </article>
+        <article class="next">
+          <div class="t">闸门</div>
+          <b>评审通过 → 群聊试用</b>
+          <p>不是口头承诺日期。评审通过即可接入，先限定内部群。</p>
+        </article>
+      </div>
+      <p class="note">并行不挡主路径：工程补定时拉单与 @ 人；外部跟进万邑联测试环境；下周补 SOP 规则、下下周业务核对。</p>
+    </section>
+
+    <section class="sec" id="s6">
+      <div class="sec-h">
+        <span class="no">06</span>
+        <h2>上线闸门 checklist</h2>
+        <span class="hint">群聊试用 与 SOP 正式使用 分开看</span>
+      </div>
+      <div class="gates">
+        <div class="gate-box">
+          <h3>A. 群聊试用最低闸门</h3>
+          <div class="checks">
+            <div class="ck done">
+              <span class="box">✓</span>
+              <div><b>Agent 四节点流程跑通</b><small>已完成本地验证</small></div>
+            </div>
+            <div class="ck todo">
+              <span class="box">□</span>
+              <div><b>OMS 定时拉单能力补齐</b><small>工程闭环，排期内完成</small></div>
+            </div>
+            <div class="ck todo">
+              <span class="box">□</span>
+              <div><b>群内 @ 人通知能力补齐</b><small>待确认名单 / 群 / @ 规则</small></div>
+            </div>
+            <div class="ck todo">
+              <span class="box">□</span>
+              <div><b>高质量样本集完成</b><small>主阻滞，预计额外 2 天</small></div>
+            </div>
+            <div class="ck todo">
+              <span class="box">□</span>
+              <div><b>评测报告输出</b><small>样本就绪后 1–2 天</small></div>
+            </div>
+            <div class="ck biz">
+              <span class="box">◇</span>
+              <div><b>业务评审通过</b><small>群聊试用的上线条件</small></div>
+            </div>
+          </div>
+        </div>
+        <div class="gate-box sop">
+          <h3>B. SOP 生成正式使用闸门</h3>
+          <div class="checks">
+            <div class="ck biz">
+              <span class="box">◇</span>
+              <div><b>SOP 规则经业务核对</b><small>下周补规则，下下周核对</small></div>
+            </div>
+            <div class="ck biz">
+              <span class="box">◇</span>
+              <div><b>高相似度场景判定规则确认</b><small>随评测一起确认</small></div>
+            </div>
+            <div class="ck todo">
+              <span class="box">□</span>
+              <div><b>批量评测通过</b><small>单场景已跑通 ≠ 正式可用</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note">万邑联页面联调依赖外部测试环境，不阻塞本次群聊试用主路径。会后若改口径，改本页对应格子即可。</p>
+    </section>
+  </div>
+</body>
+</html>

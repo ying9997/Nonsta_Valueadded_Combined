@@ -193,6 +193,41 @@ export async function main({ params }: { params: Record<string, unknown> }) {
     };
   }
 
+  const atom = asText(sopInput.serviceAtom);
+  const vascCode = asText(asRecord(sopInput.recommendedVasc).vascCode);
+  const sceneKey = asText(matchResult.sceneKey) || asText(sopInput.sceneKey);
+  const inbound =
+    atom === "OW01V1602" ||
+    atom.includes("入库其他服务需求") ||
+    vascCode === "VASC202411192246131" ||
+    sceneKey === "inbound_label_identify";
+
+  if (inbound) {
+    const requiredAttachments = ["操作说明附件", "商品和标签的对应关系", "标签文件"];
+    const attachmentStatus = asRecord(asRecord(sopInput.pageContext).attachmentStatus);
+    const missingFields = requiredAttachments
+      .filter((field) => asText(attachmentStatus[field]) !== "uploaded")
+      .map((field) => ({
+        field,
+        required: true,
+        clarificationPrompt: `请上传「${field}」后再生成 SOP。`,
+      }));
+    return {
+      completenessResult: {
+        applicable: true,
+        complete: missingFields.length === 0,
+        missingFields,
+        providedCount: requiredAttachments.length - missingFields.length,
+        totalRequired: requiredAttachments.length,
+        scenarioId: matchResult.scenarioId ?? "inbound_label_identify",
+        scenarioName: asText(matchResult.scenarioName as unknown) || "【入库】尺重/标签辨识后换标上架",
+        sceneKey: "inbound_label_identify",
+      },
+      sopInput,
+      matchResult,
+    };
+  }
+
   const scenarioId = matchResult.scenarioId as number;
   const providedFields = asRecord(sopInput.providedFields);
   const result = checkFields(scenarioId, providedFields);

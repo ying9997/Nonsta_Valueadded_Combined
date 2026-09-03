@@ -85,6 +85,30 @@ export async function main({ params }: { params: Record<string, unknown> }) {
     };
   }
 
+  const atom = asText(sopInput.serviceAtom);
+  const vascCode = asText(asRecord(sopInput.recommendedVasc).vascCode);
+  const sceneKey = asText(sopInput.sceneKey);
+  if (
+    atom === "OW01V1602" ||
+    atom.includes("入库其他服务需求") ||
+    vascCode === "VASC202411192246131" ||
+    sceneKey === "inbound_label_identify"
+  ) {
+    return {
+      matchResult: {
+        matched: true,
+        category: "B",
+        sceneKey: "inbound_label_identify",
+        scenarioId: "inbound_label_identify",
+        scenarioName: asText(sopInput.sceneName) || "【入库】尺重/标签辨识后换标上架",
+        confidence: "high",
+        reason: "inbound_f001_catchall",
+        candidateScenarios: [],
+      },
+      sopInput,
+    };
+  }
+
   const intent = asText(sopInput.customerIntent);
   const exceptionName = asText(sopInput.exceptionName);
   const searchText = `${intent} ${exceptionName}`;

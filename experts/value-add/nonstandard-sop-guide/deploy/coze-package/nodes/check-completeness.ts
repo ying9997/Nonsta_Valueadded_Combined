@@ -2,7 +2,8 @@
  * check-completeness — 对照 B 类模板的必填字段检查已提供信息。
  * FaaS 单文件闭环，无外部 import。
  *
- * DEPRECATED（2026-08-28）: SCENARIO_FIELDS 对 F-001/Top1 试点已废弃。见 experts/.../DEPRECATED.md
+ * DEPRECATED（2026-08-28）: SCENARIO_FIELDS（场景 1–23）对 F-001/Top1 试点已废弃。
+ * 见 ../DEPRECATED.md；试点字段口径以 2.1 六必填为准，需另写规则后再启用本节点逻辑。
  */
 
 function asText(value: unknown): string {
@@ -177,7 +178,7 @@ function checkFields(scenarioId: number, providedFields: Record<string, unknown>
   };
 }
 
-async function main({ params }: { params: Record<string, unknown> }) {
+export async function main({ params }: { params: Record<string, unknown> }) {
   const sopInput = asRecord(params.sopInput);
   const matchResult = asRecord(params.matchResult);
 
@@ -186,6 +187,41 @@ async function main({ params }: { params: Record<string, unknown> }) {
       completenessResult: {
         applicable: false,
         reason: matchResult.category === "C" ? "c_category_no_template" : "no_match",
+      },
+      sopInput,
+      matchResult,
+    };
+  }
+
+  const atom = asText(sopInput.serviceAtom);
+  const vascCode = asText(asRecord(sopInput.recommendedVasc).vascCode);
+  const sceneKey = asText(matchResult.sceneKey) || asText(sopInput.sceneKey);
+  const inbound =
+    atom === "OW01V1602" ||
+    atom.includes("入库其他服务需求") ||
+    vascCode === "VASC202411192246131" ||
+    sceneKey === "inbound_label_identify";
+
+  if (inbound) {
+    const requiredAttachments = ["操作说明附件", "商品和标签的对应关系", "标签文件"];
+    const attachmentStatus = asRecord(asRecord(sopInput.pageContext).attachmentStatus);
+    const missingFields = requiredAttachments
+      .filter((field) => asText(attachmentStatus[field]) !== "uploaded")
+      .map((field) => ({
+        field,
+        required: true,
+        clarificationPrompt: `请上传「${field}」后再生成 SOP。`,
+      }));
+    return {
+      completenessResult: {
+        applicable: true,
+        complete: missingFields.length === 0,
+        missingFields,
+        providedCount: requiredAttachments.length - missingFields.length,
+        totalRequired: requiredAttachments.length,
+        scenarioId: matchResult.scenarioId ?? "inbound_label_identify",
+        scenarioName: asText(matchResult.scenarioName as unknown) || "【入库】尺重/标签辨识后换标上架",
+        sceneKey: "inbound_label_identify",
       },
       sopInput,
       matchResult,

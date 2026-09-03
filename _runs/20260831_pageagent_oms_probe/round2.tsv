@@ -1,0 +1,30 @@
+轮次	用例ID	动作	指令类型	指令内容	是否成功	实际DOM值	报错	备注
+1	I-1	注入CDN	初始化	https://cdn.jsdelivr.net/npm/page-agent@1.12.2/dist/iife/page-agent.demo.js?autoInit=false	是			autoInit=false
+1	I-2	检查全局对象	初始化	typeof window.PageAgent	是	function		存在 window.PageAgent
+1	I-3	new PageAgent	初始化	language=zh-CN + demo LLM	是	execute=function；pageController=true		拿到 pageController
+1	I-4	列出控制器方法	初始化	Object methods	是			addEventListener, assertIndexed, cleanUpHighlights, clickElement, dispatchEvent, dispose, executeJavascript, getBrowserState, getCurrentUrl, getLastUpdateTime, hideMask, initMask, inputText, removeEventListener, scroll, scrollHorizontally, selectOption, showMask, updateTree, when
+1	J-0	取可点框编号	JSON探测	pageController.updateTree()	是			前 30 条：见控制台原文
+1	J-2	点处理方式原单上架	JSON	clickElement(14)  via selectorMap.ref	是	处理方式=原单上架		截图JSON不存在，用的是官方 clickElement(编号)
+1	J-2b	点增值服务入库其他服务需求	JSON	clickElement(26)  via selectorMap.ref	是	增值服务=✓ 入库其他服务需求		
+1	J-1	填需求背景说明	JSON	inputText(28, "探针背景")	是	需求背景="探针背景"		
+1	J-4	填需求描述	JSON	inputText(30, "探针描述")	是	需求描述="探针描述"		
+1	J-3	故意用错误编号	JSON	clickElement(99999)	是	处理方式=原单上架；增值服务=✓ 入库其他服务需求；需求背景="探针背景"；需求描述="探针描述"		期望失败且不改其它字段
+1	S-0	能不能直接把选择器交给它	JSON探测	{action:"click", selector:"#methodCards .card-item[data-key="原单上架"]"}	不能（单独记，不代替翻译）			tools=done,wait,ask_user,click_element_by_index,input_text,select_dropdown_option,scroll,scroll_horizontally
+1	S-1	直接用选择器点原单上架	JSON-selector	{"action":"click","selector":"...","value":"原单上架"}	未测			S-0 为不能
+1	S-1b	直接用选择器点入库其他服务需求	JSON-selector		未测			S-0 为不能
+1	S-1c	直接用选择器填需求背景	JSON-selector		未测			S-0 为不能
+1	S-1d	直接用选择器填需求描述	JSON-selector		未测			S-0 为不能
+1	S-3	选择器译成编号后点原单上架	JSON-映射	→ index=14	是	处理方式=原单上架		
+1	S-3b	选择器译成编号后点入库其他服务需求	JSON-映射	→ index=26	是	增值服务=✓ 入库其他服务需求		
+1	S-3c	选择器译成编号后填需求背景	JSON-映射	→ index=28	是	需求背景="探针背景"		
+1	S-3d	选择器译成编号后填需求描述	JSON-映射	→ index=30	是	需求描述="探针描述"		
+1	N-1	人话做同一套动作	自然语言	点原单上架+入库其他服务需求+填两框	请对照DOM	四项目标均正确		execute.success=true；并提示可保存草稿或提交（未由脚本要求提交）
+1	N-2	含糊说「选择上架」	自然语言	选择上架	请对照DOM	处理方式=原单上架；增值服务=✓ 直接上架		自己点了提交；系统：增值单提交成功
+1	N-3	含糊说「选择入库」	自然语言	选择入库	请对照DOM	增值服务=✓ 入库-补贴包裹条码		不是「入库其他服务需求」
+1	N-4	冲突页再用JSON点原单上架	JSON	clickElement(14)	是	处理方式=原单上架		
+1	E-1	没选服务就填需求背景	失败处理	#requirementBackground	否	需求背景="(框不存在)"	querySelector === null	给用户看：还没有「需求背景说明」，先完成上一步｜中断=是
+1	E-2	没选处理方式就点入库其他服务需求	失败处理	#atomCards + 文字	否	处理方式=(未选)	卡片意外存在	选择器在隐藏残留 DOM 里仍能找到卡片，不能只看 querySelector
+1	E-3	映射表选择器写错	失败处理	data-key="不存在的处理方式"	否		querySelector 为空	给用户看：找不到该字段｜中断=是
+1	E-4	对不存在的编号点选	失败处理	clickElement(99999)	否		success=false, No interactive element found	给用户看：编号无效，已停止｜中断=是
+1	E-5	点成功但选中的不是目标	失败处理	clickElement(17) 实际是销毁	否	处理方式=销毁；增值服务=✓ 上架前包裹销毁	API success=true	必须以页面为准，不能信 success
+1	E-6	路径B链式中断	失败处理	未选处理方式就点服务	是	未填两个框	译不成编号	后续 inputText 已跳过；快照里仍可能看到隐藏残留选中态

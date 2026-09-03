@@ -2,7 +2,8 @@
  * match-template — 用客户意图匹配 kb-template-index，判断 B/C 分类。
  * FaaS 单文件闭环，无外部 import。
  *
- * DEPRECATED（2026-08-28）: SCENARIO_INDEX 对 F-001/Top1 试点已废弃。见 experts/.../DEPRECATED.md
+ * DEPRECATED（2026-08-28）: SCENARIO_INDEX（38 库内场景）对 F-001/Top1 试点已废弃。
+ * 见 ../DEPRECATED.md；试点不得依赖本索引命中 inbound_label_identify。
  */
 
 function asText(value: unknown): string {
@@ -73,13 +74,37 @@ function scoreMatch(intent: string, entry: ScenarioEntry): number {
   return score;
 }
 
-async function main({ params }: { params: Record<string, unknown> }) {
+export async function main({ params }: { params: Record<string, unknown> }) {
   const sopInput = asRecord(params.sopInput);
   const validationResult = asRecord(params.validationResult);
 
   if (!validationResult.ok) {
     return {
       matchResult: { matched: false, reason: "validation_failed" },
+      sopInput,
+    };
+  }
+
+  const atom = asText(sopInput.serviceAtom);
+  const vascCode = asText(asRecord(sopInput.recommendedVasc).vascCode);
+  const sceneKey = asText(sopInput.sceneKey);
+  if (
+    atom === "OW01V1602" ||
+    atom.includes("入库其他服务需求") ||
+    vascCode === "VASC202411192246131" ||
+    sceneKey === "inbound_label_identify"
+  ) {
+    return {
+      matchResult: {
+        matched: true,
+        category: "B",
+        sceneKey: "inbound_label_identify",
+        scenarioId: "inbound_label_identify",
+        scenarioName: asText(sopInput.sceneName) || "【入库】尺重/标签辨识后换标上架",
+        confidence: "high",
+        reason: "inbound_f001_catchall",
+        candidateScenarios: [],
+      },
       sopInput,
     };
   }

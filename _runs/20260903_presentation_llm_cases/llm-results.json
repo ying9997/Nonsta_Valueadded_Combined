@@ -1,0 +1,514 @@
+[
+  {
+    "orderNo": "VASC000009901001",
+    "demoCase": "L1",
+    "demoLabel": "需求不完整",
+    "ruleResult": {
+      "outputPath": "needs_requirement_clarification",
+      "node": "check-requirement",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement"
+      ],
+      "failureGate": "check-requirement",
+      "missingRequirementItems": [
+        "操作对象不清",
+        "操作动作不清",
+        "需求背景/操作目的/处理去向不清"
+      ],
+      "missingAttachments": [],
+      "missingFields": [],
+      "missing": [
+        "操作对象不清",
+        "操作动作不清",
+        "需求背景/操作目的/处理去向不清"
+      ],
+      "clarificationPrompts": [
+        "需求里看不出要处理的业务单据、SKU、商品、包裹、箱、库位或附件上下文，请补充处理对象。",
+        "需求里看不出要做什么操作，请补充处理动作。",
+        "需求里看不出需求背景、操作目的或处理后的去向，请补充为什么做、做到什么结果、或处理后去哪里。"
+      ],
+      "matchResult": null,
+      "completenessResult": null,
+      "requirementCheck": {
+        "complete": false,
+        "missingRequirementItems": [
+          "操作对象不清",
+          "操作动作不清",
+          "需求背景/操作目的/处理去向不清"
+        ],
+        "clarificationPrompts": [
+          "需求里看不出要处理的业务单据、SKU、商品、包裹、箱、库位或附件上下文，请补充处理对象。",
+          "需求里看不出要做什么操作，请补充处理动作。",
+          "需求里看不出需求背景、操作目的或处理后的去向，请补充为什么做、做到什么结果、或处理后去哪里。"
+        ],
+        "normalizedRequirement": "请帮忙看一下这单，尽快处理。"
+      },
+      "contextFacts": {
+        "orderNo": "VASC000009901001",
+        "customerCode": "C00000000",
+        "customerName": "DEMO_CUSTOMER",
+        "warehouseCode": "USDEMO",
+        "warehouseName": "Demo Warehouse",
+        "eventNo": "",
+        "businessOrderNo": "",
+        "allEventNos": [],
+        "allBusinessOrderNos": [],
+        "vaSource": "",
+        "sceneKey": "",
+        "sceneName": "",
+        "sceneCode": "",
+        "serviceAtom": "OW01V1602",
+        "attachmentStatus": {
+          "操作说明附件": "missing",
+          "商品和标签的对应关系": "missing",
+          "包裹和标签的对应关系": "missing",
+          "视频拍摄SOP（中文+英文）": "missing",
+          "标签文件": "missing"
+        },
+        "providedFields": {
+          "VAS_ATTR_REL_RD": "请帮忙看一下这单，尽快处理。"
+        },
+        "boundKeys": [
+          "warehouseCode",
+          "customerCode"
+        ]
+      },
+      "structured": {
+        "mode": "internal_review_copilot",
+        "outputPath": "needs_requirement_clarification",
+        "node": "check-requirement",
+        "sceneKey": "",
+        "scenarioName": "",
+        "missingRequirementItems": [
+          "操作对象不清",
+          "操作动作不清",
+          "需求背景/操作目的/处理去向不清"
+        ],
+        "missingFields": [],
+        "missingAttachments": [],
+        "requirementDescription": "请帮忙看一下这单，尽快处理。",
+        "requirementBackground": "",
+        "warehouseSop": "",
+        "imActionProposal": {
+          "requiresUserConfirm": true,
+          "mentionRoles": [
+            "customerService",
+            "sales"
+          ],
+          "messageDraft": "增值单 VASC000009901001 需求描述不完整，请补充：操作对象不清、操作动作不清、需求背景/操作目的/处理去向不清。AI 不代填事实。"
+        }
+      }
+    },
+    "llm": {
+      "step": "im_draft",
+      "model": "claude-sonnet-4-5",
+      "groupMessage": "**增值单号**  \nVASC000009901001\n\n**当前停留层级**  \nL1 / check-requirement\n\n**需求描述 & 需求背景说明**  \n需求描述：请帮忙看一下这单,尽快处理。  \n需求背景说明：未填写\n\n**已提交附件 / 字段摘要**  \n仓库：Demo Warehouse / USDEMO  \n已提交字段：需求描述  \n已上传附件：无  \n未上传附件：操作说明附件、商品和标签的对应关系、包裹和标签的对应关系、视频拍摄SOP(中文+英文)、标签文件\n\n**AI 当前判断**  \n需求不完整,停在 L1 / check-requirement。缺失：操作对象不清、操作动作不清、需求背景/操作目的/处理去向不清。未进入 match-template,不生成 SOP。\n\n**需要谁处理**  \n客服 / 销售 / 提交人\n\n**需要补什么或判断什么**  \n1. 需求里看不出要处理的业务单据、SKU、商品、包裹、箱、库位或附件上下文,请补充处理对象。  \n2. 需求里看不出要做什么操作,请补充处理动作。  \n3. 需求里看不出需求背景、操作目的或处理后的去向,请补充为什么做、做到什么结果、或处理后去哪里。\n\n**边界说明**  \nAI 不代填事实、不自动审核。本次只做需求完整性检查,需提交人补充完整信息后重新提交。",
+      "mentionRoles": [
+        "customerService",
+        "sales",
+        "submitter"
+      ]
+    }
+  },
+  {
+    "orderNo": "VASC000009901002",
+    "demoCase": "L2",
+    "demoLabel": "场景不支持（拦截不上架）",
+    "ruleResult": {
+      "outputPath": "transfer_human",
+      "node": "match-template",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template"
+      ],
+      "failureGate": "match-template",
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "missing": [],
+      "clarificationPrompts": [],
+      "matchResult": {
+        "decision": "unsupported",
+        "supported": false,
+        "sceneKey": "",
+        "scenarioName": "",
+        "reason": "unsupported_intercept_hold",
+        "candidateTemplate": "",
+        "score": 0
+      },
+      "completenessResult": null,
+      "requirementCheck": {
+        "complete": true,
+        "missingRequirementItems": [],
+        "clarificationPrompts": [],
+        "normalizedRequirement": "客户要求这票货先不要上架。 入库单 WI59990002 上所有包裹需要拦截不上架，先放在一边。异常单 EB0126099900000002。"
+      },
+      "contextFacts": {
+        "orderNo": "VASC000009901002",
+        "customerCode": "C00000000",
+        "customerName": "DEMO_CUSTOMER",
+        "warehouseCode": "USDEMO",
+        "warehouseName": "Demo Warehouse",
+        "eventNo": "EB0126099900000002",
+        "businessOrderNo": "WI59990002",
+        "allEventNos": [
+          "EB0126099900000002"
+        ],
+        "allBusinessOrderNos": [
+          "WI59990002"
+        ],
+        "vaSource": "",
+        "sceneKey": "",
+        "sceneName": "",
+        "sceneCode": "",
+        "serviceAtom": "OW01V1602",
+        "attachmentStatus": {
+          "操作说明附件": "missing",
+          "商品和标签的对应关系": "missing",
+          "包裹和标签的对应关系": "missing",
+          "视频拍摄SOP（中文+英文）": "missing",
+          "标签文件": "missing"
+        },
+        "providedFields": {
+          "BEOR": "客户要求这票货先不要上架。",
+          "VAS_ATTR_REL_RD": "入库单 WI59990002 上所有包裹需要拦截不上架，先放在一边。异常单 EB0126099900000002。",
+          "VAS_ATTR_REL_NWEON": "WI59990002"
+        },
+        "boundKeys": [
+          "eventNo",
+          "businessOrderNo",
+          "warehouseCode",
+          "customerCode",
+          "VAS_ATTR_REL_NWEON"
+        ]
+      },
+      "structured": {
+        "mode": "internal_review_copilot",
+        "outputPath": "transfer_human",
+        "node": "match-template",
+        "sceneKey": "",
+        "scenarioName": "",
+        "missingRequirementItems": [],
+        "missingFields": [],
+        "missingAttachments": [],
+        "requirementDescription": "客户要求这票货先不要上架。 入库单 WI59990002 上所有包裹需要拦截不上架，先放在一边。异常单 EB0126099900000002。",
+        "requirementBackground": "客户要求这票货先不要上架。",
+        "warehouseSop": "",
+        "imActionProposal": {
+          "requiresUserConfirm": true,
+          "mentionRoles": [],
+          "messageDraft": "增值单 VASC000009901002 需求描述已完整，但当前模板库只自动支持 F-001，请转人工审核，并记为后续模板候选。"
+        }
+      }
+    },
+    "llm": {
+      "step": "im_draft",
+      "model": "claude-sonnet-4-5",
+      "groupMessage": "**增值单号**  \nVASC000009901002\n\n**当前停留层级**  \nL2 - match-template 节点\n\n**需求描述 & 需求背景说明**  \n- **需求描述**：入库单 WI59990002 上所有包裹需要拦截不上架，先放在一边。异常单 EB0126099900000002。  \n- **需求背景说明**：客户要求这票货先不要上架。\n\n**已提交附件 / 字段摘要**  \n- 仓库：Demo Warehouse / USDEMO  \n- 上架入库单号：WI59990002  \n- 异常单：EB0126099900000002  \n- 已上传附件：无  \n- 未上传附件：操作说明附件、商品和标签的对应关系、包裹和标签的对应关系、视频拍摄SOP（中文+英文）、标签文件\n\n**AI 当前判断**  \n需求描述已完整，但当前模板库只自动支持 F-001。match-template decision=unsupported，reason=unsupported_intercept_hold。停在 L2，不套 F-001/A/B，不生成 SOP，转人工审核并记为后续模板候选。\n\n**需要谁处理**  \n固定审核员\n\n**需要补什么或判断什么**  \n这是「拦截不上架」场景，目前模板库未覆盖。需要固定审核员人工判断：  \n1. 是否可以直接操作（入库单 WI59990002 + 异常单 EB0126099900000002 信息是否足够）  \n2. 是否需要提交人补充操作说明附件或其他材料  \n3. 后续是否可以沉淀为标准模板\n\n**边界说明**  \nAI 不代填事实、不自动审核。本单已由规则链路判定为转人工，最终操作由固定审核员确认后执行。",
+      "mentionRoles": [
+        "reviewers"
+      ]
+    }
+  },
+  {
+    "orderNo": "VASC000009901003",
+    "demoCase": "L3",
+    "demoLabel": "F-001 已识别但附件不齐",
+    "ruleResult": {
+      "outputPath": "needs_field_clarification",
+      "node": "check-completeness",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-completeness"
+      ],
+      "failureGate": "check-completeness",
+      "missingRequirementItems": [],
+      "missingAttachments": [
+        "操作说明附件",
+        "商品和标签的对应关系",
+        "标签文件"
+      ],
+      "missingFields": [
+        "操作说明附件",
+        "商品和标签的对应关系",
+        "标签文件"
+      ],
+      "missing": [
+        "操作说明附件",
+        "商品和标签的对应关系",
+        "标签文件"
+      ],
+      "clarificationPrompts": [
+        "请上传「操作说明附件」后再生成 SOP。",
+        "请上传「商品和标签的对应关系」后再生成 SOP。",
+        "请上传「标签文件」后再生成 SOP。"
+      ],
+      "matchResult": {
+        "decision": "supported",
+        "supported": true,
+        "sceneKey": "inbound_label_identify",
+        "scenarioName": "【入库】尺重/标签辨识后换标上架",
+        "reason": "supported_clear_top1",
+        "candidateTemplate": "F-001",
+        "score": 24
+      },
+      "completenessResult": {
+        "applicable": true,
+        "complete": false,
+        "missingAttachments": [
+          "操作说明附件",
+          "商品和标签的对应关系",
+          "标签文件"
+        ],
+        "missingFields": [
+          {
+            "field": "操作说明附件",
+            "required": true,
+            "clarificationPrompt": "请上传「操作说明附件」后再生成 SOP。"
+          },
+          {
+            "field": "商品和标签的对应关系",
+            "required": true,
+            "clarificationPrompt": "请上传「商品和标签的对应关系」后再生成 SOP。"
+          },
+          {
+            "field": "标签文件",
+            "required": true,
+            "clarificationPrompt": "请上传「标签文件」后再生成 SOP。"
+          }
+        ],
+        "providedCount": 1,
+        "totalRequired": 4,
+        "sceneKey": "inbound_label_identify"
+      },
+      "requirementCheck": {
+        "complete": true,
+        "missingRequirementItems": [],
+        "clarificationPrompts": [],
+        "normalizedRequirement": "到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。 根据异常单 EB0126099900000003 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990003，完成后关闭异常单。"
+      },
+      "contextFacts": {
+        "orderNo": "VASC000009901003",
+        "customerCode": "C00000000",
+        "customerName": "DEMO_CUSTOMER",
+        "warehouseCode": "USDEMO",
+        "warehouseName": "Demo Warehouse",
+        "eventNo": "EB0126099900000003",
+        "businessOrderNo": "WI59990003",
+        "allEventNos": [
+          "EB0126099900000003"
+        ],
+        "allBusinessOrderNos": [
+          "WI59990003"
+        ],
+        "vaSource": "",
+        "sceneKey": "inbound_label_identify",
+        "sceneName": "【入库】尺重/标签辨识后换标上架",
+        "sceneCode": "20250407004",
+        "serviceAtom": "OW01V1602",
+        "attachmentStatus": {
+          "操作说明附件": "missing",
+          "商品和标签的对应关系": "missing",
+          "包裹和标签的对应关系": "missing",
+          "视频拍摄SOP（中文+英文）": "missing",
+          "标签文件": "missing"
+        },
+        "providedFields": {
+          "BEOR": "到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。",
+          "VAS_ATTR_REL_RD": "根据异常单 EB0126099900000003 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990003，完成后关闭异常单。",
+          "VAS_ATTR_REL_NWEON": "WI59990003"
+        },
+        "boundKeys": [
+          "eventNo",
+          "businessOrderNo",
+          "warehouseCode",
+          "customerCode",
+          "VAS_ATTR_REL_NWEON"
+        ]
+      },
+      "structured": {
+        "mode": "internal_review_copilot",
+        "outputPath": "needs_field_clarification",
+        "node": "check-completeness",
+        "sceneKey": "inbound_label_identify",
+        "scenarioName": "【入库】尺重/标签辨识后换标上架",
+        "missingRequirementItems": [],
+        "missingFields": [
+          "操作说明附件",
+          "商品和标签的对应关系",
+          "标签文件"
+        ],
+        "missingAttachments": [
+          "操作说明附件",
+          "商品和标签的对应关系",
+          "标签文件"
+        ],
+        "requirementDescription": "到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。 根据异常单 EB0126099900000003 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990003，完成后关闭异常单。",
+        "requirementBackground": "到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。",
+        "warehouseSop": "",
+        "imActionProposal": {
+          "requiresUserConfirm": true,
+          "mentionRoles": [
+            "customerService",
+            "sales"
+          ],
+          "messageDraft": "增值单 VASC000009901003 已识别为 F-001，但仍缺附件/字段：操作说明附件、商品和标签的对应关系、标签文件。请补齐后再审。"
+        }
+      }
+    },
+    "llm": {
+      "step": "im_draft",
+      "model": "claude-sonnet-4-5",
+      "groupMessage": "**增值单号**  \nVASC000009901003\n\n**当前停留层级**  \nL3 / check-completeness\n\n**需求描述 & 需求背景说明**  \n需求背景说明：到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。  \n需求描述：根据异常单 EB0126099900000003 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990003，完成后关闭异常单。\n\n**已提交附件 / 字段摘要**  \n- 已填字段：需求背景说明、需求描述、上架入库单号（WI59990003）  \n- 已上传附件：无  \n- 关联异常单：EB0126099900000003  \n- 关联入库单：WI59990003  \n- 仓库：Demo Warehouse / USDEMO\n\n**AI 当前判断**  \n已识别 F-001（【入库】尺重/标签辨识后换标上架），但附件/字段不齐。停在 L3 / check-completeness。缺失：操作说明附件、商品和标签的对应关系、标签文件。不生成 SOP。\n\n**需要谁处理**  \n客服 / 销售 / 提交人\n\n**需要补什么或判断什么**  \n请补充以下附件后再生成 SOP：  \n1. 操作说明附件  \n2. 商品和标签的对应关系  \n3. 标签文件\n\n**边界说明**  \nAI 不代填事实、不自动审核。所有附件和字段需由提交人或相关同事确认后补齐，补齐后系统会重新判断是否可生成 SOP。",
+      "mentionRoles": [
+        "customerService",
+        "sales",
+        "submitter"
+      ]
+    }
+  },
+  {
+    "orderNo": "VASC000009901004",
+    "demoCase": "L4",
+    "demoLabel": "F-001 信息齐全可出 SOP 草稿",
+    "ruleResult": {
+      "outputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-completeness",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "missing": [],
+      "clarificationPrompts": [],
+      "matchResult": {
+        "decision": "supported",
+        "supported": true,
+        "sceneKey": "inbound_label_identify",
+        "scenarioName": "【入库】尺重/标签辨识后换标上架",
+        "reason": "supported_clear_top1",
+        "candidateTemplate": "F-001",
+        "score": 24
+      },
+      "completenessResult": {
+        "applicable": true,
+        "complete": true,
+        "missingAttachments": [],
+        "missingFields": [],
+        "providedCount": 4,
+        "totalRequired": 4,
+        "sceneKey": "inbound_label_identify"
+      },
+      "requirementCheck": {
+        "complete": true,
+        "missingRequirementItems": [],
+        "clarificationPrompts": [],
+        "normalizedRequirement": "到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。 根据异常单 EB0126099900000004 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990004，完成后关闭异常单。"
+      },
+      "contextFacts": {
+        "orderNo": "VASC000009901004",
+        "customerCode": "C00000000",
+        "customerName": "DEMO_CUSTOMER",
+        "warehouseCode": "USDEMO",
+        "warehouseName": "Demo Warehouse",
+        "eventNo": "EB0126099900000004",
+        "businessOrderNo": "WI59990004",
+        "allEventNos": [
+          "EB0126099900000004"
+        ],
+        "allBusinessOrderNos": [
+          "WI59990004"
+        ],
+        "vaSource": "",
+        "sceneKey": "inbound_label_identify",
+        "sceneName": "【入库】尺重/标签辨识后换标上架",
+        "sceneCode": "20250407004",
+        "serviceAtom": "OW01V1602",
+        "attachmentStatus": {
+          "操作说明附件": "uploaded",
+          "商品和标签的对应关系": "uploaded",
+          "包裹和标签的对应关系": "missing",
+          "视频拍摄SOP（中文+英文）": "missing",
+          "标签文件": "uploaded"
+        },
+        "providedFields": {
+          "BEOR": "到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。",
+          "VAS_ATTR_REL_RD": "根据异常单 EB0126099900000004 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990004，完成后关闭异常单。",
+          "VAS_ATTR_REL_NWEON": "WI59990004"
+        },
+        "boundKeys": [
+          "eventNo",
+          "businessOrderNo",
+          "warehouseCode",
+          "customerCode",
+          "VAS_ATTR_REL_NWEON",
+          "操作说明附件",
+          "商品和标签的对应关系",
+          "标签文件"
+        ]
+      },
+      "structured": {
+        "mode": "internal_review_copilot",
+        "outputPath": "sop_generated",
+        "node": "format-output",
+        "sceneKey": "inbound_label_identify",
+        "scenarioName": "【入库】尺重/标签辨识后换标上架",
+        "missingRequirementItems": [],
+        "missingFields": [],
+        "missingAttachments": [],
+        "requirementDescription": "到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。 根据异常单 EB0126099900000004 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990004，完成后关闭异常单。",
+        "requirementBackground": "到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。",
+        "warehouseSop": "",
+        "imActionProposal": {
+          "requiresUserConfirm": true,
+          "mentionRoles": [
+            "reviewers"
+          ],
+          "messageDraft": "增值单 VASC000009901004 需求与附件已齐，已生成 SOP 草稿供审核确认。确认不等于审核通过。\n"
+        }
+      }
+    },
+    "llm": {
+      "step": "sop_generate+im_draft",
+      "model": "claude-sonnet-4-5",
+      "groupMessage": "【内部审核协作】增值单 VASC000009901004\n\n当前停留层级：L4 / format-output（信息齐全，已生成 SOP 草稿）\n\n需求背景：\n到仓后发现商品条码与包裹条码不对应，需按客户提供的辨识办法（尺重/绿标SKU）找到对应商品后补贴新标签上架到指定入库单。\n\n需求描述：\n根据异常单 EB0126099900000004 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990004，完成后关闭异常单。已上传附件：操作说明附件（demo-ops-instruction.pdf）、商品和标签的对应关系（demo-sku-label-mapping.xlsx）、标签文件（demo-label-file.pdf）。\n\n已提交附件 / 字段摘要：\n- 字段：需求背景说明=到仓后发现商品条码与包裹条码不对应，需按附件辨识办法找到商品后再换标上架。；需求描述=根据异常单 EB0126099900000004 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990004，完成后关闭异常单。；上架入库单号=WI59990004\n- 附件：操作说明附件（demo-ops-instruction.pdf）、商品和标签的对应关系（demo-sku-label-mapping.xlsx）、标签文件（demo-label-file.pdf）\n- 已引用字段 fieldsUsed：eventNo、VAS_ATTR_REL_NWEON、VAS_ATTR_REL_AOOI、VAS_ATTR_REL_TCRBCAL、VAS_ATTR_REL_LF、BEOR、VAS_ATTR_REL_RD\n\nAI 当前判断：已识别 F-001，附件与关键字段齐全，生成仓库 SOP 草稿，提交固定审核员确认。\n\n需要谁处理：固定审核员\n\n需要判断什么：请审核员核对草稿是否与客户已提交事实一致、仓库是否可执行。\n\n仓库 SOP：\n1. 根据异常单 EB0126099900000004 定位待处理货物；\n2. 按客户提供的「操作说明附件」中辨识办法（尺重/绿标SKU）确认实物商品；\n3. 参照「商品和标签的对应关系」找到对应的新商品条码；\n4. 使用「标签文件」补贴正确的商品条码标签；\n5. 使用入库单 WI59990004 扫描上架；\n6. 完成后关闭/推进异常单 EB0126099900000004。\n\n审核员确认提示：\n请固定审核员确认：以上需求背景、需求描述、仓库 SOP 是否可执行。确认只表示认可草稿内容，不等于审核通过。\n\n边界说明：\nSOP 草稿供审核确认，不等于审核通过。AI 不代填事实、不自动审核。",
+      "mentionRoles": [
+        "reviewers"
+      ],
+      "sop": {
+        "requirementBackground": "到仓后发现商品条码与包裹条码不对应，需按客户提供的辨识办法（尺重/绿标SKU）找到对应商品后补贴新标签上架到指定入库单。",
+        "requirementDescription": "根据异常单 EB0126099900000004 找到包裹。按附件辨识办法（尺重/绿标SKU）找到对应商品后补贴商品条码，上架到新入库单 WI59990004，完成后关闭异常单。已上传附件：操作说明附件（demo-ops-instruction.pdf）、商品和标签的对应关系（demo-sku-label-mapping.xlsx）、标签文件（demo-label-file.pdf）。",
+        "warehouseSop": "1. 根据异常单 EB0126099900000004 定位待处理货物；\n2. 按客户提供的「操作说明附件」中辨识办法（尺重/绿标SKU）确认实物商品；\n3. 参照「商品和标签的对应关系」找到对应的新商品条码；\n4. 使用「标签文件」补贴正确的商品条码标签；\n5. 使用入库单 WI59990004 扫描上架；\n6. 完成后关闭/推进异常单 EB0126099900000004。",
+        "sopText": "【需求背景】\n到仓商品条码与包裹条码不对应，需按客户提供的辨识办法（尺重/绿标SKU）找到对应商品后补贴新标签上架。\n\n【操作要求】\n1. 根据异常单 EB0126099900000004 找到待处理包裹\n2. 按附件「操作说明附件」中的辨识办法（尺重/绿标SKU）确认实物商品\n3. 参照「商品和标签的对应关系」找到对应的新商品条码\n4. 使用「标签文件」补贴正确的商品条码标签\n5. 扫描新标签后使用入库单 WI59990004 上架\n6. 完成后关闭异常单 EB0126099900000004\n\n【注意事项】\n- 严格按附件辨识办法操作，确保商品与标签匹配准确\n- 补贴标签需平整牢固，完全覆盖原错误条码",
+        "scenarioName": "【入库】尺重/标签辨识后换标上架",
+        "fieldsUsed": [
+          "eventNo",
+          "VAS_ATTR_REL_NWEON",
+          "VAS_ATTR_REL_AOOI",
+          "VAS_ATTR_REL_TCRBCAL",
+          "VAS_ATTR_REL_LF",
+          "BEOR",
+          "VAS_ATTR_REL_RD"
+        ],
+        "reviewerConfirmHint": "请固定审核员确认：以上需求背景、需求描述、仓库 SOP 是否可执行。确认只表示认可草稿内容，不等于审核通过。",
+        "draftDisclaimer": "SOP 草稿供审核确认，不等于审核通过。AI 不代填事实、不自动审核。",
+        "mocked": false,
+        "model": "claude-sonnet-4-5"
+      }
+    }
+  }
+]
