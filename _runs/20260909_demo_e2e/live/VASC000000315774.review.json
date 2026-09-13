@@ -1,0 +1,41 @@
+{
+  "orderNo": "VASC000000315774",
+  "demoLabel": "L4-SOP生成",
+  "source": "demo_constructed",
+  "expectedOutputPath": "sop_generated",
+  "outputPath": "sop_generated",
+  "ruleOutputPath": "sop_generated",
+  "failureGate": "",
+  "missing": [],
+  "clarificationPrompts": [],
+  "sceneKey": "inbound_package_barcode_batch_relabel",
+  "scenarioName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+  "decision": "supported",
+  "confidence": "high",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "应用规则A：异常单详情显示异常名称为'包裹条码批量异常(需客户处理)'，直接映射到场景1（sceneKey=inbound_package_barcode_batch_relabel）。需求描述完全符合场景1的核心特征：1) 包裹条码批量异常；2) 辨识后补贴包裹标签（客户明确提到'根据辨识结果补贴新入库单WI50734175的包裹标签'）；3) 上架到新入库单（'在新单上架'）。SOP关键步骤完整匹配：根据异常单EB0126060330032532找到异常商品 → 辨识（'可根据外箱上的A+包裹标签确认SKU，辨识出14个包裹的SKU'） → 补贴包裹标签 → 上架到新单WI50734175 → 关闭异常单。异常对象为包裹，操作对象也是包裹标签，与场景1完全一致。",
+  "llmText": "【需求背景】异常单 EB0126060330032532 的14个包裹条码异常，需根据外箱 A+ 包裹标签辨识 SKU 后，补贴新入库单 WI50734175 的包裹标签上架。\n\n【操作要求】\n1. 根据异常单 EB0126060330032532 定位14个待处理包裹；\n2. 查看每个包裹外箱上的 A+ 包裹标签商品条码，辨识 SKU，并与入库单 WI50734175 的 SKU 清单核对，确认辨识出的 SKU 为计划内产品；\n3. 拍照记录每个包裹的原标签和辨识出的 SKU（EB0126060330032532），或在系统中记录辨识结果；\n4. 根据辨识结果，使用已上传的标签文件（demo_constructed_label_file.pdf）为每个包裹打印对应 SKU 的新包裹标签，覆盖或替换原异常标签，确保14个包裹全部完成换标；\n5. 扫描新贴的包裹标签，系统关联入库单 WI50734175，按系统指引完成上架操作；\n6. 完成后在系统中关闭或推进异常单 EB0126060330032532。\n\n【注意事项】\n1. 辨识时务必核对入库单 WI50734175 的 SKU 清单，确保为计划内产品；\n2. 换标前必须拍照记录原标签和辨识结果，便于后续追溯；\n3. 14个包裹需逐一完成辨识、换标、上架全流程。",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "structuredReview": {
+    "vascNo": "VASC000000315774",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_package_barcode_batch_relabel",
+      "confidence": 0.9
+    },
+    "materialsComplete": true,
+    "missingMaterials": [],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "【需求背景】异常单 EB0126060330032532 的14个包裹条码异常，需根据外箱 A+ 包裹标签辨识 SKU 后，补贴新入库单 WI50734175 的包裹标签上架。\n\n【操作要求】\n1. 根据异常单 EB0126060330032532 定位14个待处理包裹；\n2. 查看每个包裹外箱上的 A+ 包裹标签商品条码，辨识 SKU，并与入库单 WI50734175 的 SKU 清单核对，确认辨识出的 SKU 为计划内产品；\n3. 拍照记录每个包裹的原标签和辨识出的 SKU（EB0126060330032532），或在系统中记录辨识结果；\n4. 根据辨识结果，使用已上传的标签文件（demo_constructed_label_file.pdf）为每个包裹打印对应 SKU 的新包裹标签，覆盖或替换原异常标签，确保14个包裹全部完成换标；\n5. 扫描新贴的包裹标签，系统关联入库单 WI50734175，按系统指引完成上架操作；\n6. 完成后在系统中关闭或推进异常单 EB0126060330032532。\n\n【注意事项】\n1. 辨识时务必核对入库单 WI50734175 的 SKU 清单，确保为计划内产品；\n2. 换标前必须拍照记录原标签和辨识结果，便于后续追溯；\n3. 14个包裹需逐一完成辨识、换标、上架全流程。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

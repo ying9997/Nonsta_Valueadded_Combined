@@ -1,0 +1,148 @@
+{
+  "sceneKey": "inbound_third_party_merchandise_barcode",
+  "sceneName": "【入库】关联第三方商品条码上架",
+  "status": "draft",
+  "category": "inbound",
+  "omsSceneCode": "202506120001",
+  "aliases": {
+    "kbNames": [
+      "【入库】关联第三方条码上架"
+    ],
+    "kbMatch": "alias/ambiguous",
+    "note": "用户确认知识库常见短名缺「商品」；主映射必须落到 OMS【入库】关联第三方商品条码上架，禁止并入【库内】关联第三方条码上架"
+  },
+  "doNotConfuse": [
+    {
+      "omsSceneCode": "20250401002",
+      "sceneName": "【库内】关联第三方条码上架",
+      "reason": "库内环节；知识库短名易与入库混淆"
+    },
+    {
+      "omsSceneCode": "20251027",
+      "sceneName": "【入库】包裹类异常关联第三方包裹条码直接上架",
+      "reason": "第三方包裹条码，不是商品条码主路径"
+    }
+  ],
+  "testPool": "T3",
+  "sourceRefs": [
+    {
+      "path": "_runs/20260909_inbound_scene_probe/kb-oms-scene-map.md",
+      "credibility": "derived",
+      "note": "KB↔OMS 映射：alias/ambiguous + 勿混库内"
+    },
+    {
+      "path": "_runs/20260909_inbound_scene_probe/_oms_cache/",
+      "credibility": "derived",
+      "note": "本窗 atoms/attrs：202506120001；需求常写已关联第三方箱唛/商品条码后扫描上架、关异常"
+    },
+    {
+      "path": "internal-review-copilot/knowledge/scenario-evidence/oms-scene-overview-code-map.md",
+      "credibility": "authority",
+      "note": "OMS 码名：入库 202506120001 vs 库内 20250401002"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "关联第三方商品条码",
+      "第三方商品条码",
+      "已关联第三方",
+      "第三方箱唛已关联",
+      "维护好第三方",
+      "重新扫描上架",
+      "直接扫描上架"
+    ],
+    "weak": [
+      "第三方条码",
+      "第三方编码",
+      "关联第三方",
+      "扫描上架",
+      "原入库单",
+      "关闭异常"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "【库内】关联第三方条码上架",
+      "库内其他服务需求且无入库异常上下文",
+      "包裹条码批量异常",
+      "补贴万邑通包裹标签",
+      "尺重辨识换标",
+      "指定商品拍照暂存",
+      "换商品标签上架且包裹条码正常"
+    ],
+    "soft": [
+      "第三方包裹条码",
+      "补贴包裹标签",
+      "仅写关联未写上架",
+      "无主货找回暂存"
+    ]
+  },
+  "boundaryRules": [
+    "权威 OMS 名必须是【入库】关联第三方商品条码上架（202506120001）。知识库「【入库】关联第三方条码上架」仅作 alias，命中后仍落到本码。",
+    "若正文/原子明确【库内】或码 20250401002 → 不是本场景。",
+    "「关联第三方包裹条码直接上架」（20251027）是近邻：强调包裹条码时 ambiguous 或转该码，不要默认本场景。",
+    "与 T1：批量包裹条码异常后补贴万邑通包裹标 → T1；本场景是客户已维护第三方码后按关联关系扫描上架。",
+    "与 F-001/A：换标/辨识/商品条码异常换商品标路径不要抢标，除非正文主诉求是第三方码关联上架。",
+    "不能仅凭「第三方」一词或 OW01V1602 命中。",
+    "本卡 status=draft；样本轮前不晋升 supported；禁止自造 fieldKey。"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：已维护/需关联的第三方商品（或箱唛）条码 + 异常/入库单",
+    "动作：关联第三方码后扫描/重新扫描上架",
+    "去向：上架到指定 WI（常含关闭异常）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "provisional_from_oms_keys",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [
+      "VAS_ATTR_REL_LF",
+      "VAS_ATTR_REL_NWEON",
+      "VAS_ATTR_REL_AOOI",
+      "NSVASTN",
+      "VAS_ATTR_REL_RD",
+      "BEOR",
+      "TRPP",
+      "CEO_SOA",
+      "VSS"
+    ],
+    "requiredFieldKeys": [],
+    "note": "本窗 42 单均出现 VAS_ATTR_REL_LF 键，但业务上不少 case 是「已关联第三方后直接扫描上架」，标签文件未必语义必填。requiredFieldKeys 暂空；样本轮按出现率≥70% 再决定是否把 LF / NWEON 升为必填。不得自造 fieldKey。"
+  },
+  "sopTemplateHints": [
+    "写明已维护的第三方商品条码/箱唛关联关系",
+    "关联的异常单 EB 与目标入库单 WI",
+    "仓库动作：按关联扫描上架（或重新扫描）",
+    "上架完成后关闭异常"
+  ],
+  "examples": [
+    {
+      "id": "t3-positive-297141",
+      "kind": "positive",
+      "sourceType": "oms_attr_excerpt",
+      "text": "第三方箱唛已关联，请直接扫描上架到新单 WI…",
+      "note": "摘自 VASC000000297141 类表述；非正式 gold"
+    },
+    {
+      "id": "t3-positive-298782",
+      "kind": "positive",
+      "sourceType": "oms_attr_excerpt",
+      "text": "无主货异常货物已维护第三方外箱标与第三方商品条码，需关联到指定入库单上架",
+      "note": "摘自 VASC000000298782 类表述；非正式 gold"
+    },
+    {
+      "id": "t3-negative-instock",
+      "kind": "negative",
+      "sourceType": "derived_example",
+      "text": "库内库存关联第三方条码后重新上架，非入库异常链路",
+      "note": "应对 20250401002【库内】关联第三方条码上架，不得收成 T3"
+    },
+    {
+      "id": "t3-negative-t1",
+      "kind": "negative",
+      "sourceType": "derived_example",
+      "text": "包裹条码批量异常，请补贴万邑通包裹标签后上架",
+      "note": "T1 典型，不得收成 T3"
+    }
+  ],
+  "notes": "status=draft。测集 T3。授权范围：本轮只建卡，抽样/jsonl 下一轮。晋升前须：KB 短名人工确认映射、与库内码对打抽检、附件策略用样本重算。"
+}

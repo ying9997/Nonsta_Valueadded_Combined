@@ -37,8 +37,34 @@ export function loadEnvFiles(extraPaths: string[] = []): void {
   }
 }
 
+/** Re-apply copilot `.env` so long-running poll can pick up rate-limit changes without restart. */
+export function reloadCopilotEnv(): void {
+  const file = resolve(copilotRoot, ".env");
+  if (!existsSync(file)) return;
+  for (const rawLine of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (key) process.env[key] = value;
+  }
+}
+
 export function envText(name: string, fallback = ""): string {
   return (process.env[name] || fallback).trim();
+}
+
+export function envNumber(name: string, fallback: number): number {
+  const n = Number(envText(name));
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 export function copilotDir(): string {

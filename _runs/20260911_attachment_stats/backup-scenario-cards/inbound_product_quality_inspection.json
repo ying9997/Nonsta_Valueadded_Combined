@@ -1,0 +1,78 @@
+{
+  "sceneKey": "inbound_product_quality_inspection",
+  "sceneName": "【入库】商品质检",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "20250408002",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.8",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "质检",
+      "检查项目",
+      "判定标准",
+      "抽样",
+      "抽检",
+      "质检报告",
+      "良品",
+      "不良品"
+    ],
+    "weak": [
+      "外箱",
+      "温度试纸",
+      "变色",
+      "开箱检查",
+      "暂存等待",
+      "按要求检查"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "辨识",
+      "串仓",
+      "调拨",
+      "自提"
+    ],
+    "soft": [
+      "拍照",
+      "预报不符",
+      "下架",
+      "第三方条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：质检场景关注商品质量检验（良品/不良品判定），而换标场景关注标签信息处理",
+    "和【入库】指定商品拍照暂存的区别是：质检场景需要按质检标准判定并分类处理，拍照暂存只是记录外观后暂存",
+    "和【入库】包裹类异常换商品标签上架的区别是：质检场景是主动按SOP检验，异常换标是被动处理标签错误",
+    "和【入库】批量辨识商品后补贴商品条码的区别是：质检场景输出质检报告和良/不良品分类，辨识场景输出的是正确的条码标签"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确入库单号（WIxxx）和需要质检的商品范围",
+    "动作：说明具体的质检项目、判定标准、抽样比例等质检要求",
+    "去向：明确良品上架位置、不良品如何处理（暂存/退回/销毁等）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "必须包含入库单号",
+    "必须列出具体的质检要求（检查项目、判定标准、抽样比例）",
+    "必须说明良品和不良品的分类处理方式",
+    "必须提及提供质检报告",
+    "操作步骤要体现检查→分类→处理的流程"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.8. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250408002."
+}

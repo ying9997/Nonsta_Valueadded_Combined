@@ -1,0 +1,75 @@
+{
+  "sceneKey": "inbound_unclaimed_goods_relabel_shelve",
+  "sceneName": "【入库】无主货异常补贴标签上架",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.9",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "无主货",
+      "找回",
+      "新SKU",
+      "货物寻找费",
+      "无主货找回增值单"
+    ],
+    "weak": [
+      "核对信息",
+      "补贴商品标签",
+      "补贴包裹标签",
+      "按新入库单上架",
+      "工时费",
+      "补贴标签",
+      "新入库单"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "辨识",
+      "串仓",
+      "调拨",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "换标",
+      "拍照",
+      "预报",
+      "下架"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景针对无主货找回，而非尺重或标签辨识问题",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景是无主货找回后补贴标签，而非批量辨识后补贴",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是无主货找回场景，需要新SKU和新入库单，而非仅换商品标签",
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景是无主货找回后首次上架，而非下架后重新上架"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：无主货物（已找回）",
+    "动作：补贴新SKU商品标签和新入库单包裹标签",
+    "去向：按新入库单上架到仓库"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "创建或引用无主货找回增值单",
+    "核对无主货找回信息",
+    "补贴新SKU商品标签",
+    "补贴新入库单包裹标签",
+    "按新入库单上架"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.9. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

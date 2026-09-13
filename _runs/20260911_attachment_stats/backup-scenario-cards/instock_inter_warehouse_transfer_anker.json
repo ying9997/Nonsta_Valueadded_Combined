@@ -1,0 +1,75 @@
+{
+  "sceneKey": "instock_inter_warehouse_transfer_anker",
+  "sceneName": "【库内】库内仓间调拨-Anker",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.41",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "库间调拨",
+      "仓间调拨",
+      "从.*仓转到.*仓",
+      "DG仓转到普仓",
+      "下架单.*上架单",
+      "调拨.*运输费",
+      "托"
+    ],
+    "weak": [
+      "转仓",
+      "调拨",
+      "下架",
+      "重新上架",
+      "仓库转移"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "辨识",
+      "质检",
+      "自提",
+      "拍照",
+      "无主货"
+    ],
+    "soft": [
+      "入库预报",
+      "串仓",
+      "换商品标签",
+      "条码异常"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹串仓异常调拨的区别：串仓调拨是因为包裹走错仓库的异常处理，本场景是正常的仓间货物转移",
+    "和【入库】商品下架后换入库单重新上架的区别：换入库单场景不涉及仓库间转移，只是同一仓库内换单据，本场景强调从一个仓转到另一个仓",
+    "和【入库】上架前自提的区别：自提是客户取走货物，本场景是仓库间内部调拨，货物仍在仓库系统内",
+    "关键特征：必须同时包含源仓库和目标仓库信息，且有明确的下架单和上架单号"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：具体的SKU/商品/托盘编号",
+    "动作：从A仓转到B仓/仓间调拨",
+    "去向：目标仓库名称（如普仓、DG仓等）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "提供源仓库的下架单号",
+    "提供目标仓库的上架单号",
+    "明确源仓库和目标仓库名称",
+    "说明调拨的商品/SKU信息",
+    "涉及费用时注明运输费标准（如25本地币/托）"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.41. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

@@ -1,0 +1,72 @@
+{
+  "sceneKey": "instock_nonstandard_charge",
+  "sceneName": "【库内】非标收费",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.13",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "非标收费",
+      "IT改数",
+      "补收费用",
+      "无库存",
+      "改数费用",
+      "无法提交库内非标增值"
+    ],
+    "weak": [
+      "补收",
+      "费用",
+      "库内订单",
+      "增值产品"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "辨识",
+      "条码",
+      "拍照",
+      "质检"
+    ],
+    "soft": [
+      "入库",
+      "预报",
+      "到货",
+      "暂存"
+    ]
+  },
+  "boundaryRules": [
+    "和其他库内场景的区别：本场景是纯收费场景,不涉及实际的库内操作(上架/换标/质检等)",
+    "和入库场景的区别：本场景针对无库存情况,而入库场景都是有实物到货需要处理",
+    "触发条件特殊：必须是已做过IT改数操作但因无库存无法走正常库内非标增值流程",
+    "操作路径独特：通过创建非标增值-库内订单-非标收费-IT改数服务来补收费用"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：已做IT改数操作的订单/SKU",
+    "动作：补收IT改数费用",
+    "原因/背景：仓库无库存导致无法提交正常库内非标增值"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "确认客户已做过IT改数操作",
+    "确认仓库当前无库存",
+    "在TOM系统创建非标增值订单",
+    "选择库内订单并选择非标收费-IT改数服务",
+    "提交订单完成费用补收"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.13. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code. SOP 内容不足，信号词可能不准。"
+}

@@ -1,0 +1,114 @@
+{
+  "situation": "A",
+  "candidates": [
+    {
+      "index": 1,
+      "sceneKey": "inbound_ocean_full_container_aplus_no_barcode",
+      "sceneName": "【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架"
+    },
+    {
+      "index": 2,
+      "sceneKey": "inbound_package_barcode_batch_relabel",
+      "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架"
+    },
+    {
+      "index": 3,
+      "sceneKey": "inbound_label_identify",
+      "sceneName": "【入库】尺重/标签辨识后换标上架"
+    }
+  ],
+  "card": {
+    "config": {
+      "wide_screen_mode": true
+    },
+    "header": {
+      "title": {
+        "tag": "plain_text",
+        "content": "🔄 增值单 AI 预审 — VASC000000360654"
+      },
+      "template": "blue"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "客户：19104098 / RED NOW LIMITED\n仓库：USWC5 Warehouse\n异常单：EB0126082832573118\n场景：包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架\n需求提到：海运整柜 100%A+ 包裹，扫描外箱条码按新单上架"
+        }
+      },
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "AI 识别到可能的场景但不够确定：\nAI 判断：异常类型「海运整柜100%A+包裹」较复杂，建议人工确认场景\n<at id=ou_a59d62e22e542e6689abf3fea1e3d087></at> 请选择本单属于哪个场景："
+        }
+      },
+      {
+        "tag": "action",
+        "actions": [
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架（AI 推"
+            },
+            "type": "primary",
+            "name": "scene_select",
+            "value": {
+              "action": "confirm_scene",
+              "sceneKey": "inbound_ocean_full_container_aplus_no_barcode",
+              "vascNo": "VASC000000360654"
+            }
+          },
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架"
+            },
+            "type": "default",
+            "name": "scene_select",
+            "value": {
+              "action": "confirm_scene",
+              "sceneKey": "inbound_package_barcode_batch_relabel",
+              "vascNo": "VASC000000360654"
+            }
+          }
+        ]
+      },
+      {
+        "tag": "action",
+        "actions": [
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "尺重/标签辨识后换标上架"
+            },
+            "type": "default",
+            "name": "scene_select",
+            "value": {
+              "action": "confirm_scene",
+              "sceneKey": "inbound_label_identify",
+              "vascNo": "VASC000000360654"
+            }
+          },
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "以上都不是，人工处理"
+            },
+            "type": "danger",
+            "name": "scene_select",
+            "value": {
+              "action": "confirm_scene",
+              "sceneKey": "transfer_human",
+              "vascNo": "VASC000000360654"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

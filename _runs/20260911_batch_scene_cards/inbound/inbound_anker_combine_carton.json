@@ -1,0 +1,75 @@
+{
+  "sceneKey": "inbound_anker_combine_carton",
+  "sceneName": "【入库】anker 合箱入库",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.30",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "合箱",
+      "箱唛",
+      "拆sku",
+      "单品拆分",
+      "商品组合拆分",
+      "多个SKU",
+      "合并在一箱"
+    ],
+    "weak": [
+      "补收费用",
+      "已完成上架",
+      "无需重复扫描",
+      "从箱子里面拿出",
+      "单独扫描"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "贴标签",
+      "补贴条码",
+      "质检",
+      "拍照",
+      "调拨"
+    ],
+    "soft": [
+      "辨识",
+      "尺重",
+      "串仓",
+      "自提"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景是合箱拆分成多个SKU，不涉及换标签或辨识商品信息",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景仓库已完成拆分上架，只需补收费用和关闭异常单，不需要补贴条码",
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景是合箱拆分为多个SKU的场景,不是换入库单",
+    "关键特征：多个推单合并在一个物理箱子里,外箱贴了多张箱唛,需要拆分成单独的SKU分别上架"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：合箱发货的商品（一箱包含多个推单的货物）",
+    "动作：补收拆分费用、关闭异常单（仓库已完成拆SKU上架）",
+    "去向：将增值单和异常单状态变更为已完成并关闭"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "确认仓库已完成拆SKU上架动作",
+    "将增值单变更为已完成状态",
+    "关闭对应的异常单",
+    "补收商品组合拆分费用",
+    "核对拆分后的SKU数量与箱唛信息"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.30. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

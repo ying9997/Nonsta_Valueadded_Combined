@@ -1,0 +1,42 @@
+{
+  "orderNo": "VASC000000326061",
+  "demoLabel": "L2-转人工",
+  "source": "t14_golden",
+  "expectedOutputPath": "transfer_human",
+  "outputPath": "transfer_human",
+  "ruleOutputPath": "transfer_human",
+  "failureGate": "match-template",
+  "missing": [],
+  "clarificationPrompts": [],
+  "sceneKey": "inbound_label_identify",
+  "scenarioName": "【入库】尺重/标签辨识后换标上架",
+  "decision": "ambiguous",
+  "confidence": "low",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "应用规则C：异常名称为「包裹内出现订单外商品」，属于复杂/多步骤异常，不在规则A的直接映射范围内，不强行归入场景1-5的名称映射。回退看需求描述：客户明确提到「实物产品条码正确，第三方编码系统已经关联」+「使用新入库单上架」+「补贴新单的包裹标签操作上架」。虽然提到「第三方编码已关联」，但核心诉求是「多个入库单无法标准操作，需非标处理」+「补贴新单包裹标签」，这是复杂场景下的换标上架操作，不是场景3的「直接扫描第三方条码上架」标准流程。由于异常复杂且涉及多入库单合并处理+换标，符合场景4（通用兜底）的定义：需要辨识后更换标签再上架的非标准场景。confidence标medium是因为虽然提到第三方关联，但整体流程更偏向复杂换标处理而非场景3的标准直扫流程。",
+  "llmText": "该需求涉及多个入库单（WI51383223、WI51383191）的商品需要一起处理，但标准流程只能填写一个入库单号，无法通过现有模板自动执行。场景识别置信度较低（0.45），需人工确认具体操作方案和非标报价。",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "warehouse": "USKY5 Warehouse",
+  "structuredReview": {
+    "vascNo": "VASC000000326061",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "ambiguous",
+      "topScene": "inbound_package_barcode_batch_relabel",
+      "confidence": 0.45
+    },
+    "materialsComplete": false,
+    "missingMaterials": [],
+    "outputPath": "transfer_human",
+    "llmGeneratedText": "该需求涉及多个入库单（WI51383223、WI51383191）的商品需要一起处理，但标准流程只能填写一个入库单号，无法通过现有模板自动执行。场景识别置信度较低（0.45），需人工确认具体操作方案和非标报价。",
+    "transferReason": "ambiguous_llm_low_confidence",
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

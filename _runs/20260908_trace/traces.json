@@ -1,0 +1,68 @@
+[
+  {
+    "orderNo": "VASC000000344421",
+    "outputPath": "transfer_human",
+    "ruleOutputPath": "transfer_human",
+    "failureGate": "match-template",
+    "decision": "ambiguous",
+    "reason": "ambiguous_below_high_confidence",
+    "decisionPath": "top1=F-001(5) < HIGH(7) or gap=5 < CLEAR(3) → ambiguous(below confidence)",
+    "gap": 5,
+    "querySignals": {
+      "text": "EB0126081032120532 仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，由于现在这些货物仓库无法定位原入库单，只能统一全部一起处理，需要新单上架 与仓库线下沟通一共是63件货物，sn码无法识别，需要通过新单，更换包裹标签进行上架。 按照sn码提供对应上架关系 附件：61件CP-GN-2000081-00-03 -M010000000010306532 对应上到新单：WI52155061名下。 附件：2件CP-GW-0000079-00-05 -M010000000010211088 对应上到新单：WI52155663名下。（2张sn码模糊的，提供了参考图，按照这个去找到货物对应上架） 附件已经上传两个入库单对应的包裹标签pdf文件。 提交非标原因：仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，只能通过非标处理。",
+      "interceptHold": false,
+      "hasPhoto": false,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": true,
+      "hasShelve": true,
+      "hasIdentify": false,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "requirementTrace": {
+      "normalizedRequirement": "EB0126081032120532 仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，由于现在这些货物仓库无法定位原入库单，只能统一全部一起处理，需要新单上架 与仓库线下沟通一共是63件货物，sn码无法识别，需要通过新单，更换包裹标签进行上架。 按照sn码提供对应上架关系 附件：61件CP-GN-2000081-00-03 -M010000000010306532 对应上到新单：WI52155061名下。 附件：2件CP-GW-0000079-00-05 -M010000000010211088 对应上到新单：WI52155663名下。（2张sn码模糊的，提供了参考图，按照这个去找到货物对应上架） 附件已经上传两个入库单对应的包裹标签pdf文件。 提交非标原因：仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，只能通过非标处理。",
+      "complete": true,
+      "objectMatch": "EB0126081032120532",
+      "objectBoundBypass": true,
+      "actionMatch": "上架",
+      "purposeMatch": "EB0126081032120532",
+      "purposeBoundBypass": true,
+      "missing": []
+    },
+    "candidates": [
+      {
+        "sceneKey": "inbound_label_identify",
+        "label": "F-001",
+        "score": 5,
+        "matchedSignals": [
+          "weak:包裹标签",
+          "weak:上架",
+          "weak:新单",
+          "context:oms_scene_f001_assist"
+        ],
+        "negativeSignals": []
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "label": "A",
+        "score": 1,
+        "matchedSignals": [
+          "weak:上架"
+        ],
+        "negativeSignals": []
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "label": "B",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "relabel_then_shelve"
+        ]
+      }
+    ]
+  }
+]

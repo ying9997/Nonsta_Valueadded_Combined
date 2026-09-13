@@ -1,0 +1,73 @@
+{
+  "sceneKey": "inbound_expedited_inbound",
+  "sceneName": "【入库】加急入库",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.29",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "加急",
+      "优先处理",
+      "紧急",
+      "尽快入库",
+      "加快入库",
+      "快速上架"
+    ],
+    "weak": [
+      "时效",
+      "着急",
+      "赶时间",
+      "马上",
+      "立即"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "辨识",
+      "补贴条码",
+      "串仓",
+      "自提",
+      "拍照暂存"
+    ],
+    "soft": [
+      "异常",
+      "问题",
+      "错误"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：加急入库不涉及换标、辨识等额外操作，只是要求加快正常入库流程",
+    "和【入库】上架前自提的区别是：加急入库的目的是快速上架入库，而非自提取走",
+    "和【入库】商品质检的区别是：加急入库不涉及质检环节，只是加快入库速度",
+    "和其他入库异常场景的区别是：加急入库本身不是异常处理，而是对正常入库流程的时效要求"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需要加急处理的包裹/商品（通常会提供入库单号、包裹号或商品信息）",
+    "动作：加急、优先、快速处理入库上架",
+    "去向：正常上架入库（不涉及其他特殊操作）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "确认加急入库的包裹/商品信息",
+    "标记为优先处理",
+    "加快入库流程各环节",
+    "完成上架并通知客户",
+    "记录加急处理时效"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.29. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code. SOP 内容不足，信号词可能不准。"
+}

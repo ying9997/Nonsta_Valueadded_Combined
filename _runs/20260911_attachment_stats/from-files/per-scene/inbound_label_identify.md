@@ -1,0 +1,24 @@
+# 附件统计：【入库】尺重/标签辨识后换标上架
+- sceneKey：`inbound_label_identify`
+- omsSceneCode：`20250407004`
+- 订单数：37（原子 37）
+- 旧人工卡：是（只对照，不覆盖）
+| attributeKey | attributeName | 出现率 | 非空率 | 建议 |
+|-------------|---------------|-------|-------|------|
+| VAS_ATTR_REL_RD | 需求描述 | 100.0% (37/37) | 100.0% (37/37) | 表单正文，不作为附件门 |
+| BEOR | 需求背景说明 | 100.0% (37/37) | 100.0% (37/37) | 表单正文，不作为附件门 |
+| VAS_ATTR_REL_NWEON | 上架入库单号 | 100.0% (37/37) | 94.6% (35/37) | 必填 |
+| VAS_ATTR_REL_LF | 标签文件 | 100.0% (37/37) | 83.8% (31/37) | 必填 |
+| VAS_ATTR_REL_AOOI | 操作说明附件 | 100.0% (37/37) | 18.9% (7/37) | 可选 |
+| VAS_ATTR_REL_TCRBCAL | 商品和标签的对应关系 | 100.0% (37/37) | 13.5% (5/37) | 可选 |
+| TRPP | 包裹和标签的对应关系 | 100.0% (37/37) | 10.8% (4/37) | 可选 |
+| PACKAGE_SERNO | 包裹条码 | 100.0% (37/37) | 8.1% (3/37) | 不列入 |
+| MERCHANDISE_SERNO | 商品条码 | 100.0% (37/37) | 5.4% (2/37) | 不列入 |
+| NSVASTN | 非标增值来源单号 | 100.0% (37/37) | 5.4% (2/37) | 不列入 |
+| CEO_SOA | CEO审批截图 | 100.0% (37/37) | 2.7% (1/37) | 不列入 |
+| VSS | 视频拍摄SOP（中文+英文） | 100.0% (37/37) | 0.0% (0/37) | 不列入 |
+## 建议必填 / 可选
+- 建议必填：VAS_ATTR_REL_NWEON, VAS_ATTR_REL_LF
+- 建议可选：VAS_ATTR_REL_AOOI, VAS_ATTR_REL_TCRBCAL, TRPP
+- 可写入 requiredFieldKeys（pipeline 能校验）：VAS_ATTR_REL_NWEON, VAS_ATTR_REL_LF
+- 卡上现有 requiredFieldKeys：VAS_ATTR_REL_LF

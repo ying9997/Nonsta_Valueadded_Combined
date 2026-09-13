@@ -1,0 +1,72 @@
+{
+  "sceneKey": "inbound_self_pickup_before_shelve",
+  "sceneName": "【入库】上架前自提",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "INBOUND_PICKUP_BF_SHELVE",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.6",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "上架前自提",
+      "客户到仓提货",
+      "不入库",
+      "提货码",
+      "承运商提货",
+      "自提费"
+    ],
+    "weak": [
+      "无主货",
+      "错送货物",
+      "提货时间",
+      "签收后关闭"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "拍照",
+      "质检",
+      "调拨"
+    ],
+    "soft": [
+      "辨识",
+      "重新入库",
+      "下架"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】无主货异常补贴标签上架的区别是：本场景客户选择自提不入库,那个场景是补贴标签后上架入库",
+    "和【入库】包裹串仓异常调拨的区别是：本场景是客户到仓自提,那个场景是仓库间调拨转运",
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景包裹到仓后直接自提不入库,那个场景是已入库商品下架后重新上架",
+    "关键判断点：客户需求中明确提到'自提''不入库''到仓提货'等表述,且货物尚未上架入库"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：已到仓的无主货/错送货物/客户包裹",
+    "动作：客户或承运商到仓自提",
+    "去向：不入库,直接提走"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "确认异常登记状态",
+    "安排客户/承运商提货时间",
+    "告知客户使用增值单作为提货码",
+    "现场签收确认",
+    "关闭异常单并收取上架前自提费"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.6. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INBOUND_PICKUP_BF_SHELVE."
+}

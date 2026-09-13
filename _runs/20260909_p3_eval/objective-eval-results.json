@@ -1,0 +1,192 @@
+{
+  "skipLlm": true,
+  "isolation": "golden not passed to runPipeline",
+  "metrics": {
+    "outputPathAccuracy": 0.6,
+    "sceneKeyExactMatch": 0.2,
+    "sceneKeyAcceptableMatch": 0.2,
+    "falseBlockRate": 0,
+    "falsePassRate": 0,
+    "actionCoverage": 0.13333333333333333,
+    "sceneTop1Accuracy": 0.2,
+    "falseUnsupportedRate": 0.2,
+    "actionConstraintHitRate": 0.2,
+    "missingFieldsRecall": 1,
+    "missingFieldsPrecision": 1
+  },
+  "rows": [
+    {
+      "vascNo": "VASC000000311652",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_exception_relabel_shelving",
+      "actualSceneName": "【入库】包裹类异常换商品标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "expectedActions": [
+        "补贴包裹标签",
+        "上架"
+      ],
+      "matchedActions": [
+        "换商品标签"
+      ],
+      "actionCoverage": 0,
+      "actionConstraintHit": false,
+      "expectedMissing": [],
+      "actualMissing": [],
+      "missingRecall": 1,
+      "missingPrecision": 1,
+      "falseBlock": false,
+      "falsePass": false,
+      "falseUnsupported": false,
+      "decision": "supported",
+      "actionCandidateScenes": [
+        "inbound_label_identify",
+        "inbound_package_exception_relabel_shelving"
+      ],
+      "diff": "场景不符 inbound_package_barcode_batch_relabel→inbound_package_exception_relabel_shelving；动作覆盖 0% exp=补贴包裹标签|上架 act=换商品标签"
+    },
+    {
+      "vascNo": "VASC000000315774",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "needs_field_clarification",
+      "actualOutputPath": "needs_field_clarification",
+      "pathOk": true,
+      "expectedActions": [
+        "辨识",
+        "补贴包裹标签",
+        "上架"
+      ],
+      "matchedActions": [
+        "辨识",
+        "补贴包裹标签"
+      ],
+      "actionCoverage": 0.6666666666666666,
+      "actionConstraintHit": true,
+      "expectedMissing": [
+        "标签文件"
+      ],
+      "actualMissing": [
+        "标签文件"
+      ],
+      "missingRecall": 1,
+      "missingPrecision": 1,
+      "falseBlock": false,
+      "falsePass": false,
+      "falseUnsupported": false,
+      "decision": "supported",
+      "actionCandidateScenes": [
+        "inbound_label_identify",
+        "inbound_package_barcode_batch_relabel"
+      ],
+      "diff": "动作覆盖 67% exp=辨识|补贴包裹标签|上架 act=辨识|补贴包裹标签"
+    },
+    {
+      "vascNo": "VASC000000298617",
+      "expectedScene": "inbound_photo_hold",
+      "omsSceneName": "【入库】指定商品拍照暂存",
+      "actualSceneKey": "inbound_label_identify",
+      "actualSceneName": "【入库】尺重/标签辨识后换标上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "expectedActions": [
+        "拍照",
+        "回传照片",
+        "暂存"
+      ],
+      "matchedActions": [
+        "辨识"
+      ],
+      "actionCoverage": 0,
+      "actionConstraintHit": false,
+      "expectedMissing": [],
+      "actualMissing": [],
+      "missingRecall": 1,
+      "missingPrecision": 1,
+      "falseBlock": false,
+      "falsePass": false,
+      "falseUnsupported": false,
+      "decision": "ambiguous",
+      "actionCandidateScenes": [
+        "inbound_label_identify",
+        "inbound_package_barcode_batch_relabel"
+      ],
+      "diff": "出口 sop_generated→transfer_human；场景不符 inbound_photo_hold→inbound_label_identify；动作覆盖 0% exp=拍照|回传照片|暂存 act=辨识"
+    },
+    {
+      "vascNo": "VASC000000305805",
+      "expectedScene": "inbound_third_party_merchandise_barcode",
+      "omsSceneName": "【入库】关联第三方商品条码上架",
+      "actualSceneKey": "",
+      "actualSceneName": "（空）",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "expectedActions": [
+        "补贴包裹",
+        "关联第三方单品码",
+        "上架"
+      ],
+      "matchedActions": [],
+      "actionCoverage": 0,
+      "actionConstraintHit": false,
+      "expectedMissing": [],
+      "actualMissing": [],
+      "missingRecall": 1,
+      "missingPrecision": 1,
+      "falseBlock": false,
+      "falsePass": false,
+      "falseUnsupported": true,
+      "decision": "unsupported",
+      "actionCandidateScenes": [],
+      "diff": "出口 sop_generated→transfer_human；场景不符 inbound_third_party_merchandise_barcode→(empty)；动作覆盖 0% exp=补贴包裹|关联第三方单品码|上架 act=；误判无场景/unsupported"
+    },
+    {
+      "vascNo": "VASC000000326061",
+      "expectedScene": "inbound_label_identify",
+      "omsSceneName": "【入库】尺重/标签辨识后换标上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "expectedActions": [
+        "辨识",
+        "换标",
+        "上架"
+      ],
+      "matchedActions": [
+        "补贴包裹标签"
+      ],
+      "actionCoverage": 0,
+      "actionConstraintHit": false,
+      "expectedMissing": [],
+      "actualMissing": [],
+      "missingRecall": 1,
+      "missingPrecision": 1,
+      "falseBlock": false,
+      "falsePass": false,
+      "falseUnsupported": false,
+      "decision": "supported",
+      "actionCandidateScenes": [
+        "inbound_package_barcode_batch_relabel"
+      ],
+      "diff": "场景不符 inbound_label_identify→inbound_package_barcode_batch_relabel；动作覆盖 0% exp=辨识|换标|上架 act=补贴包裹标签"
+    }
+  ]
+}

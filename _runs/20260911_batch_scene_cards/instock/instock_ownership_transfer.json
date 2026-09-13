@@ -1,0 +1,76 @@
+{
+  "sceneKey": "instock_ownership_transfer",
+  "sceneName": "【库内】货权转移-改数",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "【In-warehouse】Transfer of ownership of goods",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.1",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "货权转移",
+      "改数",
+      "IT改数",
+      "纯IT",
+      "无实物流",
+      "账号之间",
+      "合同主体"
+    ],
+    "weak": [
+      "无需仓库操作",
+      "系统改数",
+      "仓库已处理",
+      "无需录入动作",
+      "重新签约"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "贴标",
+      "拍照",
+      "质检",
+      "辨识",
+      "下架"
+    ],
+    "soft": [
+      "实物操作",
+      "包裹条码",
+      "商品条码",
+      "SKU不符"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹串仓异常调拨的区别：货权转移是账号间所有权变更的IT改数，串仓调拨是实物在仓库间的物理移动",
+    "和【入库】商品下架后换入库单重新上架的区别：货权转移无实物流操作只改系统数据，换入库单需要实际下架和重新上架动作",
+    "和所有入库场景的区别：货权转移是纯IT系统操作不涉及实物流，入库场景都需要仓库实际操作商品或包裹",
+    "识别要点：客户需求中明确提到'账号之间''货权''所有权转移''改数'等词，且强调无需实物操作时才是本场景"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确是哪个账号的库存转移到哪个账号（如'A账号库存转移至B账号'）",
+    "动作：货权转移/所有权变更/IT改数",
+    "去向：目标账号或合同主体信息"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确说明这是纯IT改数，无实物流操作",
+    "说明仓库只需将增值单状态更新为'仓库已处理'",
+    "注明收费标准（按国家收费，通常当地币50一单）",
+    "特殊情况处理：同一合同主体下账号间转移可无需签署协议",
+    "若改数前有出库导致明细不一致，需客户按新明细重新签约"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.1. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 【In-warehouse】Transfer of ownership of goods（【库内】货权转移）。"
+}

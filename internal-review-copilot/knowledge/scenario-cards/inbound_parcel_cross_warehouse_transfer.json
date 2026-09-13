@@ -1,0 +1,78 @@
+{
+  "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+  "sceneName": "【入库】包裹串仓异常调拨",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "[Warehouse]AbnormalTransferOfParcelsFromMultipleWarehouses",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.4",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "串仓",
+      "调拨",
+      "送错仓库",
+      "目的仓库",
+      "摆渡车",
+      "库间调拨",
+      "转至",
+      "仓间调"
+    ],
+    "weak": [
+      "更换入库单",
+      "新入库单",
+      "原单终止",
+      "距离较远",
+      "贴面单",
+      "暂存等快递"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴商品条码",
+      "质检",
+      "拍照",
+      "下架",
+      "关联第三方条码"
+    ],
+    "soft": [
+      "辨识",
+      "尺重",
+      "无主货",
+      "SKU不符"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：串仓调拨是包裹送错仓库需要转移到另一个仓库,而换标上架是在同一仓库内处理标签问题",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：串仓调拨强调跨仓库转移,而补贴条码是在当前仓库内补贴标签后上架",
+    "和【入库】上架前自提的区别是：串仓调拨的目的是转到目的仓库上架,自提是客户取走不上架;但当两仓距离远无法调拨时,会采用自提+重新入库的方式实现",
+    "和【入库】商品下架后换入库单重新上架的区别是：串仓调拨是包裹未上架前的跨仓转移,而下架重新上架是已上架商品的处理"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确异常包裹编号(如EB开头的编号)",
+    "动作：调拨/转移到另一个仓库",
+    "去向：明确目的仓库代码(如DE仓、DEBR2、USWC2等)"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "识别异常包裹编号",
+    "确认目的仓库代码",
+    "判断是否可调拨(仓库距离、是否有摆渡车/调拨流程)",
+    "可调拨时:使用摆渡车/调拨流程转至目的仓,目的仓按新入库单上架",
+    "不可调拨时:提交入库上架前自提,客户提供快递面单,仓库贴面单后暂存等快递,目的仓按新入库单上架"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.4. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 [Warehouse]AbnormalTransferOfParcelsFromMultipleWarehouses."
+}

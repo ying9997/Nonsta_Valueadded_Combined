@@ -1,0 +1,97 @@
+{
+  "outputPath": "sop_generated",
+  "decision": "supported",
+  "reason": "supported_clear_top1",
+  "sceneKey": "inbound_package_barcode_batch_relabel",
+  "score": 9,
+  "gap": 6,
+  "decisionPath": "top1=T1(9) ≥ HIGH(7) gap=6 ≥ CLEAR(3) status=supported → supported",
+  "matchedActions": [
+    "补贴包裹标签"
+  ],
+  "topK": [
+    {
+      "k": "inbound_package_barcode_batch_relabel",
+      "s": 9,
+      "sig": [
+        "strong:补贴包裹标签",
+        "strong:需客户处理",
+        "weak:上架",
+        "action_constraint:+2(补贴包裹标签)"
+      ]
+    },
+    {
+      "k": "inbound_label_identify",
+      "s": 3,
+      "sig": [
+        "weak:补贴",
+        "weak:包裹标签",
+        "weak:上架",
+        "weak:新单",
+        "weak:新入库单",
+        "action_constraint:-2(excluded_by:补贴包裹标签)"
+      ]
+    },
+    {
+      "k": "inbound_package_exception_relabel_shelving",
+      "s": 3,
+      "sig": [
+        "weak:补贴包裹标签",
+        "weak:上架",
+        "weak:新入库单"
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "k": "inbound_package_barcode_batch_relabel",
+      "s": 9,
+      "sig": [
+        "strong:补贴包裹标签",
+        "strong:需客户处理",
+        "weak:上架",
+        "action_constraint:+2(补贴包裹标签)"
+      ],
+      "neg": []
+    },
+    {
+      "k": "inbound_label_identify",
+      "s": 3,
+      "sig": [
+        "weak:补贴",
+        "weak:包裹标签",
+        "weak:上架",
+        "weak:新单",
+        "weak:新入库单",
+        "action_constraint:-2(excluded_by:补贴包裹标签)"
+      ],
+      "neg": []
+    },
+    {
+      "k": "inbound_package_exception_relabel_shelving",
+      "s": 3,
+      "sig": [
+        "weak:补贴包裹标签",
+        "weak:上架",
+        "weak:新入库单"
+      ],
+      "neg": []
+    },
+    {
+      "k": "inbound_third_party_merchandise_barcode",
+      "s": 1,
+      "sig": [
+        "weak:第三方编码"
+      ],
+      "neg": []
+    },
+    {
+      "k": "inbound_photo_hold",
+      "s": 0,
+      "sig": [],
+      "neg": [
+        "relabel_then_shelve"
+      ]
+    }
+  ]
+}

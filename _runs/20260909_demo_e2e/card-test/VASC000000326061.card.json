@@ -1,0 +1,100 @@
+{
+  "config": {
+    "wide_screen_mode": true
+  },
+  "header": {
+    "title": {
+      "tag": "plain_text",
+      "content": "🔄 增值单 AI 预审 — VASC000000326061"
+    },
+    "template": "blue"
+  },
+  "elements": [
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "客户：DEMO_CUST003 / ××供应链有限公司（脱敏）\n仓库：USKY5 Warehouse\n异常单：EB0326072531612017\n异常类型：包裹内出现订单外商品"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**【AI 总结 - 需求描述】**\n多个入库单（WI51383223、WI51383191）的商品需一起处理，标准流程只能填一个入库单号，无法走标准增值。"
+      }
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**【AI 总结 - 需求背景】**\n异常类型为包裹内出现订单外商品；涉及第三方编码已关联、补贴新单包裹标签后上架。"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "AI 识别到可能的场景但不够确定：\nAI 判断：异常类型「包裹内出现订单外商品」较复杂，建议人工确认场景\n<at id=ou_d09d7409a63201462177f4d8a8b1ac7b></at> 请选择本单属于哪个场景："
+      }
+    },
+    {
+      "tag": "action",
+      "actions": [
+        {
+          "tag": "button",
+          "text": {
+            "tag": "plain_text",
+            "content": "尺重/标签辨识后换标上架（AI 推荐）"
+          },
+          "type": "primary",
+          "name": "scene_select",
+          "value": {
+            "action": "confirm_scene",
+            "sceneKey": "inbound_label_identify",
+            "vascNo": "VASC000000326061"
+          }
+        },
+        {
+          "tag": "button",
+          "text": {
+            "tag": "plain_text",
+            "content": "包裹条码批量异常"
+          },
+          "type": "default",
+          "name": "scene_select",
+          "value": {
+            "action": "confirm_scene",
+            "sceneKey": "inbound_package_barcode_batch_relabel",
+            "vascNo": "VASC000000326061"
+          }
+        }
+      ]
+    },
+    {
+      "tag": "action",
+      "actions": [
+        {
+          "tag": "button",
+          "text": {
+            "tag": "plain_text",
+            "content": "以上都不是，人工处理"
+          },
+          "type": "danger",
+          "name": "scene_select",
+          "value": {
+            "action": "confirm_scene",
+            "sceneKey": "transfer_human",
+            "vascNo": "VASC000000326061"
+          }
+        }
+      ]
+    }
+  ]
+}

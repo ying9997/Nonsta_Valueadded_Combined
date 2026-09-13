@@ -1,0 +1,777 @@
+{
+  "tag": "baseline",
+  "model": "(skipped)",
+  "skipLlm": true,
+  "generatedAt": "2026-09-08T10:55:25.061Z",
+  "demo7": {
+    "metrics": {
+      "total": 7,
+      "outputPathCorrect": 7,
+      "outputPathAccuracy": 1,
+      "sceneKeyCorrect": 5,
+      "sceneKeyScored": 5,
+      "sceneKeyAccuracy": 1,
+      "missingFieldsRecall": 1,
+      "missingFieldsPrecision": 1,
+      "llmSuccessCount": 7,
+      "llmSuccessRate": 1,
+      "sopGeneratedCount": 5,
+      "transferHumanCount": 1,
+      "needsClarificationCount": 1
+    },
+    "rows": [
+      {
+        "vascNo": "VASC000000183069",
+        "expected": "needs_requirement_clarification",
+        "actual": "needs_requirement_clarification",
+        "match": true,
+        "expectedSceneKey": "",
+        "actualSceneKey": "",
+        "sceneMatch": null,
+        "expectedMissing": [
+          "操作动作不清"
+        ],
+        "actualMissing": [
+          "操作动作不清"
+        ],
+        "missingRecallOk": true,
+        "missingPrecisionOk": true,
+        "llmError": null,
+        "notes": "L1: 需求描述有对象但无明确操作动作",
+        "diff": "-"
+      },
+      {
+        "vascNo": "VASC000000344421",
+        "expected": "transfer_human",
+        "actual": "transfer_human",
+        "match": true,
+        "expectedSceneKey": "",
+        "actualSceneKey": "inbound_label_identify",
+        "sceneMatch": null,
+        "expectedMissing": [],
+        "actualMissing": [],
+        "missingRecallOk": true,
+        "missingPrecisionOk": true,
+        "llmError": null,
+        "notes": "L2: 数量差异+SN辨识+多新单，ambiguous",
+        "diff": "-"
+      },
+      {
+        "vascNo": "VASC000000343821",
+        "expected": "sop_generated",
+        "actual": "sop_generated",
+        "match": true,
+        "expectedSceneKey": "inbound_label_identify",
+        "actualSceneKey": "inbound_label_identify",
+        "sceneMatch": true,
+        "expectedMissing": [],
+        "actualMissing": [],
+        "missingRecallOk": true,
+        "missingPrecisionOk": true,
+        "llmError": null,
+        "notes": "原 L3（模拟三必填缺2）；数据驱动后仅必填标签文件且已上传+WI → L4/sop_generated",
+        "diff": "-"
+      },
+      {
+        "vascNo": "VASC000000333147",
+        "expected": "sop_generated",
+        "actual": "sop_generated",
+        "match": true,
+        "expectedSceneKey": "inbound_label_identify",
+        "actualSceneKey": "inbound_label_identify",
+        "sceneMatch": true,
+        "expectedMissing": [],
+        "actualMissing": [],
+        "missingRecallOk": true,
+        "missingPrecisionOk": true,
+        "llmError": null,
+        "notes": "L4: 补附件后完整，CASEBOOK第1组新单",
+        "diff": "-"
+      },
+      {
+        "vascNo": "VASC000000326061",
+        "expected": "sop_generated",
+        "actual": "sop_generated",
+        "match": true,
+        "expectedSceneKey": "inbound_label_identify",
+        "actualSceneKey": "inbound_label_identify",
+        "sceneMatch": true,
+        "expectedMissing": [],
+        "actualMissing": [],
+        "missingRecallOk": true,
+        "missingPrecisionOk": true,
+        "llmError": null,
+        "notes": "L4: 多SKU分新单",
+        "diff": "-"
+      },
+      {
+        "vascNo": "VASC000000143515",
+        "expected": "sop_generated",
+        "actual": "sop_generated",
+        "match": true,
+        "expectedSceneKey": "inbound_label_identify",
+        "actualSceneKey": "inbound_label_identify",
+        "sceneMatch": true,
+        "expectedMissing": [],
+        "actualMissing": [],
+        "missingRecallOk": true,
+        "missingPrecisionOk": true,
+        "llmError": null,
+        "notes": "L4: 按型号辨识换条码",
+        "diff": "-"
+      },
+      {
+        "vascNo": "VASC000000080416",
+        "expected": "sop_generated",
+        "actual": "sop_generated",
+        "match": true,
+        "expectedSceneKey": "inbound_label_identify",
+        "actualSceneKey": "inbound_label_identify",
+        "sceneMatch": true,
+        "expectedMissing": [],
+        "actualMissing": [],
+        "missingRecallOk": true,
+        "missingPrecisionOk": true,
+        "llmError": null,
+        "notes": "L4: 尺重辨识+已开箱编号",
+        "diff": "-"
+      }
+    ],
+    "results": [
+      {
+        "orderNo": "VASC000000183069",
+        "outputPath": "needs_requirement_clarification",
+        "ruleOutputPath": "needs_requirement_clarification",
+        "failureGate": "check-requirement",
+        "missing": [
+          "操作动作不清"
+        ],
+        "llm": null
+      },
+      {
+        "orderNo": "VASC000000344421",
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "failureGate": "match-template",
+        "missing": [],
+        "matchResult": {
+          "matched": false,
+          "supported": false,
+          "category": "C",
+          "sceneKey": "inbound_label_identify",
+          "scenarioId": "inbound_label_identify",
+          "scenarioName": "【入库】尺重/标签辨识后换标上架",
+          "confidence": "medium",
+          "reason": "ambiguous_below_high_confidence",
+          "score": 5,
+          "candidateTemplate": "F-001",
+          "decision": "ambiguous",
+          "confidenceScore": 0.4166666666666667,
+          "candidates": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 5,
+              "confidenceScore": 0.4166666666666667,
+              "confidence": "medium",
+              "matchedSignals": [
+                "weak:包裹标签",
+                "weak:上架",
+                "weak:新单",
+                "context:oms_scene_f001_assist"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_package_exception_relabel_shelving",
+              "sceneName": "【入库】包裹类异常换商品标签上架",
+              "score": 1,
+              "confidenceScore": 0.08333333333333333,
+              "confidence": "low",
+              "matchedSignals": [
+                "weak:上架"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_photo_hold",
+              "sceneName": "【入库】指定商品拍照暂存",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "relabel_then_shelve"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "topK": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 5,
+              "confidenceScore": 0.4166666666666667,
+              "confidence": "medium",
+              "matchedSignals": [
+                "weak:包裹标签",
+                "weak:上架",
+                "weak:新单",
+                "context:oms_scene_f001_assist"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "querySignals": {
+            "text": "EB0126081032120532 仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，由于现在这些货物仓库无法定位原入库单，只能统一全部一起处理，需要新单上架 与仓库线下沟通一共是63件货物，sn码无法识别，需要通过新单，更换包裹标签进行上架。 按照sn码提供对应上架关系 附件：61件CP-GN-2000081-00-03 -M010000000010306532 对应上到新单：WI52155061名下。 附件：2件CP-GW-0000079-00-05 -M010000000010211088 对应上到新单：WI52155663名下。（2张sn码模糊的，提供了参考图，按照这个去找到货物对应上架） 附件已经上传两个入库单对应的包裹标签pdf文件。 提交非标原因：仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，只能通过非标处理。",
+            "interceptHold": false,
+            "hasPhoto": false,
+            "explicitPhotoRequirement": false,
+            "hasRelabel": true,
+            "hasShelve": true,
+            "hasIdentify": false,
+            "hasPackageException": false,
+            "hasPhotoHold": false,
+            "hasDirectScanShelve": false,
+            "weighOrPhotoWithoutRelabel": false,
+            "inboundStockPhoto": false
+          },
+          "gap": 5,
+          "decisionPath": "top1=F-001(5) gap=5 — score<HIGH(7) or gap<CLEAR(3) → ambiguous(below confidence)"
+        },
+        "llm": null
+      },
+      {
+        "orderNo": "VASC000000343821",
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "failureGate": "",
+        "missing": [],
+        "matchResult": {
+          "matched": true,
+          "supported": true,
+          "category": "B",
+          "sceneKey": "inbound_label_identify",
+          "scenarioId": "inbound_label_identify",
+          "scenarioName": "【入库】尺重/标签辨识后换标上架",
+          "confidence": "high",
+          "reason": "supported_clear_top1",
+          "score": 18,
+          "candidateTemplate": "F-001",
+          "decision": "supported",
+          "confidenceScore": 1,
+          "candidates": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 18,
+              "confidenceScore": 1,
+              "confidence": "high",
+              "matchedSignals": [
+                "strong:辨识",
+                "strong:SKU对应",
+                "strong:对应的商品条码",
+                "weak:贴条码",
+                "weak:SKU标签",
+                "weak:上架",
+                "context:oms_scene_f001_assist",
+                "structural:identify+relabel+shelve"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_package_exception_relabel_shelving",
+              "sceneName": "【入库】包裹类异常换商品标签上架",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "identify_without_package_exception"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_photo_hold",
+              "sceneName": "【入库】指定商品拍照暂存",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "relabel_then_shelve"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "topK": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 18,
+              "confidenceScore": 1,
+              "confidence": "high",
+              "matchedSignals": [
+                "strong:辨识",
+                "strong:SKU对应",
+                "strong:对应的商品条码",
+                "weak:贴条码",
+                "weak:SKU标签",
+                "weak:上架",
+                "context:oms_scene_f001_assist",
+                "structural:identify+relabel+shelve"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "querySignals": {
+            "text": "因包裹过多，根据你们提供的图片我们这边无法一一查看包裹详情确定是哪个SKU。因此，需要你们一箱箱查看包裹上面的SKU标签，然后根据SKU对应的商品条码重新为包裹贴条码，再入库上架。 包裹上面有SKU标签，需要你们一箱箱查看是哪个SKU，再根据SKU对应的条码重新给包裹贴条码入库上架。附件图片1是辨识例子，我用红色方框圈起来的就是SKU，在包裹外包装其中的一面就粘贴了SKU标签。",
+            "interceptHold": false,
+            "hasPhoto": false,
+            "explicitPhotoRequirement": false,
+            "hasRelabel": true,
+            "hasShelve": true,
+            "hasIdentify": true,
+            "hasPackageException": false,
+            "hasPhotoHold": false,
+            "hasDirectScanShelve": false,
+            "weighOrPhotoWithoutRelabel": false,
+            "inboundStockPhoto": false
+          },
+          "gap": 18,
+          "decisionPath": "top1=F-001(18) ≥ HIGH(7) gap=18 ≥ CLEAR(3) status=supported → supported"
+        },
+        "llm": null
+      },
+      {
+        "orderNo": "VASC000000333147",
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "failureGate": "",
+        "missing": [],
+        "matchResult": {
+          "matched": true,
+          "supported": true,
+          "category": "B",
+          "sceneKey": "inbound_label_identify",
+          "scenarioId": "inbound_label_identify",
+          "scenarioName": "【入库】尺重/标签辨识后换标上架",
+          "confidence": "high",
+          "reason": "supported_clear_top1",
+          "score": 11,
+          "candidateTemplate": "F-001",
+          "decision": "supported",
+          "confidenceScore": 0.9166666666666666,
+          "candidates": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 11,
+              "confidenceScore": 0.9166666666666666,
+              "confidence": "high",
+              "matchedSignals": [
+                "strong:辨识",
+                "weak:补贴",
+                "weak:上架",
+                "context:oms_scene_f001_assist",
+                "structural:identify+relabel+shelve"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_package_exception_relabel_shelving",
+              "sceneName": "【入库】包裹类异常换商品标签上架",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "identify_without_package_exception"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_photo_hold",
+              "sceneName": "【入库】指定商品拍照暂存",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "relabel_then_shelve"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "topK": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 11,
+              "confidenceScore": 0.9166666666666666,
+              "confidence": "high",
+              "matchedSignals": [
+                "strong:辨识",
+                "weak:补贴",
+                "weak:上架",
+                "context:oms_scene_f001_assist",
+                "structural:identify+relabel+shelve"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "querySignals": {
+            "text": "工厂端将第三方箱唛标签覆盖掉，导致仓库收到货物后无法正常查看第三方箱唛标签扫描上架 1.辨识外箱上的箱序，外箱上都粘贴了如附件图片的装箱单标签，标签上有箱序如1/36、2/36等等 2.根据附件表格内的对应关系如：箱序1补贴B0400000001441165842这个Winit包裹条码标签以此类推进行补贴原单的36个Winit包裹条码标签上架到WI51547628 3.处理完成后关闭异常单EB0126080632030982",
+            "interceptHold": false,
+            "hasPhoto": false,
+            "explicitPhotoRequirement": false,
+            "hasRelabel": true,
+            "hasShelve": true,
+            "hasIdentify": true,
+            "hasPackageException": false,
+            "hasPhotoHold": false,
+            "hasDirectScanShelve": false,
+            "weighOrPhotoWithoutRelabel": false,
+            "inboundStockPhoto": false
+          },
+          "gap": 11,
+          "decisionPath": "top1=F-001(11) ≥ HIGH(7) gap=11 ≥ CLEAR(3) status=supported → supported"
+        },
+        "llm": null
+      },
+      {
+        "orderNo": "VASC000000326061",
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "failureGate": "",
+        "missing": [],
+        "matchResult": {
+          "matched": true,
+          "supported": true,
+          "category": "B",
+          "sceneKey": "inbound_label_identify",
+          "scenarioId": "inbound_label_identify",
+          "scenarioName": "【入库】尺重/标签辨识后换标上架",
+          "confidence": "high",
+          "reason": "supported_clear_top1",
+          "score": 7,
+          "candidateTemplate": "F-001",
+          "decision": "supported",
+          "confidenceScore": 0.5833333333333334,
+          "candidates": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 7,
+              "confidenceScore": 0.5833333333333334,
+              "confidence": "high",
+              "matchedSignals": [
+                "weak:补贴",
+                "weak:包裹标签",
+                "weak:上架",
+                "weak:新单",
+                "weak:新入库单",
+                "context:oms_scene_f001_assist"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_package_exception_relabel_shelving",
+              "sceneName": "【入库】包裹类异常换商品标签上架",
+              "score": 2,
+              "confidenceScore": 0.16666666666666666,
+              "confidence": "low",
+              "matchedSignals": [
+                "weak:上架",
+                "weak:新入库单"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_photo_hold",
+              "sceneName": "【入库】指定商品拍照暂存",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "relabel_then_shelve"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "topK": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 7,
+              "confidenceScore": 0.5833333333333334,
+              "confidence": "high",
+              "matchedSignals": [
+                "weak:补贴",
+                "weak:包裹标签",
+                "weak:上架",
+                "weak:新单",
+                "weak:新入库单",
+                "context:oms_scene_f001_assist"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "querySignals": {
+            "text": "EB0326072531612017 登记的异常名称是：包裹内出现订单外商品 实际此异常是多个产品，客户下了多个入库单，标准无法一起操作，需要非标处理 异常单：EB0326072531612017 登记的异常是：包裹条码异常(需客户处理) 拍的产品sku：6975820906631 6975820905849 入库单：WI51383223 sku：M010000000011392253= =2066131924031494 对应第三方编码：6975820906631 入库单：WI51383191 sku：M010000000011392213 ==2066131921410054 对应第三方编码：6975820905849 标准只能填写一个入库单无法操作上架，只能通过非标处理 实物产品条码正确，第三方的编码系统已经关联，客户要求使用新入库单上架，仓库帮忙按新单补贴新单的包裹标签操作上架，帮忙更新非标报价，谢谢。",
+            "interceptHold": false,
+            "hasPhoto": false,
+            "explicitPhotoRequirement": false,
+            "hasRelabel": true,
+            "hasShelve": true,
+            "hasIdentify": false,
+            "hasPackageException": false,
+            "hasPhotoHold": false,
+            "hasDirectScanShelve": false,
+            "weighOrPhotoWithoutRelabel": false,
+            "inboundStockPhoto": false
+          },
+          "gap": 7,
+          "decisionPath": "top1=F-001(7) ≥ HIGH(7) gap=7 ≥ CLEAR(3) status=supported → supported"
+        },
+        "llm": null
+      },
+      {
+        "orderNo": "VASC000000143515",
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "failureGate": "",
+        "missing": [],
+        "matchResult": {
+          "matched": true,
+          "supported": true,
+          "category": "B",
+          "sceneKey": "inbound_label_identify",
+          "scenarioId": "inbound_label_identify",
+          "scenarioName": "【入库】尺重/标签辨识后换标上架",
+          "confidence": "high",
+          "reason": "supported_clear_top1",
+          "score": 11,
+          "candidateTemplate": "F-001",
+          "decision": "supported",
+          "confidenceScore": 0.9166666666666666,
+          "candidates": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 11,
+              "confidenceScore": 0.9166666666666666,
+              "confidence": "high",
+              "matchedSignals": [
+                "strong:辨识",
+                "weak:贴条码",
+                "weak:上架",
+                "context:oms_scene_f001_assist",
+                "structural:identify+relabel+shelve"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_package_exception_relabel_shelving",
+              "sceneName": "【入库】包裹类异常换商品标签上架",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "identify_without_package_exception"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_photo_hold",
+              "sceneName": "【入库】指定商品拍照暂存",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "relabel_then_shelve"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "topK": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 11,
+              "confidenceScore": 0.9166666666666666,
+              "confidence": "high",
+              "matchedSignals": [
+                "strong:辨识",
+                "weak:贴条码",
+                "weak:上架",
+                "context:oms_scene_f001_assist",
+                "structural:identify+relabel+shelve"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "querySignals": {
+            "text": "异常单中未扫描实物条码，需更换条码上架 包裹号DE4359761009，一共6PCS，请辨识型号更换条码： 型号为Brave 4 Pro请贴条码M010000000005194631； 型号为EK7000请贴条码M010000000005393699。",
+            "interceptHold": false,
+            "hasPhoto": false,
+            "explicitPhotoRequirement": false,
+            "hasRelabel": true,
+            "hasShelve": true,
+            "hasIdentify": true,
+            "hasPackageException": false,
+            "hasPhotoHold": false,
+            "hasDirectScanShelve": false,
+            "weighOrPhotoWithoutRelabel": false,
+            "inboundStockPhoto": false
+          },
+          "gap": 11,
+          "decisionPath": "top1=F-001(11) ≥ HIGH(7) gap=11 ≥ CLEAR(3) status=supported → supported"
+        },
+        "llm": null
+      },
+      {
+        "orderNo": "VASC000000080416",
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "failureGate": "",
+        "missing": [],
+        "matchResult": {
+          "matched": true,
+          "supported": true,
+          "category": "B",
+          "sceneKey": "inbound_label_identify",
+          "scenarioId": "inbound_label_identify",
+          "scenarioName": "【入库】尺重/标签辨识后换标上架",
+          "confidence": "high",
+          "reason": "supported_clear_top1",
+          "score": 15,
+          "candidateTemplate": "F-001",
+          "decision": "supported",
+          "confidenceScore": 1,
+          "candidates": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 15,
+              "confidenceScore": 1,
+              "confidence": "high",
+              "matchedSignals": [
+                "strong:辨识",
+                "strong:换标",
+                "weak:上架",
+                "weak:新单",
+                "weak:新入库单",
+                "context:oms_scene_f001_assist",
+                "structural:identify+relabel+shelve"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_package_exception_relabel_shelving",
+              "sceneName": "【入库】包裹类异常换商品标签上架",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "identify_without_package_exception"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            },
+            {
+              "sceneKey": "inbound_photo_hold",
+              "sceneName": "【入库】指定商品拍照暂存",
+              "score": 0,
+              "confidenceScore": 0,
+              "confidence": "low",
+              "matchedSignals": [],
+              "negativeSignals": [
+                "relabel_then_shelve"
+              ],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "topK": [
+            {
+              "sceneKey": "inbound_label_identify",
+              "sceneName": "【入库】尺重/标签辨识后换标上架",
+              "score": 15,
+              "confidenceScore": 1,
+              "confidence": "high",
+              "matchedSignals": [
+                "strong:辨识",
+                "strong:换标",
+                "weak:上架",
+                "weak:新单",
+                "weak:新入库单",
+                "context:oms_scene_f001_assist",
+                "structural:identify+relabel+shelve"
+              ],
+              "negativeSignals": [],
+              "source": "deterministic",
+              "status": "supported"
+            }
+          ],
+          "querySignals": {
+            "text": "WI41289403一共有60箱异常货物，是多出来的，且已和仓库沟通清楚，需提交增值下发任务，烦请审批 WI41289403共60箱异常货物，除附件图片箭头所指12箱（已开箱辨识过），剩余48箱做测量尺寸辨识，【尺寸为31*23*7cm 重量2.3kg】的是M010000000006223815，【尺寸为27*26*8.5cm 重量1.7kg】的是M010000000005914961，辨识后按新入库单【WI43089765】上架。 已开箱的12箱，按附件图片标识的SKU，换标后按新单上架。编号【1、3、4、6、7、9】是M010000000005914961；编号【2、5、8、10、11、12】是M010000000006223815。 最中间的大箱子，若是空箱，请直接销毁。",
+            "interceptHold": false,
+            "hasPhoto": false,
+            "explicitPhotoRequirement": false,
+            "hasRelabel": true,
+            "hasShelve": true,
+            "hasIdentify": true,
+            "hasPackageException": false,
+            "hasPhotoHold": false,
+            "hasDirectScanShelve": false,
+            "weighOrPhotoWithoutRelabel": false,
+            "inboundStockPhoto": false
+          },
+          "gap": 15,
+          "decisionPath": "top1=F-001(15) ≥ HIGH(7) gap=15 ≥ CLEAR(3) status=supported → supported"
+        },
+        "llm": null
+      }
+    ]
+  },
+  "appendix16": null
+}

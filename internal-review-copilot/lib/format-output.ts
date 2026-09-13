@@ -152,7 +152,7 @@ export function buildStructuredReview(args: {
     missingRequirements,
     sceneMatch: {
       decision: args.matchResult?.decision || "",
-      topScene: args.matchResult?.topK?.[0]?.sceneKey || args.matchResult?.sceneKey || "",
+      topScene: args.matchResult?.sceneKey || args.matchResult?.topK?.[0]?.sceneKey || "",
       confidence: args.matchResult?.confidenceScore ?? args.matchResult?.score ?? "",
     },
     materialsComplete: args.completeness?.complete ?? false,

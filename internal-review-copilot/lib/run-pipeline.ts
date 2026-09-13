@@ -5,8 +5,10 @@ import { checkCompleteness } from "./check-completeness.ts";
 import { checkDocuments } from "./check-documents.ts";
 import { buildStructuredReview, formatOutput } from "./format-output.ts";
 import { generateLlmTextSafe } from "./generate-text.ts";
-import { matchTemplate } from "./match-template.ts";
+import { resolveLlmConfig } from "./llm-client.ts";
+import { matchTemplate, matchTemplateWithLlm } from "./match-template.ts";
 import { asRecord, asText, buildAgentInput } from "./oms-adapter.ts";
+import { findScenarioCard } from "./scenario-cards.ts";
 import type {
   AgentInput,
   CompletenessResult,
@@ -49,6 +51,18 @@ export interface PipelineResult {
 
 export interface RunPipelineOptions {
   skipLlm?: boolean;
+  /** Phase 2: use rule prefilter + LLM scene classifier in match-template. */
+  sceneLlm?: boolean;
+  /** 1 = v1 旧 prompt；2 = v2 异常预查；3 = v3 自主 tool calling（默认 2）. */
+  sceneLlmVersion?: 1 | 2 | 3;
+  /** Default true when sceneLlm. False = no BM25 few-shot (A/B run A). */
+  ragEnabled?: boolean;
+  /** Skip check-requirement + match-template; force this scene into check-completeness. */
+  overrideScene?: string;
+  /** 审核员对上一版 SOP 的修改意见；只改 SOP 正文，不改场景。 */
+  sopEditInstruction?: string;
+  previousSop?: string;
+  onDelta?: (chunk: string) => void;
 }
 
 function missingList(result: Pick<PipelineResult, "missingRequirementItems" | "missingAttachments" | "missingFields">): string[] {
@@ -95,6 +109,9 @@ async function attachLlm(
     completeness: result.completenessResult,
     missing: result.missing,
     clarificationPrompts: result.clarificationPrompts,
+    sopEditInstruction: options.sopEditInstruction,
+    previousSop: options.previousSop,
+    onDelta: options.onDelta,
   });
 
   let outputPath = result.ruleOutputPath;
@@ -175,32 +192,131 @@ export async function runPipeline(
   const { contextFacts, ownerFacts } = bindContext(built.input);
   const riskFlags = checkDocuments(detail, contextFacts);
 
-  nodesHit.push("check-requirement");
-  const requirement = checkRequirement(built.input.customerIntent, contextFacts);
-  if (!requirement.complete) {
-    const base: PipelineResult = {
-      orderNo,
-      outputPath: "needs_requirement_clarification",
-      ruleOutputPath: "needs_requirement_clarification",
-      node: "check-requirement",
-      nodesHit,
-      failureGate: "check-requirement",
-      missingRequirementItems: requirement.missingRequirementItems,
-      missingAttachments: [],
-      missingFields: [],
-      missing: requirement.missingRequirementItems,
-      clarificationPrompts: requirement.clarificationPrompts,
-      requirementCheck: requirement,
-      contextFacts,
-      ownerFacts,
-      agentInput: built.input,
-      riskFlags,
+  const overrideKey = (options.overrideScene || "").trim();
+  let requirement = checkRequirement(built.input.customerIntent, contextFacts);
+  if (!overrideKey) {
+    nodesHit.push("check-requirement");
+    if (!requirement.complete) {
+      const base: PipelineResult = {
+        orderNo,
+        outputPath: "needs_requirement_clarification",
+        ruleOutputPath: "needs_requirement_clarification",
+        node: "check-requirement",
+        nodesHit,
+        failureGate: "check-requirement",
+        missingRequirementItems: requirement.missingRequirementItems,
+        missingAttachments: [],
+        missingFields: [],
+        missing: requirement.missingRequirementItems,
+        clarificationPrompts: requirement.clarificationPrompts,
+        requirementCheck: requirement,
+        contextFacts,
+        ownerFacts,
+        agentInput: built.input,
+        riskFlags,
+      };
+      return attachLlm(base, options);
+    }
+  } else {
+    requirement = {
+      ...requirement,
+      complete: true,
+      missingRequirementItems: [],
+      clarificationPrompts: [],
     };
-    return attachLlm(base, options);
   }
 
+  let matchResult: MatchResult;
+  if (overrideKey) {
+    const card = findScenarioCard(overrideKey);
+    if (!card) {
+      const base: PipelineResult = {
+        orderNo,
+        outputPath: "transfer_human",
+        ruleOutputPath: "transfer_human",
+        node: "match-template",
+        nodesHit,
+        failureGate: "match-template",
+        missingRequirementItems: [],
+        missingAttachments: [],
+        missingFields: [],
+        missing: [],
+        clarificationPrompts: [],
+        requirementCheck: requirement,
+        matchResult: {
+          matched: false,
+          supported: false,
+          category: "C",
+          sceneKey: overrideKey,
+          scenarioId: overrideKey,
+          scenarioName: "",
+          confidence: "",
+          reason: "override_scene_not_found",
+          score: 0,
+          candidateTemplate: "",
+          decision: "unsupported",
+          confidenceScore: 0,
+          candidates: [],
+          topK: [],
+        },
+        contextFacts,
+        ownerFacts,
+        agentInput: built.input,
+        riskFlags,
+      };
+      return attachLlm(base, options);
+    }
+    matchResult = {
+      matched: true,
+      supported: true,
+      category: "B",
+      sceneKey: card.sceneKey,
+      scenarioId: card.sceneKey,
+      scenarioName: card.sceneName,
+      confidence: "high",
+      reason: "override_by_auditor",
+      score: 100,
+      candidateTemplate: card.sceneName,
+      decision: "supported",
+      confidenceScore: 1,
+      candidates: [],
+      topK: [],
+    };
+  } else {
   nodesHit.push("match-template");
-  const matchResult = matchTemplate(requirement.normalizedRequirement, contextFacts);
+  // sceneLlm=true → 规则+LLM；skipLlm 只控制 SOP 生成，不强制关掉显式 sceneLlm。
+  if (options.sceneLlm === true) {
+    try {
+      const llmConfig = resolveLlmConfig();
+      const version =
+        options.sceneLlmVersion === 1 ? 1 : options.sceneLlmVersion === 3 ? 3 : 2;
+      matchResult = await matchTemplateWithLlm(
+        requirement.normalizedRequirement,
+        contextFacts,
+        llmConfig,
+        version,
+        { ragEnabled: options.ragEnabled },
+      );
+    } catch (err) {
+      const fallback = matchTemplate(requirement.normalizedRequirement, contextFacts);
+      const msg = err instanceof Error ? err.message : String(err);
+      matchResult = {
+        ...fallback,
+        llmUsed: false,
+        llmClassification: {
+          matchedScene: "unsupported",
+          confidence: "low",
+          reasoning: `sceneLlm 初始化失败，降级纯规则: ${msg}`,
+          extractedActions: [],
+          alternativeScenes: [],
+          ambiguous: true,
+        },
+      };
+    }
+  } else {
+    matchResult = matchTemplate(requirement.normalizedRequirement, contextFacts);
+  }
+  }
   if (!matchResult.supported) {
     const base: PipelineResult = {
       orderNo,

@@ -1,0 +1,78 @@
+{
+  "sceneKey": "instock_audit_inventory",
+  "sceneName": "【库内】审计盘点",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250407039",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.2",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "盘点",
+      "审计",
+      "盘亏",
+      "盘盈",
+      "差异分析",
+      "调账",
+      "库存准确性",
+      "动态盘点"
+    ],
+    "weak": [
+      "工时",
+      "加班工时",
+      "监督",
+      "视频拍摄",
+      "拆箱",
+      "盘点范围"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库",
+      "换标",
+      "条码",
+      "预报",
+      "自提",
+      "串仓"
+    ],
+    "soft": [
+      "拍照",
+      "暂存",
+      "辨识",
+      "下架"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】指定商品拍照暂存的区别：盘点是对已在库商品进行清点核对，而拍照暂存是入库环节的操作",
+    "和【入库】商品质检的区别：盘点关注库存数量准确性和盘亏盘盈，质检关注商品质量状态",
+    "和【入库】商品下架后换入库单重新上架的区别：盘点是库存核查，不涉及下架重新上架操作",
+    "盘点场景的核心是库存数量核对、差异分析和调账，而不是商品的物理移动或状态变更"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确盘点范围（全库/指定SKU/指定仓库/指定区域）",
+    "动作：盘点方式（动态盘点/静态盘点）、监督方式（到仓监督/远程视频）、是否拆箱、是否拍摄",
+    "去向：盘点后的差异分析时间要求、调账处理要求、盘点报告输出要求"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确盘点范围和时间窗口",
+    "说明盘点方式（动盘/静盘）和监督方式",
+    "列出盘点具体要求（是否拆箱、是否视频、是否需要人员照片等）",
+    "强调工时计费规则，特别是加班工时按1.5倍计算的提醒",
+    "明确盘点后工作（输出盘亏盘盈数据、差异分析时限、调账处理）"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.2. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407039."
+}

@@ -8,17 +8,19 @@
 
 **VIP客户协议价汇总：**[【VIP客户】增值协议价汇总（可实时补充）](https://winitlink.feishu.cn/wiki/M9Pzw4PnHihWCtkPaPRcu9NMnDC)
 
-关联SOP/模板：
+关联SOP/模板：diaobo 
 
 [商品下架单审核SOP](https://winitlink.feishu.cn/wiki/ESRiwoWiBiRWJ0kk8tKcP7hGnSg)
 
 非标需求提交模板：[非标增值服务SOP模板 及 填写示例](https://winitlink.feishu.cn/wiki/LFBPwJmKdi0p9ekn38JcsaBmnpe)
 
-[上架前辨识需求提交模板\.xlsx](图片和附件/上架前辨识需求提交模板.xlsx)
+非标增值陈总审批通过场景：[【非标增值】询价工作表](https://winitlink.feishu.cn/wiki/XYgWw1mEaiA05KkWocvcRlFMnyb?renamingWikiNode=true&table=blkHvz8EAFQw38wx#CategoryAutomatedNotification)
 
-[库内辨识需求提交模板\.xlsx](图片和附件/库内辨识需求提交模板.xlsx)
+\[上架前辨识需求提交模板\.xlsx\]
 
-[增值出入库处理费计算器\.html](图片和附件/增值出入库处理费计算器.html)
+\[库内辨识需求提交模板\.xlsx\]
+
+\[增值出入库处理费计算器\.html\]
 
 **注意：该计算器的报价需要根据公开价卡版本进行更新，此版本计算器使用的价卡版本为****：WINIT增值与异常服务价格表202607****。**
 
@@ -62,20 +64,20 @@
 
 |环节|场景数|Top场景|
 |---|---|---|
-|入库|\~55个|尺重/标签辨识后换标上架、批量补贴条码、海运整柜异常、包裹串仓|
+|入库|\~55个<br>|尺重/标签辨识后换标上架、批量补贴条码、海运整柜异常、包裹串仓|
 |库内|\~90个|货权转移、审计盘点、良品/不良品检测、代采购包材、拆分SKU|
 |出库|\~25个|补贴标签、暂存、拦截、自提|
 |退货|\~5个|退货超期找回|
 
 工时最低报价：在公开价卡里面的
 
-![image\.png](图片和附件/image%208.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=YTk0MWI3ODZiZGQ1NWQ4ZTRmM2E3OTM2YTliZmMyNjlfZTY2NGM0NWM1MTU4M2Y4YmYxMWFjZjRmMGVmZWMxMDZfSUQ6NzYzODkzMjA5MTIyNTAzMzkyNV8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ### 1\.3 新增场景概述
 
 路径：TOM\-配置管理\-基础配置\-新增类型选择：增值审核场景概述编码：当天日期名称需要区分【入库/库内/出库】
 
-![image\.png](图片和附件/image%2013.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=YmEzNmY5NWIzYmQyMDVjOWUwMjFhNmQ3ZTU3YmMwZGZfZDhmNjc3ZjU0NTNjMzlmZjk2YzdlNGE0OGI0ZDNlMzlfSUQ6NzYzODkzMjA4MDIzNTYxMzM4Ml8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 
 
@@ -105,7 +107,7 @@
 
 9、代采购包材审批时需要把采购成本登记到预估成本里。
 
-![image\.png](图片和附件/image%2012.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=MDhjMWFiYTIyNDQ1YWEwYmFjYzEwZjVmY2ExYWJhN2FfZjJiZGE2ZGJkNTkzYzM0ZTZhMWNjODk5Y2M5ZTQ0MzRfSUQ6NzY1MjM1MjI5NTU1NzEyMzA0N18xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ### 入库非标特批处理方式选择项说明：
 
@@ -119,7 +121,7 @@
 
 5. **有异常单要做新单上架的，增值单提交时必须要关联异常单提交增值 ！！ **** **
 
-![image\.png](图片和附件/image%2011.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=MzE3N2JkYzhjOTU4ODg5ZjM2ZTk0NjViYzU2ODU5ODRfZmExNTUxNzRhNjdjOGFmMmEyNDBhNGM1ZTM0MGU3ZDBfSUQ6NzYzODkzMjA5NzUyMjQzNzMzMl8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ### 2\.1 【入库】尺重/标签辨识后换标上架（Top1 \- 112条）
 
@@ -272,9 +274,10 @@
 目的仓库：[仓库代码]
 
 仓库操作步骤：
-（可串仓调拨，如德国）
+（可串仓调拨，如德国1和德国2）（KY5-KY3）
 1. 识别异常包裹
-2. 更换目的仓库入库单包裹标签（如需要）
+2. 更换目的仓库入库单包裹标签（如需要）】包裹条码批量异常辨识后
+补贴上架
 3. 使用摆渡车/调拨流程转至[目的仓库]
 4. 目的仓库按新入库单上架
 **注意：原单由质控终止后商品是可以用原单在目的仓库正常上架的。原单的终止异常不影响原单上架。**
@@ -288,9 +291,11 @@
 3、贴完后暂存等快递上门自提；
 4、提供目的仓的新入库单正常走上架流程.
 
+运输毛利25%
+KY3-KY5仓间调每托成本25USD，收费计算：每托33.3usd
 ```
 
-![image\.png](图片和附件/image%2017.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=YzVjYzA1MzhmYTZkNjNlZmRjMWJmYzVhNzYyYzViMzlfODA3NGY4NGFlY2M4MWUyOGRhOTM0MGJhNzcwMzk1OGZfSUQ6NzY0MTIyOTk1ODk1Nzg5NDU4Nl8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 **示例：**
 
@@ -309,6 +314,8 @@
 审核不通过原因 : 仓库暂时无法提供该服务
 补充说明:您好，由于两个仓库的距离较远，仓库无法提供调拨服务，请您提供快递面单并提交入库上架前自提，仓库可以帮您贴面单，之后在目的仓按新入库单正常走上架流程即可，谢谢。
 
+案例3：VASC000000327054 从USWC仓调拨至USWC2仓
+需要查询看尾程价卡对应的区域，
 ```
 
 ---
@@ -351,7 +358,6 @@
 需要告知可以提货时需要用该增值单作为提货码；在审核的时候通知客户。
 收入：按公开价上架前自提费
 
-
 ```
 
 ---
@@ -376,6 +382,7 @@
 ```
 
 ```Plain Text
+案例：VASC000000270000                
 【背景】EB0126032028217574中43件a+包裹都是退货，历史拍照过一次，由于当时提供的拍照需求没有要求带数字标识，导致客户对仓库回复的图片无法辨识定位，客户没办法指定包裹进行（销毁/上架）处理，故需仓库重新拍照。
 仓库操作流程：
 1、仓库需要对每个包裹做自制明显的数字标识，（比如：01、02、03....42、43这样或者其他编码样式），并与包裹一一对应，且粘贴在包裹上。
@@ -575,6 +582,10 @@ VASC000000268452
 24件：13秒
 这些纸箱垃圾处理费成本，压纸箱运输+压的人工成本，差不多1个工时/托，员工薪资成本22美金/小时，压纸箱机一个月租金700美金。
 
+**黑金刚渔具**（**拆胶带、倾倒、拆后纸箱5S，约29S一件，有效输出率0.8，约36S一件）**
+入库拆中箱要求：①中箱得是A包，上架前拆中箱需求要提交入库非标特批增值单，在入库单到仓前就得提交增值单成功，下单以选中要拆箱的大包裹的包裹条码，以便上架前拦截货物。②拆中箱报价是0.45USD/中箱，计费数量按中箱数量，增值单有最低收费，最低收费45USD/增值单。
+
+
 ```
 
 ```Plain Text
@@ -741,7 +752,7 @@ M010000000007778990
 
 ### 2\.24【入库】更换winit包装
 
-![img\_v3\_0211t\_e698bf84\-fc61\-4679\-8761\-896ef542357g\.jpg](图片和附件/img_v3_0211t_e698bf84-fc61-4679-8761-896ef542357g.jpg)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=NjY2ZjU0ZWIwODE5N2QzNDA4NTdlZjMzMWJhN2EzYjVfNGI5NDQ4MWExOWNlYjNmYWMzYzgyOWM1ZGMyYjNiOTVfSUQ6NzY0MjMzODIyNTA1ODg2MDIyM18xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ```Plain Text
 **1、如果是使用WINIT标准包材（快递袋，气泡袋，纸箱）则加包装收费规则更改如下：**
@@ -907,7 +918,7 @@ WI49651117==B0400000001406459744；
 收入：增值-商品组合拆分费。
 ```
 
-[2025\-09\-05 PGK728WRHK Box\-In\-Box Repack instruction 1 \- revised\.xlsx](图片和附件/2025-09-05%20PGK728WRHK%20Box-In-Box%20Repack%20instruction%201%20-%20revised.xlsx)
+\[2025\-09\-05 PGK728WRHK Box\-In\-Box Repack instruction 1 \- revised\.xlsx\]
 
 
 
@@ -938,9 +949,21 @@ WI49651117==B0400000001406459744；
 文件内有盖章要求，需要客服/销售走OA盖章申请流程；
 处理方式可选自提。
 
-[仓库未收到货证明函模板\.docx](图片和附件/仓库未收到货证明函模板.docx)
+\[仓库未收到货证明函模板\.docx\]
 
+### 2\.33【入库】包裹条码批量异常\(需客户处理\)"辨识后补贴包裹标签上架
 
+```Plain Text
+异常编号：[EBxxx]
+新入库单：[WIxxx]
+
+仓库操作步骤：
+1. 根据异常单找到异常商品
+2. 根据客户提供的辨识方法做辨识；补贴包裹标签 × [数量]
+3. 补贴包裹标签 × [数量]，并上架到新入库单[WIxxx]
+4. 将异常单状态变更为已完成，关闭异常单。
+
+```
 
 ---
 
@@ -972,9 +995,9 @@ WI49651117==B0400000001406459744；
 
 货权转移IT改数的按以下方式录入：收费标准：当地币50一单。
 
-![image\.png](图片和附件/image%203.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=OTJiZDRmZTNiMWVjMmE2ODM2YTA5M2JlNzQzNDNkNDlfZjJkYmExMTMzYzExZTY4N2ViNDIyMzU2OWI3N2M2N2NfSUQ6NzYzODkzMjAyMzI4MTgzMTExMl8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
-![img\_v3\_02110\_bcd21b4a\-4f0f\-441d\-bff6\-9130acd4f05g\.jpg](图片和附件/img_v3_02110_bcd21b4a-4f0f-441d-bff6-9130acd4f05g.jpg)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=NGM2YjlhZTYxOGU3OGE4YTkxZTQxOGYzY2E0OTFkMDFfNWVmOWU4YzQ1MDJkOGEzNGE3ZTYzMzgxNjE4YmI3ZTNfSUQ6NzYzODkzMjAyOTI4MzY2NzE0MV8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ---
 
@@ -1004,7 +1027,7 @@ WI49651117==B0400000001406459744；
 
 [审计盘点申请表（已填写） 4\.13](https://winitlink.feishu.cn/sheets/VWuxs4LcUh6mF7t9PmjcpkOLnYf)**备注：计费按照仓库的实际工时计费，由仓库关闭增值单时填写；仓库完成盘点后要跟仓库确认是否有加班工时；若是加班工时则需要按照1\.5倍来计算\!**
 
-![image\.png](图片和附件/image%205.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=NTcyMjU5OWQ3YTJlMDAzMTgzODI5YzZlMTMzM2Q0M2NfNGQ2NWNmNzAyMTljZTkzMzVjM2EwNGFlN2VhYWE0MDdfSUQ6NzYzODkzMjA2MTk3NzkyMjc4Ml8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 **注意：仓库再系统中填写的工时是系统以正常工作日的工时收费来计算，而若存在加班工时，则需要重新计算并要求销售客服提交新的增值单做补收****差价****。**
 
@@ -1019,7 +1042,7 @@ WI49651117==B0400000001406459744；
 > 
 > 
 
-![image\.png](图片和附件/image%202.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=ZTc0YWUzNDU5YTk0ZTUzZmVhNjgyNjRjNGU3ZDIzZDNfMjUzMjliODFhMDMzMDg5OGYzYzFiMTRjNzI4YjUzMmZfSUQ6NzYzODkzMjA2NDYxNDU2NzExMF8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 **示例：**
 
@@ -1063,6 +1086,8 @@ WI49651117==B0400000001406459744；
 
 ### 3\.4 【库内】代采购包材物料（29条）
 
+[WINIT 代采购流程](https://winitlink.feishu.cn/wiki/Oom4w9owGirNMZkAyciccxFdnHh)
+
 **场景一定义：** 仓库协助客户采购包材/标签等物料**标准SOP模板：**
 
 ```Plain Text
@@ -1086,9 +1111,9 @@ WI49651117==B0400000001406459744；
 
 > 示例：VASC000000266085\-\-拓竹客制包材采购采购的SLA按15天的标准给[【仅内部看】客制包材代采购](https://winitlink.feishu.cn/wiki/R5C9wx2zKipysGkmGkscKDzVnSv)
 > 
+> 拓竹代采购包材的毛利是20%；
 > 
-
-拓竹代采购包材的毛利是20%；
+> 
 
 **场景二定义：客户委托万邑通代为采购商品（****非客制包材****）**
 
@@ -1307,7 +1332,7 @@ AU：https://autom.winit.com.cn/Home/Index/index
 选择云仓，见下示例图
 ```
 
-![image\.png](图片和附件/image%207.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=MThlODJkMTJkZjZmOTFjNzQ4MDJjOThiNDU5ZjZmZDFfNTU3MjI5ODhjZDM0MTRhNWQ5NDRlZmUyZDdjOGI0OThfSUQ6NzYzODkzMjAzNDU4OTcyMzg1N18xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ---
 
@@ -1330,16 +1355,16 @@ AU：https://autom.winit.com.cn/Home/Index/index
 4. 原商品条码直接上架（不换标）
 5. 作废出库单冻结的库存做L007盘亏备注
 6. 关闭异常单EBxxx
-
+注意：仅原sku返架，不需要额外收取增值费用和出入库处理费。
 ```
 
-![image\.png](图片和附件/image%204.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=NGExODU1MWMwNjM1OWZmNmEwYmRiNTYzNWU1MGJmZTVfNDMxYzBkMzFlNDcyZmY5NjBiOWI3NmI0MDEyMDM1MjlfSUQ6NzYzODkzMjA0Mzg3MDg1MDIzM18xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
-![image\.png](图片和附件/image%209.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=NWZiNWFmZDVjZDlhNjFkOTM3YjMzYWJjOWQwOTE1MjZfMmEyYmUzMzA4ODc1NmQ1NzQwNjk5MjMyZDVjY2ExNzRfSUQ6NzYzODkzMjEwMzM4MDMwNzE0MF8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
-![image\.png](图片和附件/image%2018.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=NGZmMDU4YmU4ZWNiY2E4MmI0ZjE3OGQ4MzI0OGFjNjJfMmI2ZGRmNGEyNjYyYzY1MGZlZDc2MGY2MDI3YTNiZjdfSUQ6NzYzODkzMjA3NDI4NzcyOTg1OF8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
-![image\.png](图片和附件/image%2016.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=YjliNDEyN2VmM2Y3N2MzNzE1YWM5YzMwZDAzMmE3OGVfYWZiY2NhYWY1YzZiMTU0NDkyYjBlN2Q5MDUxYzkzZmNfSUQ6NzYzODkzMjExMDM5NDczOTg5MF8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ---
 
@@ -1365,7 +1390,7 @@ AU：https://autom.winit.com.cn/Home/Index/index
 
 ### 3\.13 【库内】非标收费
 
-![image\.png](图片和附件/image%2014.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=MTEyOTJiYTdlMmU5ZTY3MjFmZTg0MzM2ZDFiZTA2NWZfMmNlOWE1YmJiN2I1MWQ3NTcxOWNkNzgxOGNjMzEyMWZfSUQ6NzY1NzEwMTQwNzE0NjEwMTk5MV8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 案例：VASC000000309390
 场景：当客户在仓库无库存时，有额外做过IT改数操作的需要补收改数费用，但是因为库内无库存，无法提交库内非标增值，因此可选择采取这种方式。
@@ -1383,12 +1408,9 @@ AU：https://autom.winit.com.cn/Home/Index/index
 判定结果：不良品
 
 操作步骤：
-1. 商品下架
-2. 判定为不良品
-3. 移至不良品暂存区
-4. 使用不良品入库单上架
-5. 提供不良品照片[X]张
-6、关闭异常单EB0426041728882170，使其状态更新为“仓库已处理”。
+1. 异常单商品做解冻，并盘亏L007，然后将异常商品实物下架更换新入库单上架。
+2. 下架商品按新入库单WI做整单不良品上架
+3. 关闭异常单EBXXX，使其状态更新为“仓库已处理”。
 注意：入库单一定得是无箱单预报单；且转不良品上架不需要贴商品标签，只收取出库处理费。
 
 示例：VASC000000284952、VASC000000281571 。
@@ -1586,6 +1608,7 @@ SKU：[M01000000000xxxxx]
 要求以及备注可参照3.9【库内】指定单品/库位商品更换标签上架；
 新的标签建议使用 5cmX2.5cm 的规格打印（商品的小标签） ，通常的标签是15cmX10cm
 
+自由创新：开箱补贴产品介绍标签，拆箱贴介绍标签操作费用按照3USD/件，同VASC000000281511一致。
 ```
 
 ### 3\.23 【库内】辨识拍照后销毁
@@ -1639,7 +1662,7 @@ VASC000000271308--为什么不是标准增值？--因为是部分库存指定销
 > 
 > 
 
-![image\.png](图片和附件/image.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=ODdiODVmY2I0YTkzYjQ1OGYxYjdmN2YxZjc5NjAyNzhfOTk5YmEzNmE4MzY2N2FjN2QwZDJjOTYxMjViZmFhZjFfSUQ6NzYzODkzMjA0ODkxOTY3ODE1NF8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ### 3\.26【库内】采集SN码
 
@@ -1663,9 +1686,9 @@ VASC000000271308--为什么不是标准增值？--因为是部分库存指定销
 
 ```
 
-![img\_v3\_0211g\_fa6bace9\-d157\-40df\-8bb1\-dd24a078cffg\.jpg](图片和附件/img_v3_0211g_fa6bace9-d157-40df-8bb1-dd24a078cffg.jpg)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=NzdjZGE2NTM3M2Y3NDliNjM2MDViY2M3MzExZDMzM2ZfYTJjZmM5NmJhNDNhZTBjMmQwZDBlMzRhZDhkYmI1NTBfSUQ6NzYzODkzMjA1NDYzMzg2MDMwNl8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
-### 3\.27【库内】 代购包材
+### 3\.27【库内】 代购包材\-拓竹
 
 ```Plain Text
 整理输出客户代购包材需求表，参照《拓竹待采购包材清单》；
@@ -1679,7 +1702,7 @@ VASC000000271308--为什么不是标准增值？--因为是部分库存指定销
 
 ```
 
-![image\.png](图片和附件/image%2015.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=MzZmZWZjMzBlNDI5Y2IxNDlmOTA4MjdjNDRmNTM2NGVfNTI0ZGEyNzQzNDFmNzg4OWM2NzVhM2JmNDdmM2M0ZWRfSUQ6NzY1MjMzNjQ2OTMwNjAzNTM3OF8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 代购包材审核时需要录入成本，录入采购成本。
 
@@ -1687,7 +1710,7 @@ VASC000000271308--为什么不是标准增值？--因为是部分库存指定销
 
 [【仅内部看】客制包材代采购](https://winitlink.feishu.cn/wiki/R5C9wx2zKipysGkmGkscKDzVnSv)
 
-![image\.png](图片和附件/image%201.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=Y2U3MzhhNDRhNzZmZTgzNWMwNThlNTNmNzBiNzBkZDZfYTc5NGFmZWUzZmJlNDgwZGM4YTY0NjRiMTZiZTVmNjhfSUQ6NzYzODkzMjAxNzMzNzk0NTI4MV8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ### 3\.28【库内】货权转移（换标模式）
 
@@ -1714,6 +1737,7 @@ VASC000000271308--为什么不是标准增值？--因为是部分库存指定销
 
 
 计费方式：有仓内上下架单据可按照全部贴标的价格来计算，若无单据可按部分贴标价格
+要收辨识费，可以按照sku数收取，不用收取全部单品数量。
 
 ```
 
@@ -2069,7 +2093,7 @@ Step 4：仓库操作寄出
 
 操作人权限：调度\+组长
 
-![img\_v3\_02k9\_2395e7b3\-ec53\-4d4a\-b837\-6ffaf24e088g\.jpg](图片和附件/img_v3_02k9_2395e7b3-ec53-4d4a-b837-6ffaf24e088g.jpg)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=YWM2YjM0MTkxMTlmOWM2NmYyZTEyOGVjOWYyNTk5MzBfYjgwMDVlNTBjN2EyNTdiMWM2ZjE2NTMzNjhhMThjNDRfSUQ6NzY0MDA0NzgxMDEwNDM4MDM0N18xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 ### 3\.35【库内】商品贴指令性标签（警示标语/使用说明/清洁维护等）\+拍照
 
@@ -2125,7 +2149,19 @@ Step 4：仓库操作寄出
 2、以出库单的包裹信息下目的仓入库单，同时用出库单的包裹条码作为第三方包裹条码关联入库单
 ```
 
-### 3\.41 【库内】良品转不良品上架
+### 3\.41【库内】库内仓间调拨\-Anker
+
+```Plain Text
+案例：VASC000000309039    
+  仓库操作流程：
+1、DE仓下架单：WO11621025965；DEBR2上架单：WI50752532；
+2、请帮忙把AS320011从DG仓转到普仓做上架。
+
+**Anker  ：库间调拨-运输费：25本地币/托**
+
+```
+
+### 3\.42 【库内】良品转不良品上架
 
 **客户下单解决方案：**
 
@@ -2165,7 +2201,7 @@ case2：VASC000000313506
 
 2. 然后仓库重新用原入库单WI50351073上架61pcs T520QJ20（M010000000011878557），不良品，上架后重新回传上架数据给Anker。
 
-@许晓妍 你审核这个增值单时，SOP要求要仓库：
+SOP要求要仓库：
 
 1. 先将WI50591614上架的M010000000011878557不良品实物移库，然后用原入库单WI50351073上架61pcs T520QJ20（M010000000011878557）做良品上架。
 
@@ -2175,7 +2211,7 @@ case2：VASC000000313506
 
 
 
-### 3\.42【库内】箱转单一
+### 3\.43【库内】箱转单一
 
 ```Plain Text
 箱转单一需要客户走 箱转单一流程，提供WT单号。
@@ -2185,9 +2221,26 @@ case2：VASC000000313506
 仓库操作流程：
 1、库存调整单：WT010013961556，库存调整单从箱产品转单一产品，仓库反馈一共有33个sku，实物需补贴winit码再上架，标签见附件，请帮忙操作.
 2、将M010000000007144889多余原库存盘亏L006.
+
+案例2：
+    VASC000000315372 WO11660107178 WI50960492 这个增值单的货物我看信息流是都是已完成，新入库单也是已上架，需要仓库核实下实物是否是按新入库单WI50960492 上架了？
+    你这不是箱转单一产品，然后再将单一产品库存做换新SKU上架的场景吗？为什么不是走标准的箱转单一库存调整单，然后再走库内轻加工-更换商品标签的标准增值？
+**以后这类场景一律按标准流程下单。**有标准流程的让客户走标准流程，无标准流程才能走非标。
 ```
 
-### 3\.43【库内】剪轧带/剪绑带
+异常单冻结状态下，箱产品无法转成单一商品。
+
+**单一品无法转成箱产品，因为库内无法保证商品有原箱。**
+
+```Plain Text
+案例单号：VASC000000320376
+【背景】这个异常单是国内直发的整箱类型库存，整箱库存内部商品破损所产生的异常，该整箱商品内部的产品有部分破损，部分完好，客户想将破损的产品销毁，完好的商品正常上架。
+仓库操作流程：
+1、将EB0426070931164183中商品根据附件中的图片进行辨识，将需要销毁的2pcs单品按照附件辨识出来后，进行销毁处理。
+2、剩余30pcs商品重新补贴标签，用新标签覆盖原标签，对原箱进行加固，上架到WI51136500 。
+```
+
+### 3\.44【库内】剪轧带/剪绑带
 
 ```Plain Text
 案例：VASC000000315435
@@ -2203,24 +2256,73 @@ case2：VASC000000313506
 2、剪扎带：0.3USD/单品==是某个特定客户价格
 ```
 
-### 3\.31【库内】单品化管理的SN处理场景
+### 3\.45【库内】单品化管理的SN处理场景
 
 [单品化管理的 SN 处理场景](https://winitlink.feishu.cn/docx/AMZkdOlqKoGFbCxNStwcAuVlnUd)
 
-### 3\.32【库内】单品（S码或SN码）二次上架
+### 3\.46【库内】单品（S码或SN码）二次上架
 
 ```Plain Text
-二次上架要求：1、单品全部下架出库完成；2、入库单用 海外验/商品仓内上架-含查验验货
+二次上架要求：
+1、单品全部下架，并出库完成，信息流需显示”已出库“；
+2、入库单用 海外验/商品仓内上架-含查验验货
 
 可以提交库内辨识和库内轻加工两个标准增值。
 可根据单品码进行部分辨识换标
 ```
 
-![img\_v3\_0213m\_68164ef1\-af6d\-4d43\-8a8c\-6425f9697a9g\.jpg](图片和附件/img_v3_0213m_68164ef1-af6d-4d43-8a8c-6425f9697a9g.jpg)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=NzA2NTMzMTkxYTc0YTdkMmZiZTUxYTU2ZTUxYzI0YjhfNzhiMDUyNDAwMzUzNzU2MTMzYmVkZGJlODM1ZjAyNDhfSUQ6NzY2MzQxODAxODY2Nzk1NzE3N18xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
+### 3\.47【库内】修改商品编码名称
 
+```Plain Text
+案例：VASC000000326892        
+客户需要换一批sku，需要winit直接把客户之前注册的 sku编码改了，m码不变。
+需提交OA改数流程，收取改数费。
+仓库操作流程：
+此类增值仅用于收费，IT系统改数，无需仓库实物流操作。仓库将增值单状态更新为“仓库已处理”。
+```
+
+### 3\.48【库内】测试标签打印效果
+
+```Plain Text
+案例：VASC000000334005
+【背景】因德国仓即将引进一家分销商，分销商对外包装标签的尺寸和数据的读取有一定的要求，不符合要求会产生罚款，所以需要仓库配合测试一下。
+仓库操作流程：
+1、将附件的标签用10*16cm的热敏纸打印一张并拍照回传，需要拍摄内容清晰完整。
+2、仓库用扫描枪识别打印出来的标签，并回传PDA扫描结果的图片，需要拍摄内容清晰完整。
+
+收费：
+仓库动作：
+打印文件，费用项：增值-包裹标签粘贴/更改/清除
+单品外观拍照，费用项：增值-拍照费
+```
+
+### 3\.49【库内】检查商品尺重（退货商品）
+
+```Plain Text
+该增值由商品组进行审批。案例：VASC000000246354。
+审核的时候需要同步发起复测修改尺重的。
+```
+
+### 3\.50【库内】指定箱产品内单品不开箱（内部单品不能拆销售包装）拍照
+
+```Plain Text
+注意：
+1、需要提醒客户把箱产品做冻结或停止推单。让仓库在库位上开箱拍照。
+```
 
 ---
+
+### 3\.51【库内】在库商品包仓维修
+
+参考这个知识库审核[在库商品维修流程](https://winitlink.feishu.cn/wiki/GsJXwUIE3is8dikX5bmcOo94n2h?fromScene=spaceOverview)
+
+[客户包仓维修需求跟进表\-模板](https://winitlink.feishu.cn/wiki/Hnv8wksKzi047AkMRctcAHLxnjg?renamingWikiNode=false&sheet=iKzP9c)模板里有报价需要考虑的维度及费用项
+
+
+
+
 
 ## 四、出库场景SOP
 
@@ -2311,7 +2413,7 @@ case2：VASC000000313506
 
 需要查询一共要贴多少个包裹/快递面单，查询路径：TOM\-\-出库单\-\-详情\-\-打包明细
 
-![image\.png](图片和附件/image%206.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=NTUwZDc0ODM0MTBiMWU5NTFiNDgyYWY1MzUzMjljMDVfYmY5NmZhMmExNmU5OWVlNTIzMGUxNDAxNzk4ODgwNDlfSUQ6NzYzODkzMjA4Mzc3MjE2NTMxOV8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 
 
@@ -2518,7 +2620,7 @@ xxx,　xxx　这２个只需要在外箱上补贴商品标签，然后补贴包�
 |100%A\+包裹更换商品包装|A\+包无法支持换包装增值|联系仓库评估|
 |已完成上架的包裹要求更换包裹条码|系统逻辑不支持|需先下架再重新入库|
 |超期无主货（超6个自然日）找回|已过期限，商品已销毁|无法找回|
-|批量补贴包裹条码但不提供新入库单|无法创建增值|客户必须先创建新入库单|
+|批量补贴包裹条码但不提供新入库单|无法创建增值|客户必须先创建新入库单<br>|
 
 ### 7\.2 库内环节
 
@@ -2610,7 +2712,7 @@ xxx,　xxx　这２个只需要在外箱上补贴商品标签，然后补贴包�
 
 需要按照模板上传操作数据
 
-模板：[ImportTemplate\.xlsx](图片和附件/ImportTemplate%201.xlsx)
+模板：\[ImportTemplate\.xlsx\]
 
 必要条件：冻结的商品数量是在库全部库存数量 系统截图
 
@@ -2640,11 +2742,11 @@ xxx,　xxx　这２个只需要在外箱上补贴商品标签，然后补贴包�
 
 需要按照模板上传操作数据
 
-模板：[ImportTemplate\.xlsx](图片和附件/ImportTemplate.xlsx)
+模板：\[ImportTemplate\.xlsx\]
 
 必要条件：ECho 审批同意截图，或在群里有说过同意,上传审批同意、审批通过的截图
 
-![image\.png](图片和附件/image%2010.png)
+![Image](https://internal-api-drive-stream.feishu.cn/space/api/box/stream/download/authcode/?code=ZmM1ZjcyYmJmYzI4NWIzN2EyOTM5ODQ4ZGI3NmU2NGJfNTcwNmY4OGMxZWZiMTQ1MGM1MDI5NDMxM2I0OGZhMzZfSUQ6NzY2MTg3NzA5NTAzNTM0MTc2Ml8xNzg4OTQ2MTk4OjE3ODkwMzI1OThfVjM)
 
 
 
@@ -2654,7 +2756,39 @@ xxx,　xxx　这２个只需要在外箱上补贴商品标签，然后补贴包�
 
 ---
 
-## 
+## 九、冻结库存流程更新
+
+
+
+**2\.1 先按标准拿到客户输入标准信息：**
+
+**客户输入标准：**
+
+1. 商品SKU编码，条码、所在的仓库
+
+2. 冻结的商品数量是否是在库全部库存数量：是、否
+
+3. 冻结的商品是否有批次管理：是、否
+
+4. 冻结商品的依据（例如：批次号、入库单\.\.\.）
+
+5. 商品需要冻结的原因
+
+6. 冻结后客户的后续处理方案
+
+**2\.2 ****冻结的商品数量是在库全部库存数量****，需要Echo审批，直接申请蓝凌改数工单冻结；**
+
+**销售/客服提交蓝凌工单：路径：在S5\-017\-非标请求\-数据修改 \-改数场景：库存\-库存冻结/解冻\-库存冻结/解冻，选择不收费。**
+
+需要按照模板上传操作数据
+
+模板：\[ImportTemplate\.xlsx\]
+
+必要条件：冻结的商品数量是在库全部库存数量 系统截图
+
+**2\.3 ****冻结的商品数量是在库部分库存数量****，需要提前是否有批次管理，部分冻结的是否有与在库库存做混放；**
+
+
 
 ## 十九、无主货找回产品审核流程补充
 

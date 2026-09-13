@@ -1,0 +1,41 @@
+{
+  "orderNo": "VASC000000315774",
+  "demoLabel": "L4-SOP生成",
+  "source": "demo_constructed",
+  "expectedOutputPath": "sop_generated",
+  "outputPath": "sop_generated",
+  "ruleOutputPath": "sop_generated",
+  "failureGate": "",
+  "missing": [],
+  "clarificationPrompts": [],
+  "sceneKey": "inbound_package_barcode_batch_relabel",
+  "scenarioName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+  "decision": "supported",
+  "confidence": "high",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "应用规则A：异常单详情显示异常名称为'包裹条码批量异常(需客户处理)'，直接映射到场景1（sceneKey=inbound_package_barcode_batch_relabel）。需求描述完全符合场景1的核心特征：1) 包裹条码批量异常；2) 辨识后补贴包裹标签（客户明确提到'根据辨识结果补贴新入库单WI50734175的包裹标签'）；3) 上架到新入库单（'在新单上架'）。SOP关键步骤完整匹配：根据异常单EB0126060330032532找到异常商品 → 辨识（'可根据外箱上的A+包裹标签确认SKU，辨识出14个包裹的SKU'） → 补贴包裹标签 → 上架到新单WI50734175 → 关闭异常单。异常对象为包裹，操作对象也是包裹标签，与场景1完全一致。",
+  "llmText": "增值单 VASC000000315774 需求与附件已齐，已生成 SOP 草稿供审核确认。确认不等于审核通过。\n",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "structuredReview": {
+    "vascNo": "VASC000000315774",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_package_barcode_batch_relabel",
+      "confidence": 0.9
+    },
+    "materialsComplete": true,
+    "missingMaterials": [],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

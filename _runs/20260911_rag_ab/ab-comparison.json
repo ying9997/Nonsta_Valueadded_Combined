@@ -1,0 +1,385 @@
+{
+  "model": "claude-sonnet-4-5",
+  "ragOn": true,
+  "metricsA": {
+    "pathOk": 3,
+    "exact": 2,
+    "acceptable": 2,
+    "falseBlock": 0,
+    "falsePass": 0,
+    "falseUnsupported": 0,
+    "actionCoverageSum": 2.5,
+    "constraintHit": 1,
+    "constraintScored": 5,
+    "missRecallSum": 5,
+    "missPrecSum": 5,
+    "n": 5,
+    "elapsedMsSum": 104273,
+    "llmCalls": 4
+  },
+  "metricsB": {
+    "pathOk": 1,
+    "exact": 2,
+    "acceptable": 2,
+    "falseBlock": 0,
+    "falsePass": 0,
+    "falseUnsupported": 0,
+    "actionCoverageSum": 2.1666666666666665,
+    "constraintHit": 1,
+    "constraintScored": 5,
+    "missRecallSum": 4,
+    "missPrecSum": 5,
+    "n": 5,
+    "elapsedMsSum": 74963,
+    "llmCalls": 4
+  },
+  "rowsA": [
+    {
+      "vascNo": "VASC000000311652",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_exception_relabel_shelving",
+      "actualSceneName": "【入库】包裹类异常换商品标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "actionCoverage": 0.5,
+      "decision": "supported",
+      "llmUsed": true,
+      "llmReasoning": "应用规则A和规则B综合判断：1) 异常单详情显示2个异常单均为「商品条码异常(需客户处理)」，根据规则A，异常名称含商品条码异常必须选inbound_package_exception_relabel_shelving；2) 虽然有2个异常单，但根据规则B，多个商品条码异常仍按规则A判断，不因数量多改判batch_relabel；3) 关键触发条件：客户明确写了「不换商品标签，只换箱唛」，这符合规则B的唯一例外情况（311652口径）——在商品条码异常下，客户明确说不换商品标签/只换包裹标签时，才允许考虑其他场景；4) 但经过场景特征对比：客户要求「只换箱唛上架到新单」，箱唛即包裹标签，这仍属于包裹类异常处理范畴，且最终动作是上架（非拦截/暂存），核心仍是处理商品条码异常后的上架流程；5) 虽然客户说不换商品标签，但异常根源是商品条码异常，处理方式是换箱唛（包裹标签）后上架，这与场景A「包裹类异常换商品标签上架」的广义定义相符（包裹类异常+换标+上架）；6) 不选batch_relabel是因为：该场景核心特征是「包裹条码批量异常」+「补贴包裹标签」，而本案异常名称明确是商品条码异常，不符合；7) 综合判断：异常名称为商品条码异常（规则A强制），客户虽说不换商品标签但要换箱唛上架（仍属包裹类异常处理），最终选择inbound_package_exception_relabel_shelving",
+      "llmMatched": "inbound_package_exception_relabel_shelving",
+      "llmConfidence": "high",
+      "llmActions": [
+        "不换商品标签",
+        "只换箱唛",
+        "上架到新单WI50811725"
+      ],
+      "llmAmbiguous": false,
+      "elapsedMs": 41388,
+      "retrievedCases": []
+    },
+    {
+      "vascNo": "VASC000000315774",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "needs_field_clarification",
+      "actualOutputPath": "needs_field_clarification",
+      "pathOk": true,
+      "actionCoverage": 1,
+      "decision": "supported",
+      "llmUsed": true,
+      "llmReasoning": "应用规则A：异常单详情显示异常名称为'包裹条码批量异常（需客户处理）'，根据规则A直接映射到inbound_package_barcode_batch_relabel场景。客户需求描述中明确提到：1）根据外箱商品条码/A+包裹标签辨识SKU；2）辨识出14个包裹的SKU；3）补贴新入库单WI50734175的包裹标签；4）在新单上架。这完全符合场景核心特征：包裹条码批量异常+辨识后补贴包裹标签上架。虽然客户提到'根据外箱上的商品条码辨识'，但异常名称明确为'包裹条码批量异常'，且最终动作是补贴包裹标签而非换商品标签，因此不应选择inbound_label_identify（尺重/标签辨识后换标上架）。规则B不适用（只有1个异常单）。无规则C的复杂异常名称情况。",
+      "llmMatched": "inbound_package_barcode_batch_relabel",
+      "llmConfidence": "high",
+      "llmActions": [
+        "根据外箱商品条码或A+包裹标签辨识SKU",
+        "辨识14个包裹的SKU信息",
+        "补贴新入库单WI50734175的包裹标签",
+        "在新单上架"
+      ],
+      "llmAmbiguous": false,
+      "elapsedMs": 17027,
+      "retrievedCases": []
+    },
+    {
+      "vascNo": "VASC000000298617",
+      "expectedScene": "inbound_photo_hold",
+      "omsSceneName": "【入库】指定商品拍照暂存",
+      "actualSceneKey": "inbound_label_identify",
+      "actualSceneName": "【入库】尺重/标签辨识后换标上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "actionCoverage": 0,
+      "decision": "ambiguous",
+      "llmUsed": false,
+      "llmReasoning": "matchedScene 不在候选列表: inbound_photo_hold",
+      "llmMatched": "unsupported",
+      "llmConfidence": "low",
+      "llmActions": [],
+      "llmAmbiguous": true,
+      "elapsedMs": 16761,
+      "retrievedCases": []
+    },
+    {
+      "vascNo": "VASC000000305805",
+      "expectedScene": "inbound_third_party_merchandise_barcode",
+      "omsSceneName": "【入库】关联第三方商品条码上架",
+      "actualSceneKey": "inbound_unclaimed_goods_relabel_shelve",
+      "actualSceneName": "【入库】无主货异常补贴标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "actionCoverage": 0.6666666666666666,
+      "decision": "supported",
+      "llmUsed": true,
+      "llmReasoning": "1. 异常单详情显示异常名称为「无主货异常」，这是规则C中未在规则A明确映射的异常类型，需回退看需求描述判断。2. 需求描述核心特征：(a)明确提到「无主货异常」；(b)「外箱无箱唛」导致登记异常；(c)「实物有贴单品码」但仓库无法识别；(d)「补贴包裹上架到新单WI49632155」。3. 场景匹配分析：本场景(inbound_unclaimed_goods_relabel_shelve)核心特征为「无主货、找回、新SKU、货物寻找费、无主货找回增值单」，与需求完全吻合。客户明确说明是无主货异常找回后需补贴标签上架到新单。4. 排除其他场景：不是inbound_package_barcode_batch_relabel(无「包裹条码批量异常」)；不是inbound_package_exception_relabel_shelving(异常名称非「商品条码异常」)；不是inbound_label_identify(无尺重/辨识/绿标等特征)；不是inbound_photo_hold(无拍照暂存需求)。5. 边界确认：虽然涉及补贴标签，但场景定位是无主货找回处理，符合该场景定义的「无主货找回后补贴标签」，而非批量辨识后补贴。",
+      "llmMatched": "inbound_unclaimed_goods_relabel_shelve",
+      "llmConfidence": "high",
+      "llmActions": [
+        "无主货找回",
+        "补贴包裹标签",
+        "上架到新单WI49632155"
+      ],
+      "llmAmbiguous": false,
+      "elapsedMs": 11819,
+      "retrievedCases": []
+    },
+    {
+      "vascNo": "VASC000000326061",
+      "expectedScene": "inbound_label_identify",
+      "omsSceneName": "【入库】尺重/标签辨识后换标上架",
+      "actualSceneKey": "inbound_label_identify",
+      "actualSceneName": "【入库】尺重/标签辨识后换标上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "actionCoverage": 0.3333333333333333,
+      "decision": "ambiguous",
+      "llmUsed": true,
+      "llmReasoning": "应用规则C：异常名称为「包裹内出现订单外商品」，属于复杂异常类型，不在规则A的直接映射范围内，不强行匹配。回退到看需求描述判断：客户明确提到「实物产品条码正确，第三方的编码系统已经关联」「仓库帮忙按新单补贴新单的包裹标签操作上架」。虽然提到第三方编码已关联，但核心诉求是「按新单补贴包裹标签上架」，且涉及多个入库单、多个SKU的对应关系处理。这不是简单的「已完成第三方关联后直接扫描上架」场景（inbound_third_party_merchandise_barcode），而是需要处理SKU对应关系、换单、补贴标签的复杂操作。根据规则C，复杂异常优先选择inbound_label_identify作为通用兜底场景。置信度medium是因为场景较复杂，涉及多入库单、第三方编码关联等多个因素。",
+      "llmMatched": "inbound_label_identify",
+      "llmConfidence": "medium",
+      "llmActions": [
+        "按新入库单补贴包裹标签",
+        "处理多个入库单的SKU对应关系",
+        "非标处理上架"
+      ],
+      "llmAmbiguous": true,
+      "elapsedMs": 17278,
+      "retrievedCases": []
+    }
+  ],
+  "rowsB": [
+    {
+      "vascNo": "VASC000000311652",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_exception_relabel_shelving",
+      "actualSceneName": "【入库】包裹类异常换商品标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "actionCoverage": 0.5,
+      "decision": "ambiguous",
+      "llmUsed": true,
+      "llmReasoning": "应用规则A和规则B进行判断：1）异常单详情显示两个异常单均为「商品条码异常(需客户处理)」，根据规则A，异常名称含「商品条码异常」必须选择inbound_package_exception_relabel_shelving（场景5）；2）虽然客户需求描述中提到「不换商品标签，只换箱唛」，但根据规则B的唯一例外条款（311652口径），当客户明确写「不换商品标签/只换箱唛/只换包裹标签」时，在商品条码异常下才允许选batch_relabel；3）但经过仔细分析，客户实际操作是「只换箱唛上架到新单」，箱唛即包裹标签，这符合规则C中「不换商品标签」的例外情况；4）然而，根据业务逻辑优先级，异常名称「商品条码异常」的直接映射优先级最高，且客户提到的「S码重复，已修改sku为商品化管理」表明涉及商品标签层面的处理；5）综合判断，虽然客户表述为「不换商品标签」，但异常名称明确为「商品条码异常」，且涉及SKU修改和商品化管理，实际仍属于商品标签异常处理范畴，应归入场景5。关键动作为换箱唛（包裹标签）后上架到新单。",
+      "llmMatched": "inbound_package_exception_relabel_shelving",
+      "llmConfidence": "high",
+      "llmActions": [
+        "不换商品标签",
+        "换箱唛",
+        "上架到新单"
+      ],
+      "llmAmbiguous": true,
+      "elapsedMs": 17829,
+      "retrievedCases": [
+        {
+          "caseId": "VASC000000312744",
+          "sceneName": "【入库】\tABC类/子包裹内商品错装暂存（需客户处理），云仓不支持原单补贴包裹条码上架",
+          "score": 58.096,
+          "keyAction": "上架"
+        },
+        {
+          "caseId": "VASC000000290262",
+          "sceneName": "【入库】拆包/拆箱上架",
+          "score": 53.163,
+          "keyAction": "补贴包裹标签、上架"
+        },
+        {
+          "caseId": "VASC000000307377",
+          "sceneName": "【入库】异常商品/包裹数量与实际不符，按照实际贴标上架",
+          "score": 52.948,
+          "keyAction": "上架"
+        }
+      ]
+    },
+    {
+      "vascNo": "VASC000000315774",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "needs_field_clarification",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "actionCoverage": 0.6666666666666666,
+      "decision": "ambiguous",
+      "llmUsed": true,
+      "llmReasoning": "JSON 解析失败，从原文回退提取 sceneKey=inbound_package_barcode_batch_relabel",
+      "llmMatched": "inbound_package_barcode_batch_relabel",
+      "llmConfidence": "medium",
+      "llmActions": [],
+      "llmAmbiguous": true,
+      "elapsedMs": 8968,
+      "retrievedCases": [
+        {
+          "caseId": "VASC000000320535",
+          "sceneName": "【入库】上架前拦截",
+          "score": 66.545,
+          "keyAction": "上架"
+        },
+        {
+          "caseId": "VASC000000290223",
+          "sceneName": "【入库】清除标签",
+          "score": 63.535,
+          "keyAction": "辨识、上架"
+        },
+        {
+          "caseId": "VASC000000320358",
+          "sceneName": "【入库】指定商品拍照暂存",
+          "score": 54.18,
+          "keyAction": "拍照"
+        }
+      ]
+    },
+    {
+      "vascNo": "VASC000000298617",
+      "expectedScene": "inbound_photo_hold",
+      "omsSceneName": "【入库】指定商品拍照暂存",
+      "actualSceneKey": "inbound_label_identify",
+      "actualSceneName": "【入库】尺重/标签辨识后换标上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "actionCoverage": 0,
+      "decision": "ambiguous",
+      "llmUsed": false,
+      "llmReasoning": "matchedScene 不在候选列表: inbound_photo_hold",
+      "llmMatched": "unsupported",
+      "llmConfidence": "low",
+      "llmActions": [],
+      "llmAmbiguous": true,
+      "elapsedMs": 24153,
+      "retrievedCases": [
+        {
+          "caseId": "VASC000000304425",
+          "sceneName": "【入库】指定包裹拍照",
+          "score": 1226.122,
+          "keyAction": "拆箱、辨识"
+        },
+        {
+          "caseId": "VASC000000347595",
+          "sceneName": "【入库】包裹级异常开箱拍商品照片",
+          "score": 71.262,
+          "keyAction": "拍照、换标、辨识"
+        },
+        {
+          "caseId": "VASC000000320358",
+          "sceneName": "【入库】指定商品拍照暂存",
+          "score": 52.41,
+          "keyAction": "拍照"
+        }
+      ]
+    },
+    {
+      "vascNo": "VASC000000305805",
+      "expectedScene": "inbound_third_party_merchandise_barcode",
+      "omsSceneName": "【入库】关联第三方商品条码上架",
+      "actualSceneKey": "inbound_unclaimed_goods_relabel_shelve",
+      "actualSceneName": "【入库】无主货异常补贴标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "actionCoverage": 0.6666666666666666,
+      "decision": "supported",
+      "llmUsed": true,
+      "llmReasoning": "1. 异常单详情显示：异常名称=无主货异常，异常对象=包裹。这是明确的无主货场景标识。2. 客户需求描述核心特征：(1)外箱无箱唛被登记无主货异常；(2)实物有贴单品码但仓库无法扫描识别；(3)请求补贴包裹标签上架到新单WI49632155。3. 场景匹配分析：本场景完全符合inbound_unclaimed_goods_relabel_shelve的核心特征：无主货、找回、补贴标签上架。客户明确提到'无主货异常'和'补贴包裹上架'，这是该场景的典型标志。4. 与其他场景的边界区分：(a)与inbound_label_identify的区别：本案例是无主货找回后补贴标签，而非尺重/辨识问题；(b)与inbound_package_barcode_batch_relabel的区别：异常名称是'无主货异常'而非'包裹条码批量异常'，且是单个包裹处理而非批量；(c)与inbound_package_exception_relabel_shelving的区别：异常名称不是'商品条码异常'，而是'无主货异常'。5. 判断依据：优先使用规则A（异常名称直接映射），异常名称'无主货异常'直接对应inbound_unclaimed_goods_relabel_shelve场景。",
+      "llmMatched": "inbound_unclaimed_goods_relabel_shelve",
+      "llmConfidence": "high",
+      "llmActions": [
+        "无主货找回",
+        "补贴包裹标签",
+        "上架到WI49632155"
+      ],
+      "llmAmbiguous": false,
+      "elapsedMs": 10630,
+      "retrievedCases": [
+        {
+          "caseId": "VASC000000313224",
+          "sceneName": "【入库】包裹串仓异常调拨",
+          "score": 43.133,
+          "keyAction": "上架"
+        },
+        {
+          "caseId": "VASC000000312744",
+          "sceneName": "【入库】\tABC类/子包裹内商品错装暂存（需客户处理），云仓不支持原单补贴包裹条码上架",
+          "score": 38.951,
+          "keyAction": "上架"
+        },
+        {
+          "caseId": "VASC000000314457",
+          "sceneName": "【入库】\tABC类/子包裹内商品错装暂存（需客户处理），云仓不支持原单补贴包裹条码上架",
+          "score": 30.247,
+          "keyAction": "上架"
+        }
+      ]
+    },
+    {
+      "vascNo": "VASC000000326061",
+      "expectedScene": "inbound_label_identify",
+      "omsSceneName": "【入库】尺重/标签辨识后换标上架",
+      "actualSceneKey": "inbound_label_identify",
+      "actualSceneName": "【入库】尺重/标签辨识后换标上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "actionCoverage": 0.3333333333333333,
+      "decision": "ambiguous",
+      "llmUsed": true,
+      "llmReasoning": "应用规则C：异常名称为'包裹内出现订单外商品'，属于复杂异常类型，不在规则A的直接映射范围内，不应强行匹配。回退到需求描述判断：客户明确说明'实物产品条码正确，第三方的编码系统已经关联'，且要求'按新单补贴新单的包裹标签操作上架'。虽然提到第三方编码已关联，但核心动作是换入库单后补贴包裹标签上架，不是直接扫描上架的场景。需求中涉及多个入库单、标准无法操作、需要非标处理，符合辨识后换标上架的特征。由于异常名称复杂且需求描述未明确拍照暂存或直接扫描第三方条码，选择通用兜底场景inbound_label_identify。置信度medium是因为异常名称复杂，且需求中同时涉及第三方关联和换单操作，存在一定模糊性。",
+      "llmMatched": "inbound_label_identify",
+      "llmConfidence": "medium",
+      "llmActions": [
+        "补贴新单的包裹标签",
+        "按新入库单上架",
+        "非标处理",
+        "更新非标报价"
+      ],
+      "llmAmbiguous": true,
+      "elapsedMs": 13383,
+      "retrievedCases": [
+        {
+          "caseId": "VASC000000328776",
+          "sceneName": "【入库】尺重/标签辨识后换标上架",
+          "score": 441.583,
+          "keyAction": "补贴包裹标签、上架"
+        },
+        {
+          "caseId": "VASC000000332922",
+          "sceneName": "【入库】尺重/标签辨识后换标上架",
+          "score": 431.91,
+          "keyAction": "补贴包裹标签、上架"
+        },
+        {
+          "caseId": "VASC000000342681",
+          "sceneName": "【入库】尺重/标签辨识后换标上架",
+          "score": 427.826,
+          "keyAction": "补贴包裹标签、上架"
+        }
+      ]
+    }
+  ]
+}

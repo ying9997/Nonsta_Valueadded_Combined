@@ -1,0 +1,90 @@
+{
+  "generatedAt": "2026-09-10",
+  "note": "5 条 golden 异常名称确认；305805 的 EB 在现有 details/cache 中无 eventName",
+  "cases": [
+    {
+      "vascNo": "VASC000000311652",
+      "ebNos": ["EB0126070130941754", "EB0126070130941397"],
+      "exceptions": [
+        {
+          "ebNo": "EB0126070130941754",
+          "exceptionName": "商品条码异常(需客户处理)",
+          "exceptionObject": "商品",
+          "source": "known_table",
+          "evidence": "业务方确认 / 任务提示；两单同名 → 规则 B 批量 → §2.33"
+        },
+        {
+          "ebNo": "EB0126070130941397",
+          "exceptionName": "商品条码异常(需客户处理)",
+          "exceptionObject": "商品",
+          "source": "known_table",
+          "evidence": "业务方确认 / 任务提示"
+        }
+      ]
+    },
+    {
+      "vascNo": "VASC000000315774",
+      "ebNos": ["EB0126060330032532"],
+      "exceptions": [
+        {
+          "ebNo": "EB0126060330032532",
+          "exceptionName": "包裹条码批量异常(需客户处理)",
+          "exceptionObject": "包裹",
+          "source": "known_table",
+          "evidence": "任务提示 KNOWN_EXCEPTIONS；需求语境批量 14 包裹"
+        }
+      ]
+    },
+    {
+      "vascNo": "VASC000000298617",
+      "ebNos": ["EB0326061230362709", "EB0326061230366501"],
+      "exceptions": [
+        {
+          "ebNo": "EB0326061230366501",
+          "exceptionName": "包裹内出现订单外商品",
+          "exceptionObject": "商品",
+          "source": "cache",
+          "evidence": "_runs/20260902_oms_facts_b/details.json events[].eventName"
+        },
+        {
+          "ebNo": "EB0326061230362709",
+          "exceptionName": "包裹内出现订单外商品",
+          "exceptionObject": "商品",
+          "source": "known_table",
+          "evidence": "同单 sibling 对齐（EB6501/EB6204 同名）；详情库未单独命中 2709 的 eventName"
+        }
+      ]
+    },
+    {
+      "vascNo": "VASC000000305805",
+      "ebNos": ["EB0126060830209943"],
+      "exceptions": [
+        {
+          "ebNo": "EB0126060830209943",
+          "exceptionName": "",
+          "exceptionObject": "",
+          "source": "not_found",
+          "evidence": "现有 _runs details / _oms_cache 无 eventName；需求文本仅写「无主货异常」（非正式 OMS 异常名称字段）"
+        }
+      ]
+    },
+    {
+      "vascNo": "VASC000000326061",
+      "ebNos": ["EB0326072531612017"],
+      "exceptions": [
+        {
+          "ebNo": "EB0326072531612017",
+          "exceptionName": "包裹内出现订单外商品",
+          "exceptionObject": "商品",
+          "source": "cache",
+          "evidence": "_runs/20260904_demo_cases/demo_all.details.json events[].eventName；注意任务文稿曾写对象=包裹，以数据为准=商品"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "totalCases": 5,
+    "withExceptionName": 4,
+    "notFoundCases": ["VASC000000305805"]
+  }
+}

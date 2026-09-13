@@ -54,9 +54,24 @@ function fallbackRemark(args: SummarizeReplyArgs): string {
   ].join("\n");
 }
 
-export function repliesFromFeishu(messages: FeishuMessage[]): SummarizeReplyArgs["replies"] {
+export function isBotFeishuMessage(msg: FeishuMessage, botOpenId?: string): boolean {
+  const senderType = (msg.senderType || "").toLowerCase();
+  if (senderType === "app" || senderType === "bot") return true;
+  if (botOpenId && msg.senderId && msg.senderId === botOpenId) return true;
+  return false;
+}
+
+export function repliesFromFeishu(
+  messages: FeishuMessage[],
+  options?: { botOpenId?: string },
+): SummarizeReplyArgs["replies"] {
+  const botOpenId = options?.botOpenId || "";
   return messages
-    .filter((msg) => !isAiTaggedText(msg.text))
+    .filter((msg) => !isAiTaggedText(msg.text) && !isBotFeishuMessage(msg, botOpenId) && msg.senderType !== "bot")
+    .filter((msg) => {
+      const t = (msg.msgType || "").toLowerCase();
+      return t !== "interactive" && t !== "system";
+    })
     .map((msg) => ({
       speaker: "群成员",
       text: msg.text.trim(),

@@ -1,0 +1,75 @@
+{
+  "sceneKey": "instock_inventory_freeze_unfreeze",
+  "sceneName": "【库内】库存冻结/解冻",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "INSTOCK_INVENTORY_FREEZE_UNFREEZE",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.10",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "库存冻结",
+      "库存解冻",
+      "冻结库存",
+      "解冻库存",
+      "指定S码冻结",
+      "指定S码解冻",
+      "StorageFrozen"
+    ],
+    "weak": [
+      "冻结原因",
+      "冻结操作",
+      "解冻操作",
+      "库存操作",
+      "TOM系统"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "换标",
+      "辨识",
+      "质检",
+      "拍照"
+    ],
+    "soft": [
+      "下架",
+      "调拨",
+      "自提",
+      "条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品下架后换入库单重新上架的区别：本场景是对已上架库存进行冻结/解冻状态变更，不涉及下架重新上架动作",
+    "和【入库】包裹串仓异常调拨的区别：本场景是库存状态管理（冻结/解冻），不涉及货物物理位置的调拨转移",
+    "和所有入库类场景的区别：本场景针对已入库上架的库存进行状态管理，不涉及入库、上架、换标、辨识等入库流程操作",
+    "关键识别点：客户明确提出'冻结'或'解冻'库存的需求，且货物已在库内"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：具体的SKU编码（M01开头）和数量",
+    "动作：明确是冻结还是解冻操作",
+    "原因/去向：说明冻结或解冻的原因（如质量问题、销售策略调整等）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确SKU编码和数量",
+    "明确是冻结还是解冻操作",
+    "说明冻结/解冻原因",
+    "登录对应仓库TOM系统执行操作",
+    "记录操作日志和费用项"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.10. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INSTOCK_INVENTORY_FREEZE_UNFREEZE."
+}

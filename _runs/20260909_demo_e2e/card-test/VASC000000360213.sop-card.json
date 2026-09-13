@@ -1,0 +1,94 @@
+{
+  "messageId": "om_x100b650f4a683484c4ec00cb2cfce6c",
+  "threadId": "om_x100b650f4a683484c4ec00cb2cfce6c",
+  "card": {
+    "config": {
+      "wide_screen_mode": true
+    },
+    "header": {
+      "title": {
+        "tag": "plain_text",
+        "content": "✅ 增值单 AI 预审 — VASC000000360213"
+      },
+      "template": "green"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "客户：17892404 / 陈冀鹏\n仓库：CATO Warehouse\n场景：指定商品拍照暂存"
+        }
+      },
+      {
+        "tag": "hr"
+      },
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "**【AI 总结 - 需求描述】**\n快递单号 1028012169203959 已于 9 月 8 日签收到达 CATO 仓库，客户要求收货后直接执行销毁操作，不进行商品上架、不拍照留存。入库单 WI52478738 仅用于追踪该批次到货状态，不执行实际入库流程。操作完成后需在系统中更新入库单状态为「客户要求销毁-已完成」，并关闭增值单 VASC000000360213。"
+        }
+      },
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "**【AI 总结 - 需求背景】**\n客户货物因商业原因需在到仓后直接销毁，无需入库存储或拍照记录"
+        }
+      },
+      {
+        "tag": "hr"
+      },
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "**【操作步骤】**\n1. 根据快递单号 1028012169203959 在 CATO 仓库收货区定位该批次货物；\n2. 核对货物与入库单 WI52478738 的对应关系，确认为客户指定销毁批次；\n3. 按仓库标准销毁流程执行销毁操作（不上架、不拍照）；\n4. 在 WMS 系统中将入库单 WI52478738 状态更新为「客户要求销毁-已完成」；\n5. 在增值系统中关闭增值单 VASC000000360213，备注「已按客户要求销毁完成」；\n6. 如当前操作关联异常单，同步关闭异常单；若无关联异常单则跳过此步骤。"
+        }
+      },
+      {
+        "tag": "hr"
+      },
+      {
+        "tag": "div",
+        "text": {
+          "tag": "lark_md",
+          "content": "<at id=ou_d09d7409a63201462177f4d8a8b1ac7b></at> 请确认"
+        }
+      },
+      {
+        "tag": "action",
+        "actions": [
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "✅ 确认 SOP 正确，写入 OMS 草稿"
+            },
+            "type": "primary",
+            "name": "sop_write",
+            "value": {
+              "action": "confirm_sop_write",
+              "vascNo": "VASC000000360213",
+              "sceneKey": "inbound_photo_hold"
+            }
+          },
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "✏️ SOP 需要修改"
+            },
+            "type": "default",
+            "name": "sop_write",
+            "value": {
+              "action": "sop_needs_edit",
+              "vascNo": "VASC000000360213"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

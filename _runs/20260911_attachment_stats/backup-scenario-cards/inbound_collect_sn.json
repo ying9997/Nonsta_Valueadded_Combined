@@ -1,0 +1,76 @@
+{
+  "sceneKey": "inbound_collect_sn",
+  "sceneName": "【入库】收集SN码",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.17",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "SN码",
+      "采集SN",
+      "收集SN",
+      "无法识别的SN",
+      "SN码表",
+      "导入系统绑定",
+      "采集条码"
+    ],
+    "weak": [
+      "发货仓出库",
+      "无法提供",
+      "采集后",
+      "绑定后重新上架",
+      "导入系统"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "换标",
+      "质检",
+      "拍照",
+      "自提",
+      "串仓"
+    ],
+    "soft": [
+      "辨识",
+      "包裹条码",
+      "商品条码",
+      "换商品标签"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景专门针对SN码的采集和绑定，不涉及商品辨识或补贴标签",
+    "和【入库】关联第三方条码上架的区别是：本场景是采集无法识别的SN码并导入系统绑定，而不是关联已有的第三方条码",
+    "和【入库】无主货异常补贴标签上架的区别是：本场景是发货仓无法提供完整SN码表需要采集，而不是无主货需要补贴标签",
+    "核心特征是：发货仓出库时无法提供完整SN码 + 仓库需要采集 + 导入系统绑定"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确哪个入库单、多少件商品需要采集SN码",
+    "动作：采集SN码、导入系统绑定",
+    "去向：绑定后重新上架"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "说明发货仓无法提供完整SN码表的背景",
+    "仓库采集指定数量商品的SN码",
+    "采集后导入系统进行绑定",
+    "绑定完成后重新上架",
+    "计费方式：增值-采集条码"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.17. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode remapped alias 20250529001（【入库】上架前采集条码（含SN码、A+包第三方包裹码等））。SOP收集SN码 ≈ OMS上架前采集条码",
+  "omsSceneCode": "20250529001"
+}

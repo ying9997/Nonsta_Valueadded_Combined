@@ -1,0 +1,41 @@
+{
+  "orderNo": "VASC000000326061",
+  "demoLabel": "L2-转人工",
+  "source": "t14_golden",
+  "expectedOutputPath": "transfer_human",
+  "outputPath": "transfer_human",
+  "ruleOutputPath": "transfer_human",
+  "failureGate": "match-template",
+  "missing": [],
+  "clarificationPrompts": [],
+  "sceneKey": "inbound_label_identify",
+  "scenarioName": "【入库】尺重/标签辨识后换标上架",
+  "decision": "ambiguous",
+  "confidence": "low",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "应用规则C：异常名称为「包裹内出现订单外商品」，属于复杂/多步骤异常，不在规则A的直接映射范围内，不强行归入场景1-5的名称映射。回退到需求描述判断：客户明确提到「第三方编码系统已经关联」+「使用新入库单上架」+「补贴新单的包裹标签操作上架」，但核心问题是多个产品对应多个入库单，标准流程无法一起操作，需要非标处理。虽然提到第三方关联，但这不是简单的「已关联后直接扫描上架」场景（场景3），而是涉及多入库单、补贴包裹标签、非标处理的复杂情况。需求中未提及拍照暂存等客户确认（排除场景2），也不是单纯的包裹条码批量异常（虽然文中提到另一异常单登记为包裹条码异常，但主异常单EB0326072531612017是订单外商品）。综合判断：这是需要辨识商品、处理多入库单关系、补贴标签后上架的复杂场景，最符合场景4（通用兜底）的定位。",
+  "llmText": "增值单 VASC000000326061 需求描述已完整，但当前模板库只自动支持 F-001，请转人工审核，并记为后续模板候选。",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "structuredReview": {
+    "vascNo": "VASC000000326061",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "ambiguous",
+      "topScene": "inbound_package_barcode_batch_relabel",
+      "confidence": 0.45
+    },
+    "materialsComplete": false,
+    "missingMaterials": [],
+    "outputPath": "transfer_human",
+    "llmGeneratedText": "",
+    "transferReason": "ambiguous_llm_low_confidence",
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

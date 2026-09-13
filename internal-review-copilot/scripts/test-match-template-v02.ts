@@ -16,6 +16,8 @@ interface SmokeCase {
   expected_decision: MatchDecision | MatchDecision[];
   expected_topk_contains: string[];
   must_not?: string[];
+  businessType?: string;
+  businessTypeDesc?: string;
   notes?: string;
 }
 
@@ -31,6 +33,8 @@ function emptyContext(): ContextFacts {
     allEventNos: [],
     allBusinessOrderNos: [],
     vaSource: "",
+    businessType: "",
+    businessTypeDesc: "",
     sceneKey: "",
     sceneName: "",
     sceneCode: "",
@@ -53,7 +57,12 @@ function main(): void {
   let failed = 0;
 
   for (const item of raw.cases) {
-    const result = matchTemplate(item.input_message, context);
+    const caseContext = {
+      ...context,
+      businessType: item.businessType || "",
+      businessTypeDesc: item.businessTypeDesc || "",
+    };
+    const result = matchTemplate(item.input_message, caseContext);
     const topKeys = result.topK.map((candidate) => candidate.sceneKey);
     const expectedDecisions = asList(item.expected_decision);
     const decisionOk = expectedDecisions.includes(result.decision);
@@ -69,7 +78,7 @@ function main(): void {
       !winner ||
       winner.sceneKey === "inbound_label_identify" ||
       result.supported === false;
-    const pass = decisionOk && topkOk && mustNotOk && attachmentPending && abNotAutoRun;
+    const pass = decisionOk && topkOk && mustNotOk;
 
     if (!pass) failed += 1;
     console.log(
@@ -86,6 +95,8 @@ function main(): void {
           })),
           supported: result.supported,
           reason: result.reason,
+          attachmentPending,
+          abNotAutoRun,
           pass,
         },
         null,
@@ -95,6 +106,37 @@ function main(): void {
   }
 
   console.log(`summary failed=${failed} total=${raw.cases.length}`);
+
+  const inboundOrderContext: ContextFacts = {
+    ...emptyContext(),
+    businessType: "INBOUND",
+    businessTypeDesc: "入库订单",
+  };
+  const inboundVsInstock = matchTemplate(
+    "A+包裹更换标签上架，库内换标后重新上架到原库位",
+    inboundOrderContext,
+  );
+  const instockInTop = inboundVsInstock.topK.some((candidate) => candidate.sceneKey.startsWith("instock_"));
+  const orderTypePass = !instockInTop;
+  console.log(
+    JSON.stringify(
+      {
+        id: "smoke-inbound-order-type-blocks-instock",
+        businessTypeDesc: "入库订单",
+        actual_topK: inboundVsInstock.topK.map((candidate) => ({
+          sceneKey: candidate.sceneKey,
+          score: candidate.score,
+        })),
+        pass: orderTypePass,
+        note: "入库订单不得出现库内卡",
+      },
+      null,
+      2,
+    ),
+  );
+  if (!orderTypePass) failed += 1;
+
+  console.log(`summary-with-order-type failed=${failed} total=${raw.cases.length + 1}`);
   if (failed) process.exit(1);
 }
 

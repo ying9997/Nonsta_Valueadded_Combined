@@ -1,0 +1,78 @@
+{
+  "sceneKey": "instock_product_kitting",
+  "sceneName": "【库内】商品组合",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250407071",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.6",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "组合",
+      "主产品",
+      "配件",
+      "组合方式",
+      "组合SOP",
+      "组合后",
+      "打托",
+      "山姆产品"
+    ],
+    "weak": [
+      "下架",
+      "封箱",
+      "新SKU",
+      "入库单",
+      "包装",
+      "拆包装"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "辨识",
+      "串仓",
+      "自提",
+      "质检",
+      "无主货"
+    ],
+    "soft": [
+      "异常",
+      "预报",
+      "不符",
+      "关联第三方条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】换标类场景的区别：本场景是将多个商品物理组合成新商品,不是简单换标签",
+    "和【入库】质检场景的区别：本场景重点是组合操作,不是检查商品质量",
+    "和【入库】商品下架后换入库单重新上架的区别：本场景涉及多个SKU的物理组合,不是单纯的换单上架",
+    "识别关键：必须有明确的主产品+配件的组合关系,以及组合后的操作步骤"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确主产品SKU和配件SKU",
+    "动作：组合方式(如何将配件放入主产品)、是否打托、是否换SKU",
+    "去向：组合后上架到新SKU还是原SKU,新入库单号"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "列出主产品SKU和配件SKU",
+    "说明组合方式(参考附件或详细步骤)",
+    "下架主产品和配件的数量",
+    "组合操作步骤(拆包装、放配件、封箱等)",
+    "组合后上架到新/原SKU及入库单号"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.6. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407071."
+}

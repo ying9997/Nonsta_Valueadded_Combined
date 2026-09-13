@@ -1,0 +1,75 @@
+{
+  "sceneKey": "instock_rework_reshelve",
+  "sceneName": "【库内】商品改制重新上架",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.24",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "改制",
+      "库内改制",
+      "改制方法",
+      "改制需求",
+      "改制操作",
+      "工时费用"
+    ],
+    "weak": [
+      "下架单",
+      "特殊需求",
+      "报备",
+      "单品数量",
+      "贴标",
+      "重新上架"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库",
+      "到货",
+      "预报",
+      "质检",
+      "自提",
+      "串仓"
+    ],
+    "soft": [
+      "换标",
+      "辨识",
+      "拍照",
+      "调拨"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景是库内已上架商品需要改制后重新上架,而换标上架是入库时的标签处理",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是主动的改制需求(如加贴标签、改包装等),而换标签上架是被动处理异常",
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景涉及对商品本身的物理改制操作,而换入库单只是系统单据的更换",
+    "本场景的核心特征是对库内商品进行物理改制(如贴标、改包装等),并按工时费用收费,需要提前报备复杂改制需求"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需要改制的商品(提供下架单号、上架单号、SKU等)",
+    "动作：具体的改制方法和操作内容(如贴标签、改包装、加配件等)",
+    "去向：改制完成后重新上架(明确是否有特殊上架要求)"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "提供下架单号和上架单号",
+    "明确改制的具体方法和操作内容",
+    "复杂改制需求需提前申请报备",
+    "按改制单品数量计算工时费用",
+    "改制完成后重新上架"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.24. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

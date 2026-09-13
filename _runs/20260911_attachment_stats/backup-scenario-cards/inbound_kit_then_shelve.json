@@ -1,0 +1,77 @@
+{
+  "sceneKey": "inbound_kit_then_shelve",
+  "sceneName": "【入库】组合后上架",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "20250407020",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.19",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "组合后上架",
+      "组包后上架",
+      "打包为一个单品",
+      "装到彩盒",
+      "散件分成",
+      "组套",
+      "商品组合拆分费"
+    ],
+    "weak": [
+      "配件",
+      "打包",
+      "包装",
+      "气泡袋",
+      "彩盒",
+      "组包"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "辨识",
+      "串仓",
+      "调拨",
+      "自提"
+    ],
+    "soft": [
+      "仅更换包装",
+      "仅贴标签",
+      "直接上架全部商品",
+      "不涉及组合"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景需要将多个商品/配件组合成新的单品，而换标场景只是更换标签不改变商品组成",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别：本场景涉及物理组合动作(装箱/组包),而补贴条码场景只是贴标签",
+    "和【入库】包裹类异常换商品标签上架的区别：本场景要将散件组合成新单品,而换标场景是保持原商品形态只换标签",
+    "关键特征：必须有'将N个商品/配件组合/打包成M个单品'的动作,且组合后作为新的SKU上架,会产生商品组合拆分费"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确哪些商品/配件需要组合(如'4个配件''16个散件')",
+    "动作：说明如何组合(如'装到彩盒''用气泡袋组包''分成2组')",
+    "去向：组合后的上架目标(如'上架到XXX''作为一个单品上架')"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确组合规则：几个商品/配件组合成几个单品",
+    "说明组合方式：使用什么包材(彩盒/气泡袋等)进行组合",
+    "列出上架信息：组合后的商品上架到哪个入库单/库位",
+    "处理剩余商品：不参与组合的商品如何处理(销毁/单独上架)",
+    "费用项说明：增值-商品组合拆分费,以及包材费用(标准包材/客制包材/缠绕膜)"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.19. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407020."
+}

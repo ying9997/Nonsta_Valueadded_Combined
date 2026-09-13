@@ -1,0 +1,71 @@
+{
+  "sceneKey": "instock_replace_mfg_date_label",
+  "sceneName": "【库内】更换商品生产日期标签",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20260108001",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.18",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "生产日期",
+      "更换标签",
+      "清除原标签",
+      "补贴新标签",
+      "日期标签"
+    ],
+    "weak": [
+      "库内操作",
+      "补贴标签",
+      "记录数量"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库",
+      "辨识",
+      "质检",
+      "串仓",
+      "自提"
+    ],
+    "soft": [
+      "换标",
+      "条码",
+      "拍照",
+      "暂存"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景是库内已上架商品的日期标签更换，不涉及入库和上架流程",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景只更换生产日期标签，不涉及商品条码或包裹条码的补贴",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是针对生产日期标签的更换，不是因为异常而更换整个商品标签",
+    "和【入库】商品质检的区别是：本场景是单纯的标签更换操作，不涉及商品质量检验"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确SKU编号和数量",
+    "动作：清除原生产日期标签并补贴新生产日期标签",
+    "去向：库内操作完成后商品继续存放在原位置"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "必须包含SKU编号和具体数量",
+    "必须说明清除原生产日期标签的步骤",
+    "必须说明补贴新生产日期标签的步骤",
+    "必须记录更换的数量",
+    "不涉及入库、上架、质检等其他操作"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.18. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20260108001."
+}

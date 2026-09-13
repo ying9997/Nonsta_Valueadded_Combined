@@ -107,7 +107,7 @@ npx tsx internal-review-copilot/scripts/demo-e2e.ts `
   --out D:\DA\Nonsta_Valueadded_Combined\_runs\20260904_demo_cases\demo_l4d
 ```
 
-## 发飞书（只建议演示 L1/L2/L3）
+## 发飞书
 
 在对应命令末尾追加：
 
@@ -115,4 +115,12 @@ npx tsx internal-review-copilot/scripts/demo-e2e.ts `
 --send-feishu
 ```
 
-L4 当前以控制台展示 SOP 草稿为主，不自动审核、不写回 OMS。
+L4 会把完整 SOP 草稿发到群里，但仍不自动审核、不写回 OMS。
+
+如需在 E2E 测试中绕过去重并明确再次发送，再追加：
+
+```powershell
+--force-send
+```
+
+`--force-send` 仅用于人工触发的测试；默认仍保留去重保护。

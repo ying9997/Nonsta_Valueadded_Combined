@@ -1,0 +1,76 @@
+{
+  "sceneKey": "instock_replace_custom_packaging",
+  "sceneName": "【库内】更换客制包装",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250407055",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.17",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "客制包装",
+      "客制纸箱",
+      "更换包装",
+      "包材SKU",
+      "补贴原包裹条码",
+      "客制包装打包费"
+    ],
+    "weak": [
+      "下架单",
+      "上架至新入库单",
+      "不同SKU对应正确包裹条码",
+      "使用客户指定包材"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "标签辨识",
+      "换商品标签",
+      "质检",
+      "拍照暂存",
+      "自提"
+    ],
+    "soft": [
+      "串仓",
+      "调拨",
+      "无主货",
+      "预报SKU不符"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹类异常换商品标签上架的区别：本场景是更换外包装（客制纸箱），不是换商品标签",
+    "和【入库】商品下架后换入库单重新上架的区别：本场景需要使用客制包材更换包装，不是简单换入库单",
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景重点是更换客制包装，不涉及尺重辨识或换标签",
+    "和【入库】商品质检的区别：本场景是包装更换操作，不是质检商品本身"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需明确哪些包裹/SKU需要更换包装",
+    "动作：使用客制包材（需提供包材SKU）更换包装",
+    "去向：补贴原包裹条码后上架至新入库单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_NWEON"
+    ],
+    "note": "auto-generated from OMS stats n=9 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+  },
+  "sopTemplateHints": [
+    "必须提供包材SKU信息",
+    "必须创建新入库单号（WIxxx格式）",
+    "需要下架单号用于操作",
+    "强调补贴原包裹条码的步骤",
+    "费用项必须按'客制包装打包费'录入成本和预估应收"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.17. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407055."
+}

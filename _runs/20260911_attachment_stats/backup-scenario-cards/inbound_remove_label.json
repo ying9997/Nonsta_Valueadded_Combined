@@ -1,0 +1,78 @@
+{
+  "sceneKey": "inbound_remove_label",
+  "sceneName": "【入库】清除标签",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "20260302",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.21",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "清除标签",
+      "覆盖标签",
+      "UN标签",
+      "电池标签",
+      "热风机",
+      "DG类标签",
+      "空运标签",
+      "提示标签覆盖"
+    ],
+    "weak": [
+      "外箱标签",
+      "包裹标签粘贴",
+      "商品标签粘贴",
+      "黑色标签覆盖",
+      "白色标签纸",
+      "标签吹掉"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标上架",
+      "补贴商品条码",
+      "补贴包裹条码",
+      "辨识后",
+      "串仓",
+      "质检"
+    ],
+    "soft": [
+      "拍照",
+      "暂存",
+      "调拨",
+      "自提"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景是清除/覆盖现有标签,不涉及辨识和换标上架流程",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景是清除/覆盖标签,不是补贴新标签",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景专注于清除UN/电池等特殊标签,不是因异常换标",
+    "和【入库】无主货异常补贴标签上架的区别是：本场景是清除/覆盖标签,不是补贴标签解决无主货问题"
+  ],
+  "requiredRequirementHints": [
+    "处理对象:包裹外箱上的UN标签/电池标签/DG标签/空运标签等特殊标签",
+    "动作:用热风机清除或用提示标签/黑色标签/白色标签纸覆盖",
+    "去向:清除/覆盖后正常入库上架"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确需要清除/覆盖的标签类型(UN标签/电池标签/DG标签等)",
+    "说明清除方式:热风机吹掉 或 标签覆盖",
+    "区分费用项:清除电池标签选'入库覆盖/清除标签',清除商品标签选'贴包裹标签'",
+    "注明特殊要求:印刷标签需用提示标签覆盖,无提示标签则用黑色/白色不透明标签",
+    "说明不同仓库操作差异(如元鼎用标签覆盖,Anker用热风机)"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.21. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 20250530002（清除标签）。 omsSceneCode remapped alias 20260302（【入库】覆盖/清除标签）。入库清除标签 → 【入库】覆盖/清除标签，不用无前缀「清除标签」"
+}

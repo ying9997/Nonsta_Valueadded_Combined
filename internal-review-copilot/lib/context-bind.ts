@@ -43,6 +43,8 @@ export function bindContext(input: AgentInput): { contextFacts: ContextFacts; ow
       allEventNos,
       allBusinessOrderNos,
       vaSource: input.pageContext.vaSource,
+      businessType: input.pageContext.businessType || "",
+      businessTypeDesc: input.pageContext.businessTypeDesc || "",
       sceneKey: input.sceneKey,
       sceneName: input.sceneName,
       sceneCode: input.sceneCode,

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { CaseRecord, CaseStatus } from "./types.ts";
 
-const TERMINAL: CaseStatus[] = ["written_back", "transferred", "sop_ready"];
+const TERMINAL: CaseStatus[] = ["written_back", "transferred"];
 
 export class CaseStore {
   readonly path: string;
@@ -53,6 +53,7 @@ export class CaseStore {
       omsAuditStatus: patch.omsAuditStatus ?? prev?.omsAuditStatus ?? "",
       aiOutputPath: patch.aiOutputPath ?? prev?.aiOutputPath ?? "",
       aiGeneratedText: patch.aiGeneratedText ?? prev?.aiGeneratedText ?? "",
+      llmSop: patch.llmSop !== undefined ? patch.llmSop : prev?.llmSop,
       matchResult: patch.matchResult ?? prev?.matchResult ?? {},
       missingFields: patch.missingFields ?? prev?.missingFields ?? [],
       feishuThreadId: patch.feishuThreadId !== undefined ? patch.feishuThreadId : prev?.feishuThreadId ?? null,
@@ -67,6 +68,21 @@ export class CaseStore {
       ruleOutputPath: patch.ruleOutputPath ?? prev?.ruleOutputPath,
       riskFlags: patch.riskFlags ?? prev?.riskFlags,
       processingMethod: "暂时",
+      confirmedScene: patch.confirmedScene !== undefined ? patch.confirmedScene : prev?.confirmedScene,
+      confirmedSceneName: patch.confirmedSceneName !== undefined ? patch.confirmedSceneName : prev?.confirmedSceneName,
+      confirmedBy: patch.confirmedBy !== undefined ? patch.confirmedBy : prev?.confirmedBy,
+      sceneCandidateList: patch.sceneCandidateList !== undefined ? patch.sceneCandidateList : prev?.sceneCandidateList,
+      lastSceneReplyText: patch.lastSceneReplyText !== undefined ? patch.lastSceneReplyText : prev?.lastSceneReplyText,
+      notifyChannel: patch.notifyChannel !== undefined ? patch.notifyChannel : prev?.notifyChannel,
+      feishuMessageId: patch.feishuMessageId !== undefined ? patch.feishuMessageId : prev?.feishuMessageId,
+      lastCard: patch.lastCard !== undefined ? patch.lastCard : prev?.lastCard,
+      sopEditCount: patch.sopEditCount !== undefined ? patch.sopEditCount : prev?.sopEditCount ?? 0,
+      sopEditRequestedAt: patch.sopEditRequestedAt !== undefined ? patch.sopEditRequestedAt : prev?.sopEditRequestedAt ?? null,
+      lastSopEditInstruction:
+        patch.lastSopEditInstruction !== undefined ? patch.lastSopEditInstruction : prev?.lastSopEditInstruction,
+      omsWriteAttempts: patch.omsWriteAttempts !== undefined ? patch.omsWriteAttempts : prev?.omsWriteAttempts ?? 0,
+      omsWriteManualRetries:
+        patch.omsWriteManualRetries !== undefined ? patch.omsWriteManualRetries : prev?.omsWriteManualRetries ?? 0,
     };
     this.records.set(next.vascNo, next);
     this.save();

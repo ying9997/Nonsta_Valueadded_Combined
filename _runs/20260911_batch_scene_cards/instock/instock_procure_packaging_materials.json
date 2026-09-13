@@ -1,0 +1,78 @@
+{
+  "sceneKey": "instock_procure_packaging_materials",
+  "sceneName": "【库内】代采购包材物料",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250619001",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.4",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "代采购",
+      "包材",
+      "物料",
+      "标签",
+      "UN箱",
+      "纸箱",
+      "供应商",
+      "询价"
+    ],
+    "weak": [
+      "采购链接",
+      "规格",
+      "尺寸",
+      "财务付款",
+      "客制",
+      "报价"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "辨识",
+      "补贴条码",
+      "串仓",
+      "调拨",
+      "自提"
+    ],
+    "soft": [
+      "入库单",
+      "上架",
+      "下架",
+      "SKU不符"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】批量辨识商品后补贴商品条码的区别是：本场景是采购新物料,不是对已有商品补贴条码",
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景是采购包材物料,不是对已入库商品换标",
+    "和【入库】商品质检的区别是：本场景是代客户采购物料,不是对已入库商品进行质检",
+    "和【入库】上架前自提的区别是：本场景采购的物料会入库供后续增值使用,不是采购后直接自提"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确物料类型(标签/UN箱/纸箱等包材)",
+    "动作：代采购/协助采购",
+    "去向：采购后入库供后续增值使用,或明确采购链接和规格数量"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "必须包含采购需求(物料类型、规格、数量、采购链接)",
+    "必须说明仓库联系供应商询价流程",
+    "必须包含财务付款确认环节",
+    "必须说明供应商发货至仓库",
+    "必须注明需财务确认收款后才能更新状态"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.4. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250619001."
+}

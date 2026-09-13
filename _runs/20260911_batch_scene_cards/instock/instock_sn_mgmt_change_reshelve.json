@@ -1,0 +1,77 @@
+{
+  "sceneKey": "instock_sn_mgmt_change_reshelve",
+  "sceneName": "【库内】SN采集+管理方式变更+重新上架（复合场景）",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.32",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "SN采集",
+      "SN序列号",
+      "SN条码",
+      "管理方式变更",
+      "商品化管理转单品化",
+      "单品化管理",
+      "采集完成后重新上架",
+      "IT改数"
+    ],
+    "weak": [
+      "下架后上架",
+      "新入库单",
+      "管理方式",
+      "采集清单",
+      "改数收费",
+      "草稿状态入库单"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "换标",
+      "质检",
+      "拍照",
+      "调拨",
+      "串仓"
+    ],
+    "soft": [
+      "自提",
+      "无主货",
+      "预报不符",
+      "第三方条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品下架后换入库单重新上架的区别：本场景必须包含SN采集和管理方式变更两个动作，且是从商品化管理改为单品化管理",
+    "和【入库】批量辨识商品后补贴商品条码的区别：本场景重点是SN序列号采集而非普通条码补贴,且必须涉及管理方式切换",
+    "和【入库】包裹类异常换商品标签上架的区别：本场景是正常业务流程的SN采集+改管理方式,不是异常处理,且需要IT改数",
+    "识别关键：必须同时包含'SN采集'和'管理方式变更'两个核心动作,缺一不可;单独的下架重新上架不属于本场景"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确是商品化管理的SKU需要采集SN序列号",
+    "动作：必须包含三个步骤 - SN采集、管理方式从商品化改为单品化、重新上架",
+    "去向：采集完成后的库存需要下架,改完管理方式后重新上架到新入库单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "第一步：按增值单采集指定SKU的SN条码,采集完成后下架库存并提供SN清单",
+    "第二步：客户提交改管理方式增值单,运营提交OA给IT改数(商品化→单品化),需收费",
+    "第三步：IT确认改数完成后,按新入库单(单品化管理)重新上架库存",
+    "关键节点：需要两个增值单(SN采集+改管理方式),需要IT介入改数,需要新建入库单",
+    "特殊要求：客户需提前开通SN采集权限并在系统维护SN条码,新入库单可先做草稿等IT改好后再提交"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.32. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code. SOP 内容不足，信号词可能不准。"
+}

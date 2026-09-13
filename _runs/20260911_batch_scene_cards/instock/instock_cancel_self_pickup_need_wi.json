@@ -1,0 +1,75 @@
+{
+  "sceneKey": "instock_cancel_self_pickup_need_wi",
+  "sceneName": "【库内】异常单：自提单取消出库（需要客户下入库单）",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.34",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "自提单取消出库",
+      "自提2.0订单",
+      "作废的自提出库单",
+      "取消出库后重新上架",
+      "补贴包裹条码上架",
+      "解冻并做盘亏备注L007",
+      "WOXX作废后重新上架"
+    ],
+    "weak": [
+      "新入库单上架",
+      "关联第三方商品条码",
+      "关联第三方包裹条码",
+      "贴商品条码的增值服务",
+      "换回原商品条码"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "批量辨识",
+      "海运整柜",
+      "串仓调拨",
+      "上架前自提",
+      "指定商品拍照暂存"
+    ],
+    "soft": [
+      "质检",
+      "无主货",
+      "预报SKU不符",
+      "下架后换入库单"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】上架前自提的区别：本场景是出库单已取消后需要重新上架，而上架前自提是货物还未上架就被自提",
+    "和【入库】商品下架后换入库单重新上架的区别：本场景是自提出库单作废导致的重新上架，且需要补贴包裹条码和解冻盘亏操作",
+    "和【入库】关联第三方条码上架的区别：本场景是因自提单取消出库产生的异常处理，需要验证原出库贴的第三方条码与新入库单商品是否一致",
+    "和其他包裹类异常的区别：本场景特指自提2.0订单取消出库后的处理，涉及作废出库单WOXX、新入库单WIXX、解冻库存并盘亏L007等特定操作"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：取消出库的自提2.0订单对应的库存/作废的自提出库单号WOXX",
+    "动作：补贴包裹条码、解冻库存、盘亏备注L007、验证第三方条码关联",
+    "去向：按新入库单WIXX重新上架、关闭异常单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "验证原自提出库单是否有贴商品条码增值服务",
+    "验证第三方商品条码是否与新入库单做了关联",
+    "提交库内非标增值单（选择库内订单，异常单号放描述里）",
+    "仓库按新入库单补贴包裹条码上架",
+    "解冻作废出库单对应的冻结库存并做盘亏备注L007"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.34. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code. SOP 内容不足，信号词可能不准。"
+}

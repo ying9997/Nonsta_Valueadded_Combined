@@ -1,0 +1,48 @@
+{
+  "orderNo": "VASC000000360750",
+  "demoLabel": "",
+  "source": "",
+  "expectedOutputPath": "",
+  "outputPath": "needs_field_clarification",
+  "ruleOutputPath": "needs_field_clarification",
+  "failureGate": "check-completeness",
+  "missing": [
+    "标签文件"
+  ],
+  "clarificationPrompts": [
+    "请上传「标签文件」后再生成 SOP。"
+  ],
+  "sceneKey": "inbound_package_exception_relabel_shelving",
+  "scenarioName": "【入库】包裹类异常换商品标签上架",
+  "decision": "supported",
+  "confidence": "high",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "应用规则A（异常名称直接映射）：3个异常单的异常名称均为「商品条码异常(需客户处理)」，根据规则A必须判定为场景5。虽然客户需求描述中提到「补贴包裹标签上架到新单」，但这是常见口语表达，不能覆盖OMS异常名称。核心动作是「扫描彩盒上的单品标签」，操作对象是商品标签/单品标签，符合场景5的特征（包裹条码正常但商品条码异常→换商品标签→上架）。客户未明确写「不换商品标签」，因此不适用311652例外口径。规则B确认：虽然有3个异常单，但异常名称本身是「商品条码异常」而非「包裹条码批量异常」，不能因为数量多就改判场景1。",
+  "llmText": "您好，该增值单需求内容已确认，识别为**【入库】包裹类异常换商品标签上架**场景，但还缺少以下资料：\n\n**增值单号：** VASC000000360750  \n**客户：** Plaud LLC / 17225006  \n**仓库：** DEBR2 Warehouse / DEBR2  \n\n**已提交需求摘要：**  \n把气泡袋清除掉，扫描彩盒上的单品标签补贴包裹标签上架到新单，新单单号：WI52514524\n\n**已绑定单据：**  \n- 异常单：EB0126090932893980、EB0126090932893872、EB0126090932893800  \n- 入库单：WI52514524、WI52242392\n\n**已上传附件：** 无\n\n**还缺资料：**  \n- **标签文件**（必填）：用于仓库打印并贴到商品/包裹上，请提供可直接打印的标签文件（如 PDF、图片等格式）\n\n**说明：** AI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "warehouse": "DEBR2 Warehouse",
+  "structuredReview": {
+    "vascNo": "VASC000000360750",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_package_barcode_batch_relabel",
+      "confidence": 0.9
+    },
+    "materialsComplete": false,
+    "missingMaterials": [
+      "标签文件"
+    ],
+    "outputPath": "needs_field_clarification",
+    "llmGeneratedText": "您好，该增值单需求内容已确认，识别为**【入库】包裹类异常换商品标签上架**场景，但还缺少以下资料：\n\n**增值单号：** VASC000000360750  \n**客户：** Plaud LLC / 17225006  \n**仓库：** DEBR2 Warehouse / DEBR2  \n\n**已提交需求摘要：**  \n把气泡袋清除掉，扫描彩盒上的单品标签补贴包裹标签上架到新单，新单单号：WI52514524\n\n**已绑定单据：**  \n- 异常单：EB0126090932893980、EB0126090932893872、EB0126090932893800  \n- 入库单：WI52514524、WI52242392\n\n**已上传附件：** 无\n\n**还缺资料：**  \n- **标签文件**（必填）：用于仓库打印并贴到商品/包裹上，请提供可直接打印的标签文件（如 PDF、图片等格式）\n\n**说明：** AI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

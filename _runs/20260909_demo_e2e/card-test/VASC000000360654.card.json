@@ -1,0 +1,90 @@
+{
+  "config": {
+    "wide_screen_mode": true
+  },
+  "header": {
+    "title": {
+      "tag": "plain_text",
+      "content": "✅ 增值单 AI 预审 — VASC000000360654"
+    },
+    "template": "green"
+  },
+  "elements": [
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "客户：RED NOW LIMITED\n仓库：USWC5 Warehouse\n异常单：EB0126082832573118\n场景：海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**【AI 总结 - 需求描述】**\n异常单 EB0126082832573118 关联的海运整柜货物，因包裹条码批量异常（B01E1615/B0102E21）导致原入库单 WI51757326 无法正常处理。货物为 100%A+/A 级包裹，客户要求扫描外箱条码直接按新入库单 WI52512121 上架，无需处理包裹级条码异常"
+      }
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**【AI 总结 - 需求背景】**\n海运整柜货物包裹条码批量异常，原入库单无法继续处理，需按新入库单直接上架以避免整单退回"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "**【操作步骤】**\n1. 根据异常单 EB0126082832573118 定位对应的海运整柜货物；\n2. 确认货物为 100%A+/A 级包裹，外箱条码清晰完整；\n3. 直接扫描外箱条码，关联新入库单 WI52512121 进行上架操作；\n4. 忽略包裹级条码异常，不做包裹级处理；\n5. 上架完成后关闭异常单 EB0126082832573118。\n\n【注意事项】\n- 本批次仅处理外箱级上架，不处理包裹条码异常\n- 确保扫描的是外箱条码而非包裹条码\n- 新旧入库单号勿混淆（旧单 WI51757326 / 新单 WI52512121）"
+      }
+    },
+    {
+      "tag": "hr"
+    },
+    {
+      "tag": "div",
+      "text": {
+        "tag": "lark_md",
+        "content": "<at id=ou_d09d7409a63201462177f4d8a8b1ac7b></at> 请确认"
+      }
+    },
+    {
+      "tag": "action",
+      "actions": [
+        {
+          "tag": "button",
+          "text": {
+            "tag": "plain_text",
+            "content": "✅ 确认 SOP 正确，写入 OMS 草稿"
+          },
+          "type": "primary",
+          "name": "sop_write",
+          "value": {
+            "action": "confirm_sop_write",
+            "vascNo": "VASC000000360654",
+            "sceneKey": "inbound_aplus_direct_shelve"
+          }
+        },
+        {
+          "tag": "button",
+          "text": {
+            "tag": "plain_text",
+            "content": "✏️ SOP 需要修改"
+          },
+          "type": "default",
+          "name": "sop_write",
+          "value": {
+            "action": "sop_needs_edit",
+            "vascNo": "VASC000000360654"
+          }
+        }
+      ]
+    }
+  ]
+}

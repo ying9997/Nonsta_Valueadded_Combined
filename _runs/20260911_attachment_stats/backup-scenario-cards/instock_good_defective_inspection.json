@@ -1,0 +1,78 @@
+{
+  "sceneKey": "instock_good_defective_inspection",
+  "sceneName": "【库内】良品/不良品检测",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250407051",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.3",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "良品",
+      "不良品",
+      "检测",
+      "质量检测",
+      "发霉检查",
+      "损坏检查",
+      "判定标准",
+      "解冻"
+    ],
+    "weak": [
+      "下架",
+      "冻结",
+      "暂存区",
+      "物理隔离",
+      "实物照片",
+      "返回原库位"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "辨识",
+      "串仓",
+      "自提",
+      "预报"
+    ],
+    "soft": [
+      "入库单号",
+      "新到货",
+      "收货",
+      "质检报告"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品质检的区别：本场景是对库内已上架商品进行检测，质检是入库前的检测",
+    "和【入库】指定商品拍照暂存的区别：本场景需要判定良品/不良品并分别处理，拍照暂存只是拍照不做质量判定",
+    "和【入库】商品下架后换入库单重新上架的区别：本场景有良品/不良品判定和分类上架，换入库单场景不涉及质量检测",
+    "关键识别点：必须同时包含'检测'+'良品/不良品判定'+'分类处理'三个要素"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确需要检测的SKU列表或商品范围",
+    "动作：说明检测类型（发霉检查/损坏检查等）和判定标准",
+    "去向：良品和不良品的分别处理方式（解冻上架/冻结隔离）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "列出检测SKU和具体检测要求",
+    "明确良品和不良品的判定标准",
+    "说明良品的处理流程（解冻→返回原库位→新入库单上架）",
+    "说明不良品的处理流程（暂存区→物理隔离→冻结→不良品入库单上架）",
+    "要求提供每个SKU的实物照片数量"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.3. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407051."
+}

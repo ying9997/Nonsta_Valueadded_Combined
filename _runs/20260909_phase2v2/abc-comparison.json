@@ -1,0 +1,329 @@
+{
+  "model": "claude-sonnet-4-5",
+  "metrics": {
+    "p1": {
+      "exact": 1,
+      "acceptable": 1,
+      "pathOk": 3
+    },
+    "v1": {
+      "exact": 2,
+      "acceptable": 2,
+      "pathOk": 4
+    },
+    "v2": {
+      "exact": 4,
+      "acceptable": 4,
+      "pathOk": 4
+    }
+  },
+  "rowsP1": [
+    {
+      "vascNo": "VASC000000311652",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_exception_relabel_shelving",
+      "actualSceneName": "【入库】包裹类异常换商品标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "llmUsed": false,
+      "exceptionSummary": "",
+      "elapsedMs": 11
+    },
+    {
+      "vascNo": "VASC000000315774",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "needs_field_clarification",
+      "actualOutputPath": "needs_field_clarification",
+      "pathOk": true,
+      "llmUsed": false,
+      "exceptionSummary": "",
+      "elapsedMs": 1
+    },
+    {
+      "vascNo": "VASC000000298617",
+      "expectedScene": "inbound_photo_hold",
+      "omsSceneName": "【入库】指定商品拍照暂存",
+      "actualSceneKey": "inbound_label_identify",
+      "actualSceneName": "【入库】尺重/标签辨识后换标上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "llmUsed": false,
+      "exceptionSummary": "",
+      "elapsedMs": 1
+    },
+    {
+      "vascNo": "VASC000000305805",
+      "expectedScene": "inbound_third_party_merchandise_barcode",
+      "omsSceneName": "【入库】关联第三方商品条码上架",
+      "actualSceneKey": "",
+      "actualSceneName": "（空）/unsupported",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "exceptionSummary": "",
+      "elapsedMs": 1
+    },
+    {
+      "vascNo": "VASC000000326061",
+      "expectedScene": "inbound_label_identify",
+      "omsSceneName": "【入库】尺重/标签辨识后换标上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "llmUsed": false,
+      "exceptionSummary": "",
+      "elapsedMs": 1
+    }
+  ],
+  "rowsV1": [
+    {
+      "vascNo": "VASC000000311652",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_exception_relabel_shelving",
+      "actualSceneName": "【入库】包裹类异常换商品标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "llmUsed": true,
+      "llmReasoning": "需求明确提到商品条码异常（EB0126070130941754、EB0126070130941397），且客户要求不换商品标签，只换箱唛上架到新单。虽然客户说不换商品标签，但换箱唛的动作实际上是在处理商品条码异常的情况。根据判断优先级第2条，商品条码异常优先考虑场景5。但需求中的不换商品标签与场景5的核心动作换商品标签存在矛盾，这里理解为客户可能是指不更换SKU标签内容，只更换外箱标识（箱唛）。考虑到这是商品条码异常且需要重新上架到新单，场景5最为接近。如果理解为完全不做任何标签更换，则可能需要场景3（关联第三方商品条码），但需求中未明确提到关联第三方条码的动作。",
+      "llmMatched": "inbound_package_exception_relabel_shelving",
+      "llmConfidence": "medium",
+      "exceptionSummary": "",
+      "elapsedMs": 8516
+    },
+    {
+      "vascNo": "VASC000000315774",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "needs_field_clarification",
+      "actualOutputPath": "needs_field_clarification",
+      "pathOk": true,
+      "llmUsed": true,
+      "llmReasoning": "需求描述明确提到：1) 根据外箱上的商品条码和A+包裹标签辨识SKU；2) 辨识出异常单EB0126060330032532的14个包裹；3) 补贴新入库单WI50734175的包裹标签；4) 在新单上架。这完全符合场景1的核心特征：包裹条码批量异常+辨识后补贴包裹标签+上架到新入库单。SOP步骤也完全匹配：根据异常单找到异常商品→辨识→补贴包裹标签→上架→关闭异常单。操作对象是包裹标签而非商品标签，且明确提到新入库单号，排除场景4和场景5。",
+      "llmMatched": "inbound_package_barcode_batch_relabel",
+      "llmConfidence": "high",
+      "exceptionSummary": "",
+      "elapsedMs": 7228
+    },
+    {
+      "vascNo": "VASC000000298617",
+      "expectedScene": "inbound_photo_hold",
+      "omsSceneName": "【入库】指定商品拍照暂存",
+      "actualSceneKey": "inbound_photo_hold",
+      "actualSceneName": "【入库】指定商品拍照暂存",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "llmUsed": true,
+      "llmReasoning": "需求描述明确提到：1) 随机抽取商品拆包装拍照（正、后、侧面三张实物照片）；2) 返回照片后再进行辨识处理。这完全符合场景2的核心特征：对异常包裹/商品拍照 + 暂存区等客户确认后再处理。SOP关键步骤也匹配：数字标识 → 拍照 → 回传照片 → 暂存。虽然后续提到辨识处理，但核心动作是先拍照回传等客户确认，而非直接辨识换标上架，因此不是场景1或场景4。",
+      "llmMatched": "inbound_photo_hold",
+      "llmConfidence": "high",
+      "exceptionSummary": "",
+      "elapsedMs": 12595
+    },
+    {
+      "vascNo": "VASC000000305805",
+      "expectedScene": "inbound_third_party_merchandise_barcode",
+      "omsSceneName": "【入库】关联第三方商品条码上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "llmUsed": true,
+      "llmReasoning": "需求明确提到外箱无箱唛导致无主货异常，实物有单品码但仓库无法扫描识别，需要补贴包裹标签后上架到指定入库单WI49632155。核心特征完全匹配场景1：包裹条码异常+补贴包裹标签+上架到新入库单。虽然没有明确提到批量，但无主货异常通常属于包裹级别异常，且操作对象是包裹标签而非商品标签，SOP步骤也吻合：根据异常单找到异常商品→辨识→补贴包裹标签→上架→关闭异常单。",
+      "llmMatched": "inbound_package_barcode_batch_relabel",
+      "llmConfidence": "high",
+      "exceptionSummary": "",
+      "elapsedMs": 7091
+    },
+    {
+      "vascNo": "VASC000000326061",
+      "expectedScene": "inbound_label_identify",
+      "omsSceneName": "【入库】尺重/标签辨识后换标上架",
+      "actualSceneKey": "inbound_third_party_merchandise_barcode",
+      "actualSceneName": "【入库】关联第三方商品条码上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "llmUsed": true,
+      "llmReasoning": "客户明确说明实物产品条码正确，第三方编码系统已经关联，要求使用新入库单上架，仓库按新单补贴包裹标签操作上架。核心特征完全符合场景3：客户已维护第三方商品条码关联关系，直接扫描上架到新入库单。虽然提到补贴包裹标签，但这是为了上架到新入库单的配套动作，核心是利用已关联的第三方条码直接上架，而非辨识后换标。",
+      "llmMatched": "inbound_third_party_merchandise_barcode",
+      "llmConfidence": "high",
+      "exceptionSummary": "",
+      "elapsedMs": 12017
+    }
+  ],
+  "rowsV2": [
+    {
+      "vascNo": "VASC000000311652",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "llmUsed": true,
+      "llmReasoning": "应用规则B（多异常单=批量）：同一增值单关联2个异常单（EB0126070130941754、EB0126070130941397），异常名称相同（商品条码异常(需客户处理)），构成批量异常场景。虽然异常名称是'商品条码异常'，但根据规则B，多个同类异常实质是批量处理，应优先考虑场景1（§2.33批量异常补贴包裹标签）。需求描述中'不换商品标签，只换箱唛上架到新单'与场景1的SOP一致：处理批量异常后补贴包裹标签（箱唛）并上架到新入库单WI50811725。客户明确要求不换商品标签，符合场景1中补贴包裹标签的核心动作。",
+      "llmMatched": "inbound_package_barcode_batch_relabel",
+      "llmConfidence": "high",
+      "exceptionSummary": "EB0126070130941754=商品条码异常(需客户处理)/商品(known_table); EB0126070130941397=商品条码异常(需客户处理)/商品(known_table)",
+      "elapsedMs": 7349
+    },
+    {
+      "vascNo": "VASC000000315774",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "needs_field_clarification",
+      "actualOutputPath": "needs_field_clarification",
+      "pathOk": true,
+      "llmUsed": true,
+      "llmReasoning": "应用规则A：异常单详情显示异常名称为'包裹条码批量异常(需客户处理)'，直接映射到场景1（sceneKey=inbound_package_barcode_batch_relabel）。需求描述完全符合场景1的核心特征：(1)包裹条码批量异常；(2)通过辨识确认SKU（根据外箱A+包裹标签/商品条码辨识出14个包裹的SKU）；(3)补贴包裹标签（补贴新入库单WI50734175的包裹标签）；(4)上架到新入库单。SOP步骤完整匹配：根据异常单找到异常商品→辨识→补贴包裹标签→上架→关闭异常单。异常对象为包裹，处理对象也是包裹标签，逻辑一致。",
+      "llmMatched": "inbound_package_barcode_batch_relabel",
+      "llmConfidence": "high",
+      "exceptionSummary": "EB0126060330032532=包裹条码批量异常(需客户处理)/包裹(known_table)",
+      "elapsedMs": 8626
+    },
+    {
+      "vascNo": "VASC000000298617",
+      "expectedScene": "inbound_photo_hold",
+      "omsSceneName": "【入库】指定商品拍照暂存",
+      "actualSceneKey": "inbound_photo_hold",
+      "actualSceneName": "【入库】指定商品拍照暂存",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "llmUsed": true,
+      "llmReasoning": "应用规则C（未知/复杂异常名称）+ 需求描述判断。异常单详情显示2个异常单，异常名称均为'包裹内出现订单外商品'，这是复杂异常类型，不在规则A的直接映射范围内（非'包裹条码批量异常'或'商品条码异常'）。虽然有2个同类异常单，但规则B仅适用于已知简单异常名称的批量场景，复杂异常不强行归入场景1。回退看需求描述：明确提到'随机抽1件商品拆包装按照要求拍正、后、侧面三张实物照片'+'返回照片后再进行辨识处理'，核心动作是拍照+等待照片返回后再处理，符合场景2（拍照暂存）的特征：对异常商品拍照→回传照片→暂存等客户确认。'辨识处理'在此是后续步骤，但当前增值单的主要目的是拍照并暂存等指示，而非立即换标上架。",
+      "llmMatched": "inbound_photo_hold",
+      "llmConfidence": "high",
+      "exceptionSummary": "EB0326061230366501=包裹内出现订单外商品/商品(known_table); EB0326061230362709=包裹内出现订单外商品/商品(known_table)",
+      "elapsedMs": 10133
+    },
+    {
+      "vascNo": "VASC000000305805",
+      "expectedScene": "inbound_third_party_merchandise_barcode",
+      "omsSceneName": "【入库】关联第三方商品条码上架",
+      "actualSceneKey": "inbound_package_barcode_batch_relabel",
+      "actualSceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneExact": false,
+      "sceneAcceptable": false,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "sop_generated",
+      "pathOk": true,
+      "llmUsed": true,
+      "llmReasoning": "规则D：异常单详情不可用，回退到需求描述判断。需求明确提到'补贴包裹上架'，核心动作是对包裹进行补贴标签操作。虽然只有一个异常单号（非批量），但'补贴包裹标签'是场景1的核心特征动作。需求中'外箱无箱唛'+'实物有贴单品码但仓库无法扫描识别'说明需要重新贴包裹标签才能上架到新入库单WI49632155。操作对象是包裹层面（补贴包裹），而非商品标签层面，符合场景1的SOP：辨识→补贴包裹标签→上架→关闭异常。标签文件已上传也支持补贴包裹标签的操作。",
+      "llmMatched": "inbound_package_barcode_batch_relabel",
+      "llmConfidence": "high",
+      "exceptionSummary": "EB0126060830209943=未查到(not_found)",
+      "elapsedMs": 15600
+    },
+    {
+      "vascNo": "VASC000000326061",
+      "expectedScene": "inbound_label_identify",
+      "omsSceneName": "【入库】尺重/标签辨识后换标上架",
+      "actualSceneKey": "inbound_label_identify",
+      "actualSceneName": "【入库】尺重/标签辨识后换标上架",
+      "sceneExact": true,
+      "sceneAcceptable": true,
+      "expectedOutputPath": "sop_generated",
+      "actualOutputPath": "transfer_human",
+      "pathOk": false,
+      "llmUsed": true,
+      "llmReasoning": "应用规则C：异常名称为「包裹内出现订单外商品」，属于复杂/多步骤场景，不在规则A的直接映射范围内，因此不强行归入场景1-5的名称映射。回退到需求描述判断：客户明确提到「实物产品条码正确，第三方编码系统已经关联」+「按新单补贴新单的包裹标签操作上架」，核心动作是补贴包裹标签+上架到新入库单。虽然提到第三方编码已关联，但需求重点是非标处理多个入库单的上架问题（标准流程无法一次填写多个入库单），且需要补贴新单包裹标签，这不是场景3（关联第三方条码后直接扫描上架）的典型特征。考虑到：1）异常复杂（订单外商品+多入库单）；2）需要补贴包裹标签；3）非标处理性质，最符合场景4（通用兜底场景），该场景涵盖辨识后换标上架的各类非标情况。置信度medium是因为需求描述较复杂，涉及多个入库单和第三方编码，但核心操作仍是换标+上架。",
+      "llmMatched": "inbound_label_identify",
+      "llmConfidence": "medium",
+      "exceptionSummary": "EB0326072531612017=包裹内出现订单外商品/商品(known_table)",
+      "elapsedMs": 11584
+    }
+  ],
+  "exceptionRows": [
+    {
+      "vascNo": "VASC000000311652",
+      "ebNos": [
+        "EB0126070130941754",
+        "EB0126070130941397"
+      ],
+      "names": "商品条码异常(需客户处理) / 商品条码异常(需客户处理)",
+      "objects": "商品 / 商品",
+      "sources": "known_table / known_table"
+    },
+    {
+      "vascNo": "VASC000000315774",
+      "ebNos": [
+        "EB0126060330032532"
+      ],
+      "names": "包裹条码批量异常(需客户处理)",
+      "objects": "包裹",
+      "sources": "known_table"
+    },
+    {
+      "vascNo": "VASC000000298617",
+      "ebNos": [
+        "EB0326061230366501",
+        "EB0326061230362709"
+      ],
+      "names": "包裹内出现订单外商品 / 包裹内出现订单外商品",
+      "objects": "商品 / 商品",
+      "sources": "known_table / known_table"
+    },
+    {
+      "vascNo": "VASC000000305805",
+      "ebNos": [
+        "EB0126060830209943"
+      ],
+      "names": "未查到",
+      "objects": "-",
+      "sources": "not_found"
+    },
+    {
+      "vascNo": "VASC000000326061",
+      "ebNos": [
+        "EB0326072531612017"
+      ],
+      "names": "包裹内出现订单外商品",
+      "objects": "商品",
+      "sources": "known_table"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "cards": [
+    "inbound_label_identify",
+    "inbound_package_exception_relabel_shelving",
+    "inbound_photo_hold",
+    "inbound_package_barcode_batch_relabel",
+    "inbound_third_party_merchandise_barcode"
+  ],
+  "parse": {
+    "transfer0": {
+      "matched": false,
+      "sceneKey": "",
+      "sceneName": "人工处理",
+      "raw": "0",
+      "method": "transfer"
+    },
+    "transferHuman": {
+      "matched": false,
+      "sceneKey": "",
+      "sceneName": "人工处理",
+      "raw": "转人工处理",
+      "method": "transfer"
+    },
+    "num1": {
+      "matched": true,
+      "sceneKey": "inbound_package_barcode_batch_relabel",
+      "sceneName": "批量异常补贴包裹标签",
+      "raw": "1",
+      "method": "number"
+    },
+    "num4": {
+      "matched": false,
+      "sceneKey": "",
+      "sceneName": "",
+      "raw": "4",
+      "method": "unrecognized",
+      "askAgain": "未识别，请回复编号（1-2 / 0）或场景名称关键词。"
+    },
+    "garbage": {
+      "matched": false,
+      "sceneKey": "",
+      "sceneName": "",
+      "raw": "asdf乱码",
+      "method": "unrecognized",
+      "askAgain": "未识别，请回复编号（1-2 / 0）或场景名称关键词。"
+    },
+    "photo": {
+      "matched": true,
+      "sceneKey": "inbound_photo_hold",
+      "sceneName": "【入库】指定商品拍照暂存",
+      "raw": "这单是拍照暂存",
+      "method": "keyword"
+    },
+    "f001": {
+      "matched": true,
+      "sceneKey": "inbound_label_identify",
+      "sceneName": "【入库】尺重/标签辨识后换标上架",
+      "raw": "尺重",
+      "method": "keyword"
+    }
+  },
+  "override": {
+    "outputPath": "sop_generated",
+    "missing": [],
+    "sceneKey": "inbound_label_identify",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ]
+  }
+}

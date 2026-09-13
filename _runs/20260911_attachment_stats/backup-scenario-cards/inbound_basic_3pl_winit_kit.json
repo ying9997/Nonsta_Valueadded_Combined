@@ -1,0 +1,77 @@
+{
+  "sceneKey": "inbound_basic_3pl_winit_kit",
+  "sceneName": "【入库】Basic 3PL-Winit 组套产品审核",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.28",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "组套",
+      "锁芯",
+      "纸壳",
+      "透明标",
+      "Box-In-Box",
+      "商品组合拆分",
+      "装进纸箱",
+      "封箱"
+    ],
+    "weak": [
+      "拆箱",
+      "换标",
+      "贴胶带",
+      "工时计费",
+      "成品",
+      "装箱"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "辨识",
+      "串仓",
+      "调拨",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "拍照",
+      "暂存",
+      "整柜",
+      "A+异常"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景涉及多个商品组合成新产品的组套操作,而非单纯的换标",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景需要将多个商品组装成套装产品(如锁芯装入商品、装纸壳、贴透明标等),而非仅补贴条码",
+    "和【入库】商品质检的区别是：本场景是组套加工操作,包含拆箱、组装、装箱、封箱等步骤,而非质量检验",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是正常的组套产品加工流程,不是处理异常情况"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需要组套的商品(如锁芯、纸壳、透明标等组件)",
+    "动作：组套操作(拆箱、组装、装箱、封箱、换标等)",
+    "去向：组套完成后上架入库"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "拆箱并取出商品的具体步骤和时间",
+    "组套的详细操作流程(如放入锁芯、装纸壳、贴透明标等)",
+    "装箱和封箱的操作步骤",
+    "换标和贴胶带的要求",
+    "工时成本计算方式和收费标准"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.28. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

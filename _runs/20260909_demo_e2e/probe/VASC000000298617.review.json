@@ -1,0 +1,47 @@
+{
+  "orderNo": "VASC000000298617",
+  "demoLabel": "L3-追问缺附件",
+  "source": "demo_constructed",
+  "expectedOutputPath": "needs_field_clarification",
+  "outputPath": "needs_field_clarification",
+  "ruleOutputPath": "needs_field_clarification",
+  "failureGate": "check-completeness",
+  "missing": [
+    "操作说明附件"
+  ],
+  "clarificationPrompts": [
+    "请上传「操作说明附件」后再生成 SOP。"
+  ],
+  "sceneKey": "inbound_photo_hold",
+  "scenarioName": "【入库】指定商品拍照暂存",
+  "decision": "supported",
+  "confidence": "high",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "应用规则C：异常名称为'包裹内出现订单外商品'，属于复杂异常类型，不在规则A的直接映射范围内，不强行归入场景1-5的名称映射。虽然有2个异常单（规则B提示可能是批量），但需求描述的核心动作非常明确：'随机抽1件商品拆包装按照要求拍正、后、侧面三张实物照片，返回照片后再进行辨识处理'。关键特征：(1)拍照动作明确且详细（三个角度）；(2)'返回照片后再进行辨识处理'表明需要等客户确认照片后才继续操作，符合场景2的'暂存区等客户确认后再处理'特征。复杂异常+拍照+等确认后处理的组合，明确指向场景2（inbound_photo_hold）。",
+  "llmText": "增值单 VASC000000298617 已识别为 F-001，但仍缺附件/字段：操作说明附件。请补齐后再审。",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "structuredReview": {
+    "vascNo": "VASC000000298617",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_label_identify",
+      "confidence": 0.9
+    },
+    "materialsComplete": false,
+    "missingMaterials": [
+      "操作说明附件"
+    ],
+    "outputPath": "needs_field_clarification",
+    "llmGeneratedText": "",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

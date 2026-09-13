@@ -41,6 +41,8 @@ export interface AgentInput {
     eventNo: string;
     businessOrderNo: string;
     attachmentStatus: Record<string, AttachmentStatus>;
+    businessType?: string;
+    businessTypeDesc?: string;
   };
   providedFields: Record<string, string>;
   omsFacts: {
@@ -71,6 +73,10 @@ export interface ContextFacts {
   allEventNos: string[];
   allBusinessOrderNos: string[];
   vaSource: string;
+  /** OMS 订单类型编码：INBOUND / INHOUSE / OUTBOUND / UNUSUAL */
+  businessType?: string;
+  /** OMS 订单类型描述：入库订单 / 库内订单 / 出库订单 */
+  businessTypeDesc?: string;
   sceneKey: string;
   sceneName: string;
   sceneCode: string;
@@ -92,6 +98,11 @@ export interface RequirementCheck {
   missingRequirementItems: string[];
   clarificationPrompts: string[];
   normalizedRequirement: string;
+  objectMatch?: string | null;
+  objectBoundBypass?: boolean;
+  actionMatch?: string | null;
+  purposeMatch?: string | null;
+  purposeBoundBypass?: boolean;
 }
 
 export type MatchDecision = "supported" | "unsupported" | "ambiguous";
@@ -110,6 +121,21 @@ export interface MatchCandidate {
   status?: string;
 }
 
+export interface MatchQuerySignals {
+  text: string;
+  interceptHold: boolean;
+  hasPhoto: boolean;
+  explicitPhotoRequirement: boolean;
+  hasRelabel: boolean;
+  hasShelve: boolean;
+  hasIdentify: boolean;
+  hasPackageException: boolean;
+  hasPhotoHold: boolean;
+  hasDirectScanShelve: boolean;
+  weighOrPhotoWithoutRelabel: boolean;
+  inboundStockPhoto: boolean;
+}
+
 export interface MatchResult {
   matched: boolean;
   supported: boolean;
@@ -125,6 +151,51 @@ export interface MatchResult {
   confidenceScore: number;
   candidates: MatchCandidate[];
   topK: MatchCandidate[];
+  querySignals?: MatchQuerySignals;
+  gap?: number;
+  decisionPath?: string;
+  /** Actions extracted from requirement text (action→scene constraint). */
+  matchedActions?: string[];
+  /** Scene keys boosted by matched actions. */
+  actionCandidateScenes?: string[];
+  /** Scene keys penalized by matched actions. */
+  actionExcludedScenes?: string[];
+  /** Phase 2: LLM scene classification payload (when sceneLlm enabled). */
+  llmClassification?: {
+    matchedScene: string;
+    confidence: string;
+    reasoning: string;
+    /** Card-facing one-liner; max 30 chars. */
+    conclusionOneLiner?: string;
+    extractedActions: string[];
+    alternativeScenes: string[];
+    ambiguous: boolean;
+    sceneLlmVersion?: 1 | 2 | 3;
+    exceptionInfos?: Array<{
+      ebNo: string;
+      exceptionName: string;
+      exceptionObject: string;
+      source: string;
+    }>;
+    toolCallHistory?: Array<{
+      round: number;
+      toolName: string;
+      arguments: Record<string, unknown>;
+      result: string;
+    }>;
+    totalToolRounds?: number;
+  };
+  /** Phase 2: true when LLM scene classifier was successfully used (not rule fallback). */
+  llmUsed?: boolean;
+  /** Phase 2: rule prefilter candidate scene keys (not hard-excluded). */
+  ruleCandidateScenes?: string[];
+  /** BM25 few-shot cases shown to the LLM (score may be < 1.0; prompt only injects ≥ 1.0). */
+  retrievedCases?: Array<{
+    caseId: string;
+    sceneName: string;
+    score: number;
+    keyAction: string;
+  }>;
 }
 
 export interface CompletenessResult {
@@ -166,6 +237,9 @@ export interface LlmGeneration {
   mocked: boolean;
   error: string | null;
   sop?: LlmSopDraft;
+  reflectionPass?: boolean;
+  reflectionIssues?: string[];
+  regenerated?: boolean;
 }
 
 export interface StructuredReview {
@@ -195,8 +269,17 @@ export type CaseStatus =
   | "reply_received"
   | "reassessed"
   | "sop_ready"
+  | "sop_editing"
   | "written_back"
-  | "transferred";
+  | "transferred"
+  | "awaiting_scene_confirm"
+  | "scene_confirmed";
+
+export interface SceneCandidate {
+  index: number;
+  sceneKey: string;
+  sceneName: string;
+}
 
 export interface CaseRecord {
   vascNo: string;
@@ -208,6 +291,8 @@ export interface CaseRecord {
   omsAuditStatus: string;
   aiOutputPath: string;
   aiGeneratedText: string;
+  /** LLM 分段结果；写 OMS / 绿卡优先用它，aiGeneratedText 仍存全文。 */
+  llmSop?: LlmSopDraft | null;
   matchResult: object;
   missingFields: string[];
   feishuThreadId: string | null;
@@ -222,4 +307,21 @@ export interface CaseRecord {
   ruleOutputPath?: string;
   riskFlags?: string[];
   processingMethod?: "暂时";
+  confirmedScene?: string;
+  confirmedSceneName?: string;
+  confirmedBy?: string;
+  sceneCandidateList?: SceneCandidate[];
+  lastSceneReplyText?: string;
+  notifyChannel?: "card" | "post";
+  feishuMessageId?: string | null;
+  lastCard?: object | null;
+  /** 已完成的 SOP 修订次数；第 4 次点「需修改」转人工。 */
+  sopEditCount?: number;
+  /** 最近一次点「SOP 需修改」的时间，用来过滤之后的话题回复。 */
+  sopEditRequestedAt?: string | null;
+  lastSopEditInstruction?: string;
+  /** writeDraft 已调用次数（含失败）。 */
+  omsWriteAttempts?: number;
+  /** 审核员点「重试写入 OMS」的次数。 */
+  omsWriteManualRetries?: number;
 }

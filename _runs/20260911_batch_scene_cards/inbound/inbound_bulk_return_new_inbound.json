@@ -1,0 +1,75 @@
+{
+  "sceneKey": "inbound_bulk_return_new_inbound",
+  "sceneName": "【入库】批量退货（≥20件商品）异常包裹建新入库单入库",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.14",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "批量退货",
+      "≥20件",
+      "RT单",
+      "新入库单上架",
+      "退货商品",
+      "大批量商品"
+    ],
+    "weak": [
+      "组包",
+      "退货异常",
+      "盘亏处理",
+      "按新入库单",
+      "批量商品",
+      "L007盘亏"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "辨识",
+      "串仓",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "拍照",
+      "暂存",
+      "无主货",
+      "预报不符"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是退货商品且数量≥20件需建新入库单，而换标场景是单个包裹标签问题",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景是退货商品需做盘亏处理，而辨识场景是补贴条码后直接上架",
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景是退货商品首次入库建新单，而下架换单是已上架商品的二次处理",
+    "和【入库】无主货异常补贴标签上架的区别是：本场景有明确的RT单和退货来源，而无主货是找不到归属的商品"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：RT单号的退货商品，明确数量≥20件",
+    "动作：组包成新包裹、建新入库单、做L007盘亏处理",
+    "去向：上架到指定入库单号，关闭异常单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "判断是否有RT单且商品数量≥20件",
+    "按要求将商品组包（可能需要选择合适纸箱）",
+    "上架到新的入库单号",
+    "对RT单商品做L007盘亏处理",
+    "关闭异常单"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.14. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

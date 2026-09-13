@@ -1,0 +1,76 @@
+{
+  "sceneKey": "instock_exception_to_defective_shelve",
+  "sceneName": "【库内】异常商品转不良品上架",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "202512150002",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.14",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "不良品上架",
+      "转不良品",
+      "盘亏L007",
+      "解冻",
+      "无箱单预报单",
+      "不需要贴商品标签",
+      "只收取出库处理费"
+    ],
+    "weak": [
+      "异常商品",
+      "下架更换",
+      "新入库单",
+      "整单上架",
+      "良品检查后发现问题"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "拍照",
+      "质检",
+      "自提",
+      "串仓"
+    ],
+    "soft": [
+      "辨识",
+      "SKU不符",
+      "关联第三方条码",
+      "更换SKU"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景必须转为不良品，且需要盘亏L007操作",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景转不良品上架不需要贴商品标签，对方需要换标签",
+    "和【入库】商品质检的区别是：本场景是良品检查后发现问题转不良品，质检是入库前的检验流程",
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景不涉及换标，而是直接转不良品上架"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：库内异常商品（需明确SKU）",
+    "动作：解冻、盘亏L007、下架、转不良品",
+    "去向：按新入库单做不良品上架（无箱单预报单）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "第一步：异常单商品解冻并盘亏L007",
+    "第二步：下架异常商品实物并更换新入库单上架",
+    "第三步：按新入库单WI做整单不良品上架",
+    "第四步：关闭异常单EBXXX，更新状态为'仓库已处理'",
+    "特别注意：入库单必须是无箱单预报单，不需要贴商品标签，只收取出库处理费"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.14. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 202512150002."
+}

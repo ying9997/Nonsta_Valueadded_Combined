@@ -7,9 +7,11 @@ import {
   extractFirstJsonObject,
   fillTemplate,
   resolveLlmConfig,
+  sanitizeJsonish,
   type LlmConfig,
 } from "./llm-client.ts";
 import { projectDir } from "./env.ts";
+import { sameNormalizedText } from "./sop-sections.ts";
 import type {
   AgentInput,
   CompletenessResult,
@@ -35,6 +37,10 @@ export interface GenerateTextArgs {
   completeness?: CompletenessResult;
   missing: string[];
   clarificationPrompts: string[];
+  /** 审核员对上一版 SOP 的修改意见。 */
+  sopEditInstruction?: string;
+  previousSop?: string;
+  onDelta?: (chunk: string) => void;
 }
 
 function readPrompt(name: string): string {
@@ -122,6 +128,8 @@ function allowedTokens(args: GenerateTextArgs): string[] {
     input.omsFacts.customerRequirementDescription,
     ...Object.values(input.providedFields),
     ...input.omsFacts.uploadedFiles.flatMap((file) => [file.fileName, file.label]),
+    args.previousSop || "",
+    args.sopEditInstruction || "",
     "操作说明附件",
     "商品和标签的对应关系",
     "标签文件",
@@ -159,7 +167,50 @@ async function generatePlain(
   return text.trim();
 }
 
-async function generateSop(config: LlmConfig, args: GenerateTextArgs): Promise<LlmSopDraft> {
+interface SopGenOptions {
+  extraConstraints?: string;
+}
+
+async function reflectSop(
+  config: LlmConfig,
+  sopText: string,
+  args: GenerateTextArgs,
+): Promise<{ pass: boolean; issues: string[]; suggestedFix: string }> {
+  try {
+    const reflectionPrompt = readPrompt("sop-reflection.md");
+    const response = await callChat(
+      config,
+      [
+        { role: "system", content: reflectionPrompt },
+        {
+          role: "user",
+          content: `## 输入数据\n${factBlob(args)}\n\n## SOP 草稿\n${sopText}`,
+        },
+      ],
+      { maxTokens: 800 },
+    );
+    const trimmed = response.trim();
+    if (trimmed === "PASS" || /^PASS\b/i.test(trimmed)) {
+      return { pass: true, issues: [], suggestedFix: "" };
+    }
+    const json = extractFirstJsonObject(response);
+    if (!json) return { pass: true, issues: [] , suggestedFix: ""};
+    const parsed = JSON.parse(json) as {
+      issues?: Array<{ type?: string; detail?: string } | string>;
+      suggestedFix?: string;
+    };
+    const issues = (parsed.issues || [])
+      .map((item) => (typeof item === "string" ? item : asText(item.detail)))
+      .filter(Boolean);
+    if (!issues.length) return { pass: true, issues: [], suggestedFix: "" };
+    return { pass: false, issues, suggestedFix: asText(parsed.suggestedFix) };
+  } catch {
+    // Reflection failure must not block original SOP flow.
+    return { pass: true, issues: [], suggestedFix: "" };
+  }
+}
+
+async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, options: SopGenOptions = {}): Promise<LlmSopDraft> {
   const template = readPrompt("sop-generate.md");
   const kbPath = resolve(projectDir(), "workspace/knowledge/sop/2.1-inbound-relabel-shelving.md");
   const kb = existsSync(kbPath) ? readFileSync(kbPath, "utf8") : "";
@@ -175,7 +226,7 @@ async function generateSop(config: LlmConfig, args: GenerateTextArgs): Promise<L
     warehouseCode: ctx.warehouseCode,
     warehouseName: ctx.warehouseName,
   };
-  const filled = fillTemplate(template, {
+  let filled = fillTemplate(template, {
     customerIntent: input.customerIntent,
     scenarioId: match?.scenarioId || "inbound_label_identify",
     scenarioName: match?.scenarioName || "【入库】尺重/标签辨识后换标上架",
@@ -187,22 +238,60 @@ async function generateSop(config: LlmConfig, args: GenerateTextArgs): Promise<L
     uploadedFiles: uploadedSummary(input, ctx).join("、") || "无",
     kbSopTemplates: kb,
   });
-  const raw = await callChat(config, [{ role: "user", content: filled }], {
-    jsonMode: true,
-    maxTokens: 1800,
-  });
-  const jsonText = extractFirstJsonObject(raw);
-  if (!jsonText) throw new Error("SOP 未解析到 JSON。");
-  const parsed = JSON.parse(jsonText) as {
-    sopText?: string;
-    scenarioName?: string;
-    fieldsUsed?: string[];
-    requirementBackground?: string;
-    requirementDescription?: string;
-    warehouseSop?: string;
-    notActionable?: boolean;
-    reason?: string;
+  if (asText(args.sopEditInstruction)) {
+    filled += [
+      "",
+      "## 审核员修改意见",
+      "以下是审核员对上一版 SOP 的修改要求，请按要求修正：",
+      asText(args.sopEditInstruction),
+      asText(args.previousSop) ? `\n## 上一版 SOP\n${asText(args.previousSop)}` : "",
+      "",
+      "请基于原始需求和审核员的修改意见，重新生成完整的 SOP。",
+      "",
+    ].join("\n");
+  }
+  if (options.extraConstraints) {
+    filled += `\n\n## Reflection 修订约束（必须遵守）\n${options.extraConstraints}\n`;
+  }
+  filled += [
+    "",
+    "## AI 总结字段（必须）",
+    "JSON 必须包含 requirementDescription、requirementBackground、warehouseSop、sopText。",
+    "requirementDescription 和 requirementBackground 是你对客户需求的理解总结，用于帮助审核员快速了解这条增值单在做什么。请用简洁专业的语言重新组织，不要原封不动复制客户的需求描述。即使原文已经清晰，也要重新组织语言提升可读性。",
+    "",
+  ].join("\n");
+  const callSopJson = (prompt: string) =>
+    callChat(config, [{ role: "user", content: prompt }], {
+      jsonMode: true,
+      maxTokens: 2500,
+      onDelta: args.onDelta,
+    });
+  const parseSopPayload = (raw: string) => {
+    const jsonText = sanitizeJsonish(extractFirstJsonObject(raw) || raw);
+    if (!jsonText.trim().startsWith("{")) throw new Error("SOP 未解析到 JSON。");
+    return JSON.parse(jsonText) as {
+      sopText?: string;
+      scenarioName?: string;
+      fieldsUsed?: string[];
+      requirementBackground?: string;
+      requirementDescription?: string;
+      warehouseSop?: string;
+      notActionable?: boolean;
+      reason?: string;
+    };
   };
+
+  let raw = await callSopJson(filled);
+  let parsed: ReturnType<typeof parseSopPayload>;
+  try {
+    parsed = parseSopPayload(raw);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    raw = await callSopJson(
+      `${filled}\n\n## 格式约束\n上次输出不是合法 JSON（${msg}）。请重新输出完整 JSON 对象，字符串内的引号必须转义，不要输出 markdown。`,
+    );
+    parsed = parseSopPayload(raw);
+  }
   if (parsed.notActionable) {
     throw new Error(`SOP 被模型判为不可生成：${parsed.reason || "notActionable"}`);
   }
@@ -212,12 +301,13 @@ async function generateSop(config: LlmConfig, args: GenerateTextArgs): Promise<L
   const invented = looksInvented(sopText, args);
   if (invented.length) throw new Error(`SOP 编造了输入中没有的单号：${invented.join("、")}`);
 
+  const originalDesc = asText(input.omsFacts.customerRequirementDescription);
+  const desc = asText(parsed.requirementDescription) || sectionOf(sopText, "需求描述");
   return {
     requirementBackground:
       asText(parsed.requirementBackground) || sectionOf(sopText, "需求背景") || input.omsFacts.requirementBackground,
-    requirementDescription:
-      asText(parsed.requirementDescription) || input.omsFacts.customerRequirementDescription,
-    warehouseSop: asText(parsed.warehouseSop) || sectionOf(sopText, "操作要求") || sopText,
+    requirementDescription: sameNormalizedText(desc, originalDesc) ? "" : desc,
+    warehouseSop: asText(parsed.warehouseSop) || sectionOf(sopText, "操作要求") || sectionOf(sopText, "操作步骤") || sopText,
     sopText,
     scenarioName: asText(parsed.scenarioName) || match?.scenarioName || "",
     fieldsUsed: Array.isArray(parsed.fieldsUsed) ? parsed.fieldsUsed.map((item) => String(item)) : uploadedSummary(input, ctx),
@@ -226,11 +316,57 @@ async function generateSop(config: LlmConfig, args: GenerateTextArgs): Promise<L
   };
 }
 
+async function generateSop(
+  config: LlmConfig,
+  args: GenerateTextArgs,
+): Promise<{ sop: LlmSopDraft; reflectionPass: boolean; reflectionIssues: string[]; regenerated: boolean }> {
+  const first = await generateSopOnce(config, args);
+  const reflection = await reflectSop(config, first.sopText, args);
+  if (reflection.pass || reflection.issues.length === 0) {
+    return { sop: first, reflectionPass: true, reflectionIssues: [], regenerated: false };
+  }
+
+  const constraint = [
+    "上一版 SOP 存在以下问题，请重写并全部修正：",
+    ...reflection.issues.map((issue, idx) => `${idx + 1}. ${issue}`),
+    reflection.suggestedFix ? `修改建议：${reflection.suggestedFix}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  try {
+    const second = await generateSopOnce(config, args, { extraConstraints: constraint });
+    // Accept second output even if reflection would still fail (no infinite loop).
+    return {
+      sop: second,
+      reflectionPass: false,
+      reflectionIssues: reflection.issues,
+      regenerated: true,
+    };
+  } catch {
+    return {
+      sop: first,
+      reflectionPass: false,
+      reflectionIssues: reflection.issues,
+      regenerated: false,
+    };
+  }
+}
+
 export async function generateLlmText(args: GenerateTextArgs): Promise<LlmGeneration> {
   const config = resolveLlmConfig();
   if (args.outputPath === "sop_generated") {
-    const sop = await generateSop(config, args);
-    return { text: sop.sopText, model: config.model, mocked: false, error: null, sop };
+    const { sop, reflectionPass, reflectionIssues, regenerated } = await generateSop(config, args);
+    return {
+      text: sop.sopText,
+      model: config.model,
+      mocked: false,
+      error: null,
+      sop,
+      reflectionPass,
+      reflectionIssues,
+      regenerated,
+    };
   }
   const promptName =
     args.outputPath === "needs_requirement_clarification"

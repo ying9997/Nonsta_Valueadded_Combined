@@ -1,0 +1,42 @@
+{
+  "orderNo": "VASC000000315774",
+  "demoLabel": "L4-SOP生成",
+  "source": "demo_constructed",
+  "expectedOutputPath": "sop_generated",
+  "outputPath": "sop_generated",
+  "ruleOutputPath": "sop_generated",
+  "failureGate": "",
+  "missing": [],
+  "clarificationPrompts": [],
+  "sceneKey": "inbound_package_barcode_batch_relabel",
+  "scenarioName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+  "decision": "supported",
+  "confidence": "high",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "应用规则A：异常单详情显示异常名称为'包裹条码批量异常(需客户处理)'，直接映射到场景1（sceneKey=inbound_package_barcode_batch_relabel）。需求描述完全符合场景1的核心特征：1)包裹条码批量异常；2)辨识商品（根据外箱A+包裹标签/商品条码辨识出14个包裹的SKU）；3)补贴包裹标签（补贴新入库单WI50734175的包裹标签）；4)上架到新入库单。SOP步骤完整匹配：根据异常单找到异常商品→辨识→补贴包裹标签→上架→关闭异常单。异常对象为包裹，操作对象也是包裹标签，进一步确认场景1。",
+  "llmText": "【需求背景】\n到仓包裹条码异常，需根据外箱A+包裹标签上的商品条码辨识出实际SKU，确认为计划内产品后，补贴新入库单WI50734175的包裹标签并上架。\n\n【操作要求】\n1. 根据异常单EB0126060330032532定位14个待处理包裹；\n2. 逐个检查外箱上的A+包裹标签，通过商品条码辨识每个包裹的实际SKU，记录14个包裹各自的SKU（拍摄外箱原标签留证）；\n3. 将辨识结果与标签文件demo_constructed_label_file.pdf中的SKU清单核对，确认均为入库单WI50734175计划内产品；\n4. 根据辨识出的SKU，从标签文件中找到对应的WI50734175包裹标签，为每个包裹补贴正确的新标签（一包裹一标签，拍摄补贴后标签留证）；\n5. 使用入库单WI50734175扫描上架；\n6. 完成后关闭异常单EB0126060330032532。\n\n【注意事项】\n- 辨识过程需拍摄外箱原标签和补贴后新标签作为留证；\n- 确保14个包裹的SKU均在标签文件和入库单计划内；\n- 补贴标签时核对SKU与标签文件的对应关系，避免贴错。",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "warehouse": "USNJ2 Warehouse",
+  "structuredReview": {
+    "vascNo": "VASC000000315774",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_package_barcode_batch_relabel",
+      "confidence": 0.9
+    },
+    "materialsComplete": true,
+    "missingMaterials": [],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "【需求背景】\n到仓包裹条码异常，需根据外箱A+包裹标签上的商品条码辨识出实际SKU，确认为计划内产品后，补贴新入库单WI50734175的包裹标签并上架。\n\n【操作要求】\n1. 根据异常单EB0126060330032532定位14个待处理包裹；\n2. 逐个检查外箱上的A+包裹标签，通过商品条码辨识每个包裹的实际SKU，记录14个包裹各自的SKU（拍摄外箱原标签留证）；\n3. 将辨识结果与标签文件demo_constructed_label_file.pdf中的SKU清单核对，确认均为入库单WI50734175计划内产品；\n4. 根据辨识出的SKU，从标签文件中找到对应的WI50734175包裹标签，为每个包裹补贴正确的新标签（一包裹一标签，拍摄补贴后标签留证）；\n5. 使用入库单WI50734175扫描上架；\n6. 完成后关闭异常单EB0126060330032532。\n\n【注意事项】\n- 辨识过程需拍摄外箱原标签和补贴后新标签作为留证；\n- 确保14个包裹的SKU均在标签文件和入库单计划内；\n- 补贴标签时核对SKU与标签文件的对应关系，避免贴错。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

@@ -64,10 +64,16 @@ export function checkRequirement(customerIntent: string, context: ContextFacts):
   const normalized = customerIntent.replace(/\s+/g, " ").trim();
   const missing: string[] = [];
 
-  const objectOk = OBJECT_RE.test(normalized) || hasBoundObject(context);
-  const actionOk = ACTION_RE.test(normalized);
-  const purposeOrDestinationOk =
-    PURPOSE_OR_DESTINATION_RE.test(normalized) || hasBoundPurposeOrDestination(context);
+  const objectExec = OBJECT_RE.exec(normalized);
+  const objectBoundBypass = hasBoundObject(context);
+  const objectOk = Boolean(objectExec) || objectBoundBypass;
+
+  const actionExec = ACTION_RE.exec(normalized);
+  const actionOk = Boolean(actionExec);
+
+  const purposeExec = PURPOSE_OR_DESTINATION_RE.exec(normalized);
+  const purposeBoundBypass = hasBoundPurposeOrDestination(context);
+  const purposeOrDestinationOk = Boolean(purposeExec) || purposeBoundBypass;
 
   if (!objectOk) missing.push(MISSING_OBJECT);
   if (!actionOk) missing.push(MISSING_ACTION);
@@ -78,5 +84,10 @@ export function checkRequirement(customerIntent: string, context: ContextFacts):
     missingRequirementItems: missing,
     clarificationPrompts: missing.map((item) => PROMPTS[item] || `请补充${item}。`),
     normalizedRequirement: normalized,
+    objectMatch: objectExec?.[0] ?? null,
+    objectBoundBypass,
+    actionMatch: actionExec?.[0] ?? null,
+    purposeMatch: purposeExec?.[0] ?? null,
+    purposeBoundBypass,
   };
 }

@@ -1,0 +1,75 @@
+{
+  "sceneKey": "instock_good_to_defective_shelve",
+  "sceneName": "【库内】良品转不良品上架",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250808003",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.42",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "良品转不良品",
+      "库存属性改成不良品",
+      "单品包装破损异常",
+      "库内待复核的非丢失类异常",
+      "复核时确认为不良品",
+      "不良品存储"
+    ],
+    "weak": [
+      "退货单",
+      "更换新入库单",
+      "非标增值上架",
+      "A+包裹",
+      "无法直接选择更新上架"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "批量辨识商品",
+      "海运整柜",
+      "串仓调拨",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "换标",
+      "补贴标签",
+      "无主货",
+      "SKU不符"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹类异常换商品标签上架的区别：本场景重点是库存属性从良品转为不良品,需要登记单品包装破损异常并在复核时改属性;换标场景只是换标签不涉及库存属性变更",
+    "和【入库】商品质检的区别：本场景是已上架的良品因包装破损等原因需转为不良品,质检场景是入库前的质量检验",
+    "和【入库】商品下架后换入库单重新上架的区别：本场景必须涉及库存属性变更(良品→不良品),换入库单场景不涉及库存属性变更",
+    "关键识别点：必须同时包含'良品转不良品'或'库存属性改成不良品'+'单品包装破损异常'或'复核确认为不良品'这两类信息"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：已上架的良品商品(通常来自退货单或其他入库单)",
+    "动作：登记单品包装破损异常、复核确认、更改库存属性",
+    "去向：转为不良品存储(库存属性从良品改为不良品)"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "找到需要转属性的良品商品(根据退货单或入库单)",
+    "使用新入库单做上架操作",
+    "登记【单品包装破损】异常,生成库内待复核的非丢失类异常记录",
+    "在复核环节确认为不良品",
+    "将库存属性从良品改成不良品存储"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.42. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250808003. SOP 内容不足，信号词可能不准。"
+}

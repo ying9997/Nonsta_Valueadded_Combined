@@ -1,0 +1,74 @@
+{
+  "sceneKey": "instock_aplus_parcel_relabel_shelve",
+  "sceneName": "【库内】A+包裹更换标签上架",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250407060",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.21",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "A+包裹",
+      "更换标签",
+      "B040",
+      "补贴商品标签"
+    ],
+    "weak": [
+      "标签异常",
+      "重新上架",
+      "条码更换",
+      "入库单",
+      "包裹条码",
+      "新入库单"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "辨识",
+      "串仓",
+      "调拨",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "拍照",
+      "暂存",
+      "下架",
+      "无主货"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景是库内已有A+包裹需更换标签，不涉及尺重辨识流程",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别：本场景针对单个A+包裹标签异常，不是批量辨识场景",
+    "和【入库】包裹类异常换商品标签上架的区别：本场景更换的是A+包裹标签（B040开头），不是普通商品标签",
+    "和【入库】商品下架后换入库单重新上架的区别：本场景是A+包裹标签异常需更换，不是已上架商品的下架重上架"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：A+包裹（需提供B040开头的包裹条码）",
+    "动作：更换包裹标签、补贴商品标签（如需要）",
+    "去向：上架至新入库单（需提供WI开头的入库单号）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "必须提供A+包裹条码（B040开头）",
+    "必须提供新入库单号（WI开头）",
+    "明确是否需要补贴商品标签",
+    "按顺序执行：更换包裹标签→补贴商品标签→上架",
+    "确认标签更换完成后再上架"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.21. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407060."
+}

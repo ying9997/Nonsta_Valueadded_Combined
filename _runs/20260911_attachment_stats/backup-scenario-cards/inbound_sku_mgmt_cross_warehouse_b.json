@@ -1,0 +1,75 @@
+{
+  "sceneKey": "inbound_sku_mgmt_cross_warehouse_b",
+  "sceneName": "【入库】A仓单品化管理的包裹串仓到B仓异常--在B仓上架",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.20",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "单品化管理",
+      "串仓",
+      "A仓",
+      "B仓",
+      "SM码",
+      "换标上架",
+      "原单S码刷新"
+    ],
+    "weak": [
+      "包裹标",
+      "商品标",
+      "换标",
+      "Helpdesk",
+      "收费50usd"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "批量辨识",
+      "海运整柜",
+      "100%A+",
+      "调拨",
+      "自提"
+    ],
+    "soft": [
+      "仅换包裹标",
+      "仅换商品标",
+      "不涉及SM码",
+      "免费处理"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹串仓异常调拨的区别：本场景是在B仓直接上架，不是调拨回A仓",
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景特指单品化管理的A仓串到B仓，需要处理SM码问题",
+    "和【入库】包裹类异常换商品标签上架的区别：本场景涉及单品化管理和SM码更改，且有收费选项（50usd或换双标）",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别：本场景是单品化串仓问题，不是批量辨识问题"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确是包裹还是商品（单品化管理的串仓包裹）",
+    "动作：换标（包裹标/商品标）、更改SM码、刷新S码",
+    "去向：在B仓上架（不是调拨回A仓）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "查看异常单的异常原因和操作对象",
+    "判断是包裹还是商品操作",
+    "包裹操作需处理SM码：方案1找Helpdesk更改原单SM码并刷新S码（收费50usd）；方案2换商品标和包裹标（较便宜）",
+    "商品操作可提商品标准增值服务",
+    "最终目标是在B仓完成上架"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.20. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

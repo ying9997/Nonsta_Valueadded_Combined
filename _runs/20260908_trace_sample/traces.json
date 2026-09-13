@@ -1,0 +1,431 @@
+[
+  {
+    "orderNo": "VASC000000344421",
+    "outputPath": "transfer_human",
+    "ruleOutputPath": "transfer_human",
+    "failureGate": "match-template",
+    "decision": "ambiguous",
+    "reason": "ambiguous_below_high_confidence",
+    "decisionPath": "top1=F-001(5) gap=5 — score<HIGH(7) or gap<CLEAR(3) → ambiguous(below confidence)",
+    "gap": 5,
+    "querySignals": {
+      "text": "EB0126081032120532 仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，由于现在这些货物仓库无法定位原入库单，只能统一全部一起处理，需要新单上架 与仓库线下沟通一共是63件货物，sn码无法识别，需要通过新单，更换包裹标签进行上架。 按照sn码提供对应上架关系 附件：61件CP-GN-2000081-00-03 -M010000000010306532 对应上到新单：WI52155061名下。 附件：2件CP-GW-0000079-00-05 -M010000000010211088 对应上到新单：WI52155663名下。（2张sn码模糊的，提供了参考图，按照这个去找到货物对应上架） 附件已经上传两个入库单对应的包裹标签pdf文件。 提交非标原因：仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，只能通过非标处理。",
+      "interceptHold": false,
+      "hasPhoto": false,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": true,
+      "hasShelve": true,
+      "hasIdentify": false,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "requirementTrace": {
+      "normalizedRequirement": "EB0126081032120532 仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，由于现在这些货物仓库无法定位原入库单，只能统一全部一起处理，需要新单上架 与仓库线下沟通一共是63件货物，sn码无法识别，需要通过新单，更换包裹标签进行上架。 按照sn码提供对应上架关系 附件：61件CP-GN-2000081-00-03 -M010000000010306532 对应上到新单：WI52155061名下。 附件：2件CP-GW-0000079-00-05 -M010000000010211088 对应上到新单：WI52155663名下。（2张sn码模糊的，提供了参考图，按照这个去找到货物对应上架） 附件已经上传两个入库单对应的包裹标签pdf文件。 提交非标原因：仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异，只能通过非标处理。",
+      "complete": true,
+      "objectMatch": "EB0126081032120532",
+      "objectBoundBypass": true,
+      "actionMatch": "上架",
+      "purposeMatch": "EB0126081032120532",
+      "purposeBoundBypass": true,
+      "missing": []
+    },
+    "candidates": [
+      {
+        "sceneKey": "inbound_label_identify",
+        "label": "F-001",
+        "score": 5,
+        "matchedSignals": [
+          "weak:包裹标签",
+          "weak:上架",
+          "weak:新单",
+          "context:oms_scene_f001_assist"
+        ],
+        "negativeSignals": []
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "label": "A",
+        "score": 1,
+        "matchedSignals": [
+          "weak:上架"
+        ],
+        "negativeSignals": []
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "label": "B",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "relabel_then_shelve"
+        ]
+      }
+    ]
+  },
+  {
+    "orderNo": "VASC000000335325",
+    "outputPath": "transfer_human",
+    "ruleOutputPath": "transfer_human",
+    "failureGate": "match-template",
+    "decision": "unsupported",
+    "reason": "unsupported_template",
+    "decisionPath": "no viable candidates → unsupported",
+    "gap": 0,
+    "querySignals": {
+      "text": "我们的产品是洗发水，异常包裹是有部分产品出现漏液情况，拍照需要拍摄损毁漏液产品的六个面，以及包裹包装箱的各个面 需要清点实际损毁数量，同时对损毁产品进行拍照",
+      "interceptHold": false,
+      "hasPhoto": true,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": false,
+      "hasShelve": false,
+      "hasIdentify": false,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": true,
+      "inboundStockPhoto": false
+    },
+    "requirementTrace": {
+      "normalizedRequirement": "我们的产品是洗发水，异常包裹是有部分产品出现漏液情况，拍照需要拍摄损毁漏液产品的六个面，以及包裹包装箱的各个面 需要清点实际损毁数量，同时对损毁产品进行拍照",
+      "complete": true,
+      "objectMatch": "包裹",
+      "objectBoundBypass": true,
+      "actionMatch": "拍照",
+      "purposeMatch": null,
+      "purposeBoundBypass": true,
+      "missing": []
+    },
+    "candidates": [
+      {
+        "sceneKey": "inbound_photo_hold",
+        "label": "B",
+        "score": 2,
+        "matchedSignals": [
+          "weak:拍照",
+          "weak:拍摄"
+        ],
+        "negativeSignals": []
+      },
+      {
+        "sceneKey": "inbound_label_identify",
+        "label": "F-001",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "weigh_or_photo_without_relabel"
+        ]
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "label": "A",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": []
+      }
+    ]
+  },
+  {
+    "orderNo": "VASC000000343821",
+    "outputPath": "needs_field_clarification",
+    "ruleOutputPath": "needs_field_clarification",
+    "failureGate": "check-completeness",
+    "decision": "supported",
+    "reason": "supported_clear_top1",
+    "decisionPath": "top1=F-001(18) ≥ HIGH(7) gap=18 ≥ CLEAR(3) status=supported → supported",
+    "gap": 18,
+    "querySignals": {
+      "text": "因包裹过多，根据你们提供的图片我们这边无法一一查看包裹详情确定是哪个SKU。因此，需要你们一箱箱查看包裹上面的SKU标签，然后根据SKU对应的商品条码重新为包裹贴条码，再入库上架。 包裹上面有SKU标签，需要你们一箱箱查看是哪个SKU，再根据SKU对应的条码重新给包裹贴条码入库上架。附件图片1是辨识例子，我用红色方框圈起来的就是SKU，在包裹外包装其中的一面就粘贴了SKU标签。",
+      "interceptHold": false,
+      "hasPhoto": false,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": true,
+      "hasShelve": true,
+      "hasIdentify": true,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "requirementTrace": {
+      "normalizedRequirement": "因包裹过多，根据你们提供的图片我们这边无法一一查看包裹详情确定是哪个SKU。因此，需要你们一箱箱查看包裹上面的SKU标签，然后根据SKU对应的商品条码重新为包裹贴条码，再入库上架。 包裹上面有SKU标签，需要你们一箱箱查看是哪个SKU，再根据SKU对应的条码重新给包裹贴条码入库上架。附件图片1是辨识例子，我用红色方框圈起来的就是SKU，在包裹外包装其中的一面就粘贴了SKU标签。",
+      "complete": true,
+      "objectMatch": "包裹",
+      "objectBoundBypass": true,
+      "actionMatch": "上架",
+      "purposeMatch": "因",
+      "purposeBoundBypass": true,
+      "missing": []
+    },
+    "candidates": [
+      {
+        "sceneKey": "inbound_label_identify",
+        "label": "F-001",
+        "score": 18,
+        "matchedSignals": [
+          "strong:辨识",
+          "strong:SKU对应",
+          "strong:对应的商品条码",
+          "weak:贴条码",
+          "weak:SKU标签",
+          "weak:上架",
+          "context:oms_scene_f001_assist",
+          "structural:identify+relabel+shelve"
+        ],
+        "negativeSignals": []
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "label": "A",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "identify_without_package_exception"
+        ]
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "label": "B",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "relabel_then_shelve"
+        ]
+      }
+    ]
+  },
+  {
+    "orderNo": "VASC000000321243",
+    "outputPath": "needs_requirement_clarification",
+    "ruleOutputPath": "needs_requirement_clarification",
+    "failureGate": "check-requirement",
+    "decision": "",
+    "reason": "",
+    "decisionPath": "",
+    "gap": null,
+    "querySignals": null,
+    "requirementTrace": {
+      "normalizedRequirement": "可以根据贴的标签上的sku来判断是不是同一个wint号 EB0126071031171575 这个重新登记非标增值：可根据 新入库单对应贴错的单号进行替换 新WI51035101-- 旧WI49461993",
+      "complete": false,
+      "objectMatch": "标签",
+      "objectBoundBypass": true,
+      "actionMatch": null,
+      "purposeMatch": "EB0126071031171575",
+      "purposeBoundBypass": true,
+      "missing": [
+        "操作动作不清"
+      ]
+    },
+    "candidates": []
+  },
+  {
+    "orderNo": "VASC000000333237",
+    "outputPath": "needs_field_clarification",
+    "ruleOutputPath": "needs_field_clarification",
+    "failureGate": "check-completeness",
+    "decision": "supported",
+    "reason": "supported_clear_top1",
+    "decisionPath": "top1=F-001(13) ≥ HIGH(7) gap=13 ≥ CLEAR(3) status=supported → supported",
+    "gap": 13,
+    "querySignals": {
+      "text": "对应异常类型是包裹条码异常没法直接操作辨识及补贴商品条码，故非标申请 这两个异常单：EB0126080431885725,EB0126080431885716对应里面的SKU是不同颜色的，麻烦拆开按颜色区分辨识对应SKU补贴对应SKU标签，新单（WI51699695）上架的；如附件操作指引",
+      "interceptHold": false,
+      "hasPhoto": false,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": true,
+      "hasShelve": true,
+      "hasIdentify": true,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "requirementTrace": {
+      "normalizedRequirement": "对应异常类型是包裹条码异常没法直接操作辨识及补贴商品条码，故非标申请 这两个异常单：EB0126080431885725,EB0126080431885716对应里面的SKU是不同颜色的，麻烦拆开按颜色区分辨识对应SKU补贴对应SKU标签，新单（WI51699695）上架的；如附件操作指引",
+      "complete": true,
+      "objectMatch": "包裹",
+      "objectBoundBypass": true,
+      "actionMatch": "辨识",
+      "purposeMatch": "EB0126080431885725",
+      "purposeBoundBypass": true,
+      "missing": []
+    },
+    "candidates": [
+      {
+        "sceneKey": "inbound_label_identify",
+        "label": "F-001",
+        "score": 13,
+        "matchedSignals": [
+          "strong:辨识",
+          "weak:补贴",
+          "weak:SKU标签",
+          "weak:上架",
+          "weak:新单",
+          "context:oms_scene_f001_assist",
+          "structural:identify+relabel+shelve"
+        ],
+        "negativeSignals": []
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "label": "A",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "identify_without_package_exception"
+        ]
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "label": "B",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "relabel_then_shelve"
+        ]
+      }
+    ]
+  },
+  {
+    "orderNo": "VASC000000193236",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "failureGate": "",
+    "decision": "supported",
+    "reason": "supported_clear_top1",
+    "decisionPath": "top1=F-001(14) ≥ HIGH(7) gap=14 ≥ CLEAR(3) status=supported → supported",
+    "gap": 14,
+    "querySignals": {
+      "text": "货物商品条码标签异常，无法识别，要辨识后更换商品标签上架 需要仓库根据实物的商品标签上的条码值来辨识后对应更换商品标签",
+      "interceptHold": false,
+      "hasPhoto": false,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": true,
+      "hasShelve": true,
+      "hasIdentify": true,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "requirementTrace": {
+      "normalizedRequirement": "货物商品条码标签异常，无法识别，要辨识后更换商品标签上架 需要仓库根据实物的商品标签上的条码值来辨识后对应更换商品标签",
+      "complete": true,
+      "objectMatch": "货物",
+      "objectBoundBypass": true,
+      "actionMatch": "识别",
+      "purposeMatch": "上架",
+      "purposeBoundBypass": true,
+      "missing": []
+    },
+    "candidates": [
+      {
+        "sceneKey": "inbound_label_identify",
+        "label": "F-001",
+        "score": 14,
+        "matchedSignals": [
+          "strong:辨识",
+          "strong:换商品标签",
+          "weak:商品标签",
+          "weak:上架",
+          "context:oms_scene_f001_assist",
+          "structural:identify+relabel+shelve"
+        ],
+        "negativeSignals": []
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "label": "A",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "identify_without_package_exception"
+        ]
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "label": "B",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "relabel_then_shelve"
+        ]
+      }
+    ]
+  },
+  {
+    "orderNo": "VASC000000190569",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "failureGate": "",
+    "decision": "supported",
+    "reason": "supported_clear_top1",
+    "decisionPath": "top1=F-001(18) ≥ HIGH(7) gap=18 ≥ CLEAR(3) status=supported → supported",
+    "gap": 18,
+    "querySignals": {
+      "text": "大批量货物退回，需要辨识后换标上架 需要仓库根据之前的拍照增值VASC000000172437来对应更换商品标签后重新扫描上架到新入库单中，对应关系参考附件表格",
+      "interceptHold": false,
+      "hasPhoto": true,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": true,
+      "hasShelve": true,
+      "hasIdentify": true,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "requirementTrace": {
+      "normalizedRequirement": "大批量货物退回，需要辨识后换标上架 需要仓库根据之前的拍照增值VASC000000172437来对应更换商品标签后重新扫描上架到新入库单中，对应关系参考附件表格",
+      "complete": true,
+      "objectMatch": "货物",
+      "objectBoundBypass": true,
+      "actionMatch": "辨识",
+      "purposeMatch": "退回",
+      "purposeBoundBypass": true,
+      "missing": []
+    },
+    "candidates": [
+      {
+        "sceneKey": "inbound_label_identify",
+        "label": "F-001",
+        "score": 18,
+        "matchedSignals": [
+          "strong:辨识",
+          "strong:换标",
+          "strong:换商品标签",
+          "weak:商品标签",
+          "weak:上架",
+          "weak:新入库单",
+          "context:oms_scene_f001_assist",
+          "structural:identify+relabel+shelve"
+        ],
+        "negativeSignals": []
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "label": "A",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "identify_without_package_exception"
+        ]
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "label": "B",
+        "score": 0,
+        "matchedSignals": [],
+        "negativeSignals": [
+          "relabel_then_shelve"
+        ]
+      }
+    ]
+  }
+]

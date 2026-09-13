@@ -36,8 +36,8 @@ function isInboundCatchall(serviceAtom: string, vascCode: string): boolean {
 
 function isCatchallAtom(serviceAtom: string, vascCode: string): boolean {
   if (isInboundCatchall(serviceAtom, vascCode)) return true;
-  if (CATCHALL_CODES.includes(vascCode)) return true;
-  return CATCHALL_ATOMS.some((name) => serviceAtom.includes(name));
+  if (CATCHALL_CODES.includes(serviceAtom) || CATCHALL_CODES.includes(vascCode)) return true;
+  return CATCHALL_ATOMS.some((name) => serviceAtom.includes(name) || vascCode.includes(name));
 }
 
 function isNamedService(vascCode: string, vascName: string): boolean {

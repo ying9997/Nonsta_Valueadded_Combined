@@ -1,0 +1,77 @@
+{
+  "sceneKey": "instock_ownership_transfer_relabel",
+  "sceneName": "【库内】货权转移（换标模式）",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "【In-warehouse】Transfer of ownership of goods",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.28",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "货权转移",
+      "换标模式",
+      "出库单",
+      "原SKU",
+      "新SKU",
+      "下架后更换"
+    ],
+    "weak": [
+      "下架",
+      "上架",
+      "补贴标签",
+      "包裹标签",
+      "商品标签",
+      "L007盘亏",
+      "新入库单"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "串仓",
+      "自提",
+      "质检",
+      "无主货",
+      "第三方条码"
+    ],
+    "soft": [
+      "预报不符",
+      "暂存",
+      "拍照",
+      "整柜"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品下架后换入库单重新上架（不更换SKU）的区别是：本场景需要更换SKU，涉及货权转移；后者只换入库单不换SKU",
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景有明确的出库单和新入库单，是主动的货权转移；后者是因辨识问题被动换标",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景强调从原SKU到新SKU的转移过程，有下架动作；后者是直接辨识后上架",
+    "关键特征：必须同时存在出库单号和新入库单号，且明确提到从原SKU转到新SKU"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需要货权转移的商品（原SKU）",
+    "动作：下架原SKU、更换标签、上架到新SKU",
+    "去向：新SKU（新入库单）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "必须包含出库单号（WOxxx格式）",
+    "必须包含新入库单号（WIxxx格式）",
+    "必须说明标签文件位置（见附件）",
+    "必须包含三个核心步骤：按出库单下架、更换标签、按新入库单上架",
+    "需要说明原SKU库存处理方式（L007盘亏或有下架单）"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.28. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 【In-warehouse】Transfer of ownership of goods（【库内】货权转移）。"
+}

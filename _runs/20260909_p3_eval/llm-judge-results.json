@@ -1,0 +1,159 @@
+{
+  "llmReady": true,
+  "llmConfigError": "",
+  "rows": [
+    {
+      "vascNo": "VASC000000311652",
+      "omsSceneName": "【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架",
+      "expectedScene": "inbound_package_barcode_batch_relabel",
+      "outputPath": "transfer_human",
+      "judged": true,
+      "sopPreview": "增值单 VASC000000311652 需求描述已完整，但当前模板库只自动支持 F-001，请转人工审核，并记为后续模板候选。",
+      "scores": {
+        "factualAccuracy": {
+          "score": 1,
+          "reason": "SOP中提到的增值单号VASC000000311652与输入中的VASC000000310857完全不符，属于编造信息；且SOP内容与输入需求完全无关"
+        },
+        "completeness": {
+          "score": 1,
+          "reason": "SOP完全没有包含任何操作步骤，既没有找货、辨识、拍照，也没有操作、上架或关单流程，仅是一句转人工审核的说明"
+        },
+        "executability": {
+          "score": 1,
+          "reason": "仓库操作人员无法根据此SOP执行任何实际操作，内容仅为系统提示信息，不具备任何可执行的操作指引"
+        },
+        "safety": {
+          "score": 5,
+          "reason": "虽然SOP内容不合格，但未出现'AI审核通过'等禁止表述，也未做出时效承诺"
+        },
+        "sceneFit": {
+          "score": 1,
+          "reason": "预期场景是包裹条码批量异常需补贴包裹标签上架，但SOP完全未涉及该场景的任何操作，反而是一个系统转人工的提示信息，场景完全不匹配"
+        },
+        "overallPass": false,
+        "criticalIssues": [
+          "增值单号错误：输入为VASC000000310857，SOP中写成VASC000000311652",
+          "缺少完整操作流程：无找货、辨识、补贴标签、上架等任何实际操作步骤",
+          "场景完全不匹配：应输出包裹标签补贴上架流程，实际输出为转人工审核提示",
+          "不可执行：仓库人员无法依据此内容完成任何实际操作"
+        ]
+      },
+      "judgeError": "注：pipeline 出口为 transfer_human（llmError=SOP 编造了输入中没有的单号：VASC000000310857），仍对可得 SOP 草稿评分"
+    },
+    {
+      "vascNo": "VASC000000298617",
+      "omsSceneName": "【入库】指定商品拍照暂存",
+      "expectedScene": "inbound_photo_hold",
+      "outputPath": "transfer_human",
+      "judged": true,
+      "sopPreview": "客户需求涉及拍照后再进行辨识处理，场景匹配置信度较低（0.42），系统无法确定是否属于【入库】尺重/标签辨识后换标上架场景，需人工判断具体服务类型和操作流程。",
+      "scores": {
+        "factualAccuracy": {
+          "score": 5,
+          "reason": "SOP中引用的单号EB0326061230366501和EB0326061230362709均来自输入，未编造任何信息，仅说明了系统无法确定场景"
+        },
+        "completeness": {
+          "score": 1,
+          "reason": "完全缺失操作步骤，没有找货、拍照、辨识、上架/暂存、关单等任何具体操作流程，仅是系统无法处理的说明"
+        },
+        "executability": {
+          "score": 1,
+          "reason": "仓库操作人员无法根据此SOP执行任何操作，内容仅为系统提示需要人工判断，没有提供任何可执行的指令"
+        },
+        "safety": {
+          "score": 5,
+          "reason": "未出现'AI审核通过'等禁止表述，未做时效承诺，符合安全合规要求"
+        },
+        "sceneFit": {
+          "score": 1,
+          "reason": "预期场景是【入库】指定商品拍照暂存，但SOP内容完全不匹配，仅说明系统无法确定场景，没有提供该场景应有的拍照暂存操作流程"
+        },
+        "overallPass": false,
+        "criticalIssues": [
+          "SOP缺失完整操作流程，无任何可执行步骤",
+          "未提供拍照暂存的具体操作指引",
+          "场景匹配度极低，未针对预期场景编写SOP",
+          "仅为系统无法处理的提示信息，不是标准作业程序"
+        ]
+      },
+      "judgeError": "注：pipeline 出口为 transfer_human（llmError=无），仍对可得 SOP 草稿评分"
+    },
+    {
+      "vascNo": "VASC000000305805",
+      "omsSceneName": "【入库】关联第三方商品条码上架",
+      "expectedScene": "inbound_third_party_merchandise_barcode",
+      "outputPath": "transfer_human",
+      "judged": true,
+      "sopPreview": "客户需求是针对无主货异常包裹补贴标签并上架，当前模板库只自动支持 F-001（贴标/换标），不支持无主货异常处理场景，需人工判断是否可执行及费用方案。",
+      "scores": {
+        "factualAccuracy": {
+          "score": 5,
+          "reason": "SOP中提到的单号EB0126060830209943、WI49632155均来自输入，未编造任何单号、SKU或数量信息"
+        },
+        "completeness": {
+          "score": 1,
+          "reason": "SOP完全缺失操作步骤，仅说明了当前模板库不支持该场景，没有包含找货、辨识、拍照、补贴标签、上架、关单等任何实际操作链路"
+        },
+        "executability": {
+          "score": 1,
+          "reason": "仓库操作人员无法根据此SOP执行任何操作，内容仅为场景判断说明，未提供如何处理无主货异常、如何补贴标签、如何关联商品条码上架的具体步骤"
+        },
+        "safety": {
+          "score": 5,
+          "reason": "未出现'AI审核通过'等禁止表述，未做时效承诺，符合安全合规要求"
+        },
+        "sceneFit": {
+          "score": 2,
+          "reason": "虽然识别出了无主货异常场景，但预期场景是'关联第三方商品条码上架'的具体操作SOP，而输出内容仅说明模板库不支持，完全未提供该场景的操作指引，与预期严重不符"
+        },
+        "overallPass": false,
+        "criticalIssues": [
+          "SOP缺失完整操作步骤，无法指导仓库人员执行",
+          "未提供无主货异常处理流程",
+          "未说明如何补贴标签及关联商品条码上架",
+          "内容仅为场景判断而非操作指引，不符合SOP文档要求"
+        ]
+      },
+      "judgeError": "注：pipeline 出口为 transfer_human（llmError=无），仍对可得 SOP 草稿评分"
+    },
+    {
+      "vascNo": "VASC000000326061",
+      "omsSceneName": "【入库】尺重/标签辨识后换标上架",
+      "expectedScene": "inbound_label_identify",
+      "outputPath": "transfer_human",
+      "judged": true,
+      "sopPreview": "增值单 VASC000000326061 需求描述已完整，但当前模板库只自动支持 F-001，请转人工审核，并记为后续模板候选。",
+      "scores": {
+        "factualAccuracy": {
+          "score": 1,
+          "reason": "SOP中提到的'增值单 VASC000000326061'在输入中完全不存在，属于编造信息。输入中明确提到的异常单号EB0326072531612017、入库单WI51383223/WI51383191、SKU等关键信息在SOP中完全未体现。"
+        },
+        "completeness": {
+          "score": 1,
+          "reason": "SOP完全缺失操作步骤。输入中明确要求的操作链路（找到包裹→辨识商品→补贴标签→按新单上架→关闭异常单）在SOP中一个都没有体现，仅有一句转人工审核的说明。"
+        },
+        "executability": {
+          "score": 1,
+          "reason": "仓库操作人员完全无法根据此SOP执行任何操作。SOP没有提供任何可执行的指令，如找哪个包裹、如何辨识、贴什么标签、如何上架等，操作人员看到后只能继续等待人工审核。"
+        },
+        "safety": {
+          "score": 5,
+          "reason": "虽然SOP内容不合格，但未出现'AI审核通过'、时效承诺等明确禁止的表述，符合安全合规要求。"
+        },
+        "sceneFit": {
+          "score": 1,
+          "reason": "预期场景是'入库尺重/标签辨识后换标上架'的具体操作SOP，但实际输出的是转人工审核的提示，场景完全不匹配。输入已提供完整操作步骤，应直接生成可执行SOP而非转审。"
+        },
+        "overallPass": false,
+        "criticalIssues": [
+          "编造了输入中不存在的增值单号VASC000000326061",
+          "完全缺失操作步骤，未包含找货、辨识、换标、上架、关单等任何环节",
+          "不可执行，仅为转人工审核的说明而非操作SOP",
+          "场景严重不匹配，输入已提供完整信息却输出转审提示"
+        ]
+      },
+      "judgeError": "注：pipeline 出口为 transfer_human（llmError=Expected ',' or '}' after property value in JSON at position 1265 (line 6 column 25)），仍对可得 SOP 草稿评分"
+    }
+  ],
+  "unusedFilterNote": 4
+}

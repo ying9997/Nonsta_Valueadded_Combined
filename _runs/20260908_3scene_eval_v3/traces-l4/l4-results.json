@@ -1,0 +1,65 @@
+[
+  {
+    "orderNo": "VASC000000274815",
+    "caseId": "thread:omt_1a969f4ab54c1b96",
+    "expectedScene": "F-001",
+    "source": "natural",
+    "outputPath": "sop_generated",
+    "elapsedMs": 41643,
+    "model": "claude-sonnet-4-5",
+    "mocked": false,
+    "llmError": null,
+    "reflectionPass": false,
+    "reflectionIssues": [
+      "SOP 中提到'按客户提供的实物条码辨识'，但输入数据中未提及客户提供了实物条码信息",
+      "SOP 第6步提到'按指示补贴标签并上架到入库单 WI48988923'，但输入数据中明确说明'处理方式：暂时'，且需求描述仅要求'复测后回传资料'，未提及换标和上架操作",
+      "SOP 缺少明确的回传路径说明。应具体说明将测量数据和照片回传到哪里（如：通过异常单系统上传、发送邮件等）",
+      "SOP 第6步'等待客户或系统确认 SKU 后'表述模糊，与输入数据中'处理方式：暂时'矛盾。本次操作应止于复测回传，不应包含后续换标上架",
+      "SOP 第7步'完成后关闭/推进异常单'不明确。根据'处理方式：暂时'，应明确说明是'暂挂异常单等待客户确认'而非'关闭'"
+    ],
+    "regenerated": true,
+    "sopTextPreview": "【需求背景】\n异常单 EB0126042128953771 关联入库单 WI48988923 的包裹内商品无法辨识 SKU，需拆箱复测椅子坐垫实物尺寸并回传资料，供客户确认 SKU 后再进行后续处理。\n\n【操作要求】\n1. 根据异常单 EB0126042128953771 定位待处理包裹（1件）；\n2. 拆开外箱，取出椅子坐垫实物；\n3. 使用测量工具复测坐垫长度与宽度，记录实测数据；\n4. 参考已上传的「测量参考图片.jpg」拍摄实物照片，确保尺寸测量点清晰可见；\n5. 通过异常单系统上传实测数据（长×宽，单位 cm）和实物照片；\n6. 暂挂异常单 EB0126042128953771，等待客户确认 SKU 后再进行后续换标上架操作。\n\n【注意事项】\n1. 本次仅执行复测回传，不进行换标和上架操作；\n2. 测量时需按「测量参考图片.jpg」中的测量位置进行，确保数据准确；\n3. 拍摄照片需包含测量工具刻度和商品全貌。",
+    "conversationAvailable": true,
+    "fileName": "VASC000000274815.trace.md"
+  },
+  {
+    "orderNo": "VASC000000275841",
+    "caseId": "thread:omt_1a969f4ab54c1b96",
+    "expectedScene": "F-001",
+    "source": "constructed_from_l3",
+    "outputPath": "sop_generated",
+    "elapsedMs": 40933,
+    "model": "claude-sonnet-4-5",
+    "mocked": false,
+    "llmError": null,
+    "reflectionPass": false,
+    "reflectionIssues": [
+      "SOP 中提到「按客户提供的『标签文件』（VAS_ATTR_REL_LF.constructed.pdf）辨识 SKU 并补贴新商品标签」，但输入数据显示该文件是「标签文件（VAS_ATTR_REL_LF.constructed.pdf）」，且需求描述中明确说明是「复测后回传资料」，并未提及需要「补贴新商品标签」或「换标」操作",
+      "【需求背景】中描述「到仓商品条码与系统登记不符，需按客户提供的实物条码辨识后补贴新标签」，但输入数据的需求背景说明仅为「用来辨识异常货物SKU」，未提及条码不符或换标需求",
+      "输入数据明确要求「复测后回传资料，附件有坐垫参考图」，但 SOP 第 5 步仅要求「拍摄复测数据照片及贴标后照片」，缺少「回传资料」的具体方式和格式要求",
+      "SOP 第 4、5 步涉及「补贴新商品标签」和「贴标后照片」，但需求描述中只要求「复测箱内实物产品椅子坐垫长度与宽度」和「复测后回传资料」，未提及任何贴标操作",
+      "SOP 第 6 步「使用入库单 WI48988923 扫描上架」，但需求描述中未明确要求上架操作，仅要求复测和回传资料，此步骤的必要性存疑"
+    ],
+    "regenerated": true,
+    "sopTextPreview": "【需求背景】\n客户需要复测异常包裹中椅子坐垫的实际尺寸以辨识 SKU。\n\n【操作要求】\n1. 根据异常单 EB0126042128953771 定位待处理的 1 件异常包裹；\n2. 拆开外箱，取出箱内实物产品椅子坐垫；\n3. 使用测量工具复测坐垫的长度与宽度，记录实测数据；\n4. 参考已上传的「标签文件（VAS_ATTR_REL_LF.constructed.pdf）」及坐垫参考图进行 SKU 辨识；\n5. 拍摄复测数据照片（含测量尺寸的清晰照片）及坐垫实物照片；\n6. 将复测数据及照片通过系统回传至客户；\n7. 完成后关闭/推进异常单 EB0126042128953771。\n\n【注意事项】\n- 复测时确保测量工具精准，拍摄照片需清晰可见尺寸数据\n- 回传资料需包含：实测长度、实测宽度、测量照片、坐垫实物照片",
+    "conversationAvailable": true,
+    "fileName": "VASC000000275841.constructed.trace.md"
+  },
+  {
+    "orderNo": "VASC000000274572",
+    "caseId": "thread:omt_1a9774d717c2dbe8",
+    "expectedScene": "B",
+    "source": "constructed_from_l3",
+    "outputPath": "sop_generated",
+    "elapsedMs": 28071,
+    "model": "claude-sonnet-4-5",
+    "mocked": false,
+    "llmError": null,
+    "reflectionPass": true,
+    "reflectionIssues": [],
+    "regenerated": false,
+    "sopTextPreview": "【需求背景】\n大批量退货商品需要逐件拍照记录并暂存，等待客户确认后再处理，不直接上架。\n\n【操作要求】\n1. 根据异常单 EB0126042929137338 定位待处理的退货商品；\n2. 按照「拍摄要求.docx」中的要求，对每个产品拍摄正反两面照片；\n3. 将照片按产品分开文件夹整理，打包合并后反馈给客户；\n4. 参考「VAS_ATTR_REL_LF.constructed.pdf」标签文件进行商品辨识（如需要）；\n5. 拍照完成后将商品暂存，等待客户确认后续处理指令；\n6. 收到客户确认后，按指令完成后续操作并推进异常单。\n\n【注意事项】\n- 拍照需确保正反两面清晰可辨识\n- 照片文件夹命名需与商品对应，便于客户识别\n- 暂存期间不得擅自上架或做其他处理",
+    "conversationAvailable": true,
+    "fileName": "VASC000000274572.constructed.trace.md"
+  }
+]

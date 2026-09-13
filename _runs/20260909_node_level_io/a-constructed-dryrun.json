@@ -1,0 +1,139 @@
+{
+  "drySummary": {
+    "outputPath": "sop_generated",
+    "decision": "supported",
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "score": 20,
+    "complete": true,
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ]
+  },
+  "match": {
+    "matched": true,
+    "supported": true,
+    "category": "B",
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "scenarioId": "inbound_package_exception_relabel_shelving",
+    "scenarioName": "【入库】包裹类异常换商品标签上架",
+    "confidence": "high",
+    "reason": "supported_clear_top1",
+    "score": 20,
+    "candidateTemplate": "A",
+    "decision": "supported",
+    "confidenceScore": 1,
+    "candidates": [
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "sceneName": "【入库】包裹类异常换商品标签上架",
+        "score": 20,
+        "confidenceScore": 1,
+        "confidence": "high",
+        "matchedSignals": [
+          "strong:包裹类异常",
+          "strong:包裹条码正常",
+          "strong:商品条码异常",
+          "strong:换商品标签",
+          "weak:商品标签",
+          "weak:上架",
+          "weak:新入库单",
+          "weak:关闭异常单",
+          "structural:package_exception+relabel+shelve"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_label_identify",
+        "sceneName": "【入库】尺重/标签辨识后换标上架",
+        "score": 6,
+        "confidenceScore": 0.5,
+        "confidence": "medium",
+        "matchedSignals": [
+          "strong:换商品标签",
+          "weak:商品标签",
+          "weak:上架",
+          "weak:新入库单"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "sceneName": "【入库】指定商品拍照暂存",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "relabel_then_shelve"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      }
+    ],
+    "topK": [
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "sceneName": "【入库】包裹类异常换商品标签上架",
+        "score": 20,
+        "confidenceScore": 1,
+        "confidence": "high",
+        "matchedSignals": [
+          "strong:包裹类异常",
+          "strong:包裹条码正常",
+          "strong:商品条码异常",
+          "strong:换商品标签",
+          "weak:商品标签",
+          "weak:上架",
+          "weak:新入库单",
+          "weak:关闭异常单",
+          "structural:package_exception+relabel+shelve"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_label_identify",
+        "sceneName": "【入库】尺重/标签辨识后换标上架",
+        "score": 6,
+        "confidenceScore": 0.5,
+        "confidence": "medium",
+        "matchedSignals": [
+          "strong:换商品标签",
+          "weak:商品标签",
+          "weak:上架",
+          "weak:新入库单"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      }
+    ],
+    "querySignals": {
+      "text": "包裹类异常：包裹条码正常，但商品条码异常/无法识别，需换商品标签后上架。 异常单 EB0126060399990001：包裹类异常，包裹条码正常、商品条码异常。请按附件对应关系换商品标签后，上架到新入库单 WI50450527，并关闭异常单。",
+      "interceptHold": false,
+      "hasPhoto": false,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": true,
+      "hasShelve": true,
+      "hasIdentify": false,
+      "hasPackageException": true,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "gap": 14,
+    "decisionPath": "top1=A(20) ≥ HIGH(7) gap=14 ≥ CLEAR(3) status=supported → supported"
+  }
+}

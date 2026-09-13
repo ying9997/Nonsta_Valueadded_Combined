@@ -1,0 +1,76 @@
+{
+  "sceneKey": "instock_carton_to_each",
+  "sceneName": "【库内】箱转单一",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.43",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "箱转单一",
+      "箱产品转单一产品",
+      "整箱库存",
+      "开箱",
+      "单品码",
+      "补贴商品标签",
+      "盘亏多余库存"
+    ],
+    "weak": [
+      "库存调整单",
+      "二次上架",
+      "单品全部下架",
+      "海外验/商品仓内上架",
+      "冻结箱产品",
+      "停止推单"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "到货",
+      "串仓",
+      "调拨",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "换标上架",
+      "辨识",
+      "无主货",
+      "第三方条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别：箱转单一是已上架的箱产品需要转成单一产品,而换标上架是入库时的操作",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别：箱转单一强调箱产品到单一产品的转换,辨识场景不涉及箱单转换",
+    "和【入库】商品下架后换入库单重新上架的区别：箱转单一必须涉及箱产品转单一产品的库存类型变更,而换入库单上架不改变库存类型",
+    "单一品无法转成箱产品,因为库内无法保证商品有原箱;箱转单一是单向操作"
+  ],
+  "requiredRequirementHints": [
+    "处理对象:必须明确是箱产品(整箱库存)需要转成单一产品",
+    "动作:开箱、补贴商品标签、库存调整单转换、可能涉及盘亏多余库存",
+    "去向:转换后的单一产品上架到新入库单,或部分销毁部分上架"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "客户需走箱转单一流程,提供WT单号(库存调整单)",
+    "仓库开箱核实实物数量,与系统库存对比",
+    "补贴商品标签(winit码)到单一产品",
+    "如有多余库存需盘亏处理",
+    "提醒客户冻结箱产品或停止推单,避免库存冲突"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.43. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

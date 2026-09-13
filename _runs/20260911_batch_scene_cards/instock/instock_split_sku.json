@@ -1,0 +1,77 @@
+{
+  "sceneKey": "instock_split_sku",
+  "sceneName": "【库内】拆分SKU",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "INSTOCK_SPLIT_SKU",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.5",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "拆分SKU",
+      "拆分后SKU",
+      "原SKU",
+      "新SKU",
+      "拆分商品",
+      "重新装箱",
+      "补贴新SKU标签"
+    ],
+    "weak": [
+      "下架",
+      "新入库单",
+      "标签文件",
+      "WINIT纸箱",
+      "上架",
+      "L007盘亏"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "辨识",
+      "串仓",
+      "自提",
+      "质检",
+      "无主货"
+    ],
+    "soft": [
+      "换标",
+      "包裹条码",
+      "商品条码",
+      "第三方条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景需要拆分成多个新SKU并做盘亏，而换入库单场景不更换SKU",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是主动拆分原SKU为多个新SKU，而换标场景是因异常更换标签但SKU不变",
+    "和【入库】入库预报SKU与实际到货SKU不符合的区别是：本场景是库内主动拆分操作，而预报不符是入库时发现的异常",
+    "和【入库】批量辨识商品后补贴商品条码的区别是：本场景强调拆分动作和原SKU盘亏，而辨识场景是识别后补贴条码"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确原SKU编号（如M010000000006721750）",
+    "动作：拆分为多个新SKU，需说明每个新SKU及对应数量",
+    "去向：新入库单号（WIxxx格式），原SKU做L007盘亏处理"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "原SKU下架指定数量",
+    "按要求方法拆分商品",
+    "使用WINIT纸箱重新装箱",
+    "补贴新SKU标签",
+    "上架至新入库单"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.5. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INSTOCK_SPLIT_SKU."
+}

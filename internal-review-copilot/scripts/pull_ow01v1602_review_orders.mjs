@@ -14,16 +14,26 @@
  *   import { pullReviewOrders } from "./pull_ow01v1602_review_orders.mjs"
  */
 
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = path.resolve("D:/DA/Nonsta_Valueadded_Combined");
-const AUTH_COOKIES = path.resolve("D:/DA/AI_EXPERT/TOM/共享认证/playwright_cookies.json");
+const here = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(here, "../..");
+
+function resolveCookiePath() {
+  const fromEnv = (process.env.TOM_COOKIE_PATH || "").trim();
+  if (fromEnv) return path.isAbsolute(fromEnv) ? fromEnv : path.resolve(ROOT, "..", fromEnv);
+  const candidates = [
+    path.resolve(ROOT, "../AI_EXPERT/TOM/共享认证/playwright_cookies.json"),
+    "/home/winit/AI_EXPERT/TOM/共享认证/playwright_cookies.json",
+  ];
+  return candidates.find((p) => existsSync(p)) || candidates[0];
+}
 const AJAX_OMS = "https://cnomstom.winit.com.cn/VasOrder/ajaxProcess";
 const LIST_PAGE = "https://cnomstom.winit.com.cn/VasOrder/index";
-const SERVICE_CODE = "OW01V1602";
-const SERVICE_NAME = "入库其他服务需求";
+const ALLOWED_SERVICE_CODES = new Set(["OW01V1602", "OSF6V1603", "OSF6V1841"]);
 
 function arg(name, fallback = "") {
   const key = `--${name}`;
@@ -36,7 +46,11 @@ function cookieHeader(cookies) {
 }
 
 async function loadSession() {
-  const cookies = JSON.parse(await readFile(AUTH_COOKIES, "utf8"));
+  const cookiePath = resolveCookiePath();
+  if (!existsSync(cookiePath)) {
+    throw new Error(`OMS Cookie 文件不存在：${cookiePath}`);
+  }
+  const cookies = JSON.parse(await readFile(cookiePath, "utf8"));
   const cookie = cookieHeader(cookies);
   const list = await fetch(LIST_PAGE, {
     headers: {
@@ -153,8 +167,10 @@ async function getEventOrders(session, orderNo, serviceCode, serviceSequence = "
   return Array.isArray(data.info) ? data.info : rows(data.info);
 }
 
-function hasTargetAtom(atoms) {
-  return atoms.some((atom) => atom.serviceCode === SERVICE_CODE || String(atom.serviceName || "").includes(SERVICE_NAME));
+function isAllowedAtom(atom) {
+  const code = String(atom.serviceCode || "");
+  const name = String(atom.serviceName || "");
+  return ALLOWED_SERVICE_CODES.has(code) || name.includes("入库其他服务需求") || name.includes("库内其他服务需求");
 }
 
 function isTargetHeader(row, targetDate, statusDescNeedle) {
@@ -195,10 +211,9 @@ export async function pullReviewOrders(options = {}) {
   for (const [idx, row] of targetHeaders.entries()) {
     const orderNo = row.orderNo;
     const atoms = await getVasList(session, orderNo);
-    if (!hasTargetAtom(atoms)) continue;
     const events = [];
-    for (const atom of atoms.filter((a) => a.serviceCode === SERVICE_CODE || String(a.serviceName || "").includes(SERVICE_NAME))) {
-      const evs = await getEventOrders(session, orderNo, atom.serviceCode || SERVICE_CODE, atom.serviceSequence || "1");
+    for (const atom of atoms.filter((a) => isAllowedAtom(a))) {
+      const evs = await getEventOrders(session, orderNo, atom.serviceCode || "OW01V1602", atom.serviceSequence || "1");
       for (const ev of evs) {
         events.push({ ...ev, _orderNo: orderNo, _serviceCode: atom.serviceCode, _serviceSequence: atom.serviceSequence || "1" });
       }
@@ -210,15 +225,15 @@ export async function pullReviewOrders(options = {}) {
       events,
       errors: [],
     });
-    console.log(`[${idx + 1}/${targetHeaders.length}] kept ${orderNo} atoms=${atoms.length} events=${events.length}`);
+    const kept = atoms.some((a) => isAllowedAtom(a));
+    console.log(`[${idx + 1}/${targetHeaders.length}] ${kept ? "kept" : "other"} ${orderNo} atoms=${atoms.length} events=${events.length}`);
   }
 
   const summary = {
     generatedAt: new Date().toISOString(),
     targetDate,
     statusDescNeedle,
-    serviceCode: SERVICE_CODE,
-    serviceName: SERVICE_NAME,
+    serviceCodes: [...ALLOWED_SERVICE_CODES],
     pageRows: pageRows.length,
     candidateHeaders: targetHeaders.length,
     detailCount: details.length,

@@ -86,16 +86,27 @@ export function collectOrderNos(detail: JsonRecord, attrs: Record<string, string
   };
 }
 
-export function pickOw01Atom(detail: JsonRecord): JsonRecord | null {
+export const ALLOWED_SERVICE_CODES = new Set(["OW01V1602", "OSF6V1603", "OSF6V1841"]);
+
+export function isAllowedServiceAtom(atom: JsonRecord): boolean {
+  const code = asText(atom.serviceCode);
+  const name = asText(atom.serviceName);
+  if (ALLOWED_SERVICE_CODES.has(code)) return true;
+  return name.includes("入库其他服务需求") || name.includes("库内其他服务需求");
+}
+
+export function pickAllowedAtom(detail: JsonRecord): JsonRecord | null {
   const atoms = asArray(detail.atoms).map(asRecord);
-  return (
-    atoms.find((atom) => asText(atom.serviceCode) === "OW01V1602" || asText(atom.serviceName).includes("入库其他服务需求")) ||
-    null
-  );
+  return atoms.find((atom) => isAllowedServiceAtom(atom)) || null;
+}
+
+/** @deprecated use pickAllowedAtom — kept for demo builders */
+export function pickOw01Atom(detail: JsonRecord): JsonRecord | null {
+  return pickAllowedAtom(detail);
 }
 
 export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: JsonRecord; attrs: Record<string, string> } | null {
-  const atom = pickOw01Atom(detail);
+  const atom = pickAllowedAtom(detail);
   if (!atom) return null;
 
   const attrs = attrMap(atom);
@@ -118,7 +129,7 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
   const input: AgentInput = {
     mode: "internal_review_copilot",
     vascNo: orderNo,
-    query: customerIntent || `待审核增值单 ${orderNo} OW01V1602`,
+    query: customerIntent || `待审核增值单 ${orderNo} ${asText(atom.serviceCode) || "OW01V1602"}`,
     customerIntent,
     serviceAtom: asText(atom.serviceCode) || "OW01V1602",
     sceneKey: asText(atom.sceneOverviewCode) === "20250407004" ? "inbound_label_identify" : "",
@@ -131,6 +142,8 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
     pageContext: {
       entryScene: "INTERNAL_REVIEW",
       vaSource: asText(header.vaSource),
+      businessType: asText(header.businessType),
+      businessTypeDesc: asText(header.businessTypeDesc),
       warehouseCode: asText(header.warehouseCode),
       warehouseName: asText(header.warehouseName),
       customerCode: asText(header.customerCode),
@@ -172,6 +185,9 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
       businessOrderNo: wis[0] || "",
       allEventNos: ebs,
       allBusinessOrderNos: wis,
+      vaSource: asText(header.vaSource),
+      businessType: asText(header.businessType),
+      businessTypeDesc: asText(header.businessTypeDesc),
       sceneName: asText(atom.sceneOverviewName),
       sceneCode: asText(atom.sceneOverviewCode),
     },

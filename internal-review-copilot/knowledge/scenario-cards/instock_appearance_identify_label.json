@@ -1,0 +1,80 @@
+{
+  "sceneKey": "instock_appearance_identify_label",
+  "sceneName": "【库内】商品外观辨识+贴标上架",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250407043",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.16",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "外观辨识",
+      "条码辨识",
+      "开箱辨识",
+      "辨识方法",
+      "辨识结果",
+      "库内商品",
+      "确认商品身份",
+      "辨识后贴标"
+    ],
+    "weak": [
+      "示例图片",
+      "实物照片",
+      "型号特征",
+      "颜色尺寸",
+      "吊牌标签",
+      "比对"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "到货",
+      "收货",
+      "串仓",
+      "调拨",
+      "整柜"
+    ],
+    "soft": [
+      "尺重",
+      "无主货",
+      "第三方条码",
+      "换入库单"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景针对库内已存商品的辨识,不涉及入库收货环节",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景强调外观/条码/开箱辨识方法,而非单纯补贴条码",
+    "和【入库】商品质检的区别是：本场景重点是辨识商品身份(SKU确认),质检重点是检查商品质量状态",
+    "和【入库】指定商品拍照暂存的区别是：本场景辨识后需贴标上架,不是单纯拍照暂存"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：库内商品(需提供商品条码/商品编码)",
+    "动作：外观/条码/开箱辨识+贴标",
+    "去向：辨识后上架到指定入库单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_NWEON"
+    ],
+    "note": "auto-generated from OMS stats n=62 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+  },
+  "sopTemplateHints": [
+    "客户需提供辨识方法(外包装SKU/条码位置/标签位置/颜色尺寸型号特征/示例图片)",
+    "仓库按辨识方法识别商品(优先外包装,授权可开箱,可按示例图片比对)",
+    "记录辨识结果SI数量并拍摄实物照片",
+    "辨识后客户提供包裹和标签对应关系及入库单号",
+    "仓库按对应关系补贴新包裹标签并上架"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.16. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407043."
+}

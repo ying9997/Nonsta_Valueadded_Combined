@@ -1,0 +1,75 @@
+{
+  "sceneKey": "inbound_winit_fault_multi_action",
+  "sceneName": "【入库】因winit原因做入库拦截、辨识、重新包装、销毁或上架等多种动作",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.26",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "拦截",
+      "开包查验",
+      "开箱检查",
+      "拆开单品包装",
+      "检查内部实物",
+      "重新打包后贴标签返架",
+      "多种动作",
+      "winit原因"
+    ],
+    "weak": [
+      "已到仓未上架",
+      "受潮发霉",
+      "淋雨",
+      "销毁",
+      "不收费"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "串仓",
+      "自提",
+      "质检",
+      "无主货"
+    ],
+    "soft": [
+      "预报不符",
+      "下架后重新上架",
+      "关联第三方条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景强调拦截+开包查验+多种处理动作（销毁/返架/重新打包），而换标场景只做辨识和换标",
+    "和【入库】商品质检的区别：本场景是因winit原因（如淋雨）做紧急拦截和检查，质检场景是常规的商品质量检验",
+    "和【入库】上架前自提的区别：本场景是拦截后做检查和处理（销毁或返架），自提场景是客户直接提走不上架",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别：本场景包含拦截+开包检查+条件判断（潮湿则销毁/无潮湿则返架），辨识场景只做条码补贴"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确需要拦截的包裹范围（如包裹号、入库单号、SKU清单）",
+    "动作：说明需要做哪些检查动作（如开包查验、拆包装检查实物）以及后续处理方式（销毁/重新打包返架/其他）",
+    "去向：根据检查结果的不同去向（如无问题返架、有问题销毁、需要重新包装等）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "第一步：拦截指定范围的包裹（列出包裹号或入库单号清单）",
+    "第二步：开箱/开包检查的具体要求（检查什么、检查标准）",
+    "第三步：根据检查结果的分类处理（如2.1无问题如何处理、2.2有问题如何处理）",
+    "第四步：明确仓库动作和计费方式",
+    "附件：如需贴标签需提供标签文件"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.26. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

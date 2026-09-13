@@ -1,0 +1,54 @@
+{
+  "sceneKey": "inbound_aplus_direct_shelve",
+  "sceneName": "【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "20250929",
+  "aliases": {
+    "sceneKeys": ["inbound_ocean_full_container_aplus_no_barcode"],
+    "note": "飞书旧按钮 sceneKey 兼容；与 OMS 20250929 为同一场景"
+  },
+  "sourceRefs": [
+    {
+      "path": "internal-review-copilot/knowledge/scenario-evidence/oms-scene-overview-code-map.md",
+      "credibility": "authority",
+      "note": "OMS 码名：入库 20250929 海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架"
+    },
+    {
+      "path": "_tmp/20260910_cursor_prompt/cursor-360654-fix-and-attachment-probe.md",
+      "credibility": "derived",
+      "note": "试点：空附件门禁，审核员 override 后应直接出 SOP"
+    }
+  ],
+  "positiveSignals": {
+    "strong": ["100%A+", "A+包直接上架", "无箱单直接上架", "海运整柜"],
+    "weak": ["直接上架", "新单上架", "无箱单"]
+  },
+  "negativeSignals": {
+    "hard": ["换标", "辨识", "补贴包裹标签", "拍照暂存"],
+    "soft": ["批量异常", "商品条码异常"]
+  },
+  "boundaryRules": [
+    "本场景是直接上架，不涉及换标/辨识/补贴标签",
+    "与关联第三方商品条码上架的区别：本场景不需要关联第三方码",
+    "核心是100%A+包裹或无箱单的简单上架场景",
+    "口语里出现「不支持异常[包裹条码批量异常]」是退回原因，不是本单要做 T1"
+  ],
+  "requiredRequirementHints": [
+    "新入库单号",
+    "扫描外箱条码/二维码按新单上架"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "confirmed_from_data",
+    "enforcement": "required",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "直接上架场景不需要附件"
+  },
+  "sopTemplateHints": [
+    "按新入库单扫描外箱条码上架",
+    "关闭异常单"
+  ],
+  "examples": [],
+  "notes": "试点卡。expectedScene 金标仅评测对比，不改变 pipeline 自动匹配。旧 sceneKey inbound_ocean_full_container_aplus_no_barcode 走 aliases。"
+}

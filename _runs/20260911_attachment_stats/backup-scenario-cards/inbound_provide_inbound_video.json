@@ -1,0 +1,75 @@
+{
+  "sceneKey": "inbound_provide_inbound_video",
+  "sceneName": "【入库】提供入库视频",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.23",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "监控",
+      "视频",
+      "调取视频",
+      "拍摄视频",
+      "开柜",
+      "卸货",
+      "完整监控",
+      "证明到仓状态"
+    ],
+    "weak": [
+      "破损",
+      "批量破损",
+      "到仓",
+      "暂存",
+      "反馈视频"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "拍照",
+      "质检",
+      "调拨",
+      "下架"
+    ],
+    "soft": [
+      "辨识",
+      "自提",
+      "预报"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】指定商品拍照暂存的区别是：本场景要求提供监控视频（动态影像），而拍照场景只需要静态照片",
+    "和【入库】商品质检的区别是：本场景是调取已有的监控录像来证明货物到仓状态，不涉及对商品进行检验操作",
+    "本场景的核心是提供从开柜到卸货的完整过程视频，用于证明货物到仓时的原始状态",
+    "触发条件通常是出现批量异常（如破损）需要追溯责任时，而非常规入库操作"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需要调取视频的订单号（如 WI48625177）",
+    "动作：调取/拍摄从开柜到卸货的完整监控视频",
+    "去向：提供视频并用订单号命名反馈"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确需要视频的订单号",
+    "说明视频范围：从开柜到卸货的完整过程",
+    "要求提供视频后用订单号命名",
+    "处理方式标注为暂存",
+    "收费方式：增值-调取/拍摄视频"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.23. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}
