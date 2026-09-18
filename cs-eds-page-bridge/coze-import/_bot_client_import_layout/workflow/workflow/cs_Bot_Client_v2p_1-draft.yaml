@@ -1,0 +1,2067 @@
+schema_version: 1.0.0
+name: cs_Bot_Client_v2p_1
+id: 7685663589169381391
+description: "万邑联客服上下文管理\n-----------\nv2p更改了输出节点，不在工作流结束时候输出"
+mode: chatflow
+icon: plugin_icon/chatflow-icon.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: "工作流的起始节点，用于设定启动工作流需要的信息"
+      position:
+        x: 1696.577201797063
+        y: 839.5683411101003
+      parameters:
+        node_outputs:
+            _conversation_id:
+                type: string
+                value: null
+            _customer_code:
+                type: string
+                value: null
+            _customer_name:
+                type: string
+                value: null
+            _user_id:
+                type: string
+                value: null
+            _username:
+                type: string
+                value: null
+            CONVERSATION_NAME:
+                type: string
+                value: null
+                default_value: Default
+                description: 本次请求绑定的会话，会自动写入消息、会从该会话读对话历史。
+            USER_INPUT:
+                type: string
+                value: null
+            sidecar:
+                type: string
+                value: null
+                description: 页面指令 JSON 字符串，可空；试运行可把出卡/读页 JSON 放这里
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: "工作流的最终节点，用于返回工作流运行后的结果信息"
+      position:
+        x: 8040
+        y: 770
+      parameters:
+        terminatePlan: returnVariables
+    - id: "173348"
+      type: plugin
+      title: 验证是否绑定用户信息check_is_binddata_input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: "验证是否时绑定上下文参数的输入 返回true/false"
+      position:
+        x: 3245.7629245297694
+        y: 745.4368480712848
+      parameters:
+        apiParam:
+            - name: apiID
+              input:
+                type: string
+                value: "7475648361526722611"
+            - name: apiName
+              input:
+                type: string
+                value: "check_is_binddata_input"
+            - name: pluginID
+              input:
+                type: string
+                value: "7473322438084935720"
+            - name: pluginName
+              input:
+                type: string
+                value: "cobra_agent_http"
+            - name: pluginVersion
+              input:
+                type: string
+                value: "0"
+            - name: tips
+              input:
+                type: string
+                value: ""
+            - name: outDocLink
+              input:
+                type: string
+                value: ""
+        inputDefs:
+            - description: 输入
+              input: {}
+              name: input
+              required: true
+              type: string
+        node_inputs:
+            - name: input
+              input:
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+        node_outputs:
+            is_data_bind_input:
+                type: boolean
+                required: true
+                value: null
+                description: 是否时绑定数据的请求
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 180000
+    - id: "155319"
+      type: condition
+      title: 选择器_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 3660.0585561956746
+        y: 732.4368480712848
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: is_data_bind_input
+                                ref_node: "173348"
+                      operator: 1
+                      right:
+                        input:
+                            type: boolean
+                            value: true
+                logic: 2
+    - id: "192159"
+      type: plugin
+      title: 绑定用户信息和会话参数解析input_param_parse
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: "用于实现通过api接口调用传递用户的业务变量，如获取userid username conversation_id,\n解析的数据格式如下：\n\n{\n    \"user_input\": \"query_money\", //用户真实输入\n    \"custom_variables\": { //透传的上下文变量\n        \"user_id\": \"123\",\n        \"username\": \"1233\",\n        \"conversation_id\": \"conversationId\"\n    }\n}"
+      position:
+        x: 4107.687824075778
+        y: 641.981363360692
+      parameters:
+        apiParam:
+            - name: apiID
+              input:
+                type: string
+                value: "7474903031818223642"
+            - name: apiName
+              input:
+                type: string
+                value: "input_param_parse"
+            - name: pluginID
+              input:
+                type: string
+                value: "7473322438084935720"
+            - name: pluginName
+              input:
+                type: string
+                value: "cobra_agent_http"
+            - name: pluginVersion
+              input:
+                type: string
+                value: "0"
+            - name: tips
+              input:
+                type: string
+                value: ""
+            - name: outDocLink
+              input:
+                type: string
+                value: ""
+        inputDefs:
+            - description: api接口输入数据
+              input: {}
+              name: input
+              required: true
+              type: string
+        node_inputs:
+            - name: input
+              input:
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+        node_outputs:
+            conversation_id:
+                type: string
+                value: null
+                description: 会话id
+            customer_code:
+                type: string
+                required: true
+                value: null
+                description: 客户编码
+            customer_name:
+                type: string
+                required: true
+                value: null
+                description: 客户名称
+            user_id:
+                type: string
+                value: null
+                description: userid
+            username:
+                type: string
+                value: null
+                description: username
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 180000
+    - id: "188998"
+      type: insert_record
+      title: 新增数据
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-database-insert.jpg
+      description: "向表添加新数据记录，用户输入数据内容后插入数据库"
+      position:
+        x: 5855.751023052891
+        y: 440.4187750107602
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        insertParam:
+            fieldInfo:
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419969"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: user_id
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419970"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: username
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419971"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: conversation_id
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643073"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: customer_code
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643074"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: customer_name
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1828764627969"
+                  - name: fieldValue
+                    input:
+                        type: boolean
+                        value: false
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "116274"
+      type: select_record
+      title: 查询数据
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icaon-database-select.jpg
+      description: "从表获取数据，用户可定义查询条件、选择列等，输出符合条件的数据"
+      position:
+        x: 4207.051867047722
+        y: 1007.0516804021556
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        selectParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "is_deleted"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: boolean
+                            value: false
+                logic: AND
+            fieldList:
+                - fieldID: 101
+                  isDistinct: false
+                - fieldID: 1.78233441997e+12
+                  isDistinct: false
+                - fieldID: 1.782334419971e+12
+                  isDistinct: false
+                - fieldID: 1.782334419969e+12
+                  isDistinct: false
+                - fieldID: 103
+                  isDistinct: false
+                - fieldID: 1.784112643073e+12
+                  isDistinct: false
+                - fieldID: 1.784112643074e+12
+                  isDistinct: false
+            limit: 1
+            orderByList:
+                - fieldID: 103
+                  isAsc: false
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "128112"
+      type: code
+      title: 代码
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 4616.315842268764
+        y: 1028.5516804021554
+      parameters:
+        code: "import asyncio\nfrom collections import namedtuple\nasync def main(args: Args) -> Output:\n    # 声明一个命名元组类型\n    User = namedtuple('User', ['conversation_id', 'user_id', 'username'])\n    # 模拟从数据库或其他地方获取数据\n    params = args.params\n    input_data = params['input'][0]\n\n    # get A/B value\n    lt = input_data[\"customer_code\"][-1]\n\n    \n    # 假设输入数据是一个包含三个元素的列表，分别表示 conversation_id、user_id 和 username\n    ret = {\n        \"conversation_id\": input_data[\"conversation_id\"],\n        \"user_id\": input_data[\"user_id\"],\n        \"username\":input_data[\"username\"],\n        \"customer_code\":input_data[\"customer_code\"],\n        \"customer_name\":input_data[\"customer_name\"],\n        \"lt\":lt,\n    }\n    return ret"
+        language: 3
+        node_inputs:
+            - name: input
+              input:
+                value:
+                    path: outputList
+                    ref_node: "116274"
+        node_outputs:
+            conversation_id:
+                type: string
+                value: null
+            customer_code:
+                type: string
+                value: null
+            customer_name:
+                type: string
+                value: null
+            errorBody:
+                type: object
+                properties:
+                    errorCode:
+                        type: string
+                        value: null
+                    errorMessage:
+                        type: string
+                        value: null
+                value: null
+            isSuccess:
+                type: boolean
+                value: null
+            lt:
+                type: string
+                value: null
+            user_id:
+                type: string
+                value: null
+            username:
+                type: string
+                value: null
+        settingOnError:
+            dataOnErr: |-
+                {
+                    "user_id": "",
+                    "username": "",
+                    "conversation_id": "",
+                    "customer_name": "",
+                    "customer_code": "",
+                    "lt": ""
+                }
+            processType: 2
+            retryTimes: 0
+            switch: true
+            timeoutMs: 60000
+    - id: "179021"
+      type: assign_variable
+      title: 变量赋值
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/Variable.jpg
+      description: "用于给支持写入的变量赋值，包括应用变量、用户变量"
+      position:
+        x: 5086.041285022536
+        y: 1028.5516804021554
+      parameters:
+        node_inputs:
+            - name: _user_id
+              input:
+                value:
+                    path: user_id
+                    ref_node: "128112"
+            - name: _username
+              input:
+                value:
+                    path: username
+                    ref_node: "128112"
+            - name: _conversation_id
+              input:
+                value:
+                    path: conversation_id
+                    ref_node: "128112"
+            - name: _customer_name
+              input:
+                value:
+                    path: customer_name
+                    ref_node: "128112"
+            - name: _customer_code
+              input:
+                value:
+                    path: customer_code
+                    ref_node: "128112"
+        node_outputs:
+            isSuccess:
+                type: boolean
+                value: null
+        variableTypeMap:
+            _conversation_id: global_variable_user
+            _customer_code: global_variable_user
+            _customer_name: global_variable_user
+            _user_id: global_variable_user
+            _username: global_variable_user
+    - id: "137744"
+      type: condition
+      title: A/B
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 5588.346066430312
+        y: 938.9200708433707
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: username
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "winit-api"
+                    - left:
+                        input:
+                            value:
+                                path: customer_code
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "14132129"
+                    - left:
+                        input:
+                            value:
+                                path: customer_code
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "1000019"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: username
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "winit-api"
+                    - left:
+                        input:
+                            type: list
+                            items:
+                                type: string
+                                value: null
+                            value:
+                                path: customer_code
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "14132129"
+                    - left:
+                        input:
+                            type: list
+                            items:
+                                type: string
+                                value: null
+                            value:
+                                path: customer_code
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "1000019"
+                logic: 1
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: lt
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "5"
+                    - left:
+                        input:
+                            value:
+                                path: lt
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "6"
+                    - left:
+                        input:
+                            value:
+                                path: lt
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "7"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: lt
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "5"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: lt
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "6"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: lt
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "7"
+                logic: 1
+    - id: "1157371"
+      type: select_record
+      title: 查询数据_确认用户是否存在老的会话
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icaon-database-select.jpg
+      description: "从表获取数据，用户可定义查询条件、选择列等，输出符合条件的数据"
+      position:
+        x: 4529.005668388486
+        y: 483.37443134229744
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        selectParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "is_deleted"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: boolean
+                            value: false
+                logic: AND
+            fieldList:
+                - fieldID: 101
+                  isDistinct: false
+                - fieldID: 1.78233441997e+12
+                  isDistinct: false
+                - fieldID: 1.782334419971e+12
+                  isDistinct: false
+                - fieldID: 1.782334419969e+12
+                  isDistinct: false
+                - fieldID: 103
+                  isDistinct: false
+                - fieldID: 1.784112643073e+12
+                  isDistinct: false
+                - fieldID: 1.784112643074e+12
+                  isDistinct: false
+            limit: 1
+            orderByList:
+                - fieldID: 103
+                  isAsc: false
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "129954"
+      type: update_record
+      title: 更新数据（更新为已删除）
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-database-update.jpg
+      description: "修改表中已存在的数据记录，用户指定更新条件和内容来更新数据"
+      position:
+        x: 5566.704474319945
+        y: 770.3628779783065
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+        updateParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "is_deleted"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: boolean
+                            value: false
+                logic: AND
+            fieldInfo:
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1828764627969"
+                  - name: fieldValue
+                    input:
+                        type: boolean
+                        value: true
+    - id: "130127"
+      type: condition
+      title: 选择器
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 5133.363523279255
+        y: 483.37443134229744
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: outputList
+                                ref_node: "1157371"
+                      operator: 6
+                      right:
+                        input:
+                            type: integer
+                            value: 0
+                logic: 1
+    - id: "1810893"
+      type: code
+      title: 代码_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 4633.114632560158
+        y: 837.7408668985544
+      parameters:
+        code: "import asyncio\nfrom collections import namedtuple\nasync def main(args: Args) -> Output:\n    # 声明一个命名元组类型\n    User = namedtuple('User', ['conversation_id', 'user_id', 'username'])\n    # 模拟从数据库或其他地方获取数据\n    params = args.params\n    input_data = params['input'][0]\n\n    # get A/B value\n    lt = input_data[\"customer_code\"][-1]\n\n    \n    # 假设输入数据是一个包含三个元素的列表，分别表示 conversation_id、user_id 和 username\n    ret = {\n        \"conversation_id\": input_data[\"conversation_id\"],\n        \"user_id\": input_data[\"user_id\"],\n        \"username\":input_data[\"username\"],\n        \"customer_code\":input_data[\"customer_code\"],\n        \"customer_name\":input_data[\"customer_name\"],\n        \"lt\":lt,\n    }\n    return ret"
+        language: 3
+        node_inputs:
+            - name: input
+              input:
+                value:
+                    path: outputList
+                    ref_node: "1157371"
+        node_outputs:
+            conversation_id:
+                type: string
+                value: null
+            customer_code:
+                type: string
+                value: null
+            customer_name:
+                type: string
+                value: null
+            errorBody:
+                type: object
+                properties:
+                    errorCode:
+                        type: string
+                        value: null
+                    errorMessage:
+                        type: string
+                        value: null
+                value: null
+            isSuccess:
+                type: boolean
+                value: null
+            lt:
+                type: string
+                value: null
+            user_id:
+                type: string
+                value: null
+            username:
+                type: string
+                value: null
+        settingOnError:
+            dataOnErr: |-
+                {
+                    "user_id": "",
+                    "username": "",
+                    "conversation_id": "",
+                    "customer_name": "",
+                    "customer_code": "",
+                    "lt": ""
+                }
+            processType: 2
+            retryTimes: 0
+            switch: true
+            timeoutMs: 60000
+    - id: "1610047"
+      type: assign_variable
+      title: 变量赋值_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/Variable.jpg
+      description: "用于给支持写入的变量赋值，包括应用变量、用户变量"
+      position:
+        x: 5045.713492137636
+        y: 855.4387954728427
+      parameters:
+        node_inputs:
+            - name: _user_id
+              input:
+                value:
+                    path: user_id
+                    ref_node: "1810893"
+            - name: _username
+              input:
+                value:
+                    path: username
+                    ref_node: "1810893"
+            - name: _conversation_id
+              input:
+                value:
+                    path: conversation_id
+                    ref_node: "1810893"
+            - name: _customer_name
+              input:
+                value:
+                    path: customer_name
+                    ref_node: "1810893"
+            - name: _customer_code
+              input:
+                value:
+                    path: customer_code
+                    ref_node: "1810893"
+        node_outputs:
+            isSuccess:
+                type: boolean
+                value: null
+        variableTypeMap:
+            _conversation_id: global_variable_user
+            _customer_code: global_variable_user
+            _customer_name: global_variable_user
+            _user_id: global_variable_user
+            _username: global_variable_user
+    - id: "147540"
+      type: code
+      title: should_bind_logic
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 2337.6891602214096
+        y: 1052.5516804021556
+      parameters:
+        code: |-
+            async function main({ params }: Args): Promise<Output> {
+                const requiredKeys = [
+                    "_user_id",
+                    "_username",
+                    "_conversation_id",
+                    "_customer_code",
+                    //"_customer_name",
+                ];
+
+                const isMissing = (value: unknown): boolean => {
+                    return value === undefined
+                        || value === null
+                        || (typeof value === "string" && value.trim() === "");
+                };
+
+                const missingKeys = requiredKeys.filter(
+                    (key) => isMissing(params?.[key])
+                );
+
+                const needBind = missingKeys.length > 0;
+
+                return {
+                    // true：需要绑定，false：不需要绑定
+                    need_bind: needBind,
+
+                    // 便于排查缺少了哪些变量
+                    missing_keys: missingKeys,
+                };
+            }
+        language: 5
+        node_inputs:
+            - name: _conversation_id
+              input:
+                value:
+                    path: _conversation_id
+                    ref_node: "100001"
+            - name: _customer_code
+              input:
+                value:
+                    path: _customer_code
+                    ref_node: "100001"
+            - name: _customer_name
+              input:
+                value:
+                    path: _customer_name
+                    ref_node: "100001"
+            - name: _user_id
+              input:
+                value:
+                    path: _user_id
+                    ref_node: "100001"
+            - name: _username
+              input:
+                value:
+                    path: _username
+                    ref_node: "100001"
+        node_outputs:
+            missing_keys:
+                type: list
+                items:
+                    type: string
+                    value: null
+                value: null
+            need_bind:
+                type: boolean
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "154635"
+      type: condition
+      title: 选择器_2
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 3106.8452979572944
+        y: 1255.7484913551773
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: need_bind
+                                ref_node: "147540"
+                      operator: 1
+                      right:
+                        input:
+                            type: boolean
+                            value: true
+                logic: 2
+    - id: "122400"
+      type: assign_variable
+      title: 透传上下文直接赋值
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/Variable.jpg
+      description: "用于给支持写入的变量赋值，包括应用变量、用户变量"
+      position:
+        x: 4839.58263884749
+        y: 1373.4711549625806
+      parameters:
+        node_inputs:
+            - name: _user_id
+              input:
+                value:
+                    path: _user_id
+                    ref_node: "100001"
+            - name: _username
+              input:
+                value:
+                    path: _username
+                    ref_node: "100001"
+            - name: _conversation_id
+              input:
+                value:
+                    path: _conversation_id
+                    ref_node: "100001"
+            - name: _customer_name
+              input:
+                value:
+                    path: _customer_name
+                    ref_node: "100001"
+            - name: _customer_code
+              input:
+                value:
+                    path: _customer_code
+                    ref_node: "100001"
+        node_outputs:
+            isSuccess:
+                type: boolean
+                value: null
+        variableTypeMap:
+            _conversation_id: global_variable_user
+            _customer_code: global_variable_user
+            _customer_name: global_variable_user
+            _user_id: global_variable_user
+            _username: global_variable_user
+    - id: "195486"
+      type: select_record
+      title: 查询数据_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icaon-database-select.jpg
+      description: "从表获取数据，用户可定义查询条件、选择列等，输出符合条件的数据"
+      position:
+        x: 3579.1347812058784
+        y: 1717.2993367546997
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    properties:
+                        conversation_id:
+                            type: string
+                            value: null
+                        customer_code:
+                            type: string
+                            value: null
+                        customer_name:
+                            type: string
+                            value: null
+                        user_id:
+                            type: string
+                            value: null
+                        username:
+                            type: string
+                            value: null
+                        uuid:
+                            type: string
+                            value: null
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        selectParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "conversation_id"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            value:
+                                path: _conversation_id
+                                ref_node: "100001"
+                logic: AND
+            fieldList:
+                - fieldID: 1.782334419969e+12
+                  isDistinct: false
+                - fieldID: 1.78233441997e+12
+                  isDistinct: false
+                - fieldID: 1.784112643073e+12
+                  isDistinct: false
+                - fieldID: 1.784112643074e+12
+                  isDistinct: false
+                - fieldID: 1.782334419971e+12
+                  isDistinct: false
+            limit: 100
+            orderByList: []
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "1265078"
+      type: condition
+      title: 选择器_3
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 4707.845454777602
+        y: 1884.3343653808386
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: outputList.uuid
+                                ref_node: "195486"
+                      operator: 4
+                      right:
+                        input:
+                            type: integer
+                            value: 0
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: outputList.username
+                                ref_node: "195486"
+                      operator: 2
+                      right:
+                        input:
+                            value:
+                                path: _username
+                                ref_node: "100001"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: outputList.conversation_id
+                                ref_node: "195486"
+                      operator: 1
+                      right:
+                        input:
+                            type: string
+                            value:
+                                path: outputList.conversation_id
+                                ref_node: "195486"
+                logic: 2
+    - id: "1850571"
+      type: insert_record
+      title: 新增数据_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-database-insert.jpg
+      description: "向表添加新数据记录，用户输入数据内容后插入数据库"
+      position:
+        x: 5199.58263884749
+        y: 2198.8605641346667
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        insertParam:
+            fieldInfo:
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419969"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _user_id
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419970"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _username
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419971"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _conversation_id
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643073"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _customer_code
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643074"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _customer_name
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1828764627969"
+                  - name: fieldValue
+                    input:
+                        type: boolean
+                        value: false
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "1688464"
+      type: update_record
+      title: 更新数据用户最新的用户名
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-database-update.jpg
+      description: "修改表中已存在的数据记录，用户指定更新条件和内容来更新数据"
+      position:
+        x: 5415.378857344844
+        y: 1819.0382328218143
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+        updateParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "conversation_id"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: outputList.conversation_id
+                                ref_node: "195486"
+                logic: AND
+            fieldInfo:
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419969"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _user_id
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419970"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _username
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643073"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _customer_code
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419971"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _conversation_id
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643074"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _customer_name
+                            ref_node: "100001"
+    - id: "161227"
+      type: condition
+      title: 选择器_4
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 4628.83468320931
+        y: 2222.8685591142294
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: outputList
+                                ref_node: "195486"
+                      operator: 6
+                      right:
+                        input:
+                            type: integer
+                            value: 0
+                logic: 2
+    - id: "196023"
+      type: subflow
+      title: cs_Default_Query_v4_staging_F
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Workflow-v2.jpg
+      description: "（图片识别 - 灰度）\n处理海外仓客服对话，返回正确的答案\nv2支持了同时命中多个不同的业务分类\nv2p改为节点内置中途输出，而不是节点最后输出\nv3支持在未匹配到答案的时候，尝试从知识库中召回最接近的问题，并表达重现\nv4支持在过程中通过qa-gen的配置召回专家智能体，为solution提供上文，同时在中间过程输出思考和查询过程"
+      position:
+        x: 6090.293599229991
+        y: 770.3628779783065
+      parameters:
+        inputDefs:
+            - input: {}
+              name: USER_INPUT
+              required: false
+              type: string
+            - defaultValue: Default
+              description: 本次请求绑定的会话，会自动写入消息、会从该会话读对话历史。
+              input: {}
+              name: CONVERSATION_NAME
+              required: false
+              type: string
+            - input: {}
+              name: _user_id
+              required: false
+              type: string
+            - input: {}
+              name: _username
+              required: false
+              type: string
+            - input: {}
+              name: _conversation_id
+              required: false
+              type: string
+            - input: {}
+              name: _customer_code
+              required: false
+              type: string
+            - input: {}
+              name: _customer_name
+              required: false
+              type: string
+        node_inputs:
+            - name: CONVERSATION_NAME
+              input:
+                value:
+                    path: CONVERSATION_NAME
+                    ref_node: "100001"
+            - name: USER_INPUT
+              input:
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+        settingOnError: {}
+        spaceId: "7417755373999767571"
+        type: 0
+        workflowId: "7681286672969678888"
+        workflowVersion: v0.0.4
+    - id: "117213"
+      type: code
+      title: 代码_2
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "【临时】待优化"
+      version: v2
+      position:
+        x: 5136.3132337452225
+        y: 1189.0114176823681
+      parameters:
+        code: |-
+            async function main({ params }: Args): Promise<Output> {
+              const username = String(params.username ?? "").trim();
+              const customer_code = String(params.customer_code ?? "").trim();
+              const lt = customer_code ? customer_code.slice(-1) : "";
+
+              return {
+                username,
+                customer_code,
+                lt,
+              };
+            }
+        language: 5
+        node_inputs:
+            - name: username
+              input:
+                value:
+                    path: _username
+                    ref_node: "100001"
+            - name: customer_code
+              input:
+                value:
+                    path: _customer_code
+                    ref_node: "100001"
+        node_outputs:
+            customer_code:
+                type: string
+                value: null
+            lt:
+                type: string
+                value: null
+            username:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "210001"
+      type: code
+      title: page_intent_emit
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: 把 sidecar 转成 function_name 与 arguments，供 tool_call_send 使用
+      version: v2
+      position:
+        x: 6600
+        y: 770
+      parameters:
+        code: |-
+            /**
+             * Bot Client 封口节点：把页面 sidecar 原样交给 tool_call_send。
+             * 贴进 Coze 代码节点。禁止 import / export。
+             *
+             * 输入 params：
+             *   sidecar          专家/会话变量里的页面 JSON（string 或 object）
+             *   user_input       本轮 USER_INPUT
+             *   dehydrated_dom   SDK workflow/run 上报的脱水 DOM（没有就空）
+             *
+             * 输出：
+             *   should_send      是否接 tool_call_send
+             *   function_name    pageRead | renderA2UI | ""
+             *   arguments        插件要的 JSON 字符串
+             *   skip_reason      不发时的原因
+             *   sidecar_intact   是否原样转发（未改 commands）
+             *   turn_kind        pageRead | renderA2UI | page_read_result | idle
+             */
+
+            interface Args {
+              params: Record<string, unknown>;
+            }
+
+            interface Output {
+              should_send: boolean;
+              function_name: string;
+              arguments: string;
+              skip_reason: string;
+              sidecar_intact: boolean;
+              turn_kind: string;
+            }
+
+            const BACKEND_PAGE_READ = "pageRead";
+            const BACKEND_RENDER = "renderA2UI";
+            const CATALOG_ID = "ai-chatbot-builtin";
+            const A2UI_VERSION = "v0.9";
+            const CARD_ACTIONS = new Set(["readPage", "operatePage"]);
+            const PAGE_METHODS = new Set([
+              "clickElement",
+              "inputText",
+              "selectOption",
+              "scroll",
+              "scrollHorizontally",
+            ]);
+
+            function asText(value: unknown): string {
+              if (typeof value === "string") return value.trim();
+              if (value == null) return "";
+              if (typeof value === "number" || typeof value === "boolean") return String(value);
+              return "";
+            }
+
+            function parseJson(value: unknown): unknown {
+              if (value == null) return null;
+              if (typeof value === "object") return value;
+              const text = asText(value);
+              if (!text) return null;
+              try {
+                return JSON.parse(text);
+              } catch {
+                return null;
+              }
+            }
+
+            function looksLikeDehydratedDom(value: unknown): boolean {
+              const text = typeof value === "string" ? value : value == null ? "" : JSON.stringify(value);
+              if (!text || text.length < 20) return false;
+              return /dehydrated|interactiveElements|browserState|updateTree|page-agent|axTree/i.test(text);
+            }
+
+            function extractSidecar(raw: unknown): Record<string, unknown> {
+              const parsed = parseJson(raw);
+              if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                if (Array.isArray(parsed)) return { commands: parsed };
+                return {};
+              }
+              const obj = parsed as Record<string, unknown>;
+              const structured = obj.structured;
+              if (structured && typeof structured === "object" && !Array.isArray(structured)) {
+                const pageUi = (structured as Record<string, unknown>).pageUi;
+                if (pageUi && typeof pageUi === "object") {
+                  return { ...obj, ...(pageUi as Record<string, unknown>) };
+                }
+              }
+              const pageUi = obj.pageUi;
+              if (pageUi && typeof pageUi === "object" && !Array.isArray(pageUi)) {
+                return { ...obj, ...(pageUi as Record<string, unknown>) };
+              }
+              return obj;
+            }
+
+            function commandsOf(sidecar: Record<string, unknown>): unknown[] | null {
+              const fromArgs = parseJson(sidecar.arguments);
+              if (fromArgs && typeof fromArgs === "object" && !Array.isArray(fromArgs)) {
+                const cmds = (fromArgs as Record<string, unknown>).commands;
+                if (Array.isArray(cmds)) return cmds;
+              }
+              if (Array.isArray(sidecar.commands)) return sidecar.commands;
+              return null;
+            }
+
+            function walkUnknown(value: unknown, visit: (node: Record<string, unknown>) => void): void {
+              if (!value || typeof value !== "object") return;
+              if (Array.isArray(value)) {
+                for (const item of value) walkUnknown(item, visit);
+                return;
+              }
+              const obj = value as Record<string, unknown>;
+              visit(obj);
+              for (const nested of Object.values(obj)) walkUnknown(nested, visit);
+            }
+
+            function validateCommands(commands: unknown[]): string {
+              if (commands.length === 0) return "commands 为空";
+              const surfaceIds = new Set<string>();
+              const rootsBySurface = new Map<string, number>();
+
+              for (const item of commands) {
+                if (!item || typeof item !== "object" || Array.isArray(item)) return "命令不是对象";
+                const cmd = item as Record<string, unknown>;
+                if (cmd.version !== A2UI_VERSION) return "缺少 version: v0.9";
+
+                if (cmd.createSurface && typeof cmd.createSurface === "object") {
+                  const surface = cmd.createSurface as Record<string, unknown>;
+                  const surfaceId = asText(surface.surfaceId);
+                  if (!surfaceId) return "createSurface 缺少 surfaceId";
+                  if (surface.catalogId !== CATALOG_ID) {
+                    return `catalogId 必须是 ${CATALOG_ID}`;
+                  }
+                  surfaceIds.add(surfaceId);
+                }
+
+                if (cmd.updateComponents && typeof cmd.updateComponents === "object") {
+                  const update = cmd.updateComponents as Record<string, unknown>;
+                  const surfaceId = asText(update.surfaceId);
+                  const components = update.components;
+                  if (!Array.isArray(components)) return "updateComponents.components 必须是数组";
+                  for (const component of components) {
+                    if (!component || typeof component !== "object") return "component 非法";
+                    const row = component as Record<string, unknown>;
+                    if (!asText(row.id) || !asText(row.component)) return "component 缺少 id/component";
+                    if (row.id === "root") {
+                      rootsBySurface.set(surfaceId, (rootsBySurface.get(surfaceId) || 0) + 1);
+                    }
+                    if (Array.isArray(row.children) && row.children.some((id) => typeof id !== "string")) {
+                      return "children 只能是组件 id 字符串";
+                    }
+                  }
+                }
+              }
+
+              for (const [surfaceId, count] of rootsBySurface) {
+                if (count !== 1) return `Surface ${surfaceId} 必须恰好一个 root`;
+              }
+
+              let badAction = "";
+              walkUnknown(commands, (node) => {
+                if (badAction) return;
+                const event = node.event;
+                if (event && typeof event === "object") {
+                  const name = asText((event as Record<string, unknown>).name);
+                  if (name && !CARD_ACTIONS.has(name)) {
+                    badAction = `卡片 action 只能是 readPage/operatePage，收到 ${name}`;
+                  }
+                }
+                const method = asText(node.method);
+                if (method === "executeJavascript") {
+                  badAction = "禁止 executeJavascript";
+                }
+                if (method && node.args != null && !PAGE_METHODS.has(method) && !node.actions) {
+                  if (node.component == null && (node.requireConfirmation != null || Array.isArray(node.args))) {
+                    badAction = `operatePage method 不在白名单: ${method}`;
+                  }
+                }
+              });
+              return badAction;
+            }
+
+            function passthroughArguments(sidecar: Record<string, unknown>, fallbackObj: unknown): string {
+              if (typeof sidecar.arguments === "string" && sidecar.arguments.trim()) {
+                return sidecar.arguments.trim();
+              }
+              return JSON.stringify(fallbackObj);
+            }
+
+            function normalizeFunctionName(name: string): string {
+              const trimmed = name.trim();
+              if (trimmed === "readPage" || trimmed === BACKEND_PAGE_READ) return BACKEND_PAGE_READ;
+              if (trimmed === BACKEND_RENDER) return BACKEND_RENDER;
+              if (trimmed === "operatePage") return "operatePage";
+              return trimmed;
+            }
+
+            function idle(reason: string, turnKind: string): Output {
+              return {
+                should_send: false,
+                function_name: "",
+                arguments: "",
+                skip_reason: reason,
+                sidecar_intact: true,
+                turn_kind: turnKind,
+              };
+            }
+
+            function send(functionName: string, args: string, intact: boolean, turnKind: string): Output {
+              return {
+                should_send: true,
+                function_name: functionName,
+                arguments: args,
+                skip_reason: "",
+                sidecar_intact: intact,
+                turn_kind: turnKind,
+              };
+            }
+
+            function sidecarIsEmpty(sidecar: Record<string, unknown>): boolean {
+              return Object.keys(sidecar).length === 0;
+            }
+
+            async function main({ params }: Args): Promise<Output> {
+              let sidecar = extractSidecar(params.sidecar ?? params.page_ui ?? params.pageUi);
+              const userInput = params.user_input ?? params.USER_INPUT ?? "";
+              const dehydratedDom = params.dehydrated_dom ?? params.dehydratedDom ?? "";
+              if (sidecarIsEmpty(sidecar)) {
+                sidecar = extractSidecar(userInput);
+              }
+              const pageReadResult = looksLikeDehydratedDom(dehydratedDom) || looksLikeDehydratedDom(userInput);
+
+              const functionName = normalizeFunctionName(asText(sidecar.function_name));
+              const commands = commandsOf(sidecar);
+
+              if (functionName === BACKEND_PAGE_READ) {
+                const argsObj = parseJson(sidecar.arguments) || { reason: asText(sidecar.reason) || "need_page_facts" };
+                return send(BACKEND_PAGE_READ, passthroughArguments(sidecar, argsObj), true, BACKEND_PAGE_READ);
+              }
+
+              if (commands) {
+                const error = validateCommands(commands);
+                if (error) return idle(`A2UI 不合法，拒绝下发: ${error}`, "idle");
+                const argsString = passthroughArguments(sidecar, { commands });
+                const intact =
+                  typeof sidecar.arguments === "string"
+                    ? sidecar.arguments.trim() === argsString
+                    : JSON.stringify({ commands }) === argsString;
+                return send(BACKEND_RENDER, argsString, intact, BACKEND_RENDER);
+              }
+
+              if (functionName === BACKEND_RENDER) {
+                return idle("renderA2UI 但没有 commands", "idle");
+              }
+
+              if (pageReadResult) {
+                return idle("本轮是 pageRead 回传的 DOM，等待专家 sidecar", "page_read_result");
+              }
+
+              if (functionName === "operatePage") {
+                return idle("operatePage 由卡片点击触发，封口节点不下发", "idle");
+              }
+
+              const wantRead =
+                sidecar.need_page_read === true ||
+                sidecar.needPageRead === true ||
+                params.force_page_read === true ||
+                params.forcePageRead === true;
+              if (wantRead) {
+                return send(
+                  BACKEND_PAGE_READ,
+                  JSON.stringify({ reason: asText(sidecar.reason) || "need_page_facts" }),
+                  true,
+                  BACKEND_PAGE_READ,
+                );
+              }
+
+              return idle("sidecar 无法识别为 pageRead 或 renderA2UI", "idle");
+            }
+
+        language: 5
+        node_inputs:
+            - name: sidecar
+              input:
+                type: string
+                value:
+                    path: sidecar
+                    ref_node: "100001"
+            - name: user_input
+              input:
+                type: string
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+            - name: dehydrated_dom
+              input:
+                type: string
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+        node_outputs:
+            should_send:
+                type: boolean
+                value: null
+            function_name:
+                type: string
+                value: null
+            arguments:
+                type: string
+                value: null
+            skip_reason:
+                type: string
+                value: null
+            sidecar_intact:
+                type: boolean
+                value: null
+            turn_kind:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "210002"
+      type: condition
+      title: if_should_send
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: should_send 为真才发页面指令；普通问答走否则直接结束
+      position:
+        x: 7080
+        y: 770
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: should_send
+                                ref_node: "210001"
+                      operator: 1
+                      right:
+                        input:
+                            type: boolean
+                            value: true
+                logic: 2
+    - id: "210003"
+      type: plugin
+      title: tool_call_send_page
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: 函数调用（页面 pageRead / renderA2UI）
+      position:
+        x: 7560
+        y: 620
+      parameters:
+        apiParam:
+            - name: apiID
+              input:
+                type: string
+                value: "7473425348437475378"
+            - name: apiName
+              input:
+                type: string
+                value: "tool_call_send"
+            - name: pluginID
+              input:
+                type: string
+                value: "7473322438084935720"
+            - name: pluginName
+              input:
+                type: string
+                value: "cobra_agent_http"
+            - name: pluginVersion
+              input:
+                type: string
+                value: "0"
+            - name: tips
+              input:
+                type: string
+                value: ""
+            - name: outDocLink
+              input:
+                type: string
+                value: ""
+        inputDefs:
+            - description: 用户名
+              input: {}
+              name: username
+              required: true
+              type: string
+            - description: 指令参数
+              input: {}
+              name: arguments
+              required: true
+              type: string
+            - description: 会话ID
+              input: {}
+              name: conversation_id
+              required: true
+              type: string
+            - description: 函数唯一标识/指令标识
+              input: {}
+              name: function_name
+              required: true
+              type: string
+            - description: 用户id
+              input: {}
+              name: user_id
+              required: true
+              type: string
+        node_inputs:
+            - name: arguments
+              input:
+                type: string
+                value:
+                    path: arguments
+                    ref_node: "210001"
+            - name: conversation_id
+              input:
+                type: string
+                value:
+                    path: _conversation_id
+                    source: global_variable_user
+            - name: function_name
+              input:
+                type: string
+                value:
+                    path: function_name
+                    ref_node: "210001"
+            - name: user_id
+              input:
+                type: string
+                value:
+                    path: _user_id
+                    source: global_variable_user
+            - name: username
+              input:
+                type: string
+                value:
+                    path: _username
+                    source: global_variable_user
+        node_outputs:
+            code:
+                type: string
+                required: true
+                value: null
+                description: 0表示请求成功 1表示请求失败
+            data:
+                type: string
+                required: true
+                value: null
+                description: 当出现错误时候，返回错误码对应的说明信息，请求正常，则返回业务数据json对象，具体看接口的返回参数定义
+            errorBody:
+                type: object
+                properties:
+                    errorCode:
+                        type: string
+                        value: null
+                    errorMessage:
+                        type: string
+                        value: null
+                value: null
+            isSuccess:
+                type: boolean
+                value: null
+            msg:
+                type: string
+                required: true
+                value: null
+                description: '当出现错误时候，会返回错误码，正常不返回 '
+        settingOnError:
+            dataOnErr: |-
+                {
+                    "code": "",
+                    "data": "",
+                    "msg": ""
+                }
+            processType: 2
+            retryTimes: 0
+            switch: true
+            timeoutMs: 180000
+edges:
+    - source_node: "100001"
+      target_node: "147540"
+    - source_node: "188998"
+      target_node: "900001"
+    - source_node: "196023"
+      target_node: "210001"
+    - source_node: "210001"
+      target_node: "210002"
+    - source_node: "210002"
+      target_node: "210003"
+      source_port: "true"
+    - source_node: "210002"
+      target_node: "900001"
+      source_port: "false"
+    - source_node: "210003"
+      target_node: "900001"
+    - source_node: "154635"
+      target_node: "173348"
+      source_port: "true"
+    - source_node: "173348"
+      target_node: "155319"
+    - source_node: "155319"
+      target_node: "192159"
+      source_port: "true"
+    - source_node: "155319"
+      target_node: "116274"
+      source_port: "false"
+    - source_node: "192159"
+      target_node: "1157371"
+    - source_node: "129954"
+      target_node: "188998"
+    - source_node: "130127"
+      target_node: "188998"
+      source_port: "true"
+    - source_node: "116274"
+      target_node: "128112"
+    - source_node: "128112"
+      target_node: "179021"
+    - source_node: "179021"
+      target_node: "137744"
+    - source_node: "117213"
+      target_node: "137744"
+    - source_node: "137744"
+      target_node: "196023"
+      source_port: "true"
+    - source_node: "137744"
+      target_node: "196023"
+      source_port: true_1
+    - source_node: "137744"
+      target_node: "196023"
+      source_port: "false"
+    - source_node: "1157371"
+      target_node: "1810893"
+    - source_node: "130127"
+      target_node: "129954"
+      source_port: "false"
+    - source_node: "1610047"
+      target_node: "130127"
+    - source_node: "1810893"
+      target_node: "1610047"
+    - source_node: "147540"
+      target_node: "154635"
+    - source_node: "154635"
+      target_node: "195486"
+      source_port: "false"
+    - source_node: "1688464"
+      target_node: "122400"
+    - source_node: "1265078"
+      target_node: "122400"
+      source_port: "false"
+    - source_node: "1850571"
+      target_node: "122400"
+    - source_node: "122400"
+      target_node: "117213"
+    - source_node: "195486"
+      target_node: "161227"
+    - source_node: "161227"
+      target_node: "1265078"
+      source_port: "false"
+    - source_node: "1265078"
+      target_node: "1688464"
+      source_port: "true"
+    - source_node: "161227"
+      target_node: "1850571"
+      source_port: "true"

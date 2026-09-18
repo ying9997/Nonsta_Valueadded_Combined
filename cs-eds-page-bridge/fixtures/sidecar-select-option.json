@@ -1,0 +1,58 @@
+{
+  "function_name": "renderA2UI",
+  "arguments": {
+    "commands": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "vas-select",
+          "catalogId": "ai-chatbot-builtin"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "vas-select",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "title": "确认选中推荐服务",
+              "children": ["recText", "confirmBtn"]
+            },
+            {
+              "id": "recText",
+              "component": "Text",
+              "text": "建议选中：库内轻加工-更换商品条码；原子「库内-更换新商品条码」。确认后只选中，不提交。"
+            },
+            {
+              "id": "confirmBtn",
+              "component": "Button",
+              "type": "primary",
+              "text": "确认选中这组服务",
+              "action": {
+                "event": {
+                  "name": "operatePage",
+                  "context": {
+                    "requireConfirmation": true,
+                    "confirmationText": "确认后将在当前页选中这组产品与原子，不会提交审核。",
+                    "actions": [
+                      {
+                        "method": "selectOption",
+                        "args": [0, "库内轻加工-更换商品条码"]
+                      },
+                      {
+                        "method": "selectOption",
+                        "args": [1, "库内-更换新商品条码"]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

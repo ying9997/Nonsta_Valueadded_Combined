@@ -1,0 +1,92 @@
+[
+  {
+    "name": "出卡",
+    "http": 200,
+    "code": 0,
+    "msg": "",
+    "debug_url": "https://www.coze.cn/work_flow?execute_id=7686416364332974118&space_id=7417755373999767571&workflow_id=7685762023372046362&execute_mode=2",
+    "execute_id": "7686416364332974118",
+    "data": {
+      "arguments": "{\"commands\":[{\"version\":\"v0.9\",\"createSurface\":{\"surfaceId\":\"form\",\"catalogId\":\"ai-chatbot-builtin\"}},{\"version\":\"v0.9\",\"updateComponents\":{\"surfaceId\":\"form\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"筛选条件\",\"children\":[\"keywordInput\",\"submitBtn\"]},{\"id\":\"keywordInput\",\"component\":\"Input\",\"placeholder\":\"请输入关键词\",\"value\":{\"path\":\"/keyword\"},\"dataPath\":\"keyword\"},{\"id\":\"submitBtn\",\"component\":\"Button\",\"type\":\"primary\",\"text\":\"读取当前页面\",\"action\":{\"event\":{\"name\":\"readPage\",\"context\":{\"reason\":\"用户点击读取\"}}}}]}},{\"version\":\"v0.9\",\"updateDataModel\":{\"surfaceId\":\"form\",\"path\":\"/keyword\",\"value\":\"\"}},{\"version\":\"v0.9\",\"createSurface\":{\"surfaceId\":\"ops\",\"catalogId\":\"ai-chatbot-builtin\"}},{\"version\":\"v0.9\",\"updateComponents\":{\"surfaceId\":\"ops\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"页面操作\",\"children\":[\"tip\",\"clickBtn\"]},{\"id\":\"tip\",\"component\":\"Text\",\"text\":\"点击下方按钮执行页面操作\"},{\"id\":\"clickBtn\",\"component\":\"Button\",\"text\":\"点击第 0 个元素\",\"action\":{\"event\":{\"name\":\"operatePage\",\"context\":{\"method\":\"clickElement\",\"args\":[0],\"requireConfirmation\":true}}}}]}}]}",
+      "function_name": "renderA2UI",
+      "should_send": true,
+      "sidecar_intact": true,
+      "skip_reason": "",
+      "turn_kind": "renderA2UI"
+    },
+    "raw_keys": [
+      "msg",
+      "data",
+      "debug_url",
+      "usage",
+      "execute_id",
+      "detail",
+      "code"
+    ],
+    "pass": true,
+    "expect": {
+      "function_name": "renderA2UI",
+      "should_send": true
+    }
+  },
+  {
+    "name": "读页",
+    "http": 200,
+    "code": 0,
+    "msg": "",
+    "debug_url": "https://www.coze.cn/work_flow?execute_id=7686416363683348532&space_id=7417755373999767571&workflow_id=7685762023372046362&execute_mode=2",
+    "execute_id": "7686416363683348532",
+    "data": {
+      "arguments": "{\"reason\":\"eds_value_add_form_need_facts\"}",
+      "function_name": "pageRead",
+      "should_send": true,
+      "sidecar_intact": true,
+      "skip_reason": "",
+      "turn_kind": "pageRead"
+    },
+    "raw_keys": [
+      "usage",
+      "execute_id",
+      "detail",
+      "code",
+      "msg",
+      "data",
+      "debug_url"
+    ],
+    "pass": true,
+    "expect": {
+      "function_name": "pageRead",
+      "should_send": true
+    }
+  },
+  {
+    "name": "空",
+    "http": 200,
+    "code": 0,
+    "msg": "",
+    "debug_url": "https://www.coze.cn/work_flow?execute_id=7686416365779550248&space_id=7417755373999767571&workflow_id=7685762023372046362&execute_mode=2",
+    "execute_id": "7686416365779550248",
+    "data": {
+      "arguments": "",
+      "function_name": "",
+      "should_send": false,
+      "sidecar_intact": true,
+      "skip_reason": "sidecar 无法识别为 pageRead 或 renderA2UI",
+      "turn_kind": "idle"
+    },
+    "raw_keys": [
+      "code",
+      "msg",
+      "data",
+      "debug_url",
+      "usage",
+      "execute_id",
+      "detail"
+    ],
+    "pass": true,
+    "expect": {
+      "function_name": "",
+      "should_send": false
+    }
+  }
+]

@@ -1,0 +1,403 @@
+schema_version: 1.0.0
+name: page_intent_emit_smoke
+id: "7685690000003295001"
+description: "阶段一：只测 page_intent_emit 代码节点能否吐出 pageRead / renderA2UI。不含 tool_call_send。导入后用测试 JSON 跑工作流，不要覆盖 cs_Bot_Client_v2p_1。"
+mode: workflow
+icon: plugin_icon/workflow.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: "工作流的起始节点，用于设定启动工作流需要的信息"
+      position:
+        x: 0
+        y: 0
+      parameters:
+        node_outputs:
+            sidecar:
+                type: object
+                required: true
+                value: null
+                description: 页面指令 JSON。出卡用 fixtures/coze-test-this-node.json 的 sidecar；读页用 sidecar-page-read.json 整份。
+            user_input:
+                type: string
+                value: null
+            dehydrated_dom:
+                type: string
+                value: null
+    - id: "110001"
+      type: code
+      title: page_intent_emit
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "把 sidecar 转成 function_name + arguments，供后续 tool_call_send 使用"
+      version: v2
+      position:
+        x: 480
+        y: 0
+      parameters:
+        code: |-
+            /**
+             * Bot Client 封口节点：把页面 sidecar 原样交给 tool_call_send。
+             * 贴进 Coze 代码节点。禁止 import / export。
+             *
+             * 输入 params：
+             *   sidecar          专家/会话变量里的页面 JSON（string 或 object）
+             *   user_input       本轮 USER_INPUT
+             *   dehydrated_dom   SDK workflow/run 上报的脱水 DOM（没有就空）
+             *
+             * 输出：
+             *   should_send      是否接 tool_call_send
+             *   function_name    pageRead | renderA2UI | ""
+             *   arguments        插件要的 JSON 字符串
+             *   skip_reason      不发时的原因
+             *   sidecar_intact   是否原样转发（未改 commands）
+             *   turn_kind        pageRead | renderA2UI | page_read_result | idle
+             */
+
+            interface Args {
+              params: Record<string, unknown>;
+            }
+
+            interface Output {
+              should_send: boolean;
+              function_name: string;
+              arguments: string;
+              skip_reason: string;
+              sidecar_intact: boolean;
+              turn_kind: string;
+            }
+
+            const BACKEND_PAGE_READ = "pageRead";
+            const BACKEND_RENDER = "renderA2UI";
+            const CATALOG_ID = "ai-chatbot-builtin";
+            const A2UI_VERSION = "v0.9";
+            const CARD_ACTIONS = new Set(["readPage", "operatePage"]);
+            const PAGE_METHODS = new Set([
+              "clickElement",
+              "inputText",
+              "selectOption",
+              "scroll",
+              "scrollHorizontally",
+            ]);
+
+            function asText(value: unknown): string {
+              if (typeof value === "string") return value.trim();
+              if (value == null) return "";
+              if (typeof value === "number" || typeof value === "boolean") return String(value);
+              return "";
+            }
+
+            function parseJson(value: unknown): unknown {
+              if (value == null) return null;
+              if (typeof value === "object") return value;
+              const text = asText(value);
+              if (!text) return null;
+              try {
+                return JSON.parse(text);
+              } catch {
+                return null;
+              }
+            }
+
+            function looksLikeDehydratedDom(value: unknown): boolean {
+              const text = typeof value === "string" ? value : value == null ? "" : JSON.stringify(value);
+              if (!text || text.length < 20) return false;
+              return /dehydrated|interactiveElements|browserState|updateTree|page-agent|axTree/i.test(text);
+            }
+
+            function extractSidecar(raw: unknown): Record<string, unknown> {
+              const parsed = parseJson(raw);
+              if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                if (Array.isArray(parsed)) return { commands: parsed };
+                return {};
+              }
+              const obj = parsed as Record<string, unknown>;
+              const structured = obj.structured;
+              if (structured && typeof structured === "object" && !Array.isArray(structured)) {
+                const pageUi = (structured as Record<string, unknown>).pageUi;
+                if (pageUi && typeof pageUi === "object") {
+                  return { ...obj, ...(pageUi as Record<string, unknown>) };
+                }
+              }
+              const pageUi = obj.pageUi;
+              if (pageUi && typeof pageUi === "object" && !Array.isArray(pageUi)) {
+                return { ...obj, ...(pageUi as Record<string, unknown>) };
+              }
+              return obj;
+            }
+
+            function commandsOf(sidecar: Record<string, unknown>): unknown[] | null {
+              const fromArgs = parseJson(sidecar.arguments);
+              if (fromArgs && typeof fromArgs === "object" && !Array.isArray(fromArgs)) {
+                const cmds = (fromArgs as Record<string, unknown>).commands;
+                if (Array.isArray(cmds)) return cmds;
+              }
+              if (Array.isArray(sidecar.commands)) return sidecar.commands;
+              return null;
+            }
+
+            function walkUnknown(value: unknown, visit: (node: Record<string, unknown>) => void): void {
+              if (!value || typeof value !== "object") return;
+              if (Array.isArray(value)) {
+                for (const item of value) walkUnknown(item, visit);
+                return;
+              }
+              const obj = value as Record<string, unknown>;
+              visit(obj);
+              for (const nested of Object.values(obj)) walkUnknown(nested, visit);
+            }
+
+            function validateCommands(commands: unknown[]): string {
+              if (commands.length === 0) return "commands 为空";
+              const surfaceIds = new Set<string>();
+              const rootsBySurface = new Map<string, number>();
+
+              for (const item of commands) {
+                if (!item || typeof item !== "object" || Array.isArray(item)) return "命令不是对象";
+                const cmd = item as Record<string, unknown>;
+                if (cmd.version !== A2UI_VERSION) return "缺少 version: v0.9";
+
+                if (cmd.createSurface && typeof cmd.createSurface === "object") {
+                  const surface = cmd.createSurface as Record<string, unknown>;
+                  const surfaceId = asText(surface.surfaceId);
+                  if (!surfaceId) return "createSurface 缺少 surfaceId";
+                  if (surface.catalogId !== CATALOG_ID) {
+                    return `catalogId 必须是 ${CATALOG_ID}`;
+                  }
+                  surfaceIds.add(surfaceId);
+                }
+
+                if (cmd.updateComponents && typeof cmd.updateComponents === "object") {
+                  const update = cmd.updateComponents as Record<string, unknown>;
+                  const surfaceId = asText(update.surfaceId);
+                  const components = update.components;
+                  if (!Array.isArray(components)) return "updateComponents.components 必须是数组";
+                  for (const component of components) {
+                    if (!component || typeof component !== "object") return "component 非法";
+                    const row = component as Record<string, unknown>;
+                    if (!asText(row.id) || !asText(row.component)) return "component 缺少 id/component";
+                    if (row.id === "root") {
+                      rootsBySurface.set(surfaceId, (rootsBySurface.get(surfaceId) || 0) + 1);
+                    }
+                    if (Array.isArray(row.children) && row.children.some((id) => typeof id !== "string")) {
+                      return "children 只能是组件 id 字符串";
+                    }
+                  }
+                }
+              }
+
+              for (const [surfaceId, count] of rootsBySurface) {
+                if (count !== 1) return `Surface ${surfaceId} 必须恰好一个 root`;
+              }
+
+              let badAction = "";
+              walkUnknown(commands, (node) => {
+                if (badAction) return;
+                const event = node.event;
+                if (event && typeof event === "object") {
+                  const name = asText((event as Record<string, unknown>).name);
+                  if (name && !CARD_ACTIONS.has(name)) {
+                    badAction = `卡片 action 只能是 readPage/operatePage，收到 ${name}`;
+                  }
+                }
+                const method = asText(node.method);
+                if (method === "executeJavascript") {
+                  badAction = "禁止 executeJavascript";
+                }
+                if (method && node.args != null && !PAGE_METHODS.has(method) && !node.actions) {
+                  if (node.component == null && (node.requireConfirmation != null || Array.isArray(node.args))) {
+                    badAction = `operatePage method 不在白名单: ${method}`;
+                  }
+                }
+              });
+              return badAction;
+            }
+
+            function passthroughArguments(sidecar: Record<string, unknown>, fallbackObj: unknown): string {
+              if (typeof sidecar.arguments === "string" && sidecar.arguments.trim()) {
+                return sidecar.arguments.trim();
+              }
+              return JSON.stringify(fallbackObj);
+            }
+
+            function normalizeFunctionName(name: string): string {
+              const trimmed = name.trim();
+              if (trimmed === "readPage" || trimmed === BACKEND_PAGE_READ) return BACKEND_PAGE_READ;
+              if (trimmed === BACKEND_RENDER) return BACKEND_RENDER;
+              if (trimmed === "operatePage") return "operatePage";
+              return trimmed;
+            }
+
+            function idle(reason: string, turnKind: string): Output {
+              return {
+                should_send: false,
+                function_name: "",
+                arguments: "",
+                skip_reason: reason,
+                sidecar_intact: true,
+                turn_kind: turnKind,
+              };
+            }
+
+            function send(functionName: string, args: string, intact: boolean, turnKind: string): Output {
+              return {
+                should_send: true,
+                function_name: functionName,
+                arguments: args,
+                skip_reason: "",
+                sidecar_intact: intact,
+                turn_kind: turnKind,
+              };
+            }
+
+            async function main({ params }: Args): Promise<Output> {
+              const sidecar = extractSidecar(params.sidecar ?? params.page_ui ?? params.pageUi);
+              const userInput = params.user_input ?? params.USER_INPUT ?? "";
+              const dehydratedDom = params.dehydrated_dom ?? params.dehydratedDom ?? "";
+              const pageReadResult = looksLikeDehydratedDom(dehydratedDom) || looksLikeDehydratedDom(userInput);
+
+              const functionName = normalizeFunctionName(asText(sidecar.function_name));
+              const commands = commandsOf(sidecar);
+
+              if (functionName === BACKEND_PAGE_READ) {
+                const argsObj = parseJson(sidecar.arguments) || { reason: asText(sidecar.reason) || "need_page_facts" };
+                return send(BACKEND_PAGE_READ, passthroughArguments(sidecar, argsObj), true, BACKEND_PAGE_READ);
+              }
+
+              if (commands) {
+                const error = validateCommands(commands);
+                if (error) return idle(`A2UI 不合法，拒绝下发: ${error}`, "idle");
+                const argsString = passthroughArguments(sidecar, { commands });
+                const intact =
+                  typeof sidecar.arguments === "string"
+                    ? sidecar.arguments.trim() === argsString
+                    : JSON.stringify({ commands }) === argsString;
+                return send(BACKEND_RENDER, argsString, intact, BACKEND_RENDER);
+              }
+
+              if (functionName === BACKEND_RENDER) {
+                return idle("renderA2UI 但没有 commands", "idle");
+              }
+
+              if (pageReadResult) {
+                return idle("本轮是 pageRead 回传的 DOM，等待专家 sidecar", "page_read_result");
+              }
+
+              if (functionName === "operatePage") {
+                return idle("operatePage 由卡片点击触发，封口节点不下发", "idle");
+              }
+
+              const wantRead =
+                sidecar.need_page_read === true ||
+                sidecar.needPageRead === true ||
+                params.force_page_read === true ||
+                params.forcePageRead === true;
+              if (wantRead) {
+                return send(
+                  BACKEND_PAGE_READ,
+                  JSON.stringify({ reason: asText(sidecar.reason) || "need_page_facts" }),
+                  true,
+                  BACKEND_PAGE_READ,
+                );
+              }
+
+              return idle("sidecar 无法识别为 pageRead 或 renderA2UI", "idle");
+            }
+
+        language: 5
+        node_inputs:
+            - name: sidecar
+              input:
+                type: object
+                value:
+                    path: sidecar
+                    ref_node: "100001"
+            - name: user_input
+              input:
+                type: string
+                value:
+                    path: user_input
+                    ref_node: "100001"
+            - name: dehydrated_dom
+              input:
+                type: string
+                value:
+                    path: dehydrated_dom
+                    ref_node: "100001"
+        node_outputs:
+            should_send:
+                type: boolean
+                value: null
+            function_name:
+                type: string
+                value: null
+            arguments:
+                type: string
+                value: null
+            skip_reason:
+                type: string
+                value: null
+            sidecar_intact:
+                type: boolean
+                value: null
+            turn_kind:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: "工作流的最终节点，用于返回工作流运行后的结果信息"
+      position:
+        x: 1000
+        y: 0
+      parameters:
+        terminatePlan: returnVariables
+        node_inputs:
+            - name: should_send
+              input:
+                type: boolean
+                value:
+                    path: should_send
+                    ref_node: "110001"
+            - name: function_name
+              input:
+                type: string
+                value:
+                    path: function_name
+                    ref_node: "110001"
+            - name: arguments
+              input:
+                type: string
+                value:
+                    path: arguments
+                    ref_node: "110001"
+            - name: skip_reason
+              input:
+                type: string
+                value:
+                    path: skip_reason
+                    ref_node: "110001"
+            - name: sidecar_intact
+              input:
+                type: boolean
+                value:
+                    path: sidecar_intact
+                    ref_node: "110001"
+            - name: turn_kind
+              input:
+                type: string
+                value:
+                    path: turn_kind
+                    ref_node: "110001"
+edges:
+    - source_node: "100001"
+      target_node: "110001"
+    - source_node: "110001"
+      target_node: "900001"

@@ -1,0 +1,98 @@
+{
+  "sidecar": {
+    "function_name": "renderA2UI",
+    "arguments": {
+      "commands": [
+        {
+          "version": "v0.9",
+          "createSurface": {
+            "surfaceId": "form",
+            "catalogId": "ai-chatbot-builtin"
+          }
+        },
+        {
+          "version": "v0.9",
+          "updateComponents": {
+            "surfaceId": "form",
+            "components": [
+              {
+                "id": "root",
+                "component": "Card",
+                "title": "筛选条件",
+                "children": ["keywordInput", "submitBtn"]
+              },
+              {
+                "id": "keywordInput",
+                "component": "Input",
+                "placeholder": "请输入关键词",
+                "value": { "path": "/keyword" },
+                "dataPath": "keyword"
+              },
+              {
+                "id": "submitBtn",
+                "component": "Button",
+                "type": "primary",
+                "text": "读取当前页面",
+                "action": {
+                  "event": {
+                    "name": "readPage",
+                    "context": { "reason": "用户点击读取" }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "version": "v0.9",
+          "updateDataModel": {
+            "surfaceId": "form",
+            "path": "/keyword",
+            "value": ""
+          }
+        },
+        {
+          "version": "v0.9",
+          "createSurface": {
+            "surfaceId": "ops",
+            "catalogId": "ai-chatbot-builtin"
+          }
+        },
+        {
+          "version": "v0.9",
+          "updateComponents": {
+            "surfaceId": "ops",
+            "components": [
+              {
+                "id": "root",
+                "component": "Card",
+                "title": "页面操作",
+                "children": ["tip", "clickBtn"]
+              },
+              {
+                "id": "tip",
+                "component": "Text",
+                "text": "点击下方按钮执行页面操作"
+              },
+              {
+                "id": "clickBtn",
+                "component": "Button",
+                "text": "点击第 0 个元素",
+                "action": {
+                  "event": {
+                    "name": "operatePage",
+                    "context": {
+                      "method": "clickElement",
+                      "args": [0],
+                      "requireConfirmation": true
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

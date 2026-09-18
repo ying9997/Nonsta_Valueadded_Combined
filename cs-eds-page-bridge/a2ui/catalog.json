@@ -1,0 +1,761 @@
+{
+  "$id": "ai-chatbot-builtin",
+  "catalogId": "ai-chatbot-builtin",
+  "title": "AiChatbot A2UI Builtin Catalog",
+  "description": "ai-chatbot 内建 A2UI catalog：声明可用 antd 组件及其 props，以及可引用的页面读取 / 操作 actions（readPage / operatePage）。前端渲染 / 校验与 AI 生成命令数组共享此唯一真源。",
+  "components": {
+    "Text": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "文本内容（字面量，或 { path } 数据绑定）"
+        },
+        "strong": {
+          "type": "boolean",
+          "description": "是否加粗"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "secondary",
+            "success",
+            "warning",
+            "danger"
+          ],
+          "description": "文本语义类型"
+        }
+      }
+    },
+    "Button": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "按钮文字（推荐；字面量或 { path } 绑定）"
+        },
+        "child": {
+          "type": "string",
+          "description": "可选：复杂内容时用 child 指向子节点 id（如图标+文字）；简单文字请直接用 text"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "default",
+            "dashed",
+            "link",
+            "text"
+          ],
+          "description": "按钮类型"
+        },
+        "danger": {
+          "type": "boolean",
+          "description": "危险按钮样式"
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "是否禁用"
+        },
+        "block": {
+          "type": "boolean",
+          "description": "是否为块级按钮"
+        },
+        "action": {
+          "type": "object",
+          "description": "点击触发的 action，标准格式 { event: { name, context } }，name 引用 functions 中的 readPage / operatePage"
+        }
+      }
+    },
+    "Card": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "卡片标题"
+        },
+        "children": {
+          "type": "array",
+          "description": "子组件 id 引用数组（扁平邻接表，子组件仅以 id 字符串引用）",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Row": {
+      "type": "object",
+      "properties": {
+        "gutter": {
+          "type": "number",
+          "description": "栅格间距"
+        },
+        "children": {
+          "type": "array",
+          "description": "子组件 id 引用数组（通常为 Col）",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Col": {
+      "type": "object",
+      "properties": {
+        "span": {
+          "type": "number",
+          "description": "栅格占据的列数（1-24）"
+        },
+        "children": {
+          "type": "array",
+          "description": "子组件 id 引用数组",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Input": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "description": "JSON Pointer 数据绑定（用于显示当前值），形如 { path: \"/xxx\" }。要支持用户输入回写，须同时提供 dataPath（同一路径）。"
+        },
+        "dataPath": {
+          "type": "string",
+          "description": "用户输入的回写键名（不带前导斜杠，如 \"inputText\"，对应 value.path \"/inputText\"）。缺省则输入无法写回 dataModel。注意：不要以 \"/\" 开头，否则会被当作数据绑定解析而失效。"
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "占位提示"
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "是否禁用"
+        },
+        "allowClear": {
+          "type": "boolean",
+          "description": "是否可清除"
+        }
+      }
+    },
+    "Select": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "description": "JSON Pointer 数据绑定（用于显示当前值），形如 { path: \"/xxx\" }。要支持选择回写，须同时提供 dataPath（同一路径）。"
+        },
+        "dataPath": {
+          "type": "string",
+          "description": "选择变更的回写键名（不带前导斜杠，如 \"province\"，对应 value.path \"/province\"）。缺省则选择无法写回 dataModel。注意：不要以 \"/\" 开头，否则会被当作数据绑定解析而失效。"
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "占位提示"
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "是否禁用"
+        },
+        "options": {
+          "type": "array",
+          "description": "选项列表，元素形如 { label, value }",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Divider": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "分割线中间的文字（可选）"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical"
+          ],
+          "description": "方向，默认 horizontal"
+        },
+        "dashed": {
+          "type": "boolean",
+          "description": "是否虚线"
+        },
+        "orientation": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right",
+            "center"
+          ],
+          "description": "文字位置"
+        }
+      }
+    },
+    "Title": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "标题文本（字面量或 { path } 数据绑定）"
+        },
+        "level": {
+          "type": "number",
+          "enum": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "description": "标题级别 1-5，默认 1"
+        }
+      }
+    },
+    "Space": {
+      "type": "object",
+      "properties": {
+        "direction": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical"
+          ],
+          "description": "排列方向，默认 horizontal"
+        },
+        "size": {
+          "type": "string",
+          "enum": [
+            "small",
+            "middle",
+            "large"
+          ],
+          "description": "间距大小"
+        },
+        "wrap": {
+          "type": "boolean",
+          "description": "是否自动换行（horizontal 时）"
+        },
+        "children": {
+          "type": "array",
+          "description": "子组件 id 引用数组",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Tag": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "标签文字"
+        },
+        "color": {
+          "type": "string",
+          "description": "颜色，预设如 success/processing/error/warning/default，或色值如 #f50"
+        },
+        "bordered": {
+          "type": "boolean",
+          "description": "是否有边框，默认 true"
+        }
+      }
+    },
+    "Alert": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "提示内容（字面量或 { path } 绑定）"
+        },
+        "description": {
+          "type": "string",
+          "description": "辅助描述文字（可选）"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "success",
+            "info",
+            "warning",
+            "error"
+          ],
+          "description": "提示类型"
+        },
+        "showIcon": {
+          "type": "boolean",
+          "description": "是否显示图标"
+        },
+        "banner": {
+          "type": "boolean",
+          "description": "是否为顶部通栏样式"
+        }
+      }
+    },
+    "Statistic": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "统计标题"
+        },
+        "value": {
+          "type": "string",
+          "description": "数值（字面量或 { path } 绑定）。注意：此为展示值，非表单绑定。"
+        },
+        "precision": {
+          "type": "number",
+          "description": "小数位数"
+        },
+        "prefix": {
+          "type": "string",
+          "description": "前缀（如 ￥）"
+        },
+        "suffix": {
+          "type": "string",
+          "description": "后缀（如 %）"
+        }
+      }
+    },
+    "Image": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string",
+          "description": "图片地址（字面量或 { path } 绑定）"
+        },
+        "alt": {
+          "type": "string",
+          "description": "替代文本"
+        },
+        "width": {
+          "type": "number",
+          "description": "宽度（px）"
+        },
+        "height": {
+          "type": "number",
+          "description": "高度（px）"
+        },
+        "preview": {
+          "type": "boolean",
+          "description": "是否可点击预览，默认 true"
+        }
+      }
+    },
+    "Tooltip": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "提示文字"
+        },
+        "placement": {
+          "type": "string",
+          "description": "弹出位置，如 top / bottom / left / right"
+        },
+        "child": {
+          "type": "string",
+          "description": "被包裹的子节点 id（单个）"
+        }
+      }
+    },
+    "Popconfirm": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "确认框标题"
+        },
+        "description": {
+          "type": "string",
+          "description": "确认框描述（可选）"
+        },
+        "okText": {
+          "type": "string",
+          "description": "确认按钮文字"
+        },
+        "cancelText": {
+          "type": "string",
+          "description": "取消按钮文字"
+        },
+        "child": {
+          "type": "string",
+          "description": "触发气泡的子节点 id（通常为 Button）"
+        },
+        "action": {
+          "type": "object",
+          "description": "确认后触发的 action，标准格式 { event: { name, context } }"
+        }
+      }
+    },
+    "Modal": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "对话框标题"
+        },
+        "open": {
+          "type": "object",
+          "description": "是否显示（布尔，建议用 { path } 绑定到 dataModel 控制显隐）"
+        },
+        "footer": {
+          "type": "object",
+          "description": "底部内容，传 null 可隐藏默认按钮"
+        },
+        "children": {
+          "type": "array",
+          "description": "对话框内容的子组件 id 引用数组",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Descriptions": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "列表标题"
+        },
+        "column": {
+          "type": "number",
+          "description": "一行显示的项数"
+        },
+        "bordered": {
+          "type": "boolean",
+          "description": "是否带边框"
+        },
+        "items": {
+          "type": "array",
+          "description": "描述项数组，元素形如 { key, label, children }（children 为该项的值文本）",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "children": {
+                "type": "string",
+                "description": "该项的值（文本）"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Table": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "description": "列定义数组，元素形如 { title, dataIndex, key }",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "dataIndex": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "dataSource": {
+          "type": "array",
+          "description": "数据行数组（字面量或 { path } 绑定），每行对象的键对应 columns 的 dataIndex",
+          "items": {
+            "type": "object"
+          }
+        },
+        "size": {
+          "type": "string",
+          "enum": [
+            "small",
+            "middle",
+            "large"
+          ],
+          "description": "表格尺寸"
+        },
+        "bordered": {
+          "type": "boolean",
+          "description": "是否带边框"
+        }
+      }
+    },
+    "Tabs": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "标签页数组，元素形如 { key, label, children }。children 为该页内容文本（复杂内容建议用其它容器组件承载）。",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "children": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "line",
+            "card"
+          ],
+          "description": "页签样式"
+        }
+      }
+    },
+    "Dropdown": {
+      "type": "object",
+      "properties": {
+        "menu": {
+          "type": "object",
+          "description": "菜单配置，形如 { items: [{ key, label }] }"
+        },
+        "placement": {
+          "type": "string",
+          "description": "弹出位置，如 bottomLeft / bottomRight"
+        },
+        "child": {
+          "type": "string",
+          "description": "触发下拉的子节点 id（通常为 Button）"
+        }
+      }
+    },
+    "Switch": {
+      "type": "object",
+      "properties": {
+        "checked": {
+          "type": "object",
+          "description": "开关状态数据绑定，形如 { path: \"/xxx\" }（布尔）"
+        },
+        "dataPath": {
+          "type": "string",
+          "description": "回写键名（不带前导斜杠，如 \"enabled\"，对应 checked.path \"/enabled\"）。"
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "是否禁用"
+        }
+      }
+    },
+    "Checkbox": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "复选框右侧文字"
+        },
+        "checked": {
+          "type": "object",
+          "description": "勾选状态数据绑定，形如 { path: \"/xxx\" }（布尔）"
+        },
+        "dataPath": {
+          "type": "string",
+          "description": "回写键名（不带前导斜杠，如 \"agree\"，对应 checked.path \"/agree\"）。"
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "是否禁用"
+        }
+      }
+    },
+    "Radio": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "object",
+          "description": "当前选中值数据绑定，形如 { path: \"/xxx\" }"
+        },
+        "dataPath": {
+          "type": "string",
+          "description": "回写键名（不带前导斜杠，如 \"gender\"，对应 value.path \"/gender\"）。"
+        },
+        "options": {
+          "type": "array",
+          "description": "选项数组，元素形如 { label, value }",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "optionType": {
+          "type": "string",
+          "enum": [
+            "default",
+            "button"
+          ],
+          "description": "选项样式"
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "是否禁用"
+        }
+      }
+    },
+    "DatePicker": {
+      "type": "object",
+      "properties": {
+        "dataPath": {
+          "type": "string",
+          "description": "回写键名（不带前导斜杠，如 \"date\"）。选择后写入格式化日期字符串。"
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "占位提示"
+        },
+        "format": {
+          "type": "string",
+          "description": "日期格式，如 YYYY-MM-DD"
+        },
+        "picker": {
+          "type": "string",
+          "enum": [
+            "date",
+            "week",
+            "month",
+            "quarter",
+            "year"
+          ],
+          "description": "选择粒度"
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "是否禁用"
+        }
+      }
+    },
+    "Form": {
+      "type": "object",
+      "properties": {
+        "layout": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical",
+            "inline"
+          ],
+          "description": "表单布局，默认 vertical"
+        },
+        "children": {
+          "type": "array",
+          "description": "子组件 id 引用数组。注意：A2UI 表单数据绑定由各输入组件的 value/dataPath 承担，Form 仅作布局。",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "functions": {
+    "readPage": {
+      "description": "读取当前宿主页面的脱水 DOM（Dehydrated_DOM），成功后直接经 workflow 上报后端（不经 toolCalled 载荷）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "触发读取的原因（可选，用于日志 / 调试）"
+          }
+        }
+      }
+    },
+    "operatePage": {
+      "description": "对宿主页面执行操作（薄直通 page-agent 原生方法）。通过交互组件的 action.event.context 传入下列入参（context 内容由 AI 按用户意图与当前页面动态生成）。支持单操作（method+args）或批量（actions 数组，按顺序执行，每步前自动刷新元素索引）。敏感操作可 requireConfirmation 先弹确认卡（批量时作用于整批）。",
+      "args": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "clickElement",
+              "inputText",
+              "selectOption",
+              "scroll",
+              "scrollHorizontally"
+            ],
+            "description": "单操作模式的 page-agent 方法名（executeJavascript 禁用；批量模式改用 actions）。各方法及其 args：\n- clickElement: args=[index:number] 点击该编号元素（按钮/链接/复选框）。\n- inputText: args=[index:number, text:string] 向该编号输入框填文本。\n- selectOption: args=[index:number, optionText:string] 按选项可见文本选中下拉项。\n- scroll: args=[{ down:boolean, numPages:number, pixels?:number, index?:number }] 垂直滚动。\n- scrollHorizontally: args=[{ right:boolean, pixels:number, index?:number }] 水平滚动。"
+          },
+          "args": {
+            "type": "array",
+            "description": "单操作模式的参数数组，与所选 method 一一对应，如 [5] / [3,\"张三\"] / [7,\"广东省\"] / [{ down:true, numPages:1 }]。"
+          },
+          "actions": {
+            "type": "array",
+            "description": "批量模式：操作列表，按顺序依次执行；每项为 { method, args }（含义同上）。提供 actions 时优先于 method。适合“连续填多个字段后点提交”等多步场景。",
+            "items": {
+              "type": "object",
+              "required": [
+                "method"
+              ],
+              "properties": {
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "clickElement",
+                    "inputText",
+                    "selectOption",
+                    "scroll",
+                    "scrollHorizontally"
+                  ],
+                  "description": "page-agent 方法名（同上）。"
+                },
+                "args": {
+                  "type": "array",
+                  "description": "该方法的参数数组（同上）。"
+                }
+              }
+            }
+          },
+          "requireConfirmation": {
+            "type": "boolean",
+            "description": "是否需要用户确认后再执行（敏感操作，批量时作用于整批）。"
+          },
+          "confirmationText": {
+            "type": "string",
+            "description": "确认卡文案。"
+          }
+        }
+      }
+    }
+  }
+}

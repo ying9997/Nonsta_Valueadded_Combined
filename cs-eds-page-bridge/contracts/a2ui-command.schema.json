@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "A2UI v0.9 command",
+  "description": "与 a2ui/prompt.md 一致。catalogId 固定 ai-chatbot-builtin。",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": { "const": "v0.9" },
+    "createSurface": {
+      "type": "object",
+      "required": ["surfaceId", "catalogId"],
+      "properties": {
+        "surfaceId": { "type": "string", "minLength": 1 },
+        "catalogId": { "const": "ai-chatbot-builtin" }
+      }
+    },
+    "updateComponents": {
+      "type": "object",
+      "required": ["surfaceId", "components"],
+      "properties": {
+        "surfaceId": { "type": "string" },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "component"],
+            "properties": {
+              "id": { "type": "string" },
+              "component": { "type": "string" },
+              "child": { "type": "string" },
+              "children": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "updateDataModel": {
+      "type": "object",
+      "required": ["surfaceId", "path"],
+      "properties": {
+        "surfaceId": { "type": "string" },
+        "path": { "type": "string", "pattern": "^/" },
+        "value": {}
+      }
+    },
+    "deleteSurface": {
+      "type": "object",
+      "required": ["surfaceId"],
+      "properties": {
+        "surfaceId": { "type": "string" }
+      }
+    }
+  }
+}

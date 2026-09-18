@@ -8,6 +8,7 @@
 |------|------|
 | [terminology.md](terminology.md) | 术语表 — 项目核心概念对齐 |
 | [current-baseline.md](current-baseline.md) | 系统事实基线（链路、QID、expert 注册等） |
+| [客服嵌套链路与出卡联调.md](客服嵌套链路与出卡联调.md) | 对话 Bot → 对话流 → Query → recaller 套层说明；测试 Bot 整链副本如何隔离现网；F_1 sidecar 出口与 catalog selectOption |
 | [sessions/](sessions/) | 系统化学习会话（10次，每次2小时） |
 | [agent-collaboration/](agent-collaboration/) | 与 Agent 协作方法论、复盘、可复制口令 |
 | [computer-science-foundation/](computer-science-foundation/) | 用项目学 CS 基础（数据结构、网络等） |
