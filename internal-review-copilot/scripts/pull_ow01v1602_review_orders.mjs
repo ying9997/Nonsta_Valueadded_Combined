@@ -122,19 +122,22 @@ function flattenHeader(row) {
   };
 }
 
-async function pageAll(session, { targetDate, statusDescNeedle, maxPages, pageSize }) {
+async function pageAll(session, { targetDate, statusDescNeedle, maxPages, pageSize, anyDate }) {
   const byOrder = new Map();
   for (let page = 0; page < maxPages; page += 1) {
     const start = page * pageSize;
-    const data = await omsPost(session, {
+    const params = {
       api: "oms.VaOrderService_pageQuery",
       draw: "1",
       start: String(start),
       length: String(pageSize),
-      "where[orderDateStart]": `${targetDate} 00:00:00`,
-      "where[orderDateEnd]": `${targetDate} 23:59:59`,
       "where[statusDesc]": statusDescNeedle,
-    });
+    };
+    if (!anyDate && targetDate) {
+      params["where[orderDateStart]"] = `${targetDate} 00:00:00`;
+      params["where[orderDateEnd]"] = `${targetDate} 23:59:59`;
+    }
+    const data = await omsPost(session, params);
     const pageRows = rows(data.info);
     for (const row of pageRows) byOrder.set(row.orderNo, row);
     console.log(`page=${page + 1} got=${pageRows.length} accumulated=${byOrder.size}`);
@@ -173,9 +176,9 @@ function isAllowedAtom(atom) {
   return ALLOWED_SERVICE_CODES.has(code) || name.includes("入库其他服务需求") || name.includes("库内其他服务需求");
 }
 
-function isTargetHeader(row, targetDate, statusDescNeedle) {
+function isTargetHeader(row, targetDate, statusDescNeedle, anyDate) {
   const h = flattenHeader(row);
-  if (h.orderDateLocal !== targetDate) return false;
+  if (!anyDate && targetDate && h.orderDateLocal !== targetDate) return false;
   if (statusDescNeedle && !String(h.statusDesc || "").includes(statusDescNeedle)) return false;
   return true;
 }
@@ -191,20 +194,21 @@ function isTargetHeader(row, targetDate, statusDescNeedle) {
  * }} options
  */
 export async function pullReviewOrders(options = {}) {
-  const targetDate = options.date || "2026-09-02";
+  const anyDate = Boolean(options.anyDate) || options.date === "*" || options.date === "all";
+  const targetDate = anyDate ? "" : options.date || "2026-09-02";
   const statusDescNeedle = options.statusDesc || "待审核";
-  const maxPages = Number(options.maxPages ?? 20);
+  const maxPages = Number(options.maxPages ?? (anyDate ? 12 : 20));
   const pageSize = Number(options.pageSize ?? 50);
   const outDir = path.resolve(
     ROOT,
-    options.outDir || `_runs/${targetDate.replaceAll("-", "")}_ow01v1602_review_orders`,
+    options.outDir || `_runs/${(targetDate || "pending").replaceAll("-", "")}_ow01v1602_review_orders`,
   );
   const writeFiles = options.writeFiles !== false;
 
   if (writeFiles) await mkdir(outDir, { recursive: true });
   const session = await loadSession();
-  const pageRows = await pageAll(session, { targetDate, statusDescNeedle, maxPages, pageSize });
-  const targetHeaders = pageRows.filter((row) => isTargetHeader(row, targetDate, statusDescNeedle));
+  const pageRows = await pageAll(session, { targetDate, statusDescNeedle, maxPages, pageSize, anyDate });
+  const targetHeaders = pageRows.filter((row) => isTargetHeader(row, targetDate, statusDescNeedle, anyDate));
   console.log(`candidate headers after date/status filter=${targetHeaders.length}`);
 
   const details = [];
@@ -231,7 +235,8 @@ export async function pullReviewOrders(options = {}) {
 
   const summary = {
     generatedAt: new Date().toISOString(),
-    targetDate,
+    targetDate: targetDate || "all",
+    anyDate,
     statusDescNeedle,
     serviceCodes: [...ALLOWED_SERVICE_CODES],
     pageRows: pageRows.length,

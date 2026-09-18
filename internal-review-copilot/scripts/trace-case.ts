@@ -160,14 +160,14 @@ export function renderTrace(orderNo: string, detail: JsonRecord, result: Pipelin
     lines.push(`- 操作对象(OBJECT_RE): ${tick(req.objectMatch)} ${req.objectMatch ? `命中 "${req.objectMatch}"` : "未命中"} | context 兜底? ${req.objectBoundBypass ? "Yes" : "No"}`);
     lines.push(`- 操作动作(ACTION_RE): ${tick(req.actionMatch)} ${req.actionMatch ? `命中 "${req.actionMatch}"` : "未命中"}`);
     lines.push(`- 目的/去向(PURPOSE_RE): ${tick(req.purposeMatch)} ${req.purposeMatch ? `命中 "${req.purposeMatch}"` : "未命中"} | context 兜底? ${req.purposeBoundBypass ? "Yes" : "No"}`);
-    lines.push(`- **结论: complete=${req.complete}** ${req.complete ? "→ 进入 match-template" : `→ 缺 [${req.missingRequirementItems.join(", ")}]`}`);
+    lines.push(`- **结论: complete=${req.complete}** ${req.complete ? "→ 进入 match-template（三要素正则仅展示，不阻断）" : `→ 缺 [${req.missingRequirementItems.join(", ")}]`}`);
     lines.push("");
   }
 
   if (result.failureGate === "check-requirement") {
     lines.push("## 4. match-template (未到达 — check-requirement 未通过)");
     lines.push("");
-    lines.push("## 5. check-completeness (未到达)");
+    lines.push("## 5. check-scene-completeness (未到达)");
     lines.push("");
     appendConclusion(lines, result);
     return lines.join("\n");
@@ -326,31 +326,61 @@ export function renderTrace(orderNo: string, detail: JsonRecord, result: Pipelin
   }
 
   if (result.failureGate === "match-template") {
-    lines.push("## 5. check-completeness (未到达 — match-template 未通过)");
+    lines.push("## 5. check-scene-completeness (未到达 — match-template 未通过)");
     lines.push("");
     appendConclusion(lines, result);
     return lines.join("\n");
   }
 
-  // Node 5: check-completeness
-  if (comp) {
-    lines.push("## 5. check-completeness");
-    lines.push(`- applicable: ${comp.applicable}`);
-    lines.push(`- complete: ${comp.complete}`);
-    lines.push(`- provided: ${comp.providedCount}/${comp.totalRequired}`);
-    if (comp.missingAttachments?.length) {
-      lines.push(`- 缺附件: [${comp.missingAttachments.join(", ")}]`);
+  const sceneComp = result.sceneCompletenessResult;
+  if (comp || sceneComp) {
+    const sceneName = match?.scenarioName || sceneComp?.sceneKey || comp?.sceneKey || "";
+    lines.push("## 5. check-scene-completeness（场景级完整性）");
+    lines.push(`- 场景：${sceneName}`);
+    const checks = sceneComp?.infoChecks || comp?.infoChecks || [];
+    if (sceneComp?.infoCheckSkipped || comp?.infoCheckSkipped) {
+      lines.push("- 需求信息检查：跳过（skipLlm / 无 requiredInfoFields）");
+    } else if (checks.length) {
+      lines.push("- 需求信息检查（LLM 判断）：");
+      for (const item of checks) {
+        const mark = item.present ? "✓" : "✗";
+        const evidence = item.present ? (item.evidence ? `"${item.evidence}"` : "已覆盖") : "未说明";
+        lines.push(`  - ${item.field}：${mark} ${evidence}`);
+      }
+    } else {
+      lines.push("- 需求信息检查：本场景卡无 requiredInfoFields");
     }
-    if (comp.missingFields?.length) {
-      lines.push(`- 缺字段: [${comp.missingFields.map((f) => f.field).join(", ")}]`);
+    if (sceneComp?.infoCheckError || comp?.infoCheckError) {
+      lines.push(`- 信息检查错误（已放行信息门）：${sceneComp?.infoCheckError || comp?.infoCheckError}`);
     }
-    if (comp.complete) {
-      lines.push("- **全齐 → 进入 SOP 生成**");
+    lines.push("- 附件检查：");
+    const uploadedAtt = Object.entries(result.contextFacts?.attachmentStatus || {})
+      .filter(([, status]) => status === "uploaded")
+      .map(([name]) => name);
+    if (uploadedAtt.length) {
+      lines.push(`  - 已提供：${uploadedAtt.map((name) => `${name} ✓`).join("、")}`);
+    }
+    const missingAtt = sceneComp?.missingAttachments || comp?.missingAttachments || [];
+    if (!missingAtt.length) {
+      lines.push("  - （无必填缺口或附件门为空）");
+    }
+    for (const att of missingAtt) {
+      lines.push(`  - ${att}：✗ missing`);
+    }
+    if (comp?.providedCount != null && comp.totalRequired) {
+      lines.push(`- 附件规则计数：${comp.providedCount}/${comp.totalRequired}`);
+    }
+    const missingInfo = sceneComp?.missingInfo || comp?.missingInfo || [];
+    if (comp?.complete || sceneComp?.complete) {
+      lines.push("- **结论：complete — 进入 SOP 生成**");
+    } else {
+      const bits = [...missingInfo, ...missingAtt].filter(Boolean);
+      lines.push(`- **结论：incomplete — 缺 ${bits.join(" + ") || "材料/信息"}**`);
     }
     lines.push("");
   }
 
-  if (result.failureGate === "check-completeness") {
+  if (result.failureGate === "check-completeness" || result.node === "check-scene-completeness") {
     appendConclusion(lines, result);
     return lines.join("\n");
   }

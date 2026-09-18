@@ -20,9 +20,8 @@ import { fileURLToPath } from "node:url";
 import { loadEnvFiles } from "../lib/env.ts";
 import {
   callChat,
-  extractFirstJsonObject,
+  parseJsonishObject,
   resolveLlmConfig,
-  sanitizeJsonish,
   type LlmConfig,
 } from "../lib/llm-client.ts";
 import {
@@ -508,8 +507,7 @@ function fallbackSignals(section: SopSection): LlmSignals {
 }
 
 function parseSignalPayload(raw: string, section: SopSection): LlmSignals {
-  const jsonText = sanitizeJsonish(extractFirstJsonObject(raw) || raw);
-  const obj = JSON.parse(jsonText) as Record<string, unknown>;
+  const obj = parseJsonishObject(raw) as Record<string, unknown>;
   const pos = (obj.positiveSignals || {}) as Record<string, unknown>;
   const neg = (obj.negativeSignals || {}) as Record<string, unknown>;
   const fallback = fallbackSignals(section);

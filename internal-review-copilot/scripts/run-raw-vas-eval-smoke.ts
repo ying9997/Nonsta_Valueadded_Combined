@@ -86,7 +86,7 @@ function buildWideInput(detail: ReturnType<typeof asRecord>): { input: AgentInpu
     .filter((no) => /^EB/i.test(no));
   const ebs = [...new Set([...nos.ebs, ...eventFromList])];
   const wis = nos.wis;
-  const attachments = attachmentStatus(atom);
+  const attachments = attachmentStatus(atom, detail);
   const sceneName = asText(atom.sceneOverviewName);
   const serviceName = asText(atom.serviceName);
   const input: AgentInput = {

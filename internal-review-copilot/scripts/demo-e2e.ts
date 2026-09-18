@@ -32,12 +32,13 @@ import {
   buildAskCard,
   buildSceneConfirmCard,
   buildSopCard,
+  buildSopGenerateErrorCard,
   demoTopicTitle,
   type FeishuCard,
 } from "../lib/feishu-card.ts";
 import { asArray, asRecord, asText } from "../lib/oms-adapter.ts";
 import { buildTransferNoticeBody, collectSceneCandidates, parseSceneReply } from "../lib/parse-scene-reply.ts";
-import { runPipeline, type PipelineResult } from "../lib/run-pipeline.ts";
+import { isSopGenerateFailure, runPipeline, type PipelineResult } from "../lib/run-pipeline.ts";
 import { findScenarioCard } from "../lib/scenario-cards.ts";
 import { summarizeReply } from "../lib/summarize-reply.ts";
 import type { JsonRecord } from "../lib/types.ts";
@@ -259,6 +260,7 @@ function wantCard(): boolean {
 }
 
 function cardForDesigned(orderNo: string, result: PipelineResult, personnel: PersonnelMap): FeishuCard {
+  if (isSopGenerateFailure(result)) return buildSopGenerateErrorCard(result, personnel);
   if (result.outputPath === "sop_generated" || orderNo === "VASC000000315774") {
     return buildSopCard(result, personnel);
   }
@@ -369,7 +371,7 @@ async function sendSceneConfirmDemo(args: {
     );
   }
   const sent = card
-    ? await sendCardInNewTopic(args.chatId, demoTopicTitle("transfer_human", args.orderNo), card)
+    ? await sendCardInNewTopic(args.chatId, demoTopicTitle(args.result), card)
     : await sendGroupMessage(args.chatId, post);
   writeFileSync(
     resolve(args.outDir, `${args.orderNo}.feishu.json`),
@@ -500,7 +502,7 @@ async function sendDesignedDemo(args: {
   const sent = card
     ? await sendCardInNewTopic(
         args.chatId,
-        demoTopicTitle(result.outputPath, args.orderNo),
+        demoTopicTitle(result),
         card,
       )
     : await sendGroupMessage(args.chatId, post);
@@ -666,8 +668,9 @@ async function main(): Promise<void> {
   const needsAsk =
     result.outputPath === "needs_requirement_clarification" ||
     result.outputPath === "needs_field_clarification";
-  const isSop = result.outputPath === "sop_generated";
-  const shouldNotify = needsAsk || result.outputPath === "transfer_human" || isSop || forceScene;
+  const isSopFail = isSopGenerateFailure(result);
+  const isSop = result.outputPath === "sop_generated" && !isSopFail;
+  const shouldNotify = needsAsk || result.outputPath === "transfer_human" || isSop || isSopFail || forceScene;
 
   step(3, shouldNotify ? "发飞书群消息" : "无需通知，跳过发群");
   if (result.outputPath === "transfer_human" || forceScene) {
@@ -708,7 +711,7 @@ async function main(): Promise<void> {
       if (hasFlag("send-feishu") && !hasFlag("skip-feishu")) {
         store.upsert({
           vascNo: orderNo,
-          status: needsAsk ? "awaiting_reply" : isSop ? "sop_ready" : "awaiting_scene_confirm",
+          status: needsAsk ? "awaiting_reply" : isSopFail ? "transferred" : isSop ? "sop_ready" : "awaiting_scene_confirm",
           feishuThreadId: designed.threadId || store.get(orderNo)?.feishuThreadId || null,
           feishuMessageId: designed.messageId || null,
           lastCard: designed.card || undefined,
@@ -725,6 +728,8 @@ async function main(): Promise<void> {
         ? "缺需求"
         : result.outputPath === "needs_field_clarification"
           ? "缺资料"
+          : isSopFail
+            ? "SOP生成失败"
           : result.outputPath === "sop_generated"
             ? "SOP草稿"
             : "转人工";
@@ -738,14 +743,16 @@ async function main(): Promise<void> {
         const reviewer = personnel["审核员"];
         const mention = reviewer?.openId ? { userId: reviewer.openId, name: reviewer.name } : undefined;
         const genericCard = wantCard()
-          ? isSop
+          ? isSopFail
+            ? buildSopGenerateErrorCard(result, personnel)
+            : isSop
             ? buildSopCard(result, personnel)
             : needsAsk
               ? buildAskCard(result, personnel)
               : buildSceneConfirmCard(result, personnel, collectSceneCandidates(result.matchResult))
           : null;
         const sent = genericCard
-          ? await sendCardInNewTopic(chatId, demoTopicTitle(result.outputPath, orderNo), genericCard)
+          ? await sendCardInNewTopic(chatId, demoTopicTitle(result), genericCard)
           : hasFlag("force-send")
             ? await sendGroupMessage(chatId, buildDemoPost(title, `${body}\n\n{@审核员} 请确认。`, personnel))
             : await sendDedupedOrderMessage({
@@ -771,7 +778,7 @@ async function main(): Promise<void> {
         writeFileSync(resolve(outDir, `${orderNo}.feishu.json`), `${JSON.stringify(sendMeta, null, 2)}\n`, "utf8");
         store.upsert({
           vascNo: orderNo,
-          status: needsAsk ? "awaiting_reply" : isSop ? "sop_ready" : "awaiting_scene_confirm",
+          status: needsAsk ? "awaiting_reply" : isSopFail ? "transferred" : isSop ? "sop_ready" : "awaiting_scene_confirm",
           feishuThreadId: sent.threadId,
           feishuMessageId: sent.messageId || null,
           lastCard: genericCard || undefined,

@@ -182,7 +182,7 @@ async function main(): Promise<void> {
   ];
 
   for (const item of items) {
-    const topic = demoTopicTitle(item.result.outputPath, item.orderNo);
+    const topic = demoTopicTitle(item.result);
     writeFileSync(resolve(outDir, `${item.orderNo}.card.json`), `${JSON.stringify(item.card, null, 2)}\n`, "utf8");
     const sent = await sendCardInNewTopic(chatId, topic, item.card);
     store.upsert({
