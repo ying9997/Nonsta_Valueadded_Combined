@@ -75,5 +75,93 @@
     "费用项说明：增值-商品组合拆分费,以及包材费用(标准包材/客制包材/缠绕膜)"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §2.19. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407020."
+  "notes": "batch-generated from SOP §2.19. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407020. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "组合数量",
+      "description": "需要明确组合/组装的商品件数或套数",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "共计150件成品",
+        "共计104件",
+        "100件商品",
+        "300件商品",
+        "199件商品"
+      ],
+      "required": true
+    },
+    {
+      "field": "组合规则",
+      "description": "说明几个配件/商品组合成几个单品，或者组合的具体方式",
+      "frequency": "约75%的历史单提到了",
+      "examples": [
+        "以4件作为1PCS售卖",
+        "按照12pcs/托加上卡板套组托操作",
+        "每8个放一起用黄色气泡袋包好",
+        "按照轮子*2+车轮轴套+1袋螺丝+1根轴杆的组合",
+        "每个箱子里面包含两件商品"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "包材类型",
+      "description": "组合时使用的包装材料，如彩盒、气泡袋、快递袋、纸箱、卡板套等",
+      "frequency": "约50%",
+      "examples": [
+        "装到彩盒里",
+        "用黄色气泡袋包好",
+        "用快递袋打包",
+        "包裹用纸箱包装",
+        "加上卡板套组托操作"
+      ],
+      "required": false
+    },
+    {
+      "field": "剩余商品处理",
+      "description": "不参与组合的商品如何处理",
+      "frequency": "约35%",
+      "examples": [
+        "另外3个配件需销毁",
+        "10个完好的黄色袋子直接扫描上架",
+        "订单其余商品直接上架，不需要组套服务"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签贴法",
+      "description": "组合后的标签如何加贴",
+      "frequency": "约30%",
+      "examples": [
+        "贴上产品标M010000000003195237",
+        "箱唛和产品标签要加贴在托盘缠膜上",
+        "产品外箱不要加贴任何标签",
+        "打包后补贴商品标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "目标入库单",
+      "description": "组合后上架到哪个入库单",
+      "frequency": "约40%",
+      "examples": [
+        "上架到WI49567863",
+        "上架到新的入库单：WI51559688",
+        "上架到原单"
+      ],
+      "required": false
+    },
+    {
+      "field": "源异常单号",
+      "description": "涉及的异常单或入库单号",
+      "frequency": "约45%",
+      "examples": [
+        "异常单EB0126052229699991",
+        "异常单EB0126042329011731",
+        "WI50447882、WI50447763、WI50447735这三个入库单"
+      ],
+      "required": false
+    }
+  ]
 }

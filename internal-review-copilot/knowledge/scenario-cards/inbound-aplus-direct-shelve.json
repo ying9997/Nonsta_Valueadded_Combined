@@ -5,7 +5,9 @@
   "category": "inbound",
   "omsSceneCode": "20250929",
   "aliases": {
-    "sceneKeys": ["inbound_ocean_full_container_aplus_no_barcode"],
+    "sceneKeys": [
+      "inbound_ocean_full_container_aplus_no_barcode"
+    ],
     "note": "飞书旧按钮 sceneKey 兼容；与 OMS 20250929 为同一场景"
   },
   "sourceRefs": [
@@ -21,12 +23,29 @@
     }
   ],
   "positiveSignals": {
-    "strong": ["100%A+", "A+包直接上架", "无箱单直接上架", "海运整柜"],
-    "weak": ["直接上架", "新单上架", "无箱单"]
+    "strong": [
+      "100%A+",
+      "A+包直接上架",
+      "无箱单直接上架",
+      "海运整柜"
+    ],
+    "weak": [
+      "直接上架",
+      "新单上架",
+      "无箱单"
+    ]
   },
   "negativeSignals": {
-    "hard": ["换标", "辨识", "补贴包裹标签", "拍照暂存"],
-    "soft": ["批量异常", "商品条码异常"]
+    "hard": [
+      "换标",
+      "辨识",
+      "补贴包裹标签",
+      "拍照暂存"
+    ],
+    "soft": [
+      "批量异常",
+      "商品条码异常"
+    ]
   },
   "boundaryRules": [
     "本场景是直接上架，不涉及换标/辨识/补贴标签",
@@ -50,5 +69,86 @@
     "关闭异常单"
   ],
   "examples": [],
-  "notes": "试点卡。expectedScene 金标仅评测对比，不改变 pipeline 自动匹配。旧 sceneKey inbound_ocean_full_container_aplus_no_barcode 走 aliases。"
+  "notes": "试点卡。expectedScene 金标仅评测对比，不改变 pipeline 自动匹配。旧 sceneKey inbound_ocean_full_container_aplus_no_barcode 走 aliases。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "新入库单号",
+      "description": "需要明确按哪个新单进行上架操作",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "新单：WI51329944",
+        "新单：WI51041701； WI51213902",
+        "新单：WI51392614",
+        "新单：WI52268256"
+      ],
+      "required": true
+    },
+    {
+      "field": "扫描对象",
+      "description": "明确扫描外箱条码/二维码还是商品条码进行上架",
+      "frequency": "约95%的历史单明确提到了",
+      "examples": [
+        "扫描外箱条码直接按新单上架",
+        "扫描外箱二维码直接按新单上架",
+        "直接扫描商品条码上架",
+        "仓库辨识外箱的商品条码标签后按新单完成上架"
+      ],
+      "required": true
+    },
+    {
+      "field": "原异常单号",
+      "description": "需要关闭的异常单号，用于追溯和关闭异常",
+      "frequency": "约75%的历史单在背景中提到了",
+      "examples": [
+        "VASC000000324204",
+        "VASC000000319572",
+        "EB0126070431029060",
+        "EB0126071831409586"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "异常原因说明",
+      "description": "说明是多货异常、标签贴错还是其他异常情况",
+      "frequency": "约35%",
+      "examples": [
+        "异常多货",
+        "对应SKU标签贴错了",
+        "扫描包裹条码有异常，但是扫描商品条码是可以识别的"
+      ],
+      "required": false
+    },
+    {
+      "field": "处理数量",
+      "description": "涉及的包裹或箱数，部分单会明确说明",
+      "frequency": "约15%",
+      "examples": [
+        "数量1个",
+        "共有1200个包裹"
+      ],
+      "required": false
+    },
+    {
+      "field": "特殊操作说明",
+      "description": "是否需要打开外箱、覆盖标签等特殊处理",
+      "frequency": "约15%",
+      "examples": [
+        "麻烦覆盖住原标签，补贴新标签",
+        "麻烦打开外箱直接按新预报单上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "SKU信息",
+      "description": "涉及的具体SKU编码，标签贴错等场景需要",
+      "frequency": "约10%",
+      "examples": [
+        "实际是这个SKU：M010000000008905018",
+        "对应sku是M010000000010527886"
+      ],
+      "required": false
+    }
+  ]
 }

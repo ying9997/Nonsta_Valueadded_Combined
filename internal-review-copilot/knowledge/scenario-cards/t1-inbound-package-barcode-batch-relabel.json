@@ -37,6 +37,7 @@
   "positiveSignals": {
     "strong": [
       "包裹条码批量异常",
+      "包裹条码异常",
       "批量异常",
       "补贴包裹标签",
       "补贴万邑通包裹标签",
@@ -86,7 +87,8 @@
     "与 T3（202506120001）：已维护/关联第三方商品条码后直接扫描上架 → T3，不是本场景的「补贴万邑通包裹标签」。",
     "与近邻 OMS「100%A+/A包裹包裹条码批量异常」等：码不同则不要仅凭「批量异常」口语并码。",
     "不能仅凭 OW01V1602 / 入库其他服务需求命中。",
-    "附件必填与金标须等样本轮用真实 case 再确认，禁止自造 fieldKey。"
+    "附件必填与金标须等样本轮用真实 case 再确认，禁止自造 fieldKey。",
+    "商品码去后缀（如 M010…941-10 与 M010…941 视为同一 SKU）。客户写一个/同一个 SKU 但入库单去后缀后仍多个 → 打回销售客服，不要让仓库猜。多个 SKU 必须提供辨识方法/对应关系。单 SKU 直接生成，不追问对应关系。"
   ],
   "requiredRequirementHints": [
     "处理对象：批量异常的包裹 / 包裹条码",
@@ -107,10 +109,8 @@
       "CEO_SOA",
       "VSS"
     ],
-    "requiredFieldKeys": [
-      "VAS_ATTR_REL_LF"
-    ],
-    "note": "本窗 20250430 共 76 单 SUBMIT 均出现 VAS_ATTR_REL_LF 键（标签文件）。正式 required 须样本轮按「有实际附件/非空」再确认≥70% 口径；不得自造 fieldKey。另常见上架入库单号 VAS_ATTR_REL_NWEON。"
+    "requiredFieldKeys": [],
+    "note": "补贴 WINIT 包裹标签由系统生成后下载上传，不要求客户提供标签文件。VAS_ATTR_REL_LF 从 required 拿掉（2026-09-16 交互重构）。"
   },
   "sopTemplateHints": [
     "写明批量异常范围（整单 / 箱数 / 件数）",
@@ -149,5 +149,131 @@
       "note": "场景 A 典型，不得收成 T1"
     }
   ],
-  "notes": "status=supported (installed 20260909; attachment policy pending_business_confirmation)。测集 T1。授权范围：本轮只建卡，抽样/jsonl 下一轮。晋升 supported 前须完成：知识库标题核验、样本附件统计、与 F-001/A/T3 边界抽检。"
+  "notes": "status=supported (installed 20260909; attachment policy pending_business_confirmation)。测集 T1。授权范围：本轮只建卡，抽样/jsonl 下一轮。晋升 supported 前须完成：知识库标题核验、样本附件统计、与 F-001/A/T3 边界抽检。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。2026-09-17: T1 商品码校验——入库单商品码去后缀后 1 个 SKU 则直接生成（不再要对应关系）；客户写一个 SKU 但去后缀后仍多个则打回销售客服；多个 SKU 必须辨识方法/对应关系。",
+  "requiredInfoFields": [
+    {
+      "field": "异常单号",
+      "description": "需要处理的异常单编号（EB开头）",
+      "frequency": "约95%的历史单都提到了",
+      "examples": [
+        "EB0126070731088220",
+        "EB0326072231524525",
+        "EB0126070431047891",
+        "EB0126062730786666"
+      ],
+      "required": true
+    },
+    {
+      "field": "目标入库单WI",
+      "description": "补贴标签后需要上架的新入库单号（WI开头），可能是单个或多个",
+      "frequency": "约100%的历史单都提到了",
+      "examples": [
+        "WI51348575",
+        "WI50382906",
+        "WI50470175",
+        "WI51281707、WI51281645、WI51281677"
+      ],
+      "required": true
+    },
+    {
+      "field": "SKU与入库单对应关系",
+      "description": "明确每个SKU（M010开头或其他编码）对应哪个入库单WI。单 SKU（商品码去后缀后相同）不追问；多个 SKU 必填，且须同时提供辨识方法",
+      "frequency": "约85%的历史单都提到了",
+      "examples": [
+        "WI51348575 下单sku：M010000000012342929=2082925774116870",
+        "M010000000006918075=SHP11E-USSSS=108pcs=9箱",
+        "WI50748482 下单sku: M010000000012166666 ==2081114506664454"
+      ],
+      "required": true
+    },
+    {
+      "field": "处理数量或范围",
+      "description": "需要补贴标签的箱数、件数或包裹条码数量",
+      "frequency": "约70%的历史单都提到了",
+      "examples": [
+        "264箱",
+        "共9箱",
+        "108pcs=9箱",
+        "GLSH10A261400233-1 GLSH10A261400230-1等多个包裹条码"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "包裹标签文件",
+      "description": "需要补贴的包裹条码标签文件（附件），通常按SKU或箱号范围命名",
+      "frequency": "约40%的历史单明确提到了附件",
+      "examples": [
+        "附件名字为『WI50470175_ID 2889_SHP11E-USSSS-1-9』的包裹条码标签檔案",
+        "附件名字为M010000000009139917的包裹条码标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "辨识依据",
+      "description": "多个 SKU 时必填：如何辨识正确的SKU以便贴对应标签，如通过外箱标签、产品条码、SOP文档等。单 SKU 不要求",
+      "frequency": "约60%的历史单都提到了",
+      "examples": [
+        "需要通过外箱標籤去辨识正确的sku",
+        "辨识外箱上的SKU编码，如是SHP11E-USSSS这个SKU",
+        "需要通过PDF的SOP去辨识正确的sku",
+        "和仓库核实实际此异常是有多款不同的sku"
+      ],
+      "required": false
+    },
+    {
+      "field": "第三方编码关联",
+      "description": "第三方包裹条码（GLSH开头）或产品编码与系统SKU的对应关系",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "GLSH10A261400240-1",
+        "441227341830 WI51058417 M010000000012342990 =X004VWEFGT",
+        "第三方产品编码：9B073516E6"
+      ],
+      "required": false
+    },
+    {
+      "field": "是否需要更换产品标签",
+      "description": "明确是否只补贴包裹标签，还是同时需要更换产品条码/SN条码",
+      "frequency": "约35%的历史单明确说明了",
+      "examples": [
+        "包裹里的SN条码都导入正确，不需要更换SN条条码，只需要补贴第三方包裹条码标签",
+        "产品标签不用贴，仓库帮忙按新单补贴新单的包裹标签操作上架",
+        "不需要更换彩盒商品编码+SN条条码，只需要补贴包裹条码标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "上架优先级",
+      "description": "多个入库单时，是否有特定的上架顺序要求",
+      "frequency": "约5%的历史单提到了",
+      "examples": [
+        "入库单需优先上架 M010000000009139919"
+      ],
+      "required": false
+    },
+    {
+      "field": "异常原因说明",
+      "description": "包裹条码异常的具体原因，如工厂漏贴、重复粘贴、错误粘贴等",
+      "frequency": "约45%的历史单提到了",
+      "examples": [
+        "箱唛重复粘贴，工厂端应该粘贴GLSH10A261400240-1的第三方包裹条码标签，但未正确粘贴",
+        "工廠漏貼包裹標",
+        "包裹外箱的包裹条码标签错误粘贴"
+      ],
+      "required": false
+    },
+    {
+      "field": "标准流程不适用原因",
+      "description": "为什么无法通过标准增值服务处理，需要非标操作",
+      "frequency": "约60%的历史单提到了",
+      "examples": [
+        "按标准只能填写一个入库单无法操作上架，只能通过非标处理",
+        "系统提示：(第三方)包裹条码【GLSH10A261400240-1）】状態=已上架/草稿/已終止,不允许提交增值!",
+        "发起标准增值服务无法正确对应到每箱去提供到正确的对应关系"
+      ],
+      "required": false
+    }
+  ]
 }

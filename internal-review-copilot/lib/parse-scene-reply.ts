@@ -55,6 +55,11 @@ export function collectSceneCandidates(matchResult?: MatchResult | null): SceneC
     ordered.push({ sceneKey: key, sceneName: name, score });
   };
 
+  const decision = String(matchResult?.decision || "");
+  if (decision !== "unsupported") {
+    push(String(matchResult?.sceneKey || ""), String(matchResult?.scenarioName || ""), Number(matchResult?.score || 0));
+  }
+
   const topK = [...(matchResult?.topK || [])].sort((a, b) => (b.score || 0) - (a.score || 0));
   for (const item of topK) {
     if (item?.sceneKey) push(item.sceneKey, item.sceneName, item.score || 0);

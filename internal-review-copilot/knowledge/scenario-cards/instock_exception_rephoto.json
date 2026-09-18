@@ -71,5 +71,78 @@
     "提交客户确认后返回上架到原库位"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.12. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 【Library】Abnormal re-photographing."
+  "notes": "batch-generated from SOP §3.12. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 【Library】Abnormal re-photographing. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "异常编号",
+      "description": "需要明确指出哪个异常单需要重新拍照",
+      "frequency": "80%的历史单都提到了",
+      "examples": [
+        "EB0126061030292623",
+        "EB0526061630461313",
+        "EB0526062530720477",
+        "EB0126070831116432",
+        "EB0126060530124533"
+      ],
+      "required": true
+    },
+    {
+      "field": "拍照对象范围",
+      "description": "需要说明拍照的具体对象和数量，如随机一件、每箱一个、全部产品等",
+      "frequency": "约70%的历史单提到了",
+      "examples": [
+        "随机拆开一件单品",
+        "每箱拆开一个单品",
+        "拿1套",
+        "每个单品都要拍",
+        "所有产品的照片"
+      ],
+      "required": true
+    },
+    {
+      "field": "拍照具体要求",
+      "description": "需要明确拍照的角度、部位、细节等具体要求",
+      "frequency": "约70%的历史单提到了",
+      "examples": [
+        "看下产品的颜色",
+        "包的6面图",
+        "吉他正反面局部图细节",
+        "完整显示",
+        "提供实物图片"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "拆包程度",
+      "description": "说明需要拆到什么程度，如只拆外包装、拆开彩盒等",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "只拆外面的快递包装袋",
+        "拆开彩盒"
+      ],
+      "required": false
+    },
+    {
+      "field": "辨识要求",
+      "description": "是否需要扫码辨识或通过照片辨识SKU",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "要扫码辨识，然后反馈异常单号分别对应的照片和SKU及数量",
+        "需要开箱拍照辨识",
+        "辨识下货物"
+      ],
+      "required": false
+    },
+    {
+      "field": "后续处理",
+      "description": "拍照后是否需要更换包装、重新贴标等额外操作",
+      "frequency": "约10%的历史单提到了",
+      "examples": [
+        "更换包装，重新贴标入库"
+      ],
+      "required": false
+    }
+  ]
 }

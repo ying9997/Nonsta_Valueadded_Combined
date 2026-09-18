@@ -52,6 +52,9 @@ export function bindContext(input: AgentInput): { contextFacts: ContextFacts; ow
       attachmentStatus: input.pageContext.attachmentStatus,
       providedFields: input.providedFields,
       boundKeys,
+      uploadedFileNames: (input.omsFacts?.uploadedFiles || [])
+        .map((file) => file.fileName)
+        .filter(Boolean),
     },
     ownerFacts: {
       submittedBy: input.responsiblePeople.submittedBy,

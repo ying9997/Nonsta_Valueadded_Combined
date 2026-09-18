@@ -76,5 +76,144 @@
     "组合后上架到新/原SKU及入库单号"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.6. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407071."
+  "notes": "batch-generated from SOP §3.6. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407071. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "主产品SKU及数量",
+      "description": "需要组合的主产品SKU和具体数量",
+      "frequency": "100%的历史单都明确提到了",
+      "examples": [
+        "HFPF231904*10",
+        "GD52004106W01*8",
+        "40004001.0005开箱",
+        "M010000000006901267 -20件"
+      ],
+      "required": true
+    },
+    {
+      "field": "配件SKU及数量",
+      "description": "需要放入主产品的配件SKU和数量",
+      "frequency": "100%的历史单都明确提到了",
+      "examples": [
+        "HW32723001-1W01*8",
+        "42999001.0008放1pcs到箱内",
+        "M010000000013539452 -20件",
+        "按照附件操作说明"
+      ],
+      "required": true
+    },
+    {
+      "field": "组合方式说明",
+      "description": "具体的组合操作步骤，如是否拆包装、如何封箱、如何固定等",
+      "frequency": "约95%的历史单提供了详细说明",
+      "examples": [
+        "打开纸箱，将A产品放入后进行封箱，开口处打一条胶带，横着打两条",
+        "两个产品用胶带缠绕两圈加固，然后再用纸箱包装",
+        "直接原包装不需要拆封，装入纸箱封箱打包",
+        "按照附件操作说明进行组装"
+      ],
+      "required": true
+    },
+    {
+      "field": "组合后SKU",
+      "description": "组合完成后上架的SKU，可能是新SKU或保持原SKU",
+      "frequency": "100%的历史单都明确了",
+      "examples": [
+        "新sku：M010000000010411825",
+        "sku还是HFPF231904",
+        "新SKU:AI00474361001",
+        "新的SKU40004001.0077"
+      ],
+      "required": true
+    },
+    {
+      "field": "下架单号",
+      "description": "主产品和配件的下架单号",
+      "frequency": "约90%的历史单提供了",
+      "examples": [
+        "下架单号：WO12196257768",
+        "下架单：WO11617466582",
+        "出库下架单：WO12145181608",
+        "商品下架单：WO11479255267"
+      ],
+      "required": true
+    },
+    {
+      "field": "上架单号",
+      "description": "组合后产品的入库上架单号",
+      "frequency": "约95%的历史单提供了",
+      "examples": [
+        "上架单号：WI52053035",
+        "入库单号为：WI50739877",
+        "入库单：WI50130123",
+        "入库单号WI51018547"
+      ],
+      "required": true
+    },
+    {
+      "field": "组合数量",
+      "description": "最终需要组合完成的套数或件数",
+      "frequency": "约85%的历史单明确了总数",
+      "examples": [
+        "组装为5套",
+        "库内组装山姆产品240pcs",
+        "一共组装216pcs",
+        "库内组装80套"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "标签处理要求",
+      "description": "组合后是否需要覆盖原标签、贴新标签的位置等",
+      "frequency": "约60%的历史单提到了",
+      "examples": [
+        "入库上架不需要覆盖任何外箱原有标签，箱产品标签贴到打托好的膜外",
+        "需覆盖外箱原有的UPC标签和SKU标签",
+        "贴标HFPF231904上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "打托要求",
+      "description": "组合后是否需要打托及打托规格",
+      "frequency": "约45%的历史单涉及打托",
+      "examples": [
+        "按照12pcs/托打托上架",
+        "一个托盘为一个箱产品",
+        "等卡板套到仓之后再打托上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "操作时效要求",
+      "description": "是否有特定的完成时间要求",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "这批货要周五之前备好",
+        "麻烦仓库先组装50pcs上架，后续在完成全部组装"
+      ],
+      "required": false
+    },
+    {
+      "field": "操作顺序说明",
+      "description": "是否需要分步骤操作或等待某些物料到位",
+      "frequency": "约25%的历史单提到了",
+      "examples": [
+        "麻烦仓库先进行组装产品，等卡板套到仓之后再打托上架",
+        "6/30号卡板套上架之后我们会创建商品下架单同步给仓库打托"
+      ],
+      "required": false
+    },
+    {
+      "field": "单品码信息",
+      "description": "需要处理的具体单品码列表",
+      "frequency": "约15%的历史单提供了",
+      "examples": [
+        "S500038000553995437 S500039000553995436...以上10个单品码"
+      ],
+      "required": false
+    }
+  ]
 }

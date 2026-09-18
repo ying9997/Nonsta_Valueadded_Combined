@@ -72,5 +72,119 @@
     "费用项必须按'客制包装打包费'录入成本和预估应收"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.17. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407055."
+  "notes": "batch-generated from SOP §3.17. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407055. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "处理数量",
+      "description": "需要明确更换包装的商品数量（件数/pcs）",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "8件商品条码",
+        "33件商品条码",
+        "130pcs电池包",
+        "4个XM6203528有15个XM6203527",
+        "6个破损的包裹"
+      ],
+      "required": true
+    },
+    {
+      "field": "原商品条码/SKU",
+      "description": "需要更换包装的原商品条码或SKU信息",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "M010000000009098251",
+        "CS4QL-L3",
+        "810150547054",
+        "B80X6",
+        "XM6203528和XM6203527"
+      ],
+      "required": true
+    },
+    {
+      "field": "客制包材SKU",
+      "description": "用于更换的客制化包装材料的SKU编号",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "M010000000009949322",
+        "8461-A015004003-001",
+        "UK-UNBOX",
+        "8461-Z011165013-001",
+        "992239"
+      ],
+      "required": true
+    },
+    {
+      "field": "新入库单号",
+      "description": "更换包装后重新上架的入库单号（WI格式）",
+      "frequency": "87.5%的历史单都提到了（7/8条）",
+      "examples": [
+        "WI50557621",
+        "WI51301861",
+        "WI52124641",
+        "WI50258580"
+      ],
+      "required": true
+    },
+    {
+      "field": "新商品条码",
+      "description": "更换包装后需要粘贴的新商品条码/标签",
+      "frequency": "75%的历史单都提到了（6/8条）",
+      "examples": [
+        "M010000000006714709",
+        "M010000000009481668",
+        "原商品条码XM6203528和XM6203527"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "特殊操作要求",
+      "description": "更换包装过程中的特殊操作细节或注意事项",
+      "frequency": "约37.5%的历史单提到了（3/8条）",
+      "examples": [
+        "请保证主机、遥控器、双话筒包裹在原有的塑料膜内，内里HDMI线、网线排布整齐",
+        "换包材过程需要提供完整操作视频",
+        "1箱1件A+包上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "原入库单号",
+      "description": "商品原来所在的入库单号",
+      "frequency": "约12.5%的历史单提到了（1/8条）",
+      "examples": [
+        "原单WI49413876"
+      ],
+      "required": false
+    },
+    {
+      "field": "下架单号",
+      "description": "用于下架操作的单号",
+      "frequency": "约12.5%的历史单提到了（1/8条）",
+      "examples": [
+        "下架单：xxx"
+      ],
+      "required": false
+    },
+    {
+      "field": "单品码清单",
+      "description": "需要处理的具体单品条码列表",
+      "frequency": "约12.5%的历史单提到了（1/8条）",
+      "examples": [
+        "S506360000552259609 S506361000552259608 S506362000552259607..."
+      ],
+      "required": false
+    },
+    {
+      "field": "包装比例",
+      "description": "客制包材与商品的装箱比例关系",
+      "frequency": "约25%的历史单提到了（2/8条）",
+      "examples": [
+        "1箱1件A+包上架",
+        "用UN箱装好电池包"
+      ],
+      "required": false
+    }
+  ]
 }

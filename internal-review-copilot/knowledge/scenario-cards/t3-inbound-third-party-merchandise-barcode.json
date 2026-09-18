@@ -144,5 +144,113 @@
       "note": "T1 典型，不得收成 T3"
     }
   ],
-  "notes": "status=supported (installed 20260909; attachment policy pending_business_confirmation)。测集 T3。授权范围：本轮只建卡，抽样/jsonl 下一轮。晋升前须：KB 短名人工确认映射、与库内码对打抽检、附件策略用样本重算。"
+  "notes": "status=supported (installed 20260909; attachment policy pending_business_confirmation)。测集 T3。授权范围：本轮只建卡，抽样/jsonl 下一轮。晋升前须：KB 短名人工确认映射、与库内码对打抽检、附件策略用样本重算。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "异常单号",
+      "description": "需要处理的异常单EB号，可能是单个或多个",
+      "frequency": "100%",
+      "examples": [
+        "EB0126062330655515 EB0126062330655506...",
+        "EB0126050929351127 EB0126050929351124...",
+        "EB0126061630421929、EB0126061630421830"
+      ],
+      "required": true
+    },
+    {
+      "field": "目标入库单",
+      "description": "货物需要上架到的入库单WI号，可能是原单或新单",
+      "frequency": "95%",
+      "examples": [
+        "WI51619020",
+        "WI49776727",
+        "WI50500865",
+        "WI50793607"
+      ],
+      "required": true
+    },
+    {
+      "field": "扫描对象",
+      "description": "仓库需要扫描的条码类型，如第三方商品条码、SN码、外箱条码等",
+      "frequency": "85%",
+      "examples": [
+        "扫描实物上的单品条码",
+        "直接扫描SN上架",
+        "扫描外箱条码直接按新单上架",
+        "扫描外箱二维码"
+      ],
+      "required": true
+    },
+    {
+      "field": "第三方条码维护状态",
+      "description": "说明第三方条码/箱唛是否已在系统中维护关联完成",
+      "frequency": "70%",
+      "examples": [
+        "已经维护好第三方外箱标，跟维护好第三方商品条码了",
+        "目前客户已关联了第三方编码",
+        "客户已经导入了单品条码绑定好了",
+        "SN码以按正确的sku重新关联"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "原单/新单说明",
+      "description": "明确是原单上架还是新单上架，以及原因",
+      "frequency": "约60%",
+      "examples": [
+        "原单WI49973282，现在要新单上",
+        "原单已经整单上架完成，无法原单处理",
+        "可直接原单扫描上架即可"
+      ],
+      "required": false
+    },
+    {
+      "field": "对应关系文件",
+      "description": "当需要按特定对应关系处理时，提供的对应关系说明或附件",
+      "frequency": "约35%",
+      "examples": [
+        "请按照附件'sn码对应新包裹'关系进行对应贴标签",
+        "包裹对应关系请查看附件",
+        "原单和新单箱唛对应关系参考附件"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签处理说明",
+      "description": "是否需要补贴标签、换标签或无需换标签",
+      "frequency": "约40%",
+      "examples": [
+        "无需补贴商品标签",
+        "无需换标签",
+        "需要将无主货的异常单货物，关联到这个入库单去上架",
+        "更换新的包裹条码上架货物"
+      ],
+      "required": false
+    },
+    {
+      "field": "异常原因背景",
+      "description": "说明为什么会产生这个异常，如客户漏导入条码、系统未及时上传等",
+      "frequency": "约50%",
+      "examples": [
+        "因客户到仓前未有关联第三方编码",
+        "因系统未及时上传单品码绑定信息",
+        "此前因错误绑定到了M010000000009092753这个sku",
+        "实际是客户漏导入单品条码绑定在SKU上"
+      ],
+      "required": false
+    },
+    {
+      "field": "特殊识别标志",
+      "description": "货物上的特殊标识，用于定位货物",
+      "frequency": "约30%",
+      "examples": [
+        "原包裹上有贴sn码，没有任何的winit标签",
+        "条码是直接印在外箱上的，如附件截图位置",
+        "提供的识别标志寻找货物"
+      ],
+      "required": false
+    }
+  ]
 }

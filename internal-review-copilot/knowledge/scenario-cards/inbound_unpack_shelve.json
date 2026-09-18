@@ -75,6 +75,105 @@
     "处理拆除后的纸箱垃圾(压平、收集)"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §2.16. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode remapped alias 20250407003（【入库】上架前拆包装）。SOP拆包/拆箱上架 ≈ OMS上架前拆包装",
-  "omsSceneCode": "20250407003"
+  "notes": "batch-generated from SOP §2.16. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode remapped alias 20250407003（【入库】上架前拆包装）。SOP拆包/拆箱上架 ≈ OMS上架前拆包装 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "omsSceneCode": "20250407003",
+  "requiredInfoFields": [
+    {
+      "field": "拆箱层级",
+      "description": "需要明确拆到什么程度：拆外箱保留内包、拆中箱、拆到单品、拆除彩盒/外膜等",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "拆开2个中性的包装盒",
+        "拆除外箱和中箱",
+        "需要拆除中箱，上架中箱内的单一产品",
+        "拆除彩盒入库",
+        "撕掉外膜"
+      ],
+      "required": true
+    },
+    {
+      "field": "拆箱数量",
+      "description": "需要知道具体拆多少个箱子/盒子/包装",
+      "frequency": "约85%的历史单提到了",
+      "examples": [
+        "2个中性的盒子",
+        "中箱总数量20个",
+        "共计要拆除彩盒包装有275盒",
+        "拆成两箱分别贴包裹标签",
+        "破损件儿剩的5个单体"
+      ],
+      "required": true
+    },
+    {
+      "field": "拆后处理方式",
+      "description": "拆箱后如何处理内部商品：原单上架、补贴新标签、按单品上架、扫描内部条码等",
+      "frequency": "约90%的历史单提到了",
+      "examples": [
+        "拆开后20个单品按新单：WI50181090 补贴包裹标签操作上架",
+        "将内部M010000000010469021，20件，上架到WI49481070",
+        "补贴1张包裹条码于彩盒顶部",
+        "扫描袋子内商品上的商品条码上架",
+        "单个产品上是有产品条码的"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "包装层级关系",
+      "description": "说明包中包的具体结构，如大箱-中箱-单品的层级关系",
+      "frequency": "约50%",
+      "examples": [
+        "包中包场景，需明确拆哪个包",
+        "大箱内还有中箱",
+        "外箱没有包裹条码，里面的产品每个SKU都用袋子单独装起来了",
+        "大箱子里面套了小箱子，产品实际在小箱子里面"
+      ],
+      "required": false
+    },
+    {
+      "field": "拆箱原因",
+      "description": "说明为什么需要拆箱：标签无法扫描、包装破损、出库需按单品出、工厂合并打包等",
+      "frequency": "约60%",
+      "examples": [
+        "彩盒上有缠膜，标签无法扫描",
+        "快件破损，原包裹规格6个装，包裹破损丢失1个产品",
+        "被工厂合并打包了",
+        "后续出库需按pcs出库",
+        "无法平稳直立易歪斜，仓库反馈无法做存储"
+      ],
+      "required": false
+    },
+    {
+      "field": "拆后垃圾处理",
+      "description": "拆除的包装材料如何处理：销毁、压平收集等",
+      "frequency": "约30%",
+      "examples": [
+        "如果有盒子的都销毁掉外面的盒子",
+        "拆除另外一边的地脚找一个和柜子底面积差不多的托盘放上去"
+      ],
+      "required": false
+    },
+    {
+      "field": "操作后拍照反馈",
+      "description": "要求操作完成后拍照确认",
+      "frequency": "约35%",
+      "examples": [
+        "操作完成后选3pcs拍照反馈",
+        "对应重新打托前拍个照片返回的"
+      ],
+      "required": false
+    },
+    {
+      "field": "异常单处理",
+      "description": "涉及异常单时需要关闭异常或变更状态",
+      "frequency": "约40%",
+      "examples": [
+        "将异常单状态变更为仓库已完成，关闭异常单",
+        "上架完成后关闭异常",
+        "关闭异常单"
+      ],
+      "required": false
+    }
+  ]
 }

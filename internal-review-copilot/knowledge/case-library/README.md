@@ -5,17 +5,17 @@
 ## 今天的范围（方案 B）
 
 - 检索：纯 JS 内存 BM25，案例存在 JSONL 里，不引入向量库。
-- 只填 **入库** `inbound-cases.jsonl`；`instock-cases.jsonl` 为空壳（暂不填库内）。
+- 入库 `inbound-cases.jsonl` 与库内 `instock-cases.jsonl` 分文件存放。本次只重建 **库内** `instock-cases.jsonl`，另一份不改。
 - 每场景最多 3 条**已审核通过**、需求描述相对清楚的单。
 - 不放 `eval/`。金标 `5` 条 VASC 已排除。
 
 ## 文件
 
-| 文件 | 说明 |
-|------|------|
-| inbound-cases.jsonl | 入库案例，一行一条 JSON |
-| instock-cases.jsonl | 库内占位（空） |
-| README.md | 本说明 |
+| 文件 | 说明 | 当前条数 | 覆盖场景 |
+|------|------|----------|----------|
+| inbound-cases.jsonl | 入库案例，一行一条 JSON | 105 | 40 |
+| instock-cases.jsonl | 库内案例，一行一条 JSON | 113 | 44 |
+| README.md | 本说明 |  |  |
 
 ## 字段
 
@@ -35,18 +35,17 @@
 
 ## 更新方式
 
-缓存更新后重跑：
-
 ```powershell
-npx tsx internal-review-copilot/scripts/build-case-library.ts --max-per-scene 3
+npx tsx internal-review-copilot/scripts/build-case-library.ts --category inbound --max-per-scene 3
+npx tsx internal-review-copilot/scripts/build-case-library.ts --category instock --max-per-scene 3
 ```
 
-不要手工把金标单写进 jsonl。库内要填时再开一轮授权。
+不要手工把金标单写进 jsonl。`--category` 只写对应 jsonl，不会清空另一份。
 
-## 最近一次构建
+## 最近一次构建（库内）
 
-- 入库通过候选订单：659
-- 排除金标：5
-- 对不上场景卡：18
-- 描述过短：16
-- 写入案例：105 条，覆盖 40 个入库场景
+- 库内通过候选订单：839
+- 排除金标：0
+- 对不上场景卡：193
+- 描述过短：129
+- 写入案例：113 条，覆盖 44 个库内场景（场景卡 25 个，OMS 未建卡兜底 19 个）

@@ -72,5 +72,141 @@
     "如有减配件需做销毁处理并收取销毁费"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.39. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250421001."
+  "notes": "batch-generated from SOP §3.39. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250421001. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "处理数量",
+      "description": "需要明确处理多少件/套产品",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "总1028件产品需要返工处理",
+        "P010018508BUK 47个 P010018408BUK 77个",
+        "50套错误的产品",
+        "M010000000009973294（100件）",
+        "共计468件单品"
+      ],
+      "required": true
+    },
+    {
+      "field": "加减配件操作说明",
+      "description": "需要说明具体加什么配件、减什么配件、如何操作",
+      "frequency": "95%的历史单都提到了",
+      "examples": [
+        "拆开包裹，取出里面的充电器，并弃置该充电器；将USB线（SKU：P060044701）放进包裹中",
+        "把其中错误的2个零件替换掉",
+        "更替产品介绍标签",
+        "移除A齿轮，并更换上B齿轮",
+        "需要把这里面的转接线（黑色长条转接线）放到另一个包裹里"
+      ],
+      "required": true
+    },
+    {
+      "field": "原SKU信息",
+      "description": "需要明确原来的SKU或M码",
+      "frequency": "90%的历史单都提到了",
+      "examples": [
+        "P010018508BUK 47个 P010018408BUK 77个",
+        "X004XH2041对应M码：M010000000011757224",
+        "M010000000009973294（100件）",
+        "SKU: PGD7QSN"
+      ],
+      "required": true
+    },
+    {
+      "field": "新SKU信息",
+      "description": "操作完成后按什么SKU上架",
+      "frequency": "85%的历史单都提到了",
+      "examples": [
+        "P010018508BUK 对应导出 P010018508B 条形码",
+        "更换为新产品标签：X0054Z3TB9",
+        "按新SKU：M010000000011875957 上架",
+        "换成新的SKU: PGD728FUQSN 上架"
+      ],
+      "required": true
+    },
+    {
+      "field": "配件来源",
+      "description": "需要说明加的配件从哪里来（仓库已有、客户寄送等）",
+      "frequency": "75%的历史单都提到了",
+      "examples": [
+        "正确的零件已经在USKY3仓库了【商品编码：YBD832-PJ001 对应M码：M010000000010678378】",
+        "物料标签纸M010000000010703445-70X （1件，注意：开箱后里面是136张标签纸，只需要用100张）",
+        "工具以及新的螺丝已经寄到仓库"
+      ],
+      "required": true
+    },
+    {
+      "field": "减配件处理方式",
+      "description": "拆下来的配件如何处理（销毁、上架、退回等）",
+      "frequency": "70%的历史单都提到了",
+      "examples": [
+        "换下来的错误零件直接弃置",
+        "操作完成后A齿轮可销毁",
+        "拆下来的配件如要贴标上架则按贴标0.35USD/件收取"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "操作SOP文档",
+      "description": "提供详细的操作步骤文档或视频",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "更换配件可以看提供excel表格，里面有详细步骤，也可以看上传的视频",
+        "按照附件SOP操作",
+        "操作sop见附件"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签更换要求",
+      "description": "是否需要更换产品标签、标签格式、贴法等",
+      "frequency": "约65%的历史单提到了",
+      "examples": [
+        "换标操作：系统导出对应新SKU的产品标签并换标",
+        "标签已上传，标签格式60*40mm",
+        "补贴两张标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "外箱标签要求",
+      "description": "是否需要更换外箱标签、箱唛",
+      "frequency": "约35%的历史单提到了",
+      "examples": [
+        "外箱标签需要将50套产品全部更换好配件和标签后给我装箱的数量和尺寸、重量；我再提供外箱标签",
+        "附件有上传新单箱唛PDF，麻烦新单上加"
+      ],
+      "required": false
+    },
+    {
+      "field": "操作时间要求",
+      "description": "是否有操作时效要求",
+      "frequency": "约10%的历史单提到了",
+      "examples": [
+        "返工计划7个工作日内完成"
+      ],
+      "required": false
+    },
+    {
+      "field": "场地/工具需求",
+      "description": "是否需要仓库提供场地、桌子等辅助资源",
+      "frequency": "约10%的历史单提到了",
+      "examples": [
+        "需要仓库提供3张桌子，以及（200平）场地，返工使用工具包自备"
+      ],
+      "required": false
+    },
+    {
+      "field": "剩余物料处理",
+      "description": "操作后剩余的物料如何处理",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "标签纸M010000000010703445-70X 剩下（36张）1件，与更替产品介绍标签的货物M010000000011875957（100件），新单上架",
+        "标签纸M010000000010703445-70X 剩下（10张）1件"
+      ],
+      "required": false
+    }
+  ]
 }

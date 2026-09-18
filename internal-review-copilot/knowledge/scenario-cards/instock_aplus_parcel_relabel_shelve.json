@@ -21,11 +21,15 @@
     ],
     "weak": [
       "标签异常",
-      "重新上架",
       "条码更换",
       "入库单",
       "包裹条码",
-      "新入库单"
+      "新入库单",
+      "箱产品",
+      "按箱产品",
+      "重新装箱",
+      "整箱出库",
+      "误下为A包裹"
     ]
   },
   "negativeSignals": {
@@ -41,7 +45,8 @@
       "拍照",
       "暂存",
       "下架",
-      "无主货"
+      "无主货",
+      "错装"
     ]
   },
   "boundaryRules": [
@@ -72,5 +77,97 @@
     "确认标签更换完成后再上架"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.21. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407060."
+  "notes": "batch-generated from SOP §3.21. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407060. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "新入库单号",
+      "description": "需要上架到的目标入库单号（WI开头）",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "WI50817546",
+        "WI52192112",
+        "WI49560098",
+        "WI52051957",
+        "WI52053632"
+      ],
+      "required": true
+    },
+    {
+      "field": "原单据号",
+      "description": "原退货单号、原入库单号或异常单号，用于定位需要处理的包裹",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "RT16000300942691CN",
+        "WI51878253",
+        "EB0126042429047371",
+        "WI51483181",
+        "EB0426081132127765"
+      ],
+      "required": true
+    },
+    {
+      "field": "处理范围",
+      "description": "需要处理的包裹数量或SKU信息",
+      "frequency": "约83%的历史单提到了",
+      "examples": [
+        "4个sku",
+        "8个包裹都是同个sku",
+        "里面有产品CLY206数量1,CLY141数量3",
+        "剩余48pcs"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "是否需要补贴商品标签",
+      "description": "明确是否需要在更换A+包裹标签后补贴商品条码标签",
+      "frequency": "约67%的历史单明确提到了",
+      "examples": [
+        "单品条码重新补贴上架",
+        "补贴A+包裹条码标签",
+        "需重新补贴A+包裹条码"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签对应关系",
+      "description": "当有多个SKU时，如何对应粘贴标签",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "参考实物上的M码对应粘贴即可"
+      ],
+      "required": false
+    },
+    {
+      "field": "拆箱/重新装箱要求",
+      "description": "是否需要拆箱分别上架或重新装箱",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "拆箱上架到新入库单号",
+        "需要重新装箱到5号箱，空出部分需要装填气泡填充物"
+      ],
+      "required": false
+    },
+    {
+      "field": "异常原因说明",
+      "description": "为什么需要更换标签的背景原因",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "下单误下为A包裹，实际是需要整箱出库的",
+        "A+包裹条码错误贴成A包裹条码",
+        "库内丢失了2pcs"
+      ],
+      "required": false
+    },
+    {
+      "field": "关闭异常单要求",
+      "description": "完成后是否需要关闭相关异常单",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "上架完成后关闭异常单EB0126042429047371"
+      ],
+      "required": false
+    }
+  ]
 }

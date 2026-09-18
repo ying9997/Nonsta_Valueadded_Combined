@@ -74,5 +74,89 @@
     "提供测量数据格式（长×宽×高cm，重量kg）"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.8. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 【Warehouse】Measurement and identification of commodity weight."
+  "notes": "batch-generated from SOP §3.8. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 【Warehouse】Measurement and identification of commodity weight. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "测量对象标识",
+      "description": "需要明确测量哪些货物，可以是SKU、异常单号、托盘、退货单号等",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "M010000000006796398、M010000000005276475等SKU",
+        "异常单号：EB0526052929906385",
+        "这4托货物",
+        "EB0126071531314354异常货物"
+      ],
+      "required": true
+    },
+    {
+      "field": "测量内容要求",
+      "description": "需要说明测量尺寸还是重量，或者两者都要",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "测量尺寸重量",
+        "称下单品的重量",
+        "测量托盘尺寸以及重量",
+        "复测尺寸重量数据"
+      ],
+      "required": true
+    },
+    {
+      "field": "包装处理方式",
+      "description": "需要说明是否拆包装、保留什么包装、测量什么状态下的尺寸",
+      "frequency": "约70%的历史单提到了",
+      "examples": [
+        "拆除外包装（保留原箱）",
+        "若是快递袋撕掉快递袋再测量彩盒",
+        "拆开快递袋",
+        "原本已经装箱的可以直接沿用"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "照片回传要求",
+      "description": "是否需要拍照，以及照片需要拍摄的具体内容",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "拍照回传尺寸照片",
+        "需要显示外箱的SKU编码",
+        "提供测量图片",
+        "拍照看产品颜色"
+      ],
+      "required": false
+    },
+    {
+      "field": "后续处理动作",
+      "description": "测量完成后需要做什么操作，如补贴标签、重新打包、数据反馈等",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "补贴RM标签",
+        "测量后再补贴M码标签到彩盒上再上架",
+        "需要找纸箱重新打包",
+        "复测完成后把复测尺寸重量数据反馈给客服同步修改系统尺寸"
+      ],
+      "required": false
+    },
+    {
+      "field": "抽样方式",
+      "description": "如果不是全部测量，需要说明如何抽样",
+      "frequency": "约10%的历史单提到了",
+      "examples": [
+        "仓库随机拣选"
+      ],
+      "required": false
+    },
+    {
+      "field": "业务背景说明",
+      "description": "说明为什么需要测量，测量数据的用途",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "历史库存的SKU尺寸，都是以前的物流包装尺寸，现需要重新测量彩盒包装",
+        "对应测量图片后续要在其他仓库做申述用",
+        "现在需要确认货物具体情况安排调拨"
+      ],
+      "required": false
+    }
+  ]
 }

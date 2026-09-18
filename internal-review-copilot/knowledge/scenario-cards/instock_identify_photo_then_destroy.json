@@ -68,6 +68,97 @@
     "原SKU做L007盘亏处理"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.23. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode remapped alias 20250407045（【库内】辨识后贴标上架+销毁）。SOP辨识拍照后销毁 ≈ OMS辨识后贴标上架+销毁",
-  "omsSceneCode": "20250407045"
+  "notes": "batch-generated from SOP §3.23. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode remapped alias 20250407045（【库内】辨识后贴标上架+销毁）。SOP辨识拍照后销毁 ≈ OMS辨识后贴标上架+销毁 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "omsSceneCode": "20250407045",
+  "requiredInfoFields": [
+    {
+      "field": "处理范围",
+      "description": "需要明确处理的商品SKU/包裹号和数量",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "库内库存39件",
+        "12件",
+        "10个产品",
+        "库内的10个产品",
+        "563个商品"
+      ],
+      "required": true
+    },
+    {
+      "field": "辨识标准",
+      "description": "判断商品好坏的具体标准，如检查发霉、变形、包装颜色、彩卡尺码等",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "检测产品包装是否发霉",
+        "辨识彩卡，彩卡如附件示例图",
+        "橙色包装的销毁，蓝色包装的上架",
+        "检查产品是否有变形的情况",
+        "撕掉上面的X0开头的SKU标签，看看他覆盖的是什么标签"
+      ],
+      "required": true
+    },
+    {
+      "field": "销毁条件",
+      "description": "明确哪些情况下需要销毁，哪些情况可以保留上架",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "如果眼镜和软盒都发霉，做销毁处理",
+        "如果彩卡上是其他任何尺码，直接弃置销毁",
+        "橙色包装的销毁",
+        "变形产品需要单独挑出，后续销毁",
+        "产品最后不管辨识出来是什么 或者是标签撕开后无法辨识，处理方案都是弃置销毁"
+      ],
+      "required": true
+    },
+    {
+      "field": "辨识结果反馈要求",
+      "description": "需要反馈各类情况的数量统计",
+      "frequency": "约78%的历史单提到了",
+      "examples": [
+        "增值完成需反馈辨识结果和数量",
+        "只需要告诉我以下类型的数量有多少",
+        "需要拍照反馈橙色包装有多少",
+        "同步销毁数量",
+        "处理完反馈我们对应的数据：如彩卡为queen的有多少件，彩卡不是queen的有多少件"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "拍照要求",
+      "description": "是否需要拍照以及拍照的具体要求",
+      "frequency": "约56%的历史单明确提到了拍照要求",
+      "examples": [
+        "全程不需要拍照",
+        "需要拍照反馈橙色包装有多少",
+        "整体拍一张照片即可",
+        "撕掉上面的X0开头的SKU标签，看看他覆盖的是什么标签，并拍照"
+      ],
+      "required": false
+    },
+    {
+      "field": "良品处理方式",
+      "description": "辨识后良品的具体处理方式，如换包装、贴标、关联入库单等",
+      "frequency": "约67%的历史单提到了良品的具体处理细节",
+      "examples": [
+        "重新用你们的包材贴标上架",
+        "用我们库内的1号纸盒装，然后贴原产品标签：TCA5354-L02",
+        "上架到WI49471112这个入库单",
+        "有83个按照良品上架到：WI51266612"
+      ],
+      "required": false
+    },
+    {
+      "field": "分层辨识逻辑",
+      "description": "需要分多层检查的情况，如外包装、内包装、产品本体的分别判断",
+      "frequency": "约33%的历史单涉及多层辨识",
+      "examples": [
+        "查看发霉的产品包装，请确认黑色软盒里的眼镜和黑色软盒是否发霉",
+        "硬包装盒发霉，软包装是没有发霉的，硬包装丢掉",
+        "眼镜硬盒和软盒都发霉 但是眼镜没有发霉 这种情况下也做销毁处理"
+      ],
+      "required": false
+    }
+  ]
 }

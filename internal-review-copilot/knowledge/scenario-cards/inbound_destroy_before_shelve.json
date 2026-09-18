@@ -71,5 +71,87 @@
     "计费：增值-销毁"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §2.22. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INBOUND_DESTORY_BF_SHELVE."
+  "notes": "batch-generated from SOP §2.22. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INBOUND_DESTORY_BF_SHELVE. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "销毁对象范围",
+      "description": "明确指定需要销毁的货物范围，可以是SKU、包裹号、数量或整单",
+      "frequency": "100%的历史单都明确提到了",
+      "examples": [
+        "独立包装螺丝一件",
+        "4件受潮变形的",
+        "50箱左右的不良品",
+        "LPNWE356697629",
+        "sku：M010000000008783250"
+      ],
+      "required": true
+    },
+    {
+      "field": "销毁原因",
+      "description": "说明为什么需要销毁，如货物质量问题、混装错误、查验风险等",
+      "frequency": "约85%的历史单提到了",
+      "examples": [
+        "受潮变形不能再进行售卖",
+        "不良品",
+        "并非我司货物",
+        "货物实际有问题，不能售卖",
+        "涉及TS查验"
+      ],
+      "required": true
+    },
+    {
+      "field": "剩余货物处理方式",
+      "description": "明确销毁后剩余货物是否需要上架及上架到哪个入库单",
+      "frequency": "约71%的历史单提到了",
+      "examples": [
+        "剩下1款SKU贴有ZBJ-PJ-038 - M010000000009976451全部扫描上到原单：WI48784296",
+        "正常的2件上架到入库单WI49068271",
+        "其余已关联，麻烦扫描上架在WI49288565"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "识别方式",
+      "description": "如何识别需要销毁的货物，是否需要拆箱检查",
+      "frequency": "约29%的历史单提到了",
+      "examples": [
+        "外包装就可以看得出来；不需要拆箱",
+        "附件上传螺丝产品图，指定这1件进行销毁",
+        "根据历史拍照增值VASC000000270000 的图片编号以及文件里面整理出的图片编号对应的动作指令"
+      ],
+      "required": false
+    },
+    {
+      "field": "关联包裹/容器号",
+      "description": "涉及的具体包裹号、容器号或LPN号",
+      "frequency": "约57%的历史单提到了",
+      "examples": [
+        "对应包裹：B0400000001390465167",
+        "包裹B0400000001396007328",
+        "整单A+包裹",
+        "LPNWE356697629"
+      ],
+      "required": false
+    },
+    {
+      "field": "补贴标签要求",
+      "description": "销毁部分货物后，剩余货物是否需要补贴或更换标签",
+      "frequency": "约14%的历史单提到了",
+      "examples": [
+        "补贴包裹标签，用新标签覆盖原标签，包裹标签已经上传附件pdf"
+      ],
+      "required": false
+    },
+    {
+      "field": "时效要求",
+      "description": "是否有特殊的时间要求或紧急程度说明",
+      "frequency": "约14%的历史单提到了",
+      "examples": [
+        "订单预计5.29到港，需提前确认以上需求是否能操作及预估费用的"
+      ],
+      "required": false
+    }
+  ]
 }

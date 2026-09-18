@@ -8,6 +8,7 @@ import {
   callChatWithTools,
   extractFirstJsonObject,
   LlmError,
+  parseJsonishObject,
   type LlmConfig,
   type ToolCallHistoryEntry,
   type ToolDefinition,
@@ -19,6 +20,7 @@ import {
   buildSceneListPrompt,
   classifyScene as classifySceneV2,
   clipConclusionOneLiner,
+  deriveTopicSummary,
   resolveCandidateCards,
   retrieveForPrompt,
   sceneNameOf,
@@ -113,8 +115,9 @@ unsupported — 不属于以上任何场景
 
 ## 输出要求
 完成推理后，输出严格 JSON（不要 markdown 包裹）：
-{"matchedScene":"sceneKey","matchedSceneName":"OMS全名","confidence":"high/medium/low","reasoning":"你的判断过程（内部，卡片不展示）","conclusionOneLiner":"一句话说明为什么选这个场景（不超过30字，只写结论不写推理过程）","extractedActions":["动作1","动作2"],"alternativeScenes":["sceneKey"],"ambiguous":false}
+{"matchedScene":"sceneKey","topicSummary":"用一句话概括客户的核心需求（不超过60字）","matchedSceneName":"OMS全名","confidence":"high/medium/low","reasoning":"你的判断过程（内部，卡片不展示）","conclusionOneLiner":"一句话说明为什么选这个场景（不超过30字，只写结论不写推理过程）","extractedActions":["动作1","动作2"],"alternativeScenes":["sceneKey"],"ambiguous":false}
 
+topicSummary 要求：包含核心动作（如「辨识后补贴包裹标签上架」），多个单号概括为「N个异常单」不要逐个列出，提取关键业务信息（如件数/箱数/处理方式）。不要截取客户原文前50字，要真正理解后概括。
 conclusionOneLiner 示例：客户已关联第三方编码，按新单扫描上架；包裹条码批量异常，需辨识后补贴包裹标签；异常类型复杂，建议人工确认
 `;
 }
@@ -222,13 +225,6 @@ function normalizeConfidence(raw: unknown): "high" | "medium" | "low" {
   return "low";
 }
 
-function sanitizeJsonish(text: string): string {
-  return text
-    .replace(/[\u201c\u201d]/g, '"')
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/,\s*([}\]])/g, "$1");
-}
-
 function extractMatchedSceneKey(text: string, allowed: string[]): string | null {
   const allowedSet = new Set(allowed);
   const fromField = [...text.matchAll(/"matchedScene"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
@@ -248,10 +244,9 @@ function parseClassifyPayload(
   allowed: string[],
 ): LlmClassifyResult & { weakRecovery?: boolean } {
   const allowedSet = new Set(allowed);
-  const jsonText = sanitizeJsonish(extractFirstJsonObject(text) || text);
   let obj: Record<string, unknown> | null = null;
   try {
-    obj = JSON.parse(jsonText) as Record<string, unknown>;
+    obj = parseJsonishObject(text) as Record<string, unknown>;
   } catch {
     const matchedScene = extractMatchedSceneKey(text, allowed);
     if (matchedScene) {
@@ -271,13 +266,14 @@ function parseClassifyPayload(
         confidence: normalizeConfidence(confHit?.[1] || "medium"),
         reasoning: (reasonHit?.[1] || `宽松解析 matchedScene=${matchedScene}`).slice(0, 800),
         conclusionOneLiner: clipConclusionOneLiner(text.match(/"conclusionOneLiner"\s*:\s*"([^"]*)"/)?.[1]),
+        topicSummary: deriveTopicSummary(text.match(/"topicSummary"\s*:\s*"([^"]*)"/)?.[1], reasonHit?.[1]),
         extractedActions,
         alternativeScenes: [],
         ambiguous: ambHit ? ambHit[1] === "true" : false,
         weakRecovery: true,
       };
     }
-    throw new Error(`JSON parse failed: ${jsonText.slice(0, 120)}`);
+    throw new Error(`JSON parse failed: ${(extractFirstJsonObject(text) || text).slice(0, 120)}`);
   }
   if (!obj) throw new Error("parseClassifyPayload: empty object");
   let matchedScene = String(obj.matchedScene || "").trim();
@@ -288,6 +284,7 @@ function parseClassifyPayload(
       confidence: normalizeConfidence(obj.confidence),
       reasoning: String(obj.reasoning || "LLM 判定 unsupported"),
       conclusionOneLiner: clipConclusionOneLiner(obj.conclusionOneLiner),
+      topicSummary: deriveTopicSummary(obj.topicSummary, obj.reasoning),
       extractedActions: Array.isArray(obj.extractedActions)
         ? obj.extractedActions.map(String)
         : [],
@@ -308,7 +305,11 @@ function parseClassifyPayload(
     if (byName) matchedScene = byName[0];
   }
   if (!allowedSet.has(matchedScene)) {
-    return degrade(`matchedScene 不在候选列表: ${matchedScene}`);
+    return {
+      ...degrade(`matchedScene 不在候选列表: ${matchedScene}`),
+      conclusionOneLiner: clipConclusionOneLiner(obj.conclusionOneLiner),
+      topicSummary: deriveTopicSummary(obj.topicSummary, obj.reasoning),
+    };
   }
   return {
     matchedScene,
@@ -317,6 +318,7 @@ function parseClassifyPayload(
     confidence: normalizeConfidence(obj.confidence),
     reasoning: String(obj.reasoning || ""),
     conclusionOneLiner: clipConclusionOneLiner(obj.conclusionOneLiner),
+    topicSummary: deriveTopicSummary(obj.topicSummary, obj.reasoning),
     extractedActions: Array.isArray(obj.extractedActions)
       ? obj.extractedActions.map(String)
       : [],
@@ -348,7 +350,7 @@ ${keys || "- （无候选）"}
 - 证据充分时 confidence=high，ambiguous=false
 
 只输出：
-{"matchedScene":"...","matchedSceneName":"...","confidence":"high|medium|low","reasoning":"...","conclusionOneLiner":"不超过30字的结论","extractedActions":["..."],"alternativeScenes":[],"ambiguous":false}`;
+{"matchedScene":"...","topicSummary":"用一句话概括客户核心需求（不超过60字）","matchedSceneName":"...","confidence":"high|medium|low","reasoning":"...","conclusionOneLiner":"不超过30字的结论","extractedActions":["..."],"alternativeScenes":[],"ambiguous":false}`;
 }
 
 function buildFinalizeUser(

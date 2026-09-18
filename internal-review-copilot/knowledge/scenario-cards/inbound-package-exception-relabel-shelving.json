@@ -108,5 +108,107 @@
       "note": "VASC000000348477 边界待判，不能当 A 的金标正例"
     }
   ],
-  "notes": "status=supported。附件策略按 20260908 入库数据分析：SUBMIT 必填仅标签文件 LF；命中后可进 check-completeness。仍须与 F-001 边界 ambiguous 时转人工。"
+  "notes": "status=supported。附件策略按 20260908 入库数据分析：SUBMIT 必填仅标签文件 LF；命中后可进 check-completeness。仍须与 F-001 边界 ambiguous 时转人工。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "处理范围",
+      "description": "需要明确处理的包裹数量、箱数或整单处理",
+      "frequency": "100%",
+      "examples": [
+        "3个SKU需要补贴商品条码",
+        "35个包裹全部重新补贴商品条码",
+        "50件货物",
+        "异常1箱a包裹2件商品",
+        "EB0126081932324412等3个包裹"
+      ],
+      "required": true
+    },
+    {
+      "field": "新入库单号",
+      "description": "需要上架到的新预报单/入库单号",
+      "frequency": "93%",
+      "examples": [
+        "上架到预报单：WI51519902",
+        "新单上WI50387161",
+        "原单WI51095972上架",
+        "新单号：WI51598958",
+        "按新单WI51576425上架"
+      ],
+      "required": true
+    },
+    {
+      "field": "商品标签数量",
+      "description": "需要补贴的商品标签数量，可能按SKU分别说明",
+      "frequency": "87%",
+      "examples": [
+        "单品数量：30",
+        "A110RH11==82",
+        "138PCS全部重新贴商品标签",
+        "50件货物",
+        "2件商品"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "包裹标签处理",
+      "description": "是否需要补贴或更换包裹标签",
+      "frequency": "47%",
+      "examples": [
+        "补贴完商品条码后根据新单补贴新单的包裹条码",
+        "更换新的包裹条码上架货物",
+        "需要补贴包裹标签以及商品标签",
+        "WI50566982这个的包裹标签覆盖到这里"
+      ],
+      "required": false
+    },
+    {
+      "field": "SKU对应关系",
+      "description": "多SKU时需要明确每个SKU的数量和对应关系，或说明是否随机贴",
+      "frequency": "60%",
+      "examples": [
+        "US1-BKZWJ-B-E15005001830=M010000000011384530=单品数量：30",
+        "EB0126073131782987=A110RH11==82",
+        "包裹标签和商品标签随机贴就好。没有对应关系",
+        "按照附件sn码对应新包裹关系进行对应贴标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "SKU识别方式",
+      "description": "如何区分不同SKU（如通过尺寸、SN码等）",
+      "frequency": "33%",
+      "examples": [
+        "箱子测面有尺寸信息，仓库可以看尺寸信息区分SKU",
+        "对应size:W1500*D500*H1830(mm)",
+        "原包裹上有贴sn码，没有任何的winit标签",
+        "按照附件sn码对应新包裹"
+      ],
+      "required": false
+    },
+    {
+      "field": "原单号",
+      "description": "原入库单号或预报单号",
+      "frequency": "40%",
+      "examples": [
+        "原单WI49615681",
+        "原单WI51095972上架",
+        "WI48841022单剩下没有登记异常的35个包裹",
+        "WI49968900已到仓卸货未上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签覆盖说明",
+      "description": "是否需要覆盖原有错误标签",
+      "frequency": "33%",
+      "examples": [
+        "实物贴的标签是错误的，需要商品标签要覆盖新的",
+        "WI50566982这个的包裹标签覆盖到这里",
+        "包裹条码被涂改导致难以分辨"
+      ],
+      "required": false
+    }
+  ]
 }

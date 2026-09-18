@@ -70,5 +70,110 @@
     "注明标签规格建议（5cmX2.5cm或15cmX10cm）"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.22. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 20260127001（【库内】商品指定位置贴标）。"
+  "notes": "batch-generated from SOP §3.22. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 20260127001（【库内】商品指定位置贴标）。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "SKU编号",
+      "description": "需要贴标的商品SKU编号（M01开头的物料编号）",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "M010000000010703448（4件）",
+        "M010000000011875957（6件）",
+        "M010000000008149618",
+        "M010000000008046683这个sku563个库存"
+      ],
+      "required": true
+    },
+    {
+      "field": "处理数量",
+      "description": "需要贴标的商品数量，可以是具体件数或整批库存",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "4件",
+        "6件",
+        "20件",
+        "563个库存全部",
+        "box1-10"
+      ],
+      "required": true
+    },
+    {
+      "field": "标签来源或内容",
+      "description": "新标签的来源（物料SKU、附件SOP、图片）或标签内容说明",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "物料标签纸M010000000010703445-70X（1件）",
+        "按照附件SOP操作，更替产品介绍标签",
+        "换成提供图片的标签",
+        "FBA15LNP1BVNU000006 至FBA15LNP1BVNU000015的FBA箱唛",
+        "标签已线下提供给仓库"
+      ],
+      "required": true
+    },
+    {
+      "field": "贴标位置或方式",
+      "description": "标签贴在哪里、如何贴、是否覆盖原标签等具体操作说明",
+      "frequency": "83%的历史单提到了",
+      "examples": [
+        "把新的标签覆盖原来的upc码",
+        "看下如图示例位置，在两边补贴贴纸封好",
+        "箱唛需按对应颜色关系粘贴",
+        "更替产品介绍标签"
+      ],
+      "required": true
+    },
+    {
+      "field": "关联单号",
+      "description": "涉及的出库单号、入库单号或异常单号",
+      "frequency": "83%的历史单提到了",
+      "examples": [
+        "入库上架新单：WI50353745 出库下架单：WO11526888758",
+        "WO11340729120",
+        "EB0526062530740871 EB0526062530740874",
+        "出库单：WO11395371093"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "对应关系规则",
+      "description": "当涉及多个SKU或多个标签时，需要说明一对一的对应关系",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "box1-10的sku是M010000000008149618 描述是灰色 贴 FBA15LNP1BVNU000006 至FBA15LNP1BVNU000015的FBA箱唛（灰色）",
+        "box11-15的sku是M010000000008186570描述是蓝色 贴 FBA15LNP1BVNU000001至FBA15LNP1BVNU000005的FBA箱唛（蓝色）"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签物料数量不确定",
+      "description": "当标签物料库存被使用过，需要操作后清点剩余数量",
+      "frequency": "约17%的历史单提到了",
+      "examples": [
+        "因为这个箱产品的库存原先有被使用过，所以不确定里面还有多少件，请按实际数量帮忙操作",
+        "请帮忙清点标签纸M010000000010703445-70X剩余数量，1个标签为一张，4个标签为一大张"
+      ],
+      "required": false
+    },
+    {
+      "field": "新SKU编号",
+      "description": "贴标后需要按新的SKU编号上架",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "按新SKU：M010000000010703448 上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签规格说明",
+      "description": "标签的物理规格或包装说明",
+      "frequency": "约17%的历史单提到了",
+      "examples": [
+        "注意：开箱后里面是10张标签纸,标签纸是一样的无区分",
+        "1个标签为一张，4个标签为一大张"
+      ],
+      "required": false
+    }
+  ]
 }

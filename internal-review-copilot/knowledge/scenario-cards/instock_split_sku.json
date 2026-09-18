@@ -75,5 +75,137 @@
     "上架至新入库单"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.5. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INSTOCK_SPLIT_SKU."
+  "notes": "batch-generated from SOP §3.5. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INSTOCK_SPLIT_SKU. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "原SKU信息",
+      "description": "需要拆分的原SKU编码及数量",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "拆分75件MH1818-2+8-0.5mm-1-HBY",
+        "拆分810件MH1818-2+8-0.5mm-1-HBY",
+        "拆分150件MH1818-2+8-0.5mm-1-HBY",
+        "40001005.0044 展示架套装箱",
+        "对应这两个SKU：M010000000011485889 M010000000011485923"
+      ],
+      "required": true
+    },
+    {
+      "field": "拆分规则",
+      "description": "每个原SKU拆分成哪些新SKU及各自数量",
+      "frequency": "约95%的历史单都提到了",
+      "examples": [
+        "每个MH1818-2+8-0.5mm-1-HBY拆分成1个860014820250和1个MH1796-0.5mm-HBY",
+        "1件199284868908-4pcs pack-----拆分成4件199284868908上架",
+        "每箱含 3 台带彩盒的机器 + 1 个展示架",
+        "拆成4个单品上架",
+        "拆分成1个MH1818-2+8-HBY和1个MH1796-0.5mm-HBY"
+      ],
+      "required": true
+    },
+    {
+      "field": "新SKU标签要求",
+      "description": "拆分后的新SKU是否需要贴标签、贴什么标签、贴在哪个位置",
+      "frequency": "约85%的历史单都提到了",
+      "examples": [
+        "860014820250需要粘贴亚马逊SKU标签（标签是亚马逊SKU标签和透明计划标签合并标签，每个产品粘贴的标签不一样，要在产品最小面粘贴）",
+        "2153654772570118需要粘贴TKSKU标签（要在产品最小面粘粘贴）",
+        "可以直接扫描产品包装上的UPC码上架，无需贴SKU标签",
+        "MH1818-2+8-HBY需要换亚马逊SKU标签（在最小面粘贴）：860014820250",
+        "在外箱加贴附件标签，附件标签2打印4张，外箱前后左右各1张，附件条码标签打印两张，贴外箱的相邻两面"
+      ],
+      "required": true
+    },
+    {
+      "field": "下架单号",
+      "description": "原SKU从哪个下架单下架",
+      "frequency": "约75%的历史单都提到了",
+      "examples": [
+        "仓内下架单：WO12167537101",
+        "仓内下架单：WO12222421384",
+        "下架单号：WO12132426726",
+        "WO11559732157商品下架单",
+        "仓内下架单：WO11496217388"
+      ],
+      "required": true
+    },
+    {
+      "field": "上架单号",
+      "description": "拆分后的新SKU上架到哪个入库单",
+      "frequency": "约90%的历史单都提到了",
+      "examples": [
+        "仓内上架单：WI51714906",
+        "仓内上架单：WI52269573",
+        "仓内上架单号：WI51450966",
+        "上架到入库单：WI50506260",
+        "按新单上架到WI50960492"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "重新打包要求",
+      "description": "拆分后是否需要重新打包、使用什么包材、如何打包",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "使用仓库现有合适外箱，将拆出的 3 台带彩盒的机器重新分别打包（每箱 1 台，共 3 箱）",
+        "用仓库核实的外箱单pcs打包",
+        "把库内的sku拆开原包装，加到另外一个sku原包装里面，不需要额外用到我们的纸箱",
+        "对应原SKU用原包材装回去；拆分出来的配件一个纸箱装一起",
+        "拆分后按快递袋打包贴标"
+      ],
+      "required": false
+    },
+    {
+      "field": "产品摆放要求",
+      "description": "拆分后的配件如何摆放到新包装中",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "同类型的配件一般叠在一起放着，比如弯板和弯板叠在一起，如果没有同类型的可以在原箱找个合适的位置放进去",
+        "详细可以参考附件操作说明里面的图片"
+      ],
+      "required": false
+    },
+    {
+      "field": "拆分操作指引",
+      "description": "详细的拆分操作步骤或参考文档",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "详细参考附件操作说明",
+        "参考操作指引做库内拆分成不同SKU处理",
+        "按附件示例方法拆分商品"
+      ],
+      "required": false
+    },
+    {
+      "field": "拍照回传要求",
+      "description": "是否需要拍照回传拆分后的产品",
+      "frequency": "约15%的历史单提到了",
+      "examples": [
+        "同时拆出来的配件产品拍个大合照回传的"
+      ],
+      "required": false
+    },
+    {
+      "field": "异常单处理",
+      "description": "如果涉及异常单，需要关闭异常",
+      "frequency": "约20%的历史单提到了",
+      "examples": [
+        "处理完成将异常单关闭",
+        "申请关闭异常",
+        "将异常EB0526062730797031的货物目前核实有6个完好的以及5个彩盒破损的"
+      ],
+      "required": false
+    },
+    {
+      "field": "原SKU库存处理",
+      "description": "原SKU下架后如何处理库存（如盘亏）",
+      "frequency": "约10%的历史单提到了",
+      "examples": [
+        "原SKU做L007盘亏"
+      ],
+      "required": false
+    }
+  ]
 }

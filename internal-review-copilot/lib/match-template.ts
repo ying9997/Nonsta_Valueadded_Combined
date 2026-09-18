@@ -14,10 +14,11 @@ const MIN_CANDIDATE_SCORE = 3;
 const HIGH_SCORE = 7;
 const CLEAR_GAP = 3;
 const TOP_K = 3;
+const LLM_CANDIDATE_LIMIT = 15;
 
 const GENERIC_ATOM_RE = /OW01V1602|入库其他服务需求/;
 const PRODUCT_BARCODE = /商品条码异常/;
-const PACKAGE_BATCH = /包裹条码批量异常/;
+const PACKAGE_BATCH = /包裹条码(批量)?异常/;
 
 /** Soft action→scene constraint (weight ±2). Derived from SOP 2.33 / scenario cards. */
 export interface ActionSceneMapping {
@@ -533,7 +534,7 @@ function pickLlmCandidateCards(ruleBaseline: MatchResult): ScenarioCard[] {
   const seen = new Set<string>();
   const push = (sceneKey: string) => {
     const card = byKey.get(sceneKey);
-    if (!card || seen.has(card.sceneKey) || picked.length >= 10) return;
+    if (!card || seen.has(card.sceneKey) || picked.length >= LLM_CANDIDATE_LIMIT) return;
     seen.add(card.sceneKey);
     picked.push(card);
   };
@@ -542,7 +543,7 @@ function pickLlmCandidateCards(ruleBaseline: MatchResult): ScenarioCard[] {
     push(hit.sceneKey);
   }
   for (const hit of ranked) push(hit.sceneKey);
-  if (picked.length < 10) {
+  if (picked.length < LLM_CANDIDATE_LIMIT) {
     for (const card of cards) push(card.sceneKey);
   }
   return picked;
@@ -623,8 +624,11 @@ export async function matchTemplateWithLlm(
           ...classify,
           matchedScene: ov.scene,
           matchedSceneName: SCENE_KEY_TO_OMS_NAME[ov.scene] || classify.matchedSceneName,
+          confidence: "high",
+          ambiguous: false,
           reasoning: `${ov.reason}；原LLM=${classify.matchedScene}。${classify.reasoning}`,
         };
+        if (!candidateScenes.includes(ov.scene)) candidateScenes.push(ov.scene);
       }
     }
     for (const info of exceptionInfos) {
@@ -648,6 +652,7 @@ export async function matchTemplateWithLlm(
         confidence: classify.confidence,
         reasoning: classify.reasoning,
         conclusionOneLiner: classify.conclusionOneLiner || "",
+        topicSummary: classify.topicSummary || "",
         extractedActions: classify.extractedActions,
         alternativeScenes: classify.alternativeScenes,
         ambiguous: classify.ambiguous,
@@ -665,6 +670,7 @@ export async function matchTemplateWithLlm(
     confidence: classify.confidence,
     reasoning: classify.reasoning,
     conclusionOneLiner: classify.conclusionOneLiner || "",
+    topicSummary: classify.topicSummary || "",
     extractedActions: classify.extractedActions,
     alternativeScenes: classify.alternativeScenes,
     ambiguous: classify.ambiguous,

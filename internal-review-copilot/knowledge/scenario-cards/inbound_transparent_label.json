@@ -75,5 +75,113 @@
     "指定贴好后的上架库位"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §2.15. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 2026041701（【入库】补贴透明计划标签）。"
+  "notes": "batch-generated from SOP §2.15. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 2026041701（【入库】补贴透明计划标签）。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "补贴数量",
+      "description": "需要补贴透明计划二维码标签的具体数量（件数/箱数）",
+      "frequency": "100%的历史单都明确提到了",
+      "examples": [
+        "120件",
+        "330件",
+        "整柜1222个",
+        "整柜1567个透明计划二维码标签"
+      ],
+      "required": true
+    },
+    {
+      "field": "标签类型",
+      "description": "明确是透明计划二维码标签",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "透明计划二维码标签",
+        "透明标签"
+      ],
+      "required": true
+    },
+    {
+      "field": "粘贴规则-不可重复",
+      "description": "强调标签不能重复粘贴，每个标签都是唯一的",
+      "frequency": "约85%的历史单明确强调了",
+      "examples": [
+        "不可重复贴",
+        "只要不粘贴重复就好",
+        "一箱贴一个，不可重复贴",
+        "透明计划标签是单品级别的，每个标签都是不一样的所以不能重复贴"
+      ],
+      "required": true
+    },
+    {
+      "field": "粘贴顺序要求",
+      "description": "需要按照二维码标签顺序依次粘贴",
+      "frequency": "约85%的历史单提到了",
+      "examples": [
+        "需按照二维码标签顺序贴",
+        "一箱贴一个"
+      ],
+      "required": true
+    },
+    {
+      "field": "入库单号/商品信息",
+      "description": "指定需要处理的入库单号（WI开头）或商品编码",
+      "frequency": "100%的历史单都提供了",
+      "examples": [
+        "WI49948415",
+        "商品：M010000000010712079",
+        "WI49943197"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "标签材质规格",
+      "description": "透明计划二维码需使用热敏纸打印，标签尺寸5*2.5cm",
+      "frequency": "约62%的历史单提到了",
+      "examples": [
+        "透明计划二维码需使用热敏纸打印",
+        "标签纸的尺寸使用5*2.5cm"
+      ],
+      "required": false
+    },
+    {
+      "field": "粘贴位置要求",
+      "description": "二维码要贴在商品条码标签旁边，并在同一平面",
+      "frequency": "约62%的历史单明确说明了",
+      "examples": [
+        "二维码要贴在商品条码标签旁边，并在同一平面",
+        "不指定标签粘贴的位置"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签对应关系",
+      "description": "商品条码标签要对应透明计划二维码，不要弄混",
+      "frequency": "约62%的历史单强调了",
+      "examples": [
+        "商品条码标签要对应透明计划二维码。二维码要贴在商品条码标签旁边，并在同一平面；不要弄混！"
+      ],
+      "required": false
+    },
+    {
+      "field": "到货时间提醒",
+      "description": "货物预计到仓时间，提醒仓库关注",
+      "frequency": "约46%的历史单提到了",
+      "examples": [
+        "货物预计在7.9送到仓库来，麻烦关注",
+        "货物在7.3送到仓库来，麻烦关注",
+        "货物在6.26送到仓库来，麻烦关注"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签文件",
+      "description": "提供PDF格式的标签文件作为附件",
+      "frequency": "约46%的历史单提到了",
+      "examples": [
+        "附件是PDF"
+      ],
+      "required": false
+    }
+  ]
 }

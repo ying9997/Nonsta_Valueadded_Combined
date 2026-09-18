@@ -61,10 +61,8 @@
     "status": "auto_generated",
     "enforcement": "advisory",
     "omsWhitelistFieldKeys": [],
-    "requiredFieldKeys": [
-      "VAS_ATTR_REL_NWEON"
-    ],
-    "note": "auto-generated from OMS stats n=22 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+    "requiredFieldKeys": [],
+    "note": "auto-generated from OMS stats n=22 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats. 2026-09-15 restat：非空率<70% 的必填附件已降为不必填。"
   },
   "sopTemplateHints": [
     "第一步：异常单商品解冻并盘亏L007",
@@ -74,5 +72,90 @@
     "特别注意：入库单必须是无箱单预报单，不需要贴商品标签，只收取出库处理费"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.14. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 202512150002."
+  "notes": "batch-generated from SOP §3.14. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 202512150002. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "异常单号",
+      "description": "需要处理的异常单号（EB开头），可能是单个或多个",
+      "frequency": "100%的历史单都明确提到了",
+      "examples": [
+        "EB1226051929553915",
+        "EB0526061130339645",
+        "EB0126060129969286等9个异常单",
+        "EB0426061230383340 EB0426060530148812"
+      ],
+      "required": true
+    },
+    {
+      "field": "新入库单号",
+      "description": "用于不良品上架的新入库单号（WI开头），必须是无箱单预报单",
+      "frequency": "95%的历史单都提到了",
+      "examples": [
+        "WI49974000",
+        "WI50511367",
+        "WI50271247",
+        "WI49851605",
+        "WI50642014"
+      ],
+      "required": true
+    },
+    {
+      "field": "异常原因",
+      "description": "导致需要转不良品的具体原因，如破损、条码缺失/无法扫描等",
+      "frequency": "约75%的历史单提到了",
+      "examples": [
+        "产品破损严重外箱无法扫描SN码",
+        "货物有部分有破损",
+        "无商品条码",
+        "单品条码无法扫描",
+        "库内破损"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "涉及SKU",
+      "description": "异常商品的具体SKU编号",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "M010000000005125352",
+        "M010000000005169112",
+        "M010000000009282066",
+        "T88721W1-F0"
+      ],
+      "required": false
+    },
+    {
+      "field": "特殊处理要求",
+      "description": "除标准流程外的额外操作要求，如补贴标签、加快递袋等",
+      "frequency": "约45%的历史单提到了",
+      "examples": [
+        "需按对应关系补贴商品标签",
+        "破损商品加快递袋后上架",
+        "补贴原商品条码",
+        "需要贴商品标签后不良品上架，标签见附件"
+      ],
+      "required": false
+    },
+    {
+      "field": "异常数量",
+      "description": "涉及的异常商品具体件数",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "16pcs产品破损",
+        "有4件不良品"
+      ],
+      "required": false
+    },
+    {
+      "field": "关联出库单",
+      "description": "如果是因出库拣选发现异常，会提到原出库单号",
+      "frequency": "约15%的历史单提到了",
+      "examples": [
+        "订单WO11365273924拣选时发现"
+      ],
+      "required": false
+    }
+  ]
 }

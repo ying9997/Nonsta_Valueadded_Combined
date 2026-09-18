@@ -63,10 +63,8 @@
     "status": "auto_generated",
     "enforcement": "advisory",
     "omsWhitelistFieldKeys": [],
-    "requiredFieldKeys": [
-      "VAS_ATTR_REL_NWEON"
-    ],
-    "note": "auto-generated from OMS stats n=68 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+    "requiredFieldKeys": [],
+    "note": "auto-generated from OMS stats n=68 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats. 2026-09-15 restat：非空率<70% 的必填附件已降为不必填。"
   },
   "sopTemplateHints": [
     "明确需要清除/覆盖的标签类型(UN标签/电池标签/DG标签等)",
@@ -76,5 +74,119 @@
     "说明不同仓库操作差异(如元鼎用标签覆盖,Anker用热风机)"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §2.21. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 20250530002（清除标签）。 omsSceneCode remapped alias 20260302（【入库】覆盖/清除标签）。入库清除标签 → 【入库】覆盖/清除标签，不用无前缀「清除标签」"
+  "notes": "batch-generated from SOP §2.21. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 20250530002（清除标签）。 omsSceneCode remapped alias 20260302（【入库】覆盖/清除标签）。入库清除标签 → 【入库】覆盖/清除标签，不用无前缀「清除标签」 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "标签类型",
+      "description": "需要清除/覆盖的标签类型，如电池标签、UN标签、商品条码、包裹条码等",
+      "frequency": "95%的历史单都明确提到了",
+      "examples": [
+        "外箱贴有电池标签",
+        "UN标签",
+        "商品条码标签",
+        "包裹条码标签WI48561278",
+        "9类标签"
+      ],
+      "required": true
+    },
+    {
+      "field": "处理范围",
+      "description": "需要处理的箱数、件数或入库单号",
+      "frequency": "90%的历史单都提到了",
+      "examples": [
+        "24箱包裹",
+        "68箱",
+        "一共234箱",
+        "总单品数量：2016",
+        "81PCS产品"
+      ],
+      "required": true
+    },
+    {
+      "field": "包装等级",
+      "description": "包裹的包装等级，如A+包裹、A包裹等",
+      "frequency": "约75%的历史单提到了",
+      "examples": [
+        "A+包裹",
+        "A包裹",
+        "24箱包裹等级都为A+包裹",
+        "A+包共66箱 A包303箱"
+      ],
+      "required": true
+    },
+    {
+      "field": "清除方式",
+      "description": "使用热风机清除还是标签覆盖",
+      "frequency": "约70%的历史单明确或隐含提到了",
+      "examples": [
+        "申请移除",
+        "申请覆盖",
+        "使用空白标签清除/覆盖",
+        "用白标签覆盖，再补贴仓库自有的UN标",
+        "需要标签纸覆盖住"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "标签位置",
+      "description": "需要清除/覆盖标签的具体位置或数量",
+      "frequency": "约35%的历史单提到了",
+      "examples": [
+        "外箱上的7处UPC码需要用标签覆盖",
+        "4处产品描述X1覆盖改成V3",
+        "保留WI50035957的包裹条码标签",
+        "不要把透明计划二维码覆盖了"
+      ],
+      "required": false
+    },
+    {
+      "field": "新标签要求",
+      "description": "覆盖时使用的新标签类型或内容",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "用【外箱中性标签_40002002.0023_UPC】覆盖",
+        "标签文件【30x22mm标签-V3】",
+        "FNSKU标签需要自动生成进行更换",
+        "再补贴仓库自有的UN标"
+      ],
+      "required": false
+    },
+    {
+      "field": "操作时机",
+      "description": "是否需要在上架前操作、是否加急等",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "需要加急上架",
+        "上架之前清除/覆盖商品条码",
+        "已覆盖完成上架，补收费用",
+        "入库单已上架完成"
+      ],
+      "required": false
+    },
+    {
+      "field": "特殊操作要求",
+      "description": "需要拍照确认、注意事项等",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "先操作1pcs反馈照片，再确认后续操作",
+        "换标后请拍摄1张换标后的小商品照片给我们看下",
+        "注意标签尺寸，仓库如果没有完全匹配的标签文件，可以适当进行剪裁",
+        "需要在完全覆盖的前提下保证标签不能过大且贴标不歪斜扭曲"
+      ],
+      "required": false
+    },
+    {
+      "field": "SKU信息",
+      "description": "涉及的具体SKU编号",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "M010000000007927212，10件",
+        "M010000000010395389=72箱",
+        "T2080111-F,T2353111-F,T2080111-F0三个sku一共214箱"
+      ],
+      "required": false
+    }
+  ]
 }

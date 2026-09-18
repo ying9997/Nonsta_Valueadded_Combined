@@ -29,7 +29,13 @@
       "原单终止",
       "距离较远",
       "贴面单",
-      "暂存等快递"
+      "暂存等快递",
+      "转到DG仓",
+      "转回DG仓",
+      "DG仓",
+      "DG品",
+      "转到",
+      "转回"
     ]
   },
   "negativeSignals": {
@@ -74,5 +80,100 @@
     "不可调拨时:提交入库上架前自提,客户提供快递面单,仓库贴面单后暂存等快递,目的仓按新入库单上架"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §2.4. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 [Warehouse]AbnormalTransferOfParcelsFromMultipleWarehouses."
+  "notes": "batch-generated from SOP §2.4. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 [Warehouse]AbnormalTransferOfParcelsFromMultipleWarehouses. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "异常包裹编号",
+      "description": "需要明确哪些包裹/箱子发错仓库了，可以是EB单号、箱唛编号或入库单号",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "EB0126062430696495",
+        "EB0126070230983595",
+        "箱唛编号：B0400000001428392495",
+        "WI48246636整单",
+        "124箱其中3箱小件"
+      ],
+      "required": true
+    },
+    {
+      "field": "目的仓库",
+      "description": "需要明确包裹应该转到哪个仓库，必须提供仓库代码",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "USWC2仓",
+        "DEBR2仓",
+        "DE Warehouse",
+        "DG仓",
+        "USWC"
+      ],
+      "required": true
+    },
+    {
+      "field": "目标入库单号",
+      "description": "包裹在目的仓库应该上架到哪个入库单",
+      "frequency": "约80%的历史单提到了",
+      "examples": [
+        "WI50892274",
+        "WI49687657",
+        "按照失败做上架"
+      ],
+      "required": true
+    },
+    {
+      "field": "当前所在仓库",
+      "description": "包裹实际发到了哪个错误的仓库",
+      "frequency": "约80%的历史单明确或隐含提到了",
+      "examples": [
+        "货物运抵USWC仓库",
+        "整单发到了DE仓",
+        "USKY3串去USWC"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "是否需要更换标签",
+      "description": "是否需要更换包裹标签、单品条码等，特别是单品化管理的SKU",
+      "frequency": "约60%的历史单提到了",
+      "examples": [
+        "贴包裹便签",
+        "补贴winit包裹标签",
+        "需要更换包裹条码以及单品条码",
+        "更换目的仓库入库单包裹标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "特殊货物属性",
+      "description": "货物是否有特殊属性，如DG品、小件、退货等",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "3箱小件货品",
+        "货物实际是DG品",
+        "原出库单派送失败退回"
+      ],
+      "required": false
+    },
+    {
+      "field": "处理范围说明",
+      "description": "明确是整单处理还是部分箱子处理",
+      "frequency": "约40%的历史单明确说明了",
+      "examples": [
+        "整单发到了DE仓",
+        "124箱，其中包含3箱小件",
+        "这3箱小件不上架直接贴包裹便签调拨"
+      ],
+      "required": false
+    },
+    {
+      "field": "商品清单",
+      "description": "涉及的具体SKU和数量信息",
+      "frequency": "约20%的历史单提供了",
+      "examples": [
+        "HRL-004：12件 20pcs：200件"
+      ],
+      "required": false
+    }
+  ]
 }
