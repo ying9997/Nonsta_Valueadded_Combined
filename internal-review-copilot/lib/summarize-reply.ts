@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { formatCustomerLabel } from "./customer-display.ts";
 import { callChat, fillTemplate, resolveLlmConfig } from "./llm-client.ts";
 import { isAiTaggedText, type FeishuMessage } from "./feishu-bot.ts";
 import type { PipelineResult } from "./run-pipeline.ts";
@@ -27,7 +28,7 @@ function fallbackRemark(args: SummarizeReplyArgs): string {
   return [
     "=== 增值单审核辅助 ===",
     `单号：${first.orderNo}`,
-    `客户：${ctx?.customerName || "未填写"}`,
+    `客户：${formatCustomerLabel(ctx?.customerCode, ctx?.customerName)}`,
     `仓库：${ctx?.warehouseName || ctx?.warehouseCode || "未填写"}`,
     "",
     "【客户原始需求】",
@@ -86,7 +87,7 @@ export async function summarizeReply(args: SummarizeReplyArgs): Promise<string> 
   const template = readFileSync(promptPath, "utf8");
   const system = fillTemplate(template, {
     vascNo: first.orderNo,
-    customer: ctx?.customerName || "未填写",
+    customer: formatCustomerLabel(ctx?.customerCode, ctx?.customerName),
     warehouse: ctx?.warehouseName || ctx?.warehouseCode || "未填写",
   });
   try {

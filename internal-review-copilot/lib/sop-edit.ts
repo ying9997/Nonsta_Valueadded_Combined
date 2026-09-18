@@ -54,6 +54,12 @@ export function isEchoOfSop(text: string, sop: string): boolean {
   return Boolean(ops && a === ops.replace(/\s+/g, ""));
 }
 
+export function looksLikeSceneWrong(text: string): boolean {
+  const t = asText(text);
+  if (!t) return false;
+  return /场景错|场景不对|选错场景|场景选错|不是这个场景|换个场景|应该是.{0,20}场景/.test(t);
+}
+
 export function sopEditCountOf(rec: CaseRecord | undefined): number {
   const n = rec?.sopEditCount;
   return typeof n === "number" && n > 0 ? n : 0;

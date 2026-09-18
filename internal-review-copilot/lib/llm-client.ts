@@ -60,12 +60,33 @@ export type ToolExecutor = (
 ) => Promise<string> | string;
 
 export class LlmError extends Error {
+  /** HTTP status from LiteLLM/OpenAI-compatible API, e.g. 400 / 401 / 502. Undefined = 还没拿到 HTTP 码（超时、断网）. */
   readonly status?: number;
   constructor(message: string, status?: number) {
     super(message);
     this.name = "LlmError";
     this.status = status;
   }
+}
+
+/**
+ * 要不要对这次 LLM 失败再打一次。
+ *
+ * HTTP 状态码是网关/模型服务回的「这次请求为什么没成」：
+ * - 4xx（400–499）= 我们这边请求有问题，再发同一包几乎还是错。
+ *   场景：401 Key 无效、403 没权限、404 模型名写错、429 额度/限流（重试也容易继续被限）。
+ * - 5xx（500–599）= 对方服务暂时坏了，隔 2 秒再试一次有机会好。
+ *   场景：LiteLLM 502/503 过载、上游模型短暂挂了。
+ * - 没有 status：请求没打到对方（超时、DNS、连接被拒）。也只再试 1 次。
+ *
+ * 契约：最多 1 次重试。4xx 不重试，避免把错误请求打爆网关、也避免 Key 错了还空转 2 秒。
+ */
+function shouldRetryLlm(err: LlmError, alreadyRetried: boolean): boolean {
+  if (alreadyRetried) return false;
+  if (err.status != null && err.status >= 400 && err.status < 500) return false;
+  if (err.status != null && err.status >= 500) return true;
+  if (/^LLM 返回空内容/.test(err.message)) return false;
+  return err.status == null;
 }
 
 export function resolveLlmConfig(): LlmConfig {
@@ -98,11 +119,51 @@ export function fillTemplate(template: string, vars: Record<string, string>): st
   return out;
 }
 
+export function stripJsonTrailingCommas(text: string): string {
+  return text.replace(/,\s*([}\]])/g, "$1");
+}
+
+/**
+ * Last-resort cleanup when JSON.parse of the original text already failed.
+ * Do not run this *before* the first parse: converting “ ” to " inside string
+ * values (e.g. scene name 【入库】“包裹条码批量异常…”) turns valid JSON into a syntax error.
+ */
 export function sanitizeJsonish(text: string): string {
-  return text
-    .replace(/[\u201c\u201d]/g, '"')
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/,\s*([}\]])/g, "$1");
+  return stripJsonTrailingCommas(
+    text.replace(/[\u201c\u201d]/g, '"').replace(/[\u2018\u2019]/g, "'"),
+  );
+}
+
+/**
+ * LLM often copies 场景名 【入库】“…” into JSON as unescaped ASCII quotes:
+ *   "scenarioName": "【入库】"包裹条码批量异常（需客户处理）"辨识后…"
+ * That is invalid JSON (V8: line 6 column 25). Turn those inner quotes into
+ * curly quotes so the outer JSON string stays intact.
+ */
+export function neutralizeQuotedSceneNames(text: string): string {
+  return text.replace(/【([^】\n]{1,12})】"([^"\n]{1,80})"/g, "【$1】“$2”");
+}
+
+/** Parse LLM JSON: original text first, then trailing-comma / curly-delimiter fallbacks. */
+export function parseJsonishObject(text: string): unknown {
+  const extracted = (extractFirstJsonObject(text) || text).trim();
+  const attempts = [
+    extracted,
+    stripJsonTrailingCommas(extracted),
+    neutralizeQuotedSceneNames(extracted),
+    stripJsonTrailingCommas(neutralizeQuotedSceneNames(extracted)),
+    sanitizeJsonish(extracted),
+    sanitizeJsonish(neutralizeQuotedSceneNames(extracted)),
+  ];
+  let lastErr: unknown;
+  for (const candidate of attempts) {
+    try {
+      return JSON.parse(candidate);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
 export function extractFirstJsonObject(text: string): string | null {
@@ -148,6 +209,7 @@ export async function callChat(
     maxTokens?: number;
     temperature?: number;
     onDelta?: (chunk: string) => void;
+    _isRetry?: boolean;
   } = {},
 ): Promise<string> {
   const url = `${config.baseURL}/chat/completions`;
@@ -186,11 +248,19 @@ export async function callChat(
     if (!content) throw new LlmError("LLM 返回空内容。");
     return content;
   } catch (err) {
-    if (err instanceof LlmError) throw err;
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new LlmError(`LLM 调用超时（${config.timeoutMs}ms）。`);
+    const llmErr =
+      err instanceof LlmError
+        ? err
+        : err instanceof Error && err.name === "AbortError"
+          ? new LlmError(`LLM 调用超时（${config.timeoutMs}ms）。`)
+          : new LlmError(err instanceof Error ? err.message : String(err));
+    const retryable = shouldRetryLlm(llmErr, Boolean(options._isRetry));
+    if (retryable) {
+      console.warn(`LLM ${llmErr.status ?? "error"}, retrying in 2s...`);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      return callChat(config, messages, { ...options, _isRetry: true });
     }
-    throw new LlmError(err instanceof Error ? err.message : String(err));
+    throw llmErr;
   } finally {
     clearTimeout(timer);
   }
@@ -362,7 +432,7 @@ export async function callChatWithTools(
               {
                 role: "user",
                 content:
-                  "请基于以上工具结果，直接输出最终分类 JSON（不要再调用工具，不要 markdown）：{\"matchedScene\":\"...\",\"matchedSceneName\":\"...\",\"confidence\":\"high|medium|low\",\"reasoning\":\"...\",\"conclusionOneLiner\":\"不超过30字的结论\",\"extractedActions\":[],\"alternativeScenes\":[],\"ambiguous\":false}",
+                  "请基于以上工具结果，直接输出最终分类 JSON（不要再调用工具，不要 markdown）：{\"matchedScene\":\"...\",\"topicSummary\":\"用一句话概括客户核心需求（不超过60字）\",\"matchedSceneName\":\"...\",\"confidence\":\"high|medium|low\",\"reasoning\":\"...\",\"conclusionOneLiner\":\"不超过30字的结论\",\"extractedActions\":[],\"alternativeScenes\":[],\"ambiguous\":false}",
               },
             ],
             temperature: options.temperature ?? 0.1,

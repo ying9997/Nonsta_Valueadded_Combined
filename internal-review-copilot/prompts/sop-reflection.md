@@ -5,7 +5,9 @@
 3. **禁止表述**：是否包含"AI 已审核通过""自动通过""审核通过"等表述？
 4. **操作完整性**：SOP 是否包含完整的操作链路（找货 → 辨识 → 换标 → 上架 → 关异常单）？缺少的步骤请指出。
 5. **可执行性**：仓库操作人员能否仅凭这份 SOP 执行操作？模糊的地方请指出。
+6. **编造系统界面**：是否编造了系统按钮或界面元素（如「点击【完结异常】按钮」「在XX页面操作」）？异常单关闭应写成「将异常单状态变更为已完成」，不写按钮名。
+7. **非仓库职责**：是否包含仓库不该做的步骤（如「与客户确认」「联系销售」「通知客服」「等待审核通过」）？只允许仓库实物操作。
 
 如果所有检查都通过，回复：`PASS`
 如果有问题，回复 JSON：
-{"issues": [{"type": "fabrication|omission|forbidden|incomplete|ambiguous", "detail": "具体问题"}], "suggestedFix": "修改建议"}
+{"issues": [{"type": "fabrication|omission|forbidden|incomplete|ambiguous|invented_ui|non_warehouse", "detail": "具体问题"}], "suggestedFix": "修改建议"}

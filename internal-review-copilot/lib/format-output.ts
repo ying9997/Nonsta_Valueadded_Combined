@@ -57,13 +57,19 @@ function messageDraft(
   missing: string[],
   llmText?: string,
   sop?: GeneratedSop,
+  llmError?: string | null,
+  sceneName?: string,
 ): string {
+  if (path === "sop_generated" && llmError) {
+    return `增值单 ${orderNo} SOP 生成失败：${llmError}。请转人工处理，不要当作场景不确定。`;
+  }
   if (llmText) return llmText;
   if (path === "needs_requirement_clarification") {
     return `增值单 ${orderNo} 需求描述不完整，请补充：${missing.join("、") || "客户需求要素"}。AI 不代填事实。`;
   }
   if (path === "needs_field_clarification") {
-    return `增值单 ${orderNo} 已识别为 F-001，但仍缺附件/字段：${missing.join("、")}。请补齐后再审。`;
+    const scene = sceneName || "已识别场景";
+    return `增值单 ${orderNo} 已识别为「${scene}」，但仍缺信息/附件：${missing.join("、")}。请补齐后再审。`;
   }
   if (path === "transfer_human") {
     return `增值单 ${orderNo} 需求描述已完整，但当前模板库只自动支持 F-001，请转人工审核，并记为后续模板候选。`;
@@ -85,13 +91,24 @@ export function formatOutput(args: {
   mockSop?: GeneratedSop;
   llm?: LlmGeneration;
 }): FormattedOutput {
-  const missingRequirementItems = args.requirement?.missingRequirementItems || [];
+  const missingRequirementItems = [
+    ...(args.requirement?.missingRequirementItems || []),
+    ...(args.completeness?.missingInfo || []),
+  ];
   const missingAttachments = args.completeness?.missingAttachments || [];
   const missingFields = (args.completeness?.missingFields || []).map((item) => item.field);
   const missing = [...new Set([...missingRequirementItems, ...missingAttachments, ...missingFields])];
   const path = args.outputPath;
   const llmText = args.llm?.text || "";
-  const draft = messageDraft(path, args.contextFacts.orderNo, missing, llmText, args.mockSop);
+  const draft = messageDraft(
+    path,
+    args.contextFacts.orderNo,
+    missing,
+    llmText,
+    args.mockSop,
+    args.llm?.error,
+    args.matchResult?.scenarioName,
+  );
 
   return {
     structured: {
@@ -135,7 +152,8 @@ export function buildStructuredReview(args: {
   llmError: string | null;
   riskFlags?: string[];
 }): StructuredReview {
-  const missingRequirements = args.requirement?.missingRequirementItems || [];
+  const missingInfo = args.completeness?.missingInfo || [];
+  const missingRequirements = [...(args.requirement?.missingRequirementItems || []), ...missingInfo];
   const missingMaterials = [
     ...(args.completeness?.missingAttachments || []),
     ...(args.completeness?.missingFields || []).map((item) => item.field),
@@ -148,14 +166,14 @@ export function buildStructuredReview(args: {
 
   return {
     vascNo: args.vascNo,
-    requirementComplete: args.requirement?.complete ?? false,
+    requirementComplete: (args.requirement?.complete ?? false) && missingInfo.length === 0,
     missingRequirements,
     sceneMatch: {
       decision: args.matchResult?.decision || "",
       topScene: args.matchResult?.sceneKey || args.matchResult?.topK?.[0]?.sceneKey || "",
       confidence: args.matchResult?.confidenceScore ?? args.matchResult?.score ?? "",
     },
-    materialsComplete: args.completeness?.complete ?? false,
+    materialsComplete: args.completeness ? uniqueMaterials.length === 0 : false,
     missingMaterials: uniqueMaterials,
     outputPath: args.outputPath,
     llmGeneratedText: args.llmGeneratedText,

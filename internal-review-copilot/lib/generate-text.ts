@@ -1,17 +1,20 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { visibleCustomerName } from "./customer-display.ts";
 import { asText } from "./oms-adapter.ts";
 import {
   callChat,
   extractFirstJsonObject,
   fillTemplate,
+  parseJsonishObject,
   resolveLlmConfig,
-  sanitizeJsonish,
   type LlmConfig,
 } from "./llm-client.ts";
+import { pickPutawayWiNos } from "./wi-numbers.ts";
 import { projectDir } from "./env.ts";
 import { sameNormalizedText } from "./sop-sections.ts";
+import { formatT1SkuPrompt } from "./t1-sku-relabel-check.ts";
 import type {
   AgentInput,
   CompletenessResult,
@@ -21,12 +24,19 @@ import type {
   MatchResult,
   OutputPath,
   RequirementCheck,
+  SkuCheckResult,
+  T1SkuRelabelResult,
 } from "./types.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const promptsDir = resolve(here, "../prompts");
 
 const FORBIDDEN_PHRASES = ["AI 已审核通过", "AI已审核通过", "自动审核通过"];
+
+function unmatchedScene(match?: MatchResult): boolean {
+  const key = String(match?.sceneKey || match?.scenarioId || "").trim();
+  return !key || key === "unsupported" || match?.decision === "unsupported";
+}
 
 export interface GenerateTextArgs {
   outputPath: OutputPath;
@@ -37,6 +47,9 @@ export interface GenerateTextArgs {
   completeness?: CompletenessResult;
   missing: string[];
   clarificationPrompts: string[];
+  missingAttachments?: string[];
+  skuCheckResult?: SkuCheckResult;
+  t1SkuRelabelResult?: T1SkuRelabelResult;
   /** 审核员对上一版 SOP 的修改意见。 */
   sopEditInstruction?: string;
   previousSop?: string;
@@ -53,6 +66,11 @@ function uploadedSummary(input: AgentInput, context: ContextFacts): string[] {
   return Object.entries(context.attachmentStatus)
     .filter(([, status]) => status === "uploaded")
     .map(([name]) => name);
+}
+
+function stringIdList(value: unknown, prefix: RegExp): string[] {
+  const raw = Array.isArray(value) ? value : [];
+  return [...new Set(raw.map((item) => String(item || "").trim().toUpperCase()).filter((item) => prefix.test(item)))];
 }
 
 function fieldSummary(input: AgentInput): Array<{ name: string; value: string }> {
@@ -73,7 +91,7 @@ function factBlob(args: GenerateTextArgs): string {
   return JSON.stringify(
     {
       增值单号: ctx.orderNo,
-      客户: [ctx.customerName, ctx.customerCode].filter(Boolean).join(" / ") || "未填写",
+      客户: [visibleCustomerName(ctx.customerName), ctx.customerCode].filter(Boolean).join(" / ") || "未填写",
       仓库: [ctx.warehouseName, ctx.warehouseCode].filter(Boolean).join(" / ") || "未填写",
       提交人: input.responsiblePeople.submittedBy || "未填写",
       需求背景说明: input.omsFacts.requirementBackground || "未填写",
@@ -88,6 +106,27 @@ function factBlob(args: GenerateTextArgs): string {
       outputPath: args.outputPath,
       规则缺失项: args.missing,
       澄清提示: args.clarificationPrompts,
+      skuCheck: args.skuCheckResult?.triggered
+        ? {
+            oldWi: args.skuCheckResult.oldWi,
+            newWi: args.skuCheckResult.newWi,
+            match: args.skuCheckResult.match,
+            oldSkuCount: args.skuCheckResult.oldSkus.length,
+            newSkuCount: args.skuCheckResult.newSkus.length,
+            mismatchDetails: args.skuCheckResult.mismatchDetails || "",
+            source: args.skuCheckResult.source || "",
+          }
+        : null,
+      t1SkuRelabel: args.t1SkuRelabelResult?.triggered
+        ? {
+            verdict: args.t1SkuRelabelResult.verdict,
+            claim: args.t1SkuRelabelResult.claim,
+            targetWis: args.t1SkuRelabelResult.targetWis,
+            stems: args.t1SkuRelabelResult.stems,
+            merchandiseCodes: args.t1SkuRelabelResult.merchandiseCodes,
+            bouncePrompt: args.t1SkuRelabelResult.bouncePrompt || "",
+          }
+        : null,
       matchResult: args.matchResult
         ? {
             decision: args.matchResult.decision,
@@ -121,7 +160,7 @@ function allowedTokens(args: GenerateTextArgs): string[] {
     ctx.warehouseCode,
     ctx.warehouseName,
     ctx.customerCode,
-    ctx.customerName,
+    visibleCustomerName(ctx.customerName),
     ...ctx.allEventNos,
     ...ctx.allBusinessOrderNos,
     input.omsFacts.requirementBackground,
@@ -130,6 +169,10 @@ function allowedTokens(args: GenerateTextArgs): string[] {
     ...input.omsFacts.uploadedFiles.flatMap((file) => [file.fileName, file.label]),
     args.previousSop || "",
     args.sopEditInstruction || "",
+    args.skuCheckResult?.oldWi || "",
+    args.skuCheckResult?.newWi || "",
+    ...(args.skuCheckResult?.oldSkus || []),
+    ...(args.skuCheckResult?.newSkus || []),
     "操作说明附件",
     "商品和标签的对应关系",
     "标签文件",
@@ -144,6 +187,43 @@ function looksInvented(text: string, args: GenerateTextArgs): string[] {
   const allowed = new Set(allowedTokens(args).map((item) => item.toUpperCase()));
   const hits = text.match(/\b(?:VASC|WI|EB)[A-Z0-9]+\b/g) || [];
   return [...new Set(hits.filter((token) => !allowed.has(token.toUpperCase())))];
+}
+
+export function replaceInventedOrderNos(text: string, invented: string[]): string {
+  let out = asText(text);
+  const uniq = [...new Set(invented.filter(Boolean))].sort((a, b) => b.length - a.length);
+  for (const inv of uniq) {
+    out = out.split(inv).join("[待补充]");
+  }
+  return out;
+}
+
+function validOrderNos(args: GenerateTextArgs): string[] {
+  const ctx = args.contextFacts;
+  const input = args.agentInput;
+  const blobs = [
+    ctx.orderNo,
+    ctx.eventNo,
+    ctx.businessOrderNo,
+    ...ctx.allEventNos,
+    ...ctx.allBusinessOrderNos,
+    ...Object.values(input.providedFields),
+    input.omsFacts.requirementBackground,
+    input.omsFacts.customerRequirementDescription,
+  ];
+  const hits = blobs.flatMap((value) => asText(value).match(/\b(?:VASC|WI|EB)[A-Z0-9]+\b/gi) || []);
+  return [...new Set(hits)];
+}
+
+function sopFieldsBlob(parsed: {
+  sopText?: string;
+  warehouseSop?: string;
+  requirementDescription?: string;
+  requirementBackground?: string;
+}): string {
+  return [parsed.sopText, parsed.warehouseSop, parsed.requirementDescription, parsed.requirementBackground]
+    .map((item) => asText(item))
+    .join("\n");
 }
 
 function sectionOf(sopText: string, title: string): string {
@@ -228,8 +308,10 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
   };
   let filled = fillTemplate(template, {
     customerIntent: input.customerIntent,
-    scenarioId: match?.scenarioId || "inbound_label_identify",
-    scenarioName: match?.scenarioName || "【入库】尺重/标签辨识后换标上架",
+    scenarioId: unmatchedScene(match) ? "unmatched_oms_scene" : match?.scenarioId || "inbound_label_identify",
+    scenarioName: unmatchedScene(match)
+      ? "未匹配 OMS 场景概述（不选下拉）"
+      : match?.scenarioName || "【入库】尺重/标签辨识后换标上架",
     providedFields: JSON.stringify(provided, null, 2),
     vascNo: ctx.orderNo,
     warehouse: [ctx.warehouseName, ctx.warehouseCode].filter(Boolean).join(" / "),
@@ -238,6 +320,40 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
     uploadedFiles: uploadedSummary(input, ctx).join("、") || "无",
     kbSopTemplates: kb,
   });
+  const missingAttachments = [
+    ...(args.missingAttachments || []),
+    ...(args.completeness?.missingAttachments || []),
+  ].filter((item, idx, arr) => item && arr.indexOf(item) === idx);
+  if (missingAttachments.length) {
+    filled += [
+      "",
+      "## 附件尚未上传",
+      `以下附件客户尚未上传：${missingAttachments.join("、")}。`,
+      "如果 SOP 中需要引用这些附件的内容（如对应关系表、标签文件），请用 [待补充：附件名] 占位，不要编造附件内容。",
+      "",
+    ].join("\n");
+  }
+  if (args.skuCheckResult?.triggered && args.skuCheckResult.match !== "consistent") {
+    filled += [
+      "",
+      "## SKU 校验（仅审核员提示，禁止写入仓库 SOP）",
+      "原单与新单 SKU 比对结果会单独展示给审核员。不要写进【操作步骤】，不要让仓库去核对 SKU 清单。",
+      "",
+    ].join("\n");
+  }
+  const t1Block = formatT1SkuPrompt(args.t1SkuRelabelResult);
+  if (t1Block) {
+    filled += `\n${t1Block}\n`;
+  }
+  if (unmatchedScene(match)) {
+    filled += [
+      "",
+      "## 场景未匹配 OMS 下拉",
+      "当前没有可用的 OMS 场景概述。不要套用「尺重/标签辨识后换标上架」模板。",
+      "只按客户需求原文和已绑定单据写仓库操作步骤。OMS 场景概述保持不选。",
+      "",
+    ].join("\n");
+  }
   if (asText(args.sopEditInstruction)) {
     filled += [
       "",
@@ -258,6 +374,9 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
     "## AI 总结字段（必须）",
     "JSON 必须包含 requirementDescription、requirementBackground、warehouseSop、sopText。",
     "requirementDescription 和 requirementBackground 是你对客户需求的理解总结，用于帮助审核员快速了解这条增值单在做什么。请用简洁专业的语言重新组织，不要原封不动复制客户的需求描述。即使原文已经清晰，也要重新组织语言提升可读性。",
+    "scenarioName 如需输出：场景名里已有的引号必须写成中文弯引号 “ ”，禁止写成英文双引号，否则 JSON 会断。",
+    "extractedWiNumbers 只填仓库扫描上架的那一张 WI（OMS「上架入库单号」只能填一个）。原文里的原入库单、被替换的旧单不要填。有原单+新单时只填新单。extractedEbNumbers 填全部异常单号。没有则空数组。",
+    "术语规范：异常单关闭后的状态描述用「仓库已处理」，不要用「已完成」或「状态变更为已完成」。使用「补贴标签」而非「粘贴标签」。使用「辨识」而非「识别」（仓库术语）。",
     "",
   ].join("\n");
   const callSopJson = (prompt: string) =>
@@ -267,9 +386,9 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
       onDelta: args.onDelta,
     });
   const parseSopPayload = (raw: string) => {
-    const jsonText = sanitizeJsonish(extractFirstJsonObject(raw) || raw);
-    if (!jsonText.trim().startsWith("{")) throw new Error("SOP 未解析到 JSON。");
-    return JSON.parse(jsonText) as {
+    const extracted = (extractFirstJsonObject(raw) || raw).trim();
+    if (!extracted.startsWith("{")) throw new Error("SOP 未解析到 JSON。");
+    return parseJsonishObject(raw) as {
       sopText?: string;
       scenarioName?: string;
       fieldsUsed?: string[];
@@ -278,6 +397,8 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
       warehouseSop?: string;
       notActionable?: boolean;
       reason?: string;
+      extractedWiNumbers?: unknown;
+      extractedEbNumbers?: unknown;
     };
   };
 
@@ -287,32 +408,103 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
     parsed = parseSopPayload(raw);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    raw = await callSopJson(
-      `${filled}\n\n## 格式约束\n上次输出不是合法 JSON（${msg}）。请重新输出完整 JSON 对象，字符串内的引号必须转义，不要输出 markdown。`,
+    raw = await callChat(
+      config,
+      [
+        {
+          role: "user",
+          content: `${filled}\n\n## 格式约束\n上次输出不是合法 JSON（${msg}）。请重新输出完整 JSON 对象，字符串内的引号必须转义，不要输出 markdown。`,
+        },
+      ],
+      {
+        jsonMode: true,
+        maxTokens: 2500,
+        onDelta: args.onDelta,
+      },
     );
     parsed = parseSopPayload(raw);
   }
   if (parsed.notActionable) {
     throw new Error(`SOP 被模型判为不可生成：${parsed.reason || "notActionable"}`);
   }
-  const sopText = asText(parsed.sopText);
+  let sopText = asText(parsed.sopText);
   if (!sopText) throw new Error("SOP sopText 为空。");
   assertNoForbidden(sopText);
-  const invented = looksInvented(sopText, args);
-  if (invented.length) throw new Error(`SOP 编造了输入中没有的单号：${invented.join("、")}`);
+  let invented = looksInvented(sopFieldsBlob(parsed), args);
+  if (invented.length) {
+    const validNos = validOrderNos(args);
+    const retryPrompt = [
+      filled,
+      "",
+      "## 单号约束",
+      `你上次 SOP 里引用了不存在的单号 ${invented.join("、")}。请重新生成，只使用以下输入中的单号：${validNos.join("、") || "（输入中无单号）"}。绝对不要引用其他单号。`,
+    ].join("\n");
+    console.warn(`SOP invented retry ${ctx.orderNo}: ${invented.join("、")}`);
+    raw = await callSopJson(retryPrompt);
+    try {
+      parsed = parseSopPayload(raw);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      raw = await callChat(
+        config,
+        [
+          {
+            role: "user",
+            content: `${retryPrompt}\n\n## 格式约束\n上次输出不是合法 JSON（${msg}）。请重新输出完整 JSON 对象，字符串内的引号必须转义，不要输出 markdown。`,
+          },
+        ],
+        { jsonMode: true, maxTokens: 2500, onDelta: args.onDelta },
+      );
+      parsed = parseSopPayload(raw);
+    }
+    if (parsed.notActionable) {
+      throw new Error(`SOP 被模型判为不可生成：${parsed.reason || "notActionable"}`);
+    }
+    sopText = asText(parsed.sopText);
+    if (!sopText) throw new Error("SOP sopText 为空。");
+    assertNoForbidden(sopText);
+    invented = looksInvented(sopFieldsBlob(parsed), args);
+  }
 
   const originalDesc = asText(input.omsFacts.customerRequirementDescription);
-  const desc = asText(parsed.requirementDescription) || sectionOf(sopText, "需求描述");
+  let desc = asText(parsed.requirementDescription) || sectionOf(sopText, "需求描述");
+  let background =
+    asText(parsed.requirementBackground) || sectionOf(sopText, "需求背景") || input.omsFacts.requirementBackground;
+  let warehouseSop =
+    asText(parsed.warehouseSop) || sectionOf(sopText, "操作要求") || sectionOf(sopText, "操作步骤") || sopText;
+  let degraded = false;
+  let degradeReason = "";
+  if (invented.length) {
+    console.warn(`SOP invented degrade ${ctx.orderNo}: ${invented.join("、")} → [待补充]`);
+    sopText = replaceInventedOrderNos(sopText, invented);
+    desc = replaceInventedOrderNos(desc, invented);
+    background = replaceInventedOrderNos(background, invented);
+    warehouseSop = replaceInventedOrderNos(warehouseSop, invented);
+    degraded = true;
+    degradeReason = `AI 编造了 ${invented.join("、")}，已替换为 [待补充]`;
+  }
   return {
-    requirementBackground:
-      asText(parsed.requirementBackground) || sectionOf(sopText, "需求背景") || input.omsFacts.requirementBackground,
+    requirementBackground: background,
     requirementDescription: sameNormalizedText(desc, originalDesc) ? "" : desc,
-    warehouseSop: asText(parsed.warehouseSop) || sectionOf(sopText, "操作要求") || sectionOf(sopText, "操作步骤") || sopText,
+    warehouseSop,
     sopText,
     scenarioName: asText(parsed.scenarioName) || match?.scenarioName || "",
     fieldsUsed: Array.isArray(parsed.fieldsUsed) ? parsed.fieldsUsed.map((item) => String(item)) : uploadedSummary(input, ctx),
     mocked: false,
     model: config.model,
+    degraded: degraded || undefined,
+    degradeReason: degradeReason || undefined,
+    extractedWiNumbers: pickPutawayWiNos(
+      [
+        input.omsFacts.customerRequirementDescription,
+        input.omsFacts.requirementBackground,
+        desc,
+        warehouseSop,
+        sopText,
+      ].join("\n"),
+      parsed.extractedWiNumbers,
+    ),
+    extractedEbNumbers: stringIdList(parsed.extractedEbNumbers, /^EB\d{6,}$/),
   };
 }
 

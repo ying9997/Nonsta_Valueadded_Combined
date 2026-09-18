@@ -101,6 +101,16 @@ export function composeRequirementDescription(input: {
   return "";
 }
 
+export function isGenericComposedRequirement(text: string): boolean {
+  const t = asText(text).replace(/\s+/g, " ");
+  if (!t) return false;
+  return (
+    /^异常单 .+ 需关联入库单 .+ 处理/.test(t) ||
+    /^需处理异常单 /.test(t) ||
+    /^需按入库单 .+ 处理/.test(t)
+  );
+}
+
 /**
  * L1 已识别出的两段总结。后面 L2/L3/L4 卡片都复用这一套：
  * 优先 LLM 结构化字段，缺了再用异常单 / 入库单 / BEOR 拼，不把客户原文原样贴上去。
