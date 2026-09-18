@@ -1,0 +1,54 @@
+{
+  "orderNo": "VASC000000366735",
+  "demoLabel": "",
+  "source": "",
+  "expectedOutputPath": "",
+  "outputPath": "needs_field_clarification",
+  "ruleOutputPath": "needs_field_clarification",
+  "failureGate": "check-completeness",
+  "missing": [
+    "商品标签数量未说明",
+    "标签文件"
+  ],
+  "clarificationPrompts": [
+    "本场景（【入库】包裹类异常换商品标签上架）需要知道商品标签数量，请补充。",
+    "请上传「标签文件」。"
+  ],
+  "sceneKey": "inbound_package_exception_relabel_shelving",
+  "scenarioName": "【入库】包裹类异常换商品标签上架",
+  "decision": "supported",
+  "confidence": "high",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "根据规则A：异常单详情显示异常名称为「包裹条码异常(需客户处理)」，这是单个包裹的异常，不是「包裹条码批量异常」。虽然客户需求描述中提到「补贴包裹操作上架」，但异常名称本身是「包裹条码异常」而非「包裹条码批量异常」，根据规则A，应优先按异常名称判断。然而，客户明确说「按新单补贴包裹操作上架」，这里存在矛盾。重新分析：异常名称是「包裹条码异常(需客户处理)」，属于包裹类异常；客户要求「补贴包裹标签上架」。根据场景定义，inbound_package_exception_relabel_shelving的核心特征是「包裹条码正常、商品条码异常、换商品标签」，但这里异常名称是「包裹条码异常」不是「商品条码异常」。再看inbound_package_barcode_batch_relabel，其核心特征是「包裹条码批量异常、补贴包裹标签」，但异常名称不含「批量」二字。这是一个边界情况：异常名称是单个「包裹条码异常」，客户要求补贴包裹标签。根据规则B，单个包裹条码异常+客户要求补贴包裹标签，应该选inbound_package_exception_relabel_shelving（因为是包裹类异常），但该场景定义是换商品标签不是换包裹标签。实际上，客户说的是「补贴包裹标签」，这更符合处理包裹条码问题的逻辑。由于异常名称不是「批量异常」，且只有1个包裹，应选inbound_package_exception_relabel_shelving作为包裹类异常的通用场景。",
+  "llmText": "您好，该增值单已识别为「【入库】包裹类异常换商品标签上架」，但还缺少以下信息/附件：\n\n**增值单号：** VASC000000366735  \n**提交人：** lijiazheng221437@gmail.com  \n**已绑定异常单：** EB0126073131822638  \n**已绑定入库单：** WI51862686  \n**需求摘要：** 包裹条码异常，异常登记数量75个与实际1个包裹不符，需按新单WI51862686补贴包裹操作上架\n\n**已上传附件：**  \n- 包裹和标签的对应关系（异常单号EB0126073131822638对应的包裹条码.xlsx）\n\n**还缺少的信息：**  \n- **商品标签数量**：换标上架场景需要明确打印多少张商品标签，请补充具体数量\n\n**还缺少的附件：**  \n- **标签文件**：请上传需要打印的标签文件（OMS字段名：标签文件）\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "warehouse": "DENW3 Warehouse",
+  "structuredReview": {
+    "vascNo": "VASC000000366735",
+    "requirementComplete": false,
+    "missingRequirements": [
+      "商品标签数量未说明"
+    ],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_package_exception_relabel_shelving",
+      "confidence": 0.9
+    },
+    "materialsComplete": false,
+    "missingMaterials": [
+      "标签文件"
+    ],
+    "outputPath": "needs_field_clarification",
+    "llmGeneratedText": "您好，该增值单已识别为「【入库】包裹类异常换商品标签上架」，但还缺少以下信息/附件：\n\n**增值单号：** VASC000000366735  \n**提交人：** lijiazheng221437@gmail.com  \n**已绑定异常单：** EB0126073131822638  \n**已绑定入库单：** WI51862686  \n**需求摘要：** 包裹条码异常，异常登记数量75个与实际1个包裹不符，需按新单WI51862686补贴包裹操作上架\n\n**已上传附件：**  \n- 包裹和标签的对应关系（异常单号EB0126073131822638对应的包裹条码.xlsx）\n\n**还缺少的信息：**  \n- **商品标签数量**：换标上架场景需要明确打印多少张商品标签，请补充具体数量\n\n**还缺少的附件：**  \n- **标签文件**：请上传需要打印的标签文件（OMS字段名：标签文件）\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [
+      "单据归属未验证"
+    ],
+    "llmError": null
+  }
+}

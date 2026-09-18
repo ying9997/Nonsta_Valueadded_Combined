@@ -1,0 +1,143 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.246Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "instock_aplus_parcel_relabel_shelve",
+  "sceneName": "【库内】A+包裹更换标签上架",
+  "omsSceneCode": "20250407060",
+  "fileName": "instock_aplus_parcel_relabel_shelve.json",
+  "category": "instock",
+  "approvedOrderCount": 7,
+  "sampleCount": 6,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：A+包裹（需提供B040开头的包裹条码）",
+    "动作：更换包裹标签、补贴商品标签（如需要）",
+    "去向：上架至新入库单（需提供WI开头的入库单号）"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "新入库单号",
+      "description": "需要上架到的目标入库单号（WI开头）",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "WI50817546",
+        "WI52192112",
+        "WI49560098",
+        "WI52051957",
+        "WI52053632"
+      ],
+      "required": true
+    },
+    {
+      "field": "原单据号",
+      "description": "原退货单号、原入库单号或异常单号，用于定位需要处理的包裹",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "RT16000300942691CN",
+        "WI51878253",
+        "EB0126042429047371",
+        "WI51483181",
+        "EB0426081132127765"
+      ],
+      "required": true
+    },
+    {
+      "field": "处理范围",
+      "description": "需要处理的包裹数量或SKU信息",
+      "frequency": "约83%的历史单提到了",
+      "examples": [
+        "4个sku",
+        "8个包裹都是同个sku",
+        "里面有产品CLY206数量1,CLY141数量3",
+        "剩余48pcs"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "是否需要补贴商品标签",
+      "description": "明确是否需要在更换A+包裹标签后补贴商品条码标签",
+      "frequency": "约67%的历史单明确提到了",
+      "examples": [
+        "单品条码重新补贴上架",
+        "补贴A+包裹条码标签",
+        "需重新补贴A+包裹条码"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签对应关系",
+      "description": "当有多个SKU时，如何对应粘贴标签",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "参考实物上的M码对应粘贴即可"
+      ],
+      "required": false
+    },
+    {
+      "field": "拆箱/重新装箱要求",
+      "description": "是否需要拆箱分别上架或重新装箱",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "拆箱上架到新入库单号",
+        "需要重新装箱到5号箱，空出部分需要装填气泡填充物"
+      ],
+      "required": false
+    },
+    {
+      "field": "异常原因说明",
+      "description": "为什么需要更换标签的背景原因",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "下单误下为A包裹，实际是需要整箱出库的",
+        "A+包裹条码错误贴成A包裹条码",
+        "库内丢失了2pcs"
+      ],
+      "required": false
+    },
+    {
+      "field": "关闭异常单要求",
+      "description": "完成后是否需要关闭相关异常单",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "上架完成后关闭异常单EB0126042429047371"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000311427",
+      "requirementDescription": "RT16000300942691CN/RT16000297360605CN/RT16000288765605CN/RT16000272098536CN)退货单商品因为设置了A+包裹且需要采集包裹码,无法直接选择更新上架(自动创建无箱单预报单失败)处理方式,经与产品共识,采用非标增值上架,请上架到入库单WI50817546",
+      "requirementBackground": "RT16000300942691CN/RT16000297360605CN/RT16000288765605CN/RT16000272098536CN)退货单商品因为设置了A+包裹且需要采集包裹码,无法直接选择更新上架(自动创建无箱单预报单失败)处理方式,经与产品共识,采用非标增值上架,请上架到入库单WI50817546"
+    },
+    {
+      "orderNo": "VASC000000347121",
+      "requirementDescription": "WI51878253该入库单单品条码重新补贴上架，实物有4个sku，对应关系参考实物上的M码对应粘贴即可，更换商品标签后换到WI52192112上架",
+      "requirementBackground": "原异常单EB0126081832285541串仓异常，后续提增值换到WI51878253上架，因sku是单品化管理，转新单后原单品条码无法继续使用，因此仓库又登记了商品条码异常EB0126082732542248，因为仓库登记异常只关联1个sku，实际有4个sku，无法提交标准增值补贴标签，需要提非标增值"
+    },
+    {
+      "orderNo": "VASC000000272679",
+      "requirementDescription": "1.仓内上架单：WI49560098，异常单包裹EB0126042429047371补贴A+包裹条码标签上架到WI49560098    2.上架完成后关闭异常单EB0126042429047371",
+      "requirementBackground": "EB0126042429047371此异常单的包裹实际是A+包裹，下单误下为A包裹，实际是需要整箱出库的，不需要更换商品的包装按pcs上架，需补贴新单包裹条码标签上架为A+包裹，标准增值不支持，故提交入库非标特批增值操作"
+    },
+    {
+      "orderNo": "VASC000000341676",
+      "requirementDescription": "入库单号WI51483181拆箱上架到新入库单号WI52051957里面有产品CLY206数量1,CLY141数量3.  入库单号WI51483841拆箱上架到新入库单号WI52053632里面有产品CLY207数量1,CLY208数量3.CLY209数量5，CLY091数量3",
+      "requirementBackground": "入库单WI51483181与入库单WI51483841入库均为A+包裹实际有多件货物，预报外产品均注册通过都以粘贴条码.需要拆箱分别上架"
+    },
+    {
+      "orderNo": "VASC000000335355",
+      "requirementDescription": "剩余48pcs需要重新装箱到5号箱，空出部分需要装填气泡填充物，按照箱产品方式上架回可用库存，使用M010000000008403583-48X，进行上架。",
+      "requirementBackground": "EB0426081132127765，产品：C02020002-USTB，整箱是50pcs，现在库内丢失了2pcs，需要把剩余的48pcs重新装箱，上架回可用库存"
+    },
+    {
+      "orderNo": "VASC000000342081",
+      "requirementDescription": "A+包裹条码SKU：AC-YC186-108",
+      "requirementBackground": "8个包裹都是同个sku，A+包裹条码错误贴成A包裹条码。  需重新补贴A+包裹条码"
+    }
+  ]
+}

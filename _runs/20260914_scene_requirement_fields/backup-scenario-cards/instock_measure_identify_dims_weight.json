@@ -1,0 +1,78 @@
+{
+  "sceneKey": "instock_measure_identify_dims_weight",
+  "sceneName": "【库内】商品尺重测量辨识",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "【Warehouse】Measurement and identification of commodity weight",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.8",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "尺重测量",
+      "测量尺寸重量",
+      "拆除外包装",
+      "保留原箱",
+      "测量原箱",
+      "拍照回传尺寸",
+      "系统登记",
+      "长×宽×高"
+    ],
+    "weak": [
+      "退货单",
+      "拆箱",
+      "补贴RM标签",
+      "清除外包装",
+      "测量",
+      "拍照"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标上架",
+      "补贴商品条码",
+      "包裹条码",
+      "串仓",
+      "质检",
+      "无主货"
+    ],
+    "soft": [
+      "入库单",
+      "自提",
+      "暂存",
+      "调拨"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景只测量登记尺重，不涉及换标上架动作",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别：本场景不涉及补贴商品条码和包裹条码，只补贴RM标签",
+    "和【入库】商品质检的区别：本场景是测量尺寸重量用于系统登记，不是质检商品质量",
+    "和【入库】指定商品拍照暂存的区别：本场景拍照是为了回传尺寸照片，且需要测量数据，不是单纯拍照暂存"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：退货单号（RTxxx）或具体商品",
+    "动作：测量商品原箱的尺寸（长宽高）和重量，拆除外包装但保留原箱，拍照回传",
+    "去向：测量数据用于系统登记，补贴RM标签后可能涉及上架"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确退货单号",
+    "说明测量要求（拆除外包装、保留原箱、测量原箱尺寸重量）",
+    "详细操作步骤（从底部拆箱、清除UPS外包装、测量具体数据、拍照回传、补贴RM标签）",
+    "标注收费说明（需增加上下架费用）",
+    "提供测量数据格式（长×宽×高cm，重量kg）"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.8. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 【Warehouse】Measurement and identification of commodity weight."
+}

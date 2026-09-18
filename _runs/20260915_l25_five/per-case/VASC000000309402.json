@@ -1,0 +1,95 @@
+{
+  "orderNo": "VASC000000309402",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "instock_appearance_identify_label"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000309402",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "辨识对象范围",
+        "present": true,
+        "evidence": "异常单号EB0126063030856782，Winit订单号WI50277665，异常里是两个商品"
+      },
+      {
+        "field": "辨识方法/依据",
+        "present": true,
+        "evidence": "通过左右位置区分：左边物品、右边物品；已上传image_1782809805151_6dpho.png图片文件可作为辨识依据"
+      },
+      {
+        "field": "辨识后处理动作",
+        "present": true,
+        "evidence": "分别加快递袋上架，左边物品贴SKU: CDBXSTZ，右边物品贴SKU: XYHSXF150"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "Winit订单号WI50277665即为目标上架单号"
+      },
+      {
+        "field": "SKU对应关系",
+        "present": true,
+        "evidence": "左边物品对应SKU: CDBXSTZ，右边物品对应SKU: XYHSXF150；已上传Order (29).pdf可能包含详细对应关系"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "image_1782809805151_6dpho.png",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (29).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "异常单号EB0126063030856782   Winit订单号WI50277665   异常里是两个商品    需要仓库分别 加 快递袋上架   左边物品贴 SKU  :CDBXSTZ   右边物品贴SKU: XYHSXF150\n异常单号EB0126063030856782   Winit订单号WI50277665   异常里是两个商品    需要仓库分别 加 快递袋上架   左边物品贴 SKU  :CDBXSTZ   右边物品贴SKU: XYHSXF150",
+    "requirementLength": 209,
+    "sceneKey": "instock_appearance_identify_label",
+    "sceneName": "【库内】商品外观辨识+贴标上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126063030856782 关联入库单 WI50277665，包裹内含两个商品需分别加快递袋并贴 SKU 标签上架。根据附件图片外观特征辨识：左边物品贴 SKU 标签 CDBXSTZ，右边物品贴 SKU 标签 XYHSXF150。已提供标签文件 image_1782809805151_6dpho.png 和 Order (29).pdf。\n\n【需求背景】\n到仓包裹内含多个商品需按外观辨识后分别贴标并独立包装上架。\n\n【操作要求】\n1. 根据异常单 EB0126063030856782 定位待处理包裹；\n2. 参考附件 image_1782809805151_6dpho.png 中的商品图片，根据外观特征（颜色、形状、包装文字等）辨识两个物品；\n3. 根据附件 Order (29).pdf 打印 SKU 标签 CDBXSTZ 和 XYHSXF150；\n4. 左边物品贴 SKU 标签 CDBXSTZ 后装入快递袋，右边物品贴 SKU 标签 XYHSXF150 后装入快递袋；\n5. 扫描贴好标签的商品条码，再扫描目标库位条码完成上架（关联入库单 WI50277665）；\n6. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 必须根据附件图片外观特征准确辨识左右物品，避免贴错标签；\n- 两个商品需分别独立包装后上架。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126063030856782 关联入库单 WI50277665，包裹内含两个商品需分别加快递袋并贴 SKU 标签上架。根据附件图片外观特征辨识：左边物品贴 SKU 标签 CDBXSTZ，右边物品贴 SKU 标签 XYHSXF150。已提供标签文件 image_1782809805151_6dpho.png 和 Order (29).pdf。\n\n【需求背景】\n到仓包裹内含多个商品需按外观辨识后分别贴标并独立包装上架。\n\n【操作要求】\n1. 根据异常单 EB0126063030856782 定位待处理包裹；\n2. 参考附件 image_1782809805151_6dpho.png 中的商品图片，根据外观特征（颜色、形状、包装文字等）辨识两个物品；\n3. 根据附件 Order (29).pdf 打印 SKU 标签 CDBXSTZ 和 XYHSXF150；\n4. 左边物品贴 SKU 标签 CDBXSTZ 后装入快递袋，右边物品贴 SKU 标签 XYHSXF150 后装入快递袋；\n5. 扫描贴好标签的商品条码，再扫描目标库位条码完成上架（关联入库单 WI50277665）；\n6. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 必须根据附件图片外观特征准确辨识左右物品，避免贴错标签；\n- 两个商品需分别独立包装后上架。",
+    "conclusionOneLiner": "按左右位置外观辨识后分别贴不同SKU标签",
+    "judgmentBasis": "🔍 异常单 EB0126063030856782：商品质量异常(影响销售)（商品）[oms_api]\n📋 识别的动作：根据左右位置辨识商品、左边物品贴SKU:CDBXSTZ、右边物品贴SKU:XYHSXF150、分别加快递袋、上架\n✅ AI 判断场景：【库内】商品外观辨识+贴标上架（置信度：高）\n💡 AI 理由：按左右位置外观辨识后分别贴不同SKU标签"
+  },
+  "omsWriteAttempted": false
+}

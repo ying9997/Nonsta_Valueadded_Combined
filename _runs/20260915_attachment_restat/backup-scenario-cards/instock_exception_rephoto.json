@@ -1,0 +1,148 @@
+{
+  "sceneKey": "instock_exception_rephoto",
+  "sceneName": "【库内】异常重新拍照",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "【Library】Abnormal re-photographing",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.12",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "重新拍照",
+      "原拍照问题",
+      "拍照不满足要求",
+      "按新要求重新拍摄",
+      "照片命名",
+      "拍照后返回上架"
+    ],
+    "weak": [
+      "库内",
+      "异常编号",
+      "提交客户确认",
+      "下架拍照",
+      "原库位"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库",
+      "换标",
+      "补贴标签",
+      "辨识",
+      "质检",
+      "调拨"
+    ],
+    "soft": [
+      "暂存",
+      "自提",
+      "预报",
+      "串仓"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】指定商品拍照暂存的区别是：本场景是对已拍照片不满意需重拍，而拍照暂存是首次拍照",
+    "和【入库】商品质检的区别是：本场景只涉及重新拍照，不涉及商品质量检查",
+    "本场景特征是库内已有货物需重新拍照，而入库类场景都是货物刚到仓库的处理",
+    "本场景没有拍照后暂存的处理方式，需要下架拍照后返回上架到原库位"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：异常编号（EBxxx）或具体商品",
+    "动作：重新拍照（需说明原拍照问题和新要求）",
+    "去向：拍照后返回上架到原库位"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "记录异常编号和原拍照问题",
+    "明确重新拍照的具体要求（张数、角度等）",
+    "按新要求下架商品重新拍照",
+    "按照命名规则命名照片",
+    "提交客户确认后返回上架到原库位"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.12. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 【Library】Abnormal re-photographing. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "异常编号",
+      "description": "需要明确指出哪个异常单需要重新拍照",
+      "frequency": "80%的历史单都提到了",
+      "examples": [
+        "EB0126061030292623",
+        "EB0526061630461313",
+        "EB0526062530720477",
+        "EB0126070831116432",
+        "EB0126060530124533"
+      ],
+      "required": true
+    },
+    {
+      "field": "拍照对象范围",
+      "description": "需要说明拍照的具体对象和数量，如随机一件、每箱一个、全部产品等",
+      "frequency": "约70%的历史单提到了",
+      "examples": [
+        "随机拆开一件单品",
+        "每箱拆开一个单品",
+        "拿1套",
+        "每个单品都要拍",
+        "所有产品的照片"
+      ],
+      "required": true
+    },
+    {
+      "field": "拍照具体要求",
+      "description": "需要明确拍照的角度、部位、细节等具体要求",
+      "frequency": "约70%的历史单提到了",
+      "examples": [
+        "看下产品的颜色",
+        "包的6面图",
+        "吉他正反面局部图细节",
+        "完整显示",
+        "提供实物图片"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "拆包程度",
+      "description": "说明需要拆到什么程度，如只拆外包装、拆开彩盒等",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "只拆外面的快递包装袋",
+        "拆开彩盒"
+      ],
+      "required": false
+    },
+    {
+      "field": "辨识要求",
+      "description": "是否需要扫码辨识或通过照片辨识SKU",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "要扫码辨识，然后反馈异常单号分别对应的照片和SKU及数量",
+        "需要开箱拍照辨识",
+        "辨识下货物"
+      ],
+      "required": false
+    },
+    {
+      "field": "后续处理",
+      "description": "拍照后是否需要更换包装、重新贴标等额外操作",
+      "frequency": "约10%的历史单提到了",
+      "examples": [
+        "更换包装，重新贴标入库"
+      ],
+      "required": false
+    }
+  ]
+}

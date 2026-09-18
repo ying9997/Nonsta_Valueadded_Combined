@@ -1,0 +1,85 @@
+{
+  "orderNo": "VASC000000330249",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_kit_then_shelve"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000330249",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "组合数量",
+        "present": true,
+        "evidence": "客户已上传标签文件，标签文件中通常包含需要组合的商品数量信息"
+      },
+      {
+        "field": "组合规则",
+        "present": true,
+        "evidence": "轮子*2+车轮轴套+1袋螺丝+1根轴杆的组合用快递袋打包成一个sku"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "20260805-101310.jpg",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "UPC-彩盒标签A1780111-87.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order - 2026-08-05T173503.112.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值\nEB0126080431898685  EB0126080431898583    请按照轮子*2+车轮轴套+1袋螺丝+1根轴杆的组合用快递袋打包成一个sku，打包后补贴商品标签上架到原单，组合照片示例图和商品标签见附件",
+    "requirementLength": 113,
+    "sceneKey": "inbound_kit_then_shelve",
+    "sceneName": "【入库】组合后上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126080431898685 和 EB0126080431898583 的货物需要组合打包。每个异常单的货物分别按照「轮子×2 + 车轮轴套 + 1袋螺丝 + 1根轴杆」的组合方式，用快递袋打包成1个SKU，共组合2个成品。组合完成后补贴商品标签，上架到入库单 WI51026918。客户已提供组合示意图（20260805-101310.jpg）和商品标签文件（UPC-彩盒标签A1780111-87.pdf、Order - 2026-08-05T173503.112.pdf）。\n\n【需求背景】\n到仓货物需要按指定组合方式打包成新SKU后上架，无法走标准入库流程。\n\n【操作要求】\n1. 根据异常单 EB0126080431898685 和 EB0126080431898583 定位待处理货物，确认每个异常单中包含的组件明细和数量（轮子、车轮轴套、螺丝、轴杆）。\n2. 参照组合示意图（20260805-101310.jpg），将每个异常单的货物分别按照「轮子×2 + 车轮轴套 + 1袋螺丝 + 1根轴杆」的组合方式用快递袋打包，共组合2个成品SKU。\n3. 打印商品标签文件（UPC-彩盒标签A1780111-87.pdf 或 Order - 2026-08-05T173503.112.pdf，具体使用哪个标签请与主管确认），每个组合包裹粘贴1张商品标签。\n4. 将组合完成的2个SKU扫描上架到入库单 WI51026918。\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 组合前需核对组件数量是否齐全，如有缺失及时反馈。\n- 标签粘贴位置需清晰可见，便于后续扫描识别。\n- 如对标签文件使用有疑问，请与主管确认后再操作。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126080431898685 和 EB0126080431898583 的货物需要组合打包。每个异常单的货物分别按照「轮子×2 + 车轮轴套 + 1袋螺丝 + 1根轴杆」的组合方式，用快递袋打包成1个SKU，共组合2个成品。组合完成后补贴商品标签，上架到入库单 WI51026918。客户已提供组合示意图（20260805-101310.jpg）和商品标签文件（UPC-彩盒标签A1780111-87.pdf、Order - 2026-08-05T173503.112.pdf）。\n\n【需求背景】\n到仓货物需要按指定组合方式打包成新SKU后上架，无法走标准入库流程。\n\n【操作要求】\n1. 根据异常单 EB0126080431898685 和 EB0126080431898583 定位待处理货物，确认每个异常单中包含的组件明细和数量（轮子、车轮轴套、螺丝、轴杆）。\n2. 参照组合示意图（20260805-101310.jpg），将每个异常单的货物分别按照「轮子×2 + 车轮轴套 + 1袋螺丝 + 1根轴杆」的组合方式用快递袋打包，共组合2个成品SKU。\n3. 打印商品标签文件（UPC-彩盒标签A1780111-87.pdf 或 Order - 2026-08-05T173503.112.pdf，具体使用哪个标签请与主管确认），每个组合包裹粘贴1张商品标签。\n4. 将组合完成的2个SKU扫描上架到入库单 WI51026918。\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 组合前需核对组件数量是否齐全，如有缺失及时反馈。\n- 标签粘贴位置需清晰可见，便于后续扫描识别。\n- 如对标签文件使用有疑问，请与主管确认后再操作。",
+    "conclusionOneLiner": "多配件物理组合打包成新SKU后上架",
+    "judgmentBasis": "🔍 异常单 EB0126080431898685、EB0126080431898583：商品质量异常(影响销售)（商品）[oms_api]\n📋 识别的动作：换商品标签、按照轮子*2+车轮轴套+1袋螺丝+1根轴杆组合、用快递袋打包成一个SKU、补贴商品标签、上架到原单\n✅ AI 判断场景：【入库】组合后上架（置信度：高）\n💡 AI 理由：多配件物理组合打包成新SKU后上架"
+  },
+  "omsWriteAttempted": false
+}

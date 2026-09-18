@@ -1,0 +1,201 @@
+{
+  "sceneKey": "instock_photo_video",
+  "sceneName": "【库内】拍摄照片/视频",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250407035",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.7",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "拍照",
+      "拍摄",
+      "照片",
+      "视频",
+      "库内拍照",
+      "提供照片",
+      "拍摄角度",
+      "照片用途"
+    ],
+    "weak": [
+      "平台申诉",
+      "库存核实",
+      "拍摄位置",
+      "背景要求",
+      "时间戳",
+      "定位信息"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴标签",
+      "辨识",
+      "质检",
+      "调拨",
+      "自提"
+    ],
+    "soft": [
+      "暂存",
+      "下架后",
+      "重新上架",
+      "入库单"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】指定商品拍照暂存的区别：库内拍照是已上架商品的拍照需求,不涉及暂存流程;拍照暂存是入库环节的拍照后暂存处理",
+    "和【入库】商品质检的区别：库内拍照仅提供照片/视频,不涉及商品质量检测;质检需要检查商品状态并出具报告",
+    "和【入库】尺重/标签辨识后换标上架的区别：库内拍照不涉及换标操作,仅拍照后返回原库位;辨识换标需要更换标签后重新上架",
+    "核心特征：已上架商品的拍照需求,拍照后按下架-拍照-返回上架原库位流程,不做其他处理"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：指定SKU或指定库位的商品",
+    "动作：拍摄照片/视频(需明确拍摄角度、背景、数量等要求)",
+    "去向：照片用途(平台申诉/库存核实等)及是否需要特殊标识(定位/时间戳/库位信息)"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确拍照范围(指定SKU或库位)",
+    "说明照片用途(申诉/核实等)",
+    "详细拍照要求(位置/角度/背景/数量/命名)",
+    "特殊要求(定位/时间戳/库位信息)",
+    "操作流程(下架-拍照-返回上架原库位)"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.7. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250407035. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "拍摄对象范围",
+      "description": "明确指定需要拍摄的SKU、包裹号、批次号、库位或下架单号",
+      "frequency": "100%",
+      "examples": [
+        "M010000000009280851等20个SKU",
+        "SKU:M010000000009280289 批次：ID20260417",
+        "包裹号：B0400000001387420372等6个包裹",
+        "下架单WO11649431161、WO11649493381",
+        "拍摄产品：DE-BHT-2HA-DGRE"
+      ],
+      "required": true
+    },
+    {
+      "field": "拍摄内容要求",
+      "description": "具体说明需要拍摄的内容，如外箱、内件、标签、彩卡、货架全景等",
+      "frequency": "95%",
+      "examples": [
+        "拍外箱标签（ASN标签/电池标签/运输标签）",
+        "拆封露出产品配套彩卡，彩卡画面定格停留不少于3秒",
+        "开箱拍照，请着重拍一下箱内纸托和商品的完整外观照片",
+        "展示包裹上的商品标签并打开包装袋，展示内部产品",
+        "拍到正反两面"
+      ],
+      "required": true
+    },
+    {
+      "field": "照片/视频用途",
+      "description": "说明拍摄素材的使用目的，如平台申诉、店铺二审、库存核实、资质审核等",
+      "frequency": "85%",
+      "examples": [
+        "Temu店铺解封申诉",
+        "TikTok店铺二审",
+        "SHEIN店铺相关申诉及资料提交",
+        "TikTok平台资质审核，需要卖家证明本地发货真实性",
+        "配合电商平台卖家发货资质+仓库真实性审核"
+      ],
+      "required": true
+    },
+    {
+      "field": "水印/时间戳要求",
+      "description": "是否需要在照片/视频上显示时间、地点、定位、经纬度等水印信息",
+      "frequency": "70%",
+      "examples": [
+        "每张照片上必须要带有时间、地点或定位的水印信息",
+        "全程视频需自带时间、地点水印，水印清晰不可遮挡产品主体",
+        "在视频里添加具体拍摄日期及具体时间，具体地理位置信息，以及经纬度",
+        "建议使用Gps Map Camera或Timestamp Camera或今日水印相机等app拍照"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "拍摄角度/位置",
+      "description": "指定拍摄的具体角度、位置、镜头运动方式",
+      "frequency": "60%",
+      "examples": [
+        "手持拆开后的产品向后拉远镜头，完整展示后方整片货架",
+        "从仓库门口到找到具体产品的一镜到底视频",
+        "镜头从仓库货架取出本品，现场拆封",
+        "多角度全方位展示产品实物"
+      ],
+      "required": false
+    },
+    {
+      "field": "数量要求",
+      "description": "明确需要拍摄的照片/视频数量，或每箱抽样数量",
+      "frequency": "55%",
+      "examples": [
+        "图片拍摄要求（共4张）",
+        "每箱抽10个产品出来拍到正反两面",
+        "需要拍两张照片",
+        "每个SKU拍一张照片"
+      ],
+      "required": false
+    },
+    {
+      "field": "文件格式/质量要求",
+      "description": "指定照片/视频的格式、清晰度、文件大小等技术要求",
+      "frequency": "50%",
+      "examples": [
+        "图片jpg格式，高清或4K，5M以下",
+        "视频清晰度选择4k高清，控制在拍摄100M以下",
+        "不能糊，不要用AI处理，会被检测到"
+      ],
+      "required": false
+    },
+    {
+      "field": "辅助道具要求",
+      "description": "是否需要A4纸展示店铺信息、SKU编码等辅助信息",
+      "frequency": "35%",
+      "examples": [
+        "一个人手持A4纸打印出来的店铺名称和Shop Code",
+        "A4纸的内容要有4项1.shop name,2.shop code,3.ID,4.SKU编码",
+        "A4纸张不遗漏且内容完整展示"
+      ],
+      "required": false
+    },
+    {
+      "field": "特殊操作要求",
+      "description": "拍摄过程中需要执行的特殊操作，如测量尺寸、装箱测试等",
+      "frequency": "15%",
+      "examples": [
+        "测量每一款纸箱撑开后的长，宽，高",
+        "用BBLBOX-N09型号箱子测试是否能装得下",
+        "拆开查看是漏液导致还是瓶子破损导致的问题"
+      ],
+      "required": false
+    },
+    {
+      "field": "监控视频调取",
+      "description": "需要调取特定时间段、特定区域的监控录像",
+      "frequency": "10%",
+      "examples": [
+        "申请调取2026年7月30日-8月3日期间，Linden仓库卸货区域监控录像",
+        "提供提货时的监控视频，能够清晰看出托盘状态",
+        "导出打包操作视频检验贴标情况"
+      ],
+      "required": false
+    }
+  ]
+}

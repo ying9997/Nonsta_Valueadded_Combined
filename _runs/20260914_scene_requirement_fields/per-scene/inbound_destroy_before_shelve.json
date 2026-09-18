@@ -1,0 +1,138 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.257Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "inbound_destroy_before_shelve",
+  "sceneName": "【入库】上架前销毁",
+  "omsSceneCode": "INBOUND_DESTORY_BF_SHELVE",
+  "fileName": "inbound_destroy_before_shelve.json",
+  "category": "inbound",
+  "approvedOrderCount": 7,
+  "sampleCount": 7,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：明确哪些货物需要销毁（部分/全部/指定包裹/指定SKU）",
+    "动作：销毁处理，以及剩余货物（如有）的上架动作",
+    "去向：销毁的货物不上架，剩余货物上架到指定入库单"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "销毁对象范围",
+      "description": "明确指定需要销毁的货物范围，可以是SKU、包裹号、数量或整单",
+      "frequency": "100%的历史单都明确提到了",
+      "examples": [
+        "独立包装螺丝一件",
+        "4件受潮变形的",
+        "50箱左右的不良品",
+        "LPNWE356697629",
+        "sku：M010000000008783250"
+      ],
+      "required": true
+    },
+    {
+      "field": "销毁原因",
+      "description": "说明为什么需要销毁，如货物质量问题、混装错误、查验风险等",
+      "frequency": "约85%的历史单提到了",
+      "examples": [
+        "受潮变形不能再进行售卖",
+        "不良品",
+        "并非我司货物",
+        "货物实际有问题，不能售卖",
+        "涉及TS查验"
+      ],
+      "required": true
+    },
+    {
+      "field": "剩余货物处理方式",
+      "description": "明确销毁后剩余货物是否需要上架及上架到哪个入库单",
+      "frequency": "约71%的历史单提到了",
+      "examples": [
+        "剩下1款SKU贴有ZBJ-PJ-038 - M010000000009976451全部扫描上到原单：WI48784296",
+        "正常的2件上架到入库单WI49068271",
+        "其余已关联，麻烦扫描上架在WI49288565"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "识别方式",
+      "description": "如何识别需要销毁的货物，是否需要拆箱检查",
+      "frequency": "约29%的历史单提到了",
+      "examples": [
+        "外包装就可以看得出来；不需要拆箱",
+        "附件上传螺丝产品图，指定这1件进行销毁",
+        "根据历史拍照增值VASC000000270000 的图片编号以及文件里面整理出的图片编号对应的动作指令"
+      ],
+      "required": false
+    },
+    {
+      "field": "关联包裹/容器号",
+      "description": "涉及的具体包裹号、容器号或LPN号",
+      "frequency": "约57%的历史单提到了",
+      "examples": [
+        "对应包裹：B0400000001390465167",
+        "包裹B0400000001396007328",
+        "整单A+包裹",
+        "LPNWE356697629"
+      ],
+      "required": false
+    },
+    {
+      "field": "补贴标签要求",
+      "description": "销毁部分货物后，剩余货物是否需要补贴或更换标签",
+      "frequency": "约14%的历史单提到了",
+      "examples": [
+        "补贴包裹标签，用新标签覆盖原标签，包裹标签已经上传附件pdf"
+      ],
+      "required": false
+    },
+    {
+      "field": "时效要求",
+      "description": "是否有特殊的时间要求或紧急程度说明",
+      "frequency": "约14%的历史单提到了",
+      "examples": [
+        "订单预计5.29到港，需提前确认以上需求是否能操作及预估费用的"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000281739",
+      "requirementDescription": "包裹里面60件，其中有独立包装螺丝一件，需单独上架前销毁。  剩下1款SKU贴有ZBJ-PJ-038 - M010000000009976451全部扫描上到原单：WI48784296  对应包裹：B0400000001390465167  附件上传螺丝产品图，指定这1件进行销毁。",
+      "requirementBackground": "B0400000001390465167包裹里面混装其他货物，螺丝一件要上架前销毁，其他的货物有贴标签，要原单扫描上架"
+    },
+    {
+      "orderNo": "VASC000000278550",
+      "requirementDescription": "正常的2件上架，4件受潮变形不能再进行售卖的销毁  1.将这2件正常的货物上架到入库单WI49068271包裹B0400000001396007328  2.另外4件受潮变形的协助销毁掉  3.处理完成后关闭异常单",
+      "requirementBackground": "异常单EB0126050129181750包裹仓库收到后有受潮的情况，仓库反馈这一箱里面有2件是正常的货物，4件受潮变形"
+    },
+    {
+      "orderNo": "VASC000000279603",
+      "requirementDescription": "WI49522477整单A+包裹，柜子里混了50箱左右的不良品进去；  1、先辨识：需要让海外仓的人安排挑拣出来，外包装就可以看得出来；不需要拆箱。（如示例指引区分）  2、找出后做销毁处理",
+      "requirementBackground": "订单预计5.29到港，需提前确认以上需求是否能操作及预估费用的，谢谢"
+    },
+    {
+      "orderNo": "VASC000000268737",
+      "requirementDescription": "①LPNWE356697629   并非我司货物，请做销毁处理；  ②其余已关联，麻烦扫描上架在WI49288565",
+      "requirementBackground": "①LPNWE356697629   并非我司货物，请做销毁处理；  ②其余已关联，麻烦扫描上架在WI49288565"
+    },
+    {
+      "orderNo": "VASC000000333576",
+      "requirementDescription": "销毁入库单: WI51557617 的sku：M010000000008783250",
+      "requirementBackground": "M010000000008783250货物实际有问题，不能售卖，但是货物已经走winit头程发出，在途中了，只能提交特批增值申请上架前销毁"
+    },
+    {
+      "orderNo": "VASC000000333579",
+      "requirementDescription": "销毁入库单: WI51557587 的sku：M010000000008783250",
+      "requirementBackground": "M010000000008783250货物实际有问题，不能售卖，但是货物已经走winit头程发出，在途中了，只能提交特批增值申请上架前销毁"
+    },
+    {
+      "orderNo": "VASC000000332253",
+      "requirementDescription": "M010000000005909476,涉及TS查验，这个SKU上架前请安排销毁，  一箱共18套产品",
+      "requirementBackground": "涉及TS查验"
+    }
+  ]
+}

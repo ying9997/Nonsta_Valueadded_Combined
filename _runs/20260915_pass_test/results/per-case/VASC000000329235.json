@@ -1,0 +1,95 @@
+{
+  "orderNo": "VASC000000329235",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_exception_relabel_shelving"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000329235",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "处理范围",
+        "present": true,
+        "evidence": "EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432共4个包裹"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "上架到预报单：WI51519902"
+      },
+      {
+        "field": "商品标签数量",
+        "present": true,
+        "evidence": "已明确各包裹贴标数量：EB0126073131782987=82件、EB0126073131782618=37件、EB0126073131782432=7件、EB0126073131782510=32件，且标签见附件"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "UPC-彩盒标签A110RH11.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "UPC-彩盒标签 A110RH31.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "UPC-彩盒标签A110RH91.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "UPC-彩盒标签A110RH41.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值\nEB0126073131782987  EB0126073131782618  EB0126073131782510  EB0126073131782432    登记的包裹异常，需要重新补贴商品标签后上架到预报单：WI51519902，贴标数量和对应关系如下    EB0126073131782987=A110RH11==82  EB0126073131782618=A110RH41==37  EB0126073131782432=A110RH91==7  EB0126073131782510=A110RH31==32  标签见附件",
+    "requirementLength": 264,
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "sceneName": "【入库】包裹类异常换商品标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432 登记的包裹需重新补贴商品标签后上架至入库单 WI51519902。贴标对应关系：EB0126073131782987 包裹内 82 件商品贴 A110RH11 标签、EB0126073131782618 包裹内 37 件商品贴 A110RH41 标签、EB0126073131782432 包裹内 7 件商品贴 A110RH91 标签、EB0126073131782510 包裹内 32 件商品贴 A110RH31 标签。标签文件已提供：UPC-彩盒标签A110RH11.pdf、UPC-彩盒标签 A110RH31.pdf、UPC-彩盒标签A110RH91.pdf、UPC-彩盒标签A110RH41.pdf。\n\n【需求背景】\n包裹异常导致商品标签缺失或错误，需按客户提供的标签文件和对应关系重新补贴商品标签后上架。\n\n【操作要求】\n1. 根据异常单号 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432 定位对应的 4 个包裹；\n2. 打印标签文件：UPC-彩盒标签A110RH11.pdf、UPC-彩盒标签 A110RH31.pdf、UPC-彩盒标签A110RH91.pdf、UPC-彩盒标签A110RH41.pdf；\n3. 逐个打开包裹，核对包裹内商品数量与需贴标数量是否一致（EB0126073131782987 应含 82 件、EB0126073131782618 应含 37 件、EB0126073131782432 应含 7 件、EB0126073131782510 应含 32 件），确认无误后对每件商品逐一补贴对应标签；\n4. 在系统中调出入库单 WI51519902，逐一扫描已贴标商品上的新标签条码完成上架操作；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 贴标前务必核对包裹内商品数量与标签数量是否匹配，避免贴错或漏贴\n- 每个包裹对应的 SKU 标签不同，请严格按对应关系操作",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432 登记的包裹需重新补贴商品标签后上架至入库单 WI51519902。贴标对应关系：EB0126073131782987 包裹内 82 件商品贴 A110RH11 标签、EB0126073131782618 包裹内 37 件商品贴 A110RH41 标签、EB0126073131782432 包裹内 7 件商品贴 A110RH91 标签、EB0126073131782510 包裹内 32 件商品贴 A110RH31 标签。标签文件已提供：UPC-彩盒标签A110RH11.pdf、UPC-彩盒标签 A110RH31.pdf、UPC-彩盒标签A110RH91.pdf、UPC-彩盒标签A110RH41.pdf。\n\n【需求背景】\n包裹异常导致商品标签缺失或错误，需按客户提供的标签文件和对应关系重新补贴商品标签后上架。\n\n【操作要求】\n1. 根据异常单号 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432 定位对应的 4 个包裹；\n2. 打印标签文件：UPC-彩盒标签A110RH11.pdf、UPC-彩盒标签 A110RH31.pdf、UPC-彩盒标签A110RH91.pdf、UPC-彩盒标签A110RH41.pdf；\n3. 逐个打开包裹，核对包裹内商品数量与需贴标数量是否一致（EB0126073131782987 应含 82 件、EB0126073131782618 应含 37 件、EB0126073131782432 应含 7 件、EB0126073131782510 应含 32 件），确认无误后对每件商品逐一补贴对应标签；\n4. 在系统中调出入库单 WI51519902，逐一扫描已贴标商品上的新标签条码完成上架操作；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 贴标前务必核对包裹内商品数量与标签数量是否匹配，避免贴错或漏贴\n- 每个包裹对应的 SKU 标签不同，请严格按对应关系操作",
+    "conclusionOneLiner": "包裹条码异常需换商品标签上架",
+    "judgmentBasis": "🔍 异常单 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：换商品标签、补贴商品标签、上架到预报单WI51519902、按提供的SKU对应关系处理（4个包裹对应4个SKU及数量）\n✅ AI 判断场景：【入库】包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：包裹条码异常需换商品标签上架"
+  },
+  "omsWriteAttempted": false
+}

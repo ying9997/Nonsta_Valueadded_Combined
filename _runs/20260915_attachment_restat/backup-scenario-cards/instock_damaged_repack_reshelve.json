@@ -1,0 +1,75 @@
+{
+  "sceneKey": "instock_damaged_repack_reshelve",
+  "sceneName": "【库内】包装破损商品更换包材重新上架",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.29",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "包装破损",
+      "更换包材",
+      "WINIT包材",
+      "下架后更换包装",
+      "良品上架",
+      "核销包材库存"
+    ],
+    "weak": [
+      "出库单下架",
+      "新入库单上架",
+      "补贴条码",
+      "不良品转良品",
+      "标准包材",
+      "L007盘亏"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "标签辨识",
+      "质检",
+      "拍照暂存",
+      "自提",
+      "串仓"
+    ],
+    "soft": [
+      "客户自寄包材",
+      "客制包材",
+      "入库预报",
+      "无主货"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹类异常换商品标签上架的区别：本场景是包装破损需更换包材,对方是标签问题换标签",
+    "和【入库】商品下架后换入库单重新上架的区别：本场景必须更换WINIT包材并做包材盘亏,对方只是换入库单不换包装",
+    "和【入库】商品质检的区别：本场景是已知包装破损直接换包材,对方是质检过程发现问题",
+    "和【库内-更换商品包装】增值的区别：本场景特指包装破损场景且必须用WINIT包材,对方可能使用客制包材且场景更广泛"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：包装破损的商品(良品或不良品库存)",
+    "动作：使用WINIT包材更换包装",
+    "去向：以良品状态重新上架到新SKU"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "必须提供出库单号WOxxx用于下架原SKU",
+    "必须指定WINIT包材型号",
+    "必须提供新入库单号WIxxx和标签文件",
+    "必须说明包材库存做L007盘亏核销",
+    "必须明确更换后以良品上架"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.29. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

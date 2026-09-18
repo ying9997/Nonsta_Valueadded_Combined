@@ -1,0 +1,47 @@
+{
+  "orderNo": "VASC000000338049",
+  "outcome": "l4_direct",
+  "threadId": "om_x100b654c7a2b60b0c3d1e657fe0db9a",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_exception_relabel_shelving"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000338049",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "sceneName": "【入库】包裹类异常换商品标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n增值单号：VASC000000338049\n入库单 WI51908492 关联的 4 个异常单（EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988）中的商品需要补贴新商品条码后上架至不良品库位。商品与标签的对应关系见附件【商品和标签对应关系】模板0819.xlsx，标签文件包含 B-YG012.pdf、A00-G6-1.75-1000-SPL.pdf、A01-W3-1.75-1000-SPLFREE.pdf、B-QA002.pdf。\n\n【需求背景】\n到仓商品条码与系统登记不符或缺失，需按客户提供的对应关系补贴新商品标签后上架至不良品库位。\n\n【操作要求】\n1. 在 WMS 系统中输入入库单号 WI51908492 或异常单号（EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988）查询货物所在托盘/库位，定位待处理货物；\n2. 打开附件【商品和标签对应关系】模板0819.xlsx，核对实物商品与需补贴的新标签条码对应关系；\n3. 根据对应关系，使用标签文件（B-YG012.pdf、A00-G6-1.75-1000-SPL.pdf、A01-W3-1.75-1000-SPLFREE.pdf、B-QA002.pdf）打印并补贴新商品标签至对应商品；\n4. 在 WMS 系统中打开入库单 WI51908492，扫描已换标商品条码，选择不良品库位代码（如 DEFECT-XX）完成上架；\n5. 在异常单管理系统中逐一打开异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988，点击【关闭异常】按钮并备注「已完成换标上架至不良品」。\n\n【注意事项】\n- 补贴标签前务必核对附件中的对应关系，避免贴错；\n- 上架时必须选择不良品库位，不可上架至正常库位；\n- 完成后及时关闭所有关联异常单。",
+    "llmError": "",
+    "analysis": "【需求描述】\n增值单号：VASC000000338049\n入库单 WI51908492 关联的 4 个异常单（EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988）中的商品需要补贴新商品条码后上架至不良品库位。商品与标签的对应关系见附件【商品和标签对应关系】模板0819.xlsx，标签文件包含 B-YG012.pdf、A00-G6-1.75-1000-SPL.pdf、A01-W3-1.75-1000-SPLFREE.pdf、B-QA002.pdf。\n\n【需求背景】\n到仓商品条码与系统登记不符或缺失，需按客户提供的对应关系补贴新商品标签后上架至不良品库位。\n\n【操作要求】\n1. 在 WMS 系统中输入入库单号 WI51908492 或异常单号（EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988）查询货物所在托盘/库位，定位待处理货物；\n2. 打开附件【商品和标签对应关系】模板0819.xlsx，核对实物商品与需补贴的新标签条码对应关系；\n3. 根据对应关系，使用标签文件（B-YG012.pdf、A00-G6-1.75-1000-SPL.pdf、A01-W3-1.75-1000-SPLFREE.pdf、B-QA002.pdf）打印并补贴新商品标签至对应商品；\n4. 在 WMS 系统中打开入库单 WI51908492，扫描已换标商品条码，选择不良品库位代码（如 DEFECT-XX）完成上架；\n5. 在异常单管理系统中逐一打开异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988，点击【关闭异常】按钮并备注「已完成换标上架至不良品」。\n\n【注意事项】\n- 补贴标签前务必核对附件中的对应关系，避免贴错；\n- 上架时必须选择不良品库位，不可上架至正常库位；\n- 完成后及时关闭所有关联异常单。",
+    "conclusionOneLiner": "商品条码异常，需补贴商品标签上架",
+    "judgmentBasis": "🔍 异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988：单品条码无法扫描(需客户处理）（商品）[oms_api]\n📋 识别的动作：补贴商品条码、上架到不良品、查看附件中的商品标签对应关系\n✅ AI 判断场景：包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：商品条码异常，需补贴商品标签上架"
+  },
+  "omsWriteAttempted": false
+}

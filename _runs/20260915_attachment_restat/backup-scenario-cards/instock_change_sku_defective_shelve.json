@@ -1,0 +1,73 @@
+{
+  "sceneKey": "instock_change_sku_defective_shelve",
+  "sceneName": "【库内】更换SKU做不良品上架",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.20",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "更换SKU",
+      "不良品上架",
+      "不良品入库单",
+      "原SKU下架",
+      "新SKU标签"
+    ],
+    "weak": [
+      "换标",
+      "盘亏",
+      "下架后上架",
+      "SKU变更",
+      "L007盘亏"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "辨识",
+      "质检",
+      "拍照",
+      "自提",
+      "串仓"
+    ],
+    "soft": [
+      "入库预报",
+      "无主货",
+      "第三方条码",
+      "整柜"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景强调使用不良品入库单上架，且原SKU要做L007盘亏处理",
+    "和【入库】商品下架后换入库单重新上架（不更换SKU）的区别是：本场景必须更换SKU，而后者不更换SKU",
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景是库内主动更换SKU做不良品处理,不涉及尺重辨识流程",
+    "和【入库】入库预报SKU与实际到货SKU不符合的区别是：本场景是库内已上架商品的SKU更换，不是入库阶段的SKU不符问题"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确原SKU编号和新SKU编号（如M01000000000xxxxx更换为M01000000000yyyyy）",
+    "动作：更换SKU标签并使用不良品入库单上架，原SKU做L007盘亏",
+    "数量：需明确更换的商品数量"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "必须包含原SKU和新SKU的具体编号",
+    "必须说明使用不良品入库单上架",
+    "必须包含原SKU做L007盘亏的步骤",
+    "如涉及更换winit包装，需在费用项中录入标准包装打包费",
+    "操作顺序：下架→换标→不良品上架→盘亏"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.20. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

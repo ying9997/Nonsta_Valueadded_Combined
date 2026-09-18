@@ -1,0 +1,151 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.258Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "inbound_collect_sn",
+  "sceneName": "【入库】收集SN码",
+  "omsSceneCode": "20250529001",
+  "fileName": "inbound_collect_sn.json",
+  "category": "inbound",
+  "approvedOrderCount": 7,
+  "sampleCount": 7,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：明确哪个入库单、多少件商品需要采集SN码",
+    "动作：采集SN码、导入系统绑定",
+    "去向：绑定后重新上架"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "采集数量/范围",
+      "description": "需要明确采集多少件商品的SN码，或者涉及多少箱/包裹",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "257件",
+        "368件库存",
+        "46箱货物",
+        "4个单品",
+        "这个箱子里的衣服"
+      ],
+      "required": true
+    },
+    {
+      "field": "SN码位置/采集方式",
+      "description": "说明SN码在哪里（外箱箱唛、彩盒外侧、商品本体等），如何采集",
+      "frequency": "约85%的历史单提到了",
+      "examples": [
+        "SN数据在外箱的箱唛上有，可直接采集箱唛上的",
+        "SN在彩盒外侧",
+        "扫描SN",
+        "记录箱内sku的EAN，69码即可"
+      ],
+      "required": true
+    },
+    {
+      "field": "采集后处理动作",
+      "description": "采集完SN码后需要做什么：导入系统绑定、返回给客户、做成表格反馈等",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "采集后导入系统绑定后重新上架",
+        "采集后将数据返回国内",
+        "做成表格反馈",
+        "返还给我们便于后续采购纸箱",
+        "先提供SN再添加包材补贴标签上架"
+      ],
+      "required": true
+    },
+    {
+      "field": "采集原因/背景",
+      "description": "为什么需要采集SN码：发货仓无法提供、包装破损需更换、异常单无法识别等",
+      "frequency": "约85%的历史单提到了",
+      "examples": [
+        "发货仓出库无法提供完整的SN码表",
+        "外包装破损，需采购客制包材过来更换上架",
+        "包裹条码异常需核实箱内sku",
+        "历史箱产品入库没有关联SN数据"
+      ],
+      "required": true
+    },
+    {
+      "field": "关联单号",
+      "description": "涉及的入库单号、异常单号等具体单据编号",
+      "frequency": "约70%",
+      "examples": [
+        "WI49136073入库单",
+        "异常单EB0126070931145721",
+        "异常单EB0126070331023315"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "是否需要拍照",
+      "description": "明确说明采集过程中是否需要拍照留存",
+      "frequency": "约30%",
+      "examples": [
+        "不需要拍照",
+        "sn示例如附件"
+      ],
+      "required": false
+    },
+    {
+      "field": "SN码与包裹条码对应关系",
+      "description": "是否需要记录每个包裹条码对应的SN码清单",
+      "frequency": "约30%",
+      "examples": [
+        "告知每个WB条码，对应的箱内69码是哪个，做成表格反馈"
+      ],
+      "required": false
+    },
+    {
+      "field": "后续增值操作",
+      "description": "采集SN后是否还有其他增值服务需求（如更换包装、补贴标签等）",
+      "frequency": "约40%",
+      "examples": [
+        "等纸箱采购到仓后，再做库内增值更换客制纸箱",
+        "先提供SN再添加包材补贴标签上架",
+        "客户建海外验入库单同时导入第三方单品条码，仓库根据新单补贴包裹条码"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000268341",
+      "requirementDescription": "根据以上背景以及需求：  客户那边想要做非标增值：  1 客户下下架单   2仓库帮忙采集SN数据（SN数据在外箱的箱唛上有，可直接采集箱唛上的）  3仓库采集后将数据返回国内  4客户建海外验入库单 同时导入第三方单品条码，仓库根据新单补贴包裹条码，验货上架",
+      "requirementBackground": "历史ULIKE商品化转单品化，箱产品当时共识不拆箱，所以当时箱产品入库的货物没有关联SN数据也就是第三方单品条码。  目前跟客户确认，由于他们销售计划调整，这368件库存需要转为单一产品给到线上2C销售。  目前确认到： 客户目前没有这368件的SN数据，因为涉及的货物比较多，客户需要我们仓库协助库内采集SN数据。（客户的箱子外面都有贴一张全的SN数据，帮忙直接在外箱采集 提供"
+    },
+    {
+      "orderNo": "VASC000000315483",
+      "requirementDescription": "需求：异常单里的46箱货物，需仓库每箱打开记录sku信息汇总反馈（记录箱内sku的EAN，69码即可）  然后告知每个WB条码，对应的箱内69码是哪个，做成表格反馈，不需要拍照",
+      "requirementBackground": "背景：EB0126070931145721这个异常单一共46箱货物存在包裹条码异常  需仓库每箱打开，核实下箱内的sku反馈，才能识别对应的包裹条码处理上架"
+    },
+    {
+      "orderNo": "VASC000000316731",
+      "requirementDescription": "需求：异常单里的46箱货物，需仓库每箱打开记录sku信息汇总反馈（记录箱内sku的EAN，69码即可）  然后告知每个WB条码，对应的箱内69码是哪个，做成表格反馈，不需要拍照",
+      "requirementBackground": "背景：EB0126070931145721这个异常单一共46箱货物存在包裹条码异常  需仓库每箱打开，核实下箱内的sku反馈，才能识别对应的包裹条码处理上架"
+    },
+    {
+      "orderNo": "VASC000000316035",
+      "requirementDescription": "异常的4个单品，需采集彩盒上的SN返还给我们便于后续采购纸箱，（SN在彩盒外侧，如附件），另这些异常货物先保持现状更换sku上架到新单WIxxx，等纸箱采购到仓后，再做库内增值更换客制纸箱",
+      "requirementBackground": "这些异常货物为外包装破损，需采购客制包材过来更换上架，现需要仓库记录箱内SN返还给我司，才能根据sn去采购对应的纸箱"
+    },
+    {
+      "orderNo": "VASC000000319527",
+      "requirementDescription": "对异常单EB0126070331023315，这个箱子里的衣服需要录入SI码给我",
+      "requirementBackground": "对异常单EB0126070331023315，这个箱子里的衣服需要录入SI码给我"
+    },
+    {
+      "orderNo": "VASC000000318747",
+      "requirementDescription": "扫描SN返回（sn示例如附件），先提供SN再添加包材补贴标签上架",
+      "requirementBackground": "这些异常货物为外包装破损，需加winit包材上架，现需要仓库扫描SN给我司"
+    },
+    {
+      "orderNo": "VASC000000269709",
+      "requirementDescription": "需要仓库采集WI49136073入库单中无法识别的SN码后导入系统绑定后重新上架",
+      "requirementBackground": "发货仓出库无法提供完整的SN码表，到仓后采集导入系统上架"
+    }
+  ]
+}

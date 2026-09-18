@@ -1,0 +1,86 @@
+{
+  "orderNo": "VASC000000290262",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_exception_relabel_shelving"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000290262",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "处理范围",
+        "present": true,
+        "evidence": "EB0126051929558634 此商品条码异常，异常里面是有2个中性的盒子，对应是有20个单品"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "拆开后20个单品帮忙按新单：WI50181090 补贴包裹标签操作上架"
+      },
+      {
+        "field": "商品标签数量",
+        "present": true,
+        "evidence": "拆开后20个单品，每个产品是有独立的包装和产品标签"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "操作说明附件",
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_AOOI",
+        "fileName": "拆分的产品包装照片参考.doc",
+        "label": "操作说明附件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (7).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "EB0126051929558634 此商品条码异常， 异常里面是有2个中性的盒子，对应是有20个单品，需要仓库帮忙按如下处理  1 拆开2个中性的包装盒，产品是：表带，只有一款产品，拆开后每个产品是有独立的包装和产品标签（产品宽是小于10cm）出库会选择加包装，仓库操作处理增值不用再加包装  2 拆开后20个单品帮忙按新单：WI50181090 补贴包裹标签操作上架  帮忙更新报价，谢谢\nEB0126051929558634 商品条码异常(需客户处理) 异常里面是有2个中性的盒子，需要仓库帮忙拆开包装操作处理，标准无法操作",
+    "requirementLength": 262,
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "sceneName": "【入库】包裹类异常换商品标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126051929558634 中有 2 个中性包装盒，内含 20 个表带单品（每个有独立包装和产品标签，宽度小于 10cm）。需拆开中性盒，为每个单品补贴新标签后，按入库单 WI50181090 上架。客户出库时会选择加包装，本次增值操作无需额外包装。\n\n【需求背景】\n到仓商品条码异常，无法按标准流程处理，需按客户提供的新入库单和标签文件重新贴标后上架。\n\n【操作要求】\n1. 根据异常单 EB0126051929558634 定位 2 个中性包装盒；\n2. 拆开中性盒，核对内含物品：\n   - 对照「拆分的产品包装照片参考.doc」确认产品为表带\n   - 确认每个单品有独立包装和产品标签\n   - 清点数量共 20 个单品\n3. 换标操作：\n   - 打印「Order (7).pdf」中的标签（共 20 张）\n   - 在每个单品独立包装的可见面粘贴新标签（覆盖或替换原标签）\n4. 上架操作：\n   - 扫描入库单 WI50181090 条码\n   - 逐个扫描已贴标的 20 个单品\n   - 按系统提示上架到指定库位\n5. 完成后将异常单 EB0126051929558634 状态变更为已完成。\n\n【注意事项】\n- 产品宽度小于 10cm，客户出库时会加包装，本次操作无需额外包装\n- 每个单品必须贴标后才能扫描上架\n- 拆包过程中注意保护单品独立包装完整性",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126051929558634 中有 2 个中性包装盒，内含 20 个表带单品（每个有独立包装和产品标签，宽度小于 10cm）。需拆开中性盒，为每个单品补贴新标签后，按入库单 WI50181090 上架。客户出库时会选择加包装，本次增值操作无需额外包装。\n\n【需求背景】\n到仓商品条码异常，无法按标准流程处理，需按客户提供的新入库单和标签文件重新贴标后上架。\n\n【操作要求】\n1. 根据异常单 EB0126051929558634 定位 2 个中性包装盒；\n2. 拆开中性盒，核对内含物品：\n   - 对照「拆分的产品包装照片参考.doc」确认产品为表带\n   - 确认每个单品有独立包装和产品标签\n   - 清点数量共 20 个单品\n3. 换标操作：\n   - 打印「Order (7).pdf」中的标签（共 20 张）\n   - 在每个单品独立包装的可见面粘贴新标签（覆盖或替换原标签）\n4. 上架操作：\n   - 扫描入库单 WI50181090 条码\n   - 逐个扫描已贴标的 20 个单品\n   - 按系统提示上架到指定库位\n5. 完成后将异常单 EB0126051929558634 状态变更为已完成。\n\n【注意事项】\n- 产品宽度小于 10cm，客户出库时会加包装，本次操作无需额外包装\n- 每个单品必须贴标后才能扫描上架\n- 拆包过程中注意保护单品独立包装完整性",
+    "conclusionOneLiner": "异常名称为商品条码异常，需扫描产品标签后按新单上架",
+    "judgmentBasis": "🔍 异常单 EB0126051929558634：商品条码异常(需客户处理)（商品）[oms_api]\n📋 识别的动作：补贴包裹标签、拆开2个中性包装盒、扫描20个单品的产品标签、按新单WI50181090补贴包裹标签、操作上架\n✅ AI 判断场景：【入库】包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：异常名称为商品条码异常，需扫描产品标签后按新单上架"
+  },
+  "omsWriteAttempted": false
+}

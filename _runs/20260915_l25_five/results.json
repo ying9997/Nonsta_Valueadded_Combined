@@ -1,0 +1,417 @@
+[
+  {
+    "orderNo": "VASC000000313224",
+    "outcome": "l4_direct",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "inbound_parcel_cross_warehouse_transfer"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000313224",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [
+        {
+          "field": "异常包裹编号",
+          "present": true,
+          "evidence": "系统已掌握异常单号：EB0126070230983595，客户原文也明确提到此单号"
+        },
+        {
+          "field": "目的仓库",
+          "present": true,
+          "evidence": "客户明确要求'转到DG仓'，DG仓即为目的仓库代码"
+        },
+        {
+          "field": "目标入库单号",
+          "present": true,
+          "evidence": "客户明确要求'上架到WI50892274'，系统单据信息也显示此入库单号"
+        },
+        {
+          "field": "当前所在仓库",
+          "present": true,
+          "evidence": "系统已掌握当前单据仓库：DEBR2 Warehouse / DEBR2，这是包裹当前错误所在的仓库"
+        }
+      ],
+      "infoCheckSkipped": false,
+      "infoCheckError": "",
+      "attachmentComplete": true,
+      "uploadedAttachments": [
+        "标签文件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "Order (40).pdf",
+          "label": "标签文件"
+        }
+      ],
+      "customerIntent": "暂无标准增值\nEB0126070230983595  货物实际是DG品，需要转回DG仓上架，请帮忙把货物转到DG仓，上架到WI50892274，补贴winit包裹标签",
+      "requirementLength": 82,
+      "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+      "sceneName": "【入库】包裹串仓异常调拨",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n异常单 EB0126070230983595 关联入库单 WI50892274，货物实际为 DG 品（危险品），需从普通仓调拨至 DG 仓上架。按客户提供的标签文件（Order (40).pdf）补贴 winit 包裹标签后，转入 DG 仓并完成上架。\n\n【需求背景】\n到仓货物实际属性为危险品，与系统登记仓库类型不符，需跨仓调拨至 DG 专用仓库。\n\n【操作要求】\n1. 根据异常单 EB0126070230983595 定位待处理包裹；\n2. 按已上传的标签文件（Order (40).pdf）补贴 winit 包裹标签；\n3. 将货物从当前仓库（DEBR2）调拨至 DG 仓；\n4. 使用入库单 WI50892274 在 DG 仓扫描上架；\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 货物为 DG 品（危险品），调拨和上架需遵守 DG 仓操作规范；\n- 确认标签补贴位置清晰可扫描后再进行调拨。",
+      "llmError": "",
+      "analysis": "【需求描述】\n异常单 EB0126070230983595 关联入库单 WI50892274，货物实际为 DG 品（危险品），需从普通仓调拨至 DG 仓上架。按客户提供的标签文件（Order (40).pdf）补贴 winit 包裹标签后，转入 DG 仓并完成上架。\n\n【需求背景】\n到仓货物实际属性为危险品，与系统登记仓库类型不符，需跨仓调拨至 DG 专用仓库。\n\n【操作要求】\n1. 根据异常单 EB0126070230983595 定位待处理包裹；\n2. 按已上传的标签文件（Order (40).pdf）补贴 winit 包裹标签；\n3. 将货物从当前仓库（DEBR2）调拨至 DG 仓；\n4. 使用入库单 WI50892274 在 DG 仓扫描上架；\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 货物为 DG 品（危险品），调拨和上架需遵守 DG 仓操作规范；\n- 确认标签补贴位置清晰可扫描后再进行调拨。",
+      "conclusionOneLiner": "货物送错仓库需跨仓调拨到DG仓",
+      "judgmentBasis": "🔍 异常单 EB0126070230983595：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：补贴包裹标签、转回DG仓、上架到WI50892274、补贴winit包裹标签\n✅ AI 判断场景：【入库】包裹串仓异常调拨（置信度：高）\n💡 AI 理由：货物送错仓库需跨仓调拨到DG仓"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000298617",
+    "outcome": "transfer_human",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "action": "stop_first_round",
+        "note": "pass-test 只记第一轮，不模拟补附件/选场景",
+        "sceneKey": "inbound_label_identify"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000298617",
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "node": "match-template",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template"
+      ],
+      "failureGate": "match-template",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [],
+      "infoCheckSkipped": true,
+      "infoCheckError": "",
+      "uploadedAttachments": [
+        "操作说明附件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_AOOI",
+          "fileName": "新建 XLSX 工作表.xlsx",
+          "label": "操作说明附件"
+        }
+      ],
+      "customerIntent": "EB0326061230366501 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实物照片，  EB0326061230362709 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实实物照片，  返回照片后再进行辨识处理\nEB0326061230366501 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实物照片，  EB0326061230362709 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实实物照片，  返回照片后再进行辨识处理",
+      "requirementLength": 223,
+      "sceneKey": "inbound_label_identify",
+      "sceneName": "【入库】尺重/标签辨识后换标上架",
+      "decision": "ambiguous",
+      "confidence": "medium",
+      "reason": "ambiguous_top1_top2_close",
+      "llmText": "客户需求涉及拍照后再进行辨识处理，场景匹配置信度较低（0.42），系统无法确定是否属于【入库】尺重/标签辨识后换标上架场景，需人工确认具体操作流程和费用标准。",
+      "llmError": "",
+      "analysis": "客户需求涉及拍照后再进行辨识处理，场景匹配置信度较低（0.42），系统无法确定是否属于【入库】尺重/标签辨识后换标上架场景，需人工确认具体操作流程和费用标准。",
+      "conclusionOneLiner": "需拍照返回客户确认后再辨识处理",
+      "judgmentBasis": "🔍 异常单 EB0326061230366501、EB0326061230362709：包裹内出现订单外商品（商品）[oms_api]\n📋 识别的动作：辨识\n✅ AI 判断场景：【入库】尺重/标签辨识后换标上架（置信度：低）\n💡 AI 理由：需拍照返回客户确认后再辨识处理"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000309966",
+    "outcome": "l4_direct",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "inbound_package_barcode_batch_relabel"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000309966",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [
+        {
+          "field": "异常单号",
+          "present": true,
+          "evidence": "系统已掌握：EB0126063030831702"
+        },
+        {
+          "field": "目标入库单WI",
+          "present": true,
+          "evidence": "系统已掌握：WI49455996"
+        },
+        {
+          "field": "SKU与入库单对应关系",
+          "present": true,
+          "evidence": "已上传文件：WI49455996-包裹标签.pdf，文件名明确对应入库单WI49455996，包裹标签文件通常包含SKU与包裹的对应关系"
+        },
+        {
+          "field": "处理数量或范围",
+          "present": true,
+          "evidence": "已上传包裹标签PDF文件，该文件应包含所有需要补贴标签的包裹条码及数量信息；客户要求「补贴1张包裹条码于彩盒顶部」，说明是按包裹标签文件中的包裹逐一处理"
+        }
+      ],
+      "infoCheckSkipped": false,
+      "infoCheckError": "",
+      "attachmentComplete": true,
+      "uploadedAttachments": [
+        "标签文件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI49455996-包裹标签.pdf",
+          "label": "标签文件"
+        }
+      ],
+      "customerIntent": "该入库单彩盒上有缠膜，标签无法扫描，且标签贴膜上后续尾程运输易脱落\n1.撕掉外膜 2.补贴1张包裹条码于彩盒顶部 3.操作完成后选3pcs拍照反馈4.关闭异常单",
+      "requirementLength": 80,
+      "sceneKey": "inbound_package_barcode_batch_relabel",
+      "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n入库单 WI49455996 的包裹彩盒外有缠膜导致条码无法扫描，且标签贴在膜上运输易脱落。需撕除外膜后在彩盒顶部补贴新包裹条码，完成后拍照反馈并关闭异常单 EB0126063030831702。\n\n【需求背景】\n包裹外包装缠膜遮挡条码，影响扫描识别和后续物流操作，需去除障碍物并重新贴标。\n\n【操作要求】\n1. 根据异常单 EB0126063030831702 定位入库单 WI49455996 的待处理包裹；\n2. 撕掉彩盒外层缠膜；\n3. 使用标签文件（WI49455996-包裹标签.pdf）打印包裹条码，补贴于彩盒顶部；\n4. 从处理完成的包裹中随机选取 3 件拍照留存；\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 撕膜时注意不要损坏彩盒本体；\n- 新标签需贴在彩盒顶部平整位置，确保可扫描；\n- 拍照需清晰展示贴标位置和条码内容。",
+      "llmError": "",
+      "analysis": "【需求描述】\n入库单 WI49455996 的包裹彩盒外有缠膜导致条码无法扫描，且标签贴在膜上运输易脱落。需撕除外膜后在彩盒顶部补贴新包裹条码，完成后拍照反馈并关闭异常单 EB0126063030831702。\n\n【需求背景】\n包裹外包装缠膜遮挡条码，影响扫描识别和后续物流操作，需去除障碍物并重新贴标。\n\n【操作要求】\n1. 根据异常单 EB0126063030831702 定位入库单 WI49455996 的待处理包裹；\n2. 撕掉彩盒外层缠膜；\n3. 使用标签文件（WI49455996-包裹标签.pdf）打印包裹条码，补贴于彩盒顶部；\n4. 从处理完成的包裹中随机选取 3 件拍照留存；\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 撕膜时注意不要损坏彩盒本体；\n- 新标签需贴在彩盒顶部平整位置，确保可扫描；\n- 拍照需清晰展示贴标位置和条码内容。",
+      "conclusionOneLiner": "异常名称为包裹条码批量异常，需补贴包裹标签",
+      "judgmentBasis": "🔍 异常单 EB0126063030831702：包裹条码批量异常（需客户处理）（包裹）[oms_api]\n📋 识别的动作：拍照、撕掉外膜、补贴包裹条码于彩盒顶部、选3pcs拍照反馈、关闭异常单\n✅ AI 判断场景：【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架（置信度：高）\n💡 AI 理由：异常名称为包裹条码批量异常，需补贴包裹标签"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000309402",
+    "outcome": "l4_direct",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "instock_appearance_identify_label"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000309402",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [
+        {
+          "field": "辨识对象范围",
+          "present": true,
+          "evidence": "异常单号EB0126063030856782，Winit订单号WI50277665，异常里是两个商品"
+        },
+        {
+          "field": "辨识方法/依据",
+          "present": true,
+          "evidence": "通过左右位置区分：左边物品、右边物品；已上传image_1782809805151_6dpho.png图片文件可作为辨识依据"
+        },
+        {
+          "field": "辨识后处理动作",
+          "present": true,
+          "evidence": "分别加快递袋上架，左边物品贴SKU: CDBXSTZ，右边物品贴SKU: XYHSXF150"
+        },
+        {
+          "field": "新入库单号",
+          "present": true,
+          "evidence": "Winit订单号WI50277665即为目标上架单号"
+        },
+        {
+          "field": "SKU对应关系",
+          "present": true,
+          "evidence": "左边物品对应SKU: CDBXSTZ，右边物品对应SKU: XYHSXF150；已上传Order (29).pdf可能包含详细对应关系"
+        }
+      ],
+      "infoCheckSkipped": false,
+      "infoCheckError": "",
+      "attachmentComplete": true,
+      "uploadedAttachments": [
+        "标签文件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "image_1782809805151_6dpho.png",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "Order (29).pdf",
+          "label": "标签文件"
+        }
+      ],
+      "customerIntent": "异常单号EB0126063030856782   Winit订单号WI50277665   异常里是两个商品    需要仓库分别 加 快递袋上架   左边物品贴 SKU  :CDBXSTZ   右边物品贴SKU: XYHSXF150\n异常单号EB0126063030856782   Winit订单号WI50277665   异常里是两个商品    需要仓库分别 加 快递袋上架   左边物品贴 SKU  :CDBXSTZ   右边物品贴SKU: XYHSXF150",
+      "requirementLength": 209,
+      "sceneKey": "instock_appearance_identify_label",
+      "sceneName": "【库内】商品外观辨识+贴标上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n异常单 EB0126063030856782 关联入库单 WI50277665，包裹内含两个商品需分别加快递袋并贴 SKU 标签上架。根据附件图片外观特征辨识：左边物品贴 SKU 标签 CDBXSTZ，右边物品贴 SKU 标签 XYHSXF150。已提供标签文件 image_1782809805151_6dpho.png 和 Order (29).pdf。\n\n【需求背景】\n到仓包裹内含多个商品需按外观辨识后分别贴标并独立包装上架。\n\n【操作要求】\n1. 根据异常单 EB0126063030856782 定位待处理包裹；\n2. 参考附件 image_1782809805151_6dpho.png 中的商品图片，根据外观特征（颜色、形状、包装文字等）辨识两个物品；\n3. 根据附件 Order (29).pdf 打印 SKU 标签 CDBXSTZ 和 XYHSXF150；\n4. 左边物品贴 SKU 标签 CDBXSTZ 后装入快递袋，右边物品贴 SKU 标签 XYHSXF150 后装入快递袋；\n5. 扫描贴好标签的商品条码，再扫描目标库位条码完成上架（关联入库单 WI50277665）；\n6. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 必须根据附件图片外观特征准确辨识左右物品，避免贴错标签；\n- 两个商品需分别独立包装后上架。",
+      "llmError": "",
+      "analysis": "【需求描述】\n异常单 EB0126063030856782 关联入库单 WI50277665，包裹内含两个商品需分别加快递袋并贴 SKU 标签上架。根据附件图片外观特征辨识：左边物品贴 SKU 标签 CDBXSTZ，右边物品贴 SKU 标签 XYHSXF150。已提供标签文件 image_1782809805151_6dpho.png 和 Order (29).pdf。\n\n【需求背景】\n到仓包裹内含多个商品需按外观辨识后分别贴标并独立包装上架。\n\n【操作要求】\n1. 根据异常单 EB0126063030856782 定位待处理包裹；\n2. 参考附件 image_1782809805151_6dpho.png 中的商品图片，根据外观特征（颜色、形状、包装文字等）辨识两个物品；\n3. 根据附件 Order (29).pdf 打印 SKU 标签 CDBXSTZ 和 XYHSXF150；\n4. 左边物品贴 SKU 标签 CDBXSTZ 后装入快递袋，右边物品贴 SKU 标签 XYHSXF150 后装入快递袋；\n5. 扫描贴好标签的商品条码，再扫描目标库位条码完成上架（关联入库单 WI50277665）；\n6. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 必须根据附件图片外观特征准确辨识左右物品，避免贴错标签；\n- 两个商品需分别独立包装后上架。",
+      "conclusionOneLiner": "按左右位置外观辨识后分别贴不同SKU标签",
+      "judgmentBasis": "🔍 异常单 EB0126063030856782：商品质量异常(影响销售)（商品）[oms_api]\n📋 识别的动作：根据左右位置辨识商品、左边物品贴SKU:CDBXSTZ、右边物品贴SKU:XYHSXF150、分别加快递袋、上架\n✅ AI 判断场景：【库内】商品外观辨识+贴标上架（置信度：高）\n💡 AI 理由：按左右位置外观辨识后分别贴不同SKU标签"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000333423",
+    "outcome": "l4_direct",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "instock_appearance_identify_label"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000333423",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [
+        {
+          "field": "辨识对象范围",
+          "present": true,
+          "evidence": "异常单号EB0526081032108622已在系统掌握，客户明确要求对该异常单下的产品进行处理"
+        },
+        {
+          "field": "辨识方法/依据",
+          "present": true,
+          "evidence": "客户明确说明通过「漏气」与否来辨识商品状态，漏气产品和不漏气产品需分别处理"
+        },
+        {
+          "field": "辨识后处理动作",
+          "present": true,
+          "evidence": "漏气产品七件上架到AU-WD-H-D-LP，不漏气的上架到AU-WD-H-D-P"
+        },
+        {
+          "field": "新入库单号",
+          "present": true,
+          "evidence": "入库单号WI52043555已在客户需求和系统单据信息中明确提供"
+        },
+        {
+          "field": "SKU对应关系",
+          "present": true,
+          "evidence": "客户已上传标签文件Order (42).pdf，该文件应包含SKU和标签的对应关系；且客户明确了不同状态商品对应的库位（AU-WD-H-D-LP和AU-WD-H-D-P）"
+        }
+      ],
+      "infoCheckSkipped": false,
+      "infoCheckError": "",
+      "attachmentComplete": true,
+      "uploadedAttachments": [
+        "标签文件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "Order (42).pdf",
+          "label": "标签文件"
+        }
+      ],
+      "customerIntent": "异常单号：\tEB0526081032108622，，漏气产品七件上架到AU-WD-H-D-LP，不漏气的上架到AU-WD-H-D-P，，入库单号WI52043555\n异常单号：\tEB0526081032108622，，漏气产品七件上架到AU-WD-H-D-LP，不漏气的上架到AU-WD-H-D-P，，入库单号WI52043555",
+      "requirementLength": 165,
+      "sceneKey": "instock_appearance_identify_label",
+      "sceneName": "【库内】商品外观辨识+贴标上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n异常单 EB0526081032108622 关联入库单 WI52043555，需对商品进行漏气辨识后分类上架：漏气商品上架至 AU-WD-H-D-LP 库位，不漏气商品上架至 AU-WD-H-D-P 库位。客户已提供标签文件（Order (42).pdf）用于商品贴标。\n\n【需求背景】\n到仓商品需按质量状态分类上架，漏气商品需单独存放至次品库位，合格商品上架至正常库位。\n\n【操作要求】\n1. 根据异常单 EB0526081032108622 和入库单 WI52043555 定位待处理货物；\n2. 逐件检查商品漏气情况：轻压商品包装，若有明显凹陷、气体泄漏声或包装破损则判定为漏气商品；\n3. 参照标签文件（Order (42).pdf）中的 SKU 与条码对应关系，为所有商品补贴对应标签；\n4. 将已确认的 7 件漏气商品扫描上架至库位 AU-WD-H-D-LP；\n5. 将不漏气商品扫描上架至库位 AU-WD-H-D-P；\n6. 核对处理数量与入库单数量一致后，将异常单状态变更为已完成。\n\n【注意事项】\n- 漏气商品数量应为 7 件，如实际辨识数量不符需及时反馈；\n- 贴标时需核对标签文件中的 SKU 编码与实物商品一致；\n- 两个库位商品需分别扫描上架，避免混放。",
+      "llmError": "",
+      "analysis": "【需求描述】\n异常单 EB0526081032108622 关联入库单 WI52043555，需对商品进行漏气辨识后分类上架：漏气商品上架至 AU-WD-H-D-LP 库位，不漏气商品上架至 AU-WD-H-D-P 库位。客户已提供标签文件（Order (42).pdf）用于商品贴标。\n\n【需求背景】\n到仓商品需按质量状态分类上架，漏气商品需单独存放至次品库位，合格商品上架至正常库位。\n\n【操作要求】\n1. 根据异常单 EB0526081032108622 和入库单 WI52043555 定位待处理货物；\n2. 逐件检查商品漏气情况：轻压商品包装，若有明显凹陷、气体泄漏声或包装破损则判定为漏气商品；\n3. 参照标签文件（Order (42).pdf）中的 SKU 与条码对应关系，为所有商品补贴对应标签；\n4. 将已确认的 7 件漏气商品扫描上架至库位 AU-WD-H-D-LP；\n5. 将不漏气商品扫描上架至库位 AU-WD-H-D-P；\n6. 核对处理数量与入库单数量一致后，将异常单状态变更为已完成。\n\n【注意事项】\n- 漏气商品数量应为 7 件，如实际辨识数量不符需及时反馈；\n- 贴标时需核对标签文件中的 SKU 编码与实物商品一致；\n- 两个库位商品需分别扫描上架，避免混放。",
+      "conclusionOneLiner": "按漏气外观辨识后分别上架到指定库位",
+      "judgmentBasis": "🔍 异常单 EB0526081032108622：包裹内商品错装（商品）[oms_api]\n📋 识别的动作：按漏气/不漏气进行外观辨识、漏气产品7件上架到AU-WD-H-D-LP库位、不漏气产品上架到AU-WD-H-D-P库位\n✅ AI 判断场景：【库内】商品外观辨识+贴标上架（置信度：高）\n💡 AI 理由：按漏气外观辨识后分别上架到指定库位"
+    },
+    "omsWriteAttempted": false
+  }
+]

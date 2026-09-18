@@ -1,0 +1,85 @@
+{
+  "orderNo": "VASC000000320358",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_parcel_cross_warehouse_transfer"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000320358",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常包裹编号",
+        "present": true,
+        "evidence": "EB0126071031173804、箱唛号ITYN01A262300010、外箱包裹条码B0400000001430649651"
+      },
+      {
+        "field": "目的仓库",
+        "present": true,
+        "evidence": "USWC2（实际应送仓USWC2的应为外箱第三方箱唛号为ITYN01A262200497的包裹）"
+      },
+      {
+        "field": "目标入库单号",
+        "present": true,
+        "evidence": "WI50925511（对应入库单为WI50925511）"
+      },
+      {
+        "field": "当前所在仓库",
+        "present": true,
+        "evidence": "USWC2收到WI50960402一箱串仓的包裹"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "操作说明附件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_AOOI",
+        "fileName": "彩盒拍照示意图.docx",
+        "label": "操作说明附件"
+      }
+    ],
+    "customerIntent": "USWC2收到WI50960402一箱串仓的包裹，异常单号：EB0126071031173804，包裹外箱上粘贴的是第三方箱唛标签，箱唛号为：ITYN01A262300010。  但实际应送仓USWC2的应为外箱第三方箱唛号为ITYN01A262200497的包裹对应入库单为WI50925511，疑似2箱货互相串仓了\n入库单WI50960402有一箱包裹串仓的异常，实际到仓的箱子是ITYN01A262300010，外箱包裹条码为B0400000001430649651。需要开箱这个包裹，随机抽取1pcs拍照（附件有提供示例图）  拍照需请注意如下2点：  1.需要清晰拍到彩盒正面以及背面带标签的照片各一张。尤其是带标签的这一面必须能够拍到清晰的条码  2.不允许拆实物盒子拍实物    目的是要确认箱内的单品上粘贴的透明计划标签是否有粘贴错",
+    "requirementLength": 367,
+    "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+    "sceneName": "【入库】包裹串仓异常调拨",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n入库单 WI50960402 发生包裹串仓异常（异常单 EB0126071031173804）。实际到仓 USWC2 的包裹外箱箱唛号为 ITYN01A262300010（包裹条码 B0400000001430649651），但该包裹应属于入库单 WI50925511。需开箱随机抽取 1 件商品拍照验证箱内单品上的透明计划标签是否粘贴正确。\n\n【需求背景】\n包裹串仓导致实际到仓货物与入库单不匹配，需通过开箱拍照确认箱内商品标签是否正确，以便后续调拨处理。\n\n【操作要求】\n1. 根据异常单 EB0126071031173804 定位包裹条码为 B0400000001430649651、外箱箱唛号为 ITYN01A262300010 的包裹；\n2. 开箱后随机抽取 1 件商品；\n3. 参照附件「彩盒拍照示意图.docx」，拍摄彩盒正面照片 1 张、背面带标签照片 1 张，确保背面标签上的条码清晰可辨识；\n4. 不得拆开商品外包装盒拍摄实物；\n5. 将拍摄照片上传至异常单系统；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 拍照重点：背面标签条码必须清晰，用于核验透明计划标签是否粘贴错误\n- 严禁拆开商品彩盒包装",
+    "llmError": "",
+    "analysis": "【需求描述】\n入库单 WI50960402 发生包裹串仓异常（异常单 EB0126071031173804）。实际到仓 USWC2 的包裹外箱箱唛号为 ITYN01A262300010（包裹条码 B0400000001430649651），但该包裹应属于入库单 WI50925511。需开箱随机抽取 1 件商品拍照验证箱内单品上的透明计划标签是否粘贴正确。\n\n【需求背景】\n包裹串仓导致实际到仓货物与入库单不匹配，需通过开箱拍照确认箱内商品标签是否正确，以便后续调拨处理。\n\n【操作要求】\n1. 根据异常单 EB0126071031173804 定位包裹条码为 B0400000001430649651、外箱箱唛号为 ITYN01A262300010 的包裹；\n2. 开箱后随机抽取 1 件商品；\n3. 参照附件「彩盒拍照示意图.docx」，拍摄彩盒正面照片 1 张、背面带标签照片 1 张，确保背面标签上的条码清晰可辨识；\n4. 不得拆开商品外包装盒拍摄实物；\n5. 将拍摄照片上传至异常单系统；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 拍照重点：背面标签条码必须清晰，用于核验透明计划标签是否粘贴错误\n- 严禁拆开商品彩盒包装",
+    "conclusionOneLiner": "包裹串仓异常，需确认货物后调拨",
+    "judgmentBasis": "🔍 异常单 EB0126071031173804：客户直发包裹串仓（包裹）[oms_api]\n📋 识别的动作：拍照、开箱串仓包裹、随机抽取1pcs拍照、拍摄彩盒正面和背面标签照片、确认透明计划标签是否粘贴错误\n✅ AI 判断场景：【入库】包裹串仓异常调拨（置信度：高）\n💡 AI 理由：包裹串仓异常，需确认货物后调拨"
+  },
+  "omsWriteAttempted": false
+}

@@ -1,0 +1,64 @@
+{
+  "orderNo": "VASC000000305787",
+  "outcome": "sop_after_rounds",
+  "threadId": "om_x100b6543bed9eca4c109fca41bd77b1",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "needs_requirement_clarification",
+      "ruleOutputPath": "needs_requirement_clarification",
+      "action": "skip_l1_override",
+      "note": "overrideScene=inbound_photo_hold",
+      "sceneKey": "inbound_photo_hold"
+    },
+    {
+      "round": 2,
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "sop_generated",
+      "action": "override_scene",
+      "note": "overrideScene=inbound_photo_hold",
+      "sceneKey": "inbound_photo_hold"
+    },
+    {
+      "round": 3,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_photo_hold"
+    }
+  ],
+  "simulated": [
+    "未找到群聊补充，按 OMS 审核员场景继续",
+    "选择场景：【入库】指定商品拍照暂存（来源：OMS 审核员实际选择）"
+  ],
+  "final": {
+    "orderNo": "VASC000000305787",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "inbound_photo_hold",
+    "sceneName": "【入库】指定商品拍照暂存",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "override_by_auditor",
+    "llmText": "【需求描述】\n针对异常单 EB0326062430682713、EB0326062430682779、EB0326062430682944、EB0326062430683001、EB0326062430683055、EB0326062430683283，需对每个异常单随机抽取 1 件商品，拆除外包装后拍摄正面、后面、侧面共 3 张实物照片，照片需清晰展示商品细节。拍摄要求详见已上传的「操作说明附件（新建 XLSX 工作表.xlsx）」。\n\n【需求背景】\n入库商品需进行实物拍照以供客户确认商品状态或用于平台展示，因标准增值流程无法覆盖该特殊拍摄要求，需通过非标增值方式处理。\n\n【操作要求】\n1. 在 WMS 系统中依次输入异常单号（EB0326062430682713、EB0326062430682779、EB0326062430682944、EB0326062430683001、EB0326062430683055、EB0326062430683283），查询货物所在库位，前往库位扫描货物条码确认定位；\n2. 从每个异常单对应的货物中随机抽取 1 件商品，拆除外包装；\n3. 参照「操作说明附件」中的拍摄标准，对商品进行正面、后面、侧面共 3 个角度的拍摄，确保照片清晰、光线充足、商品细节可见；\n4. 照片按「异常单号_角度.jpg」格式命名（如 EB0326062430682713_正面.jpg、EB0326062430682713_后面.jpg、EB0326062430682713_侧面.jpg），上传至 [待补充：照片上传系统路径]；\n5. 拍照完成后，将商品重新包装恢复原状，与该异常单的其他货物一起暂存于 [待补充：暂存库位规则]，并在货物上贴上异常单号标识；\n6. 在异常单系统中添加备注「已完成拍照，照片已上传至 [路径]，货物已暂存于 [库位]」，等待客户确认照片后再进行后续上架操作；\n7. 收到客户确认或系统指令后，按标准入库流程扫描上架，并关闭异常单。\n\n【注意事项】\n- 每个异常单仅抽取 1 件商品拍摄，无需对全部货物拍照；\n- 拆包装时注意保护商品，避免损坏；\n- 照片命名必须包含异常单号和拍摄角度，便于客户识别；\n- 拍照后货物需暂存，不可直接上架，需等待客户确认照片。",
+    "llmError": "",
+    "analysis": "【需求描述】\n针对异常单 EB0326062430682713、EB0326062430682779、EB0326062430682944、EB0326062430683001、EB0326062430683055、EB0326062430683283，需对每个异常单随机抽取 1 件商品，拆除外包装后拍摄正面、后面、侧面共 3 张实物照片，照片需清晰展示商品细节。拍摄要求详见已上传的「操作说明附件（新建 XLSX 工作表.xlsx）」。\n\n【需求背景】\n入库商品需进行实物拍照以供客户确认商品状态或用于平台展示，因标准增值流程无法覆盖该特殊拍摄要求，需通过非标增值方式处理。\n\n【操作要求】\n1. 在 WMS 系统中依次输入异常单号（EB0326062430682713、EB0326062430682779、EB0326062430682944、EB0326062430683001、EB0326062430683055、EB0326062430683283），查询货物所在库位，前往库位扫描货物条码确认定位；\n2. 从每个异常单对应的货物中随机抽取 1 件商品，拆除外包装；\n3. 参照「操作说明附件」中的拍摄标准，对商品进行正面、后面、侧面共 3 个角度的拍摄，确保照片清晰、光线充足、商品细节可见；\n4. 照片按「异常单号_角度.jpg」格式命名（如 EB0326062430682713_正面.jpg、EB0326062430682713_后面.jpg、EB0326062430682713_侧面.jpg），上传至 [待补充：照片上传系统路径]；\n5. 拍照完成后，将商品重新包装恢复原状，与该异常单的其他货物一起暂存于 [待补充：暂存库位规则]，并在货物上贴上异常单号标识；\n6. 在异常单系统中添加备注「已完成拍照，照片已上传至 [路径]，货物已暂存于 [库位]」，等待客户确认照片后再进行后续上架操作；\n7. 收到客户确认或系统指令后，按标准入库流程扫描上架，并关闭异常单。\n\n【注意事项】\n- 每个异常单仅抽取 1 件商品拍摄，无需对全部货物拍照；\n- 拆包装时注意保护商品，避免损坏；\n- 照片命名必须包含异常单号和拍摄角度，便于客户识别；\n- 拍照后货物需暂存，不可直接上架，需等待客户确认照片。",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "✅ AI 判断场景：指定商品拍照暂存（置信度：高）"
+  },
+  "omsWriteAttempted": false
+}

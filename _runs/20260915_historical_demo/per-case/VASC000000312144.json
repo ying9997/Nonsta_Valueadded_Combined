@@ -1,0 +1,55 @@
+{
+  "orderNo": "VASC000000312144",
+  "outcome": "sop_llm_failed",
+  "threadId": "om_x100b65ba17f608b0c3936f953497085",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "action": "override_scene",
+      "note": "overrideScene=inbound_aplus_direct_shelve",
+      "sceneKey": "inbound_aplus_direct_shelve"
+    },
+    {
+      "round": 2,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop_llm_failed",
+      "note": "Expected ',' or '}' after property value in JSON at position 73 (line 2 column 72)",
+      "sceneKey": "inbound_aplus_direct_shelve"
+    }
+  ],
+  "simulated": [
+    "选择场景：【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架（来源：OMS 审核员实际选择）"
+  ],
+  "final": {
+    "orderNo": "VASC000000312144",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "llm-generate-sop",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "llm-generate-sop",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "inbound_aplus_direct_shelve",
+    "sceneName": "【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "override_by_auditor",
+    "llmText": "",
+    "llmError": "Expected ',' or '}' after property value in JSON at position 73 (line 2 column 72)",
+    "analysis": "增值单 VASC000000312144 SOP 生成失败：Expected ',' or '}' after property value in JSON at position 73 (line 2 column 72)。请转人工处理，不要当作场景不确定。",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "✅ AI 判断场景：【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架（置信度：高）"
+  },
+  "omsWriteAttempted": false
+}

@@ -1,0 +1,96 @@
+{
+  "orderNo": "VASC000000333147",
+  "outcome": "sop_llm_failed",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop_llm_failed",
+      "note": "Expected ',' or '}' after property value in JSON at position 1243 (line 6 column 25)",
+      "sceneKey": "inbound_package_barcode_batch_relabel"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000333147",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "llm-generate-sop",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "llm-generate-sop",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "EB0126080632030982"
+      },
+      {
+        "field": "目标入库单WI",
+        "present": true,
+        "evidence": "WI51547628"
+      },
+      {
+        "field": "SKU与入库单对应关系",
+        "present": true,
+        "evidence": "客户已上传附件「包裹和标签的对应关系」，该附件中包含箱序与Winit包裹条码的对应关系（如箱序1对应B0400000001441165842等）"
+      },
+      {
+        "field": "处理数量或范围",
+        "present": true,
+        "evidence": "原单的36个Winit包裹条码标签（从箱序1/36到36/36，共36箱）"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "包裹和标签的对应关系",
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "TRPP",
+        "fileName": "WI51547628非标.xlsx",
+        "label": "包裹和标签的对应关系"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "lQLPJxau-Mx4Rg_NAo3NAhCwFU6hfX26oYAKSFU9MGhdAA_528_653.png",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "WYT包裹条码.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "工厂端将第三方箱唛标签覆盖掉，导致仓库收到货物后无法正常查看第三方箱唛标签扫描上架\n1.辨识外箱上的箱序，外箱上都粘贴了如附件图片的装箱单标签，标签上有箱序如1/36、2/36等等  2.根据附件表格内的对应关系如：箱序1补贴B0400000001441165842这个Winit包裹条码标签以此类推进行补贴原单的36个Winit包裹条码标签上架到WI51547628  3.处理完成后关闭异常单EB0126080632030982",
+    "requirementLength": 214,
+    "sceneKey": "inbound_package_barcode_batch_relabel",
+    "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "",
+    "llmError": "Expected ',' or '}' after property value in JSON at position 1243 (line 6 column 25)",
+    "analysis": "增值单 VASC000000333147 SOP 生成失败：Expected ',' or '}' after property value in JSON at position 1243 (line 6 column 25)。请转人工处理，不要当作场景不确定。",
+    "conclusionOneLiner": "异常名称为包裹条码批量异常，需辨识后补贴包裹标签",
+    "judgmentBasis": "🔍 异常单 EB0126080632030982：包裹条码批量异常（需客户处理）（包裹）[oms_api]\n📋 识别的动作：辨识、辨识外箱上的箱序（装箱单标签上的1/36、2/36等）、根据对应关系补贴36个Winit包裹条码标签、上架到WI51547628、关闭异常单EB0126080632030982\n✅ AI 判断场景：【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架（置信度：高）\n💡 AI 理由：异常名称为包裹条码批量异常，需辨识后补贴包裹标签"
+  },
+  "omsWriteAttempted": false
+}

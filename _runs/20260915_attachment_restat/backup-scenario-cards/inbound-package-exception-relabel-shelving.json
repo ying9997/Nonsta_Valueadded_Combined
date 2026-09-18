@@ -1,0 +1,214 @@
+{
+  "sceneKey": "inbound_package_exception_relabel_shelving",
+  "sceneName": "【入库】包裹类异常换商品标签上架",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "20250407008",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.5",
+      "credibility": "authority",
+      "note": "场景定义：包裹条码正常，商品条码异常。模板极短：补包裹标/商品标后上新 WI、关异常单。无独立 2.5 运行规则文件"
+    },
+    {
+      "path": "workspace/knowledge/sop/非标增值服务SOP模板及填写示例.md",
+      "credibility": "authority",
+      "note": "SOP 完整栏目权威。不是本场景匹配权威，也不含 OMS 场景定义"
+    },
+    {
+      "path": "workspace/knowledge/sop/2.1-inbound-relabel-shelving.md",
+      "credibility": "authority",
+      "note": "仅用于对照边界：2.1 典型触发已含「商品条码与包裹条码不对应 / 供应商贴错条码后换商品标签」，与本场景重叠"
+    },
+    {
+      "path": "workspace/knowledge/sop/库内增值_知识库_SOP模板场景清单.md",
+      "credibility": "deprecated_reference",
+      "note": "库内清单，错范围，不能当本场景权威"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "包裹类异常",
+      "包裹条码正常",
+      "商品条码异常",
+      "换商品标签"
+    ],
+    "weak": [
+      "补贴包裹标签",
+      "补贴商品标签",
+      "商品标签",
+      "上架",
+      "新入库单",
+      "关闭异常单"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "拦截不上架",
+      "先放在一边",
+      "暂存不上架",
+      "直接扫描上架",
+      "尺重辨识",
+      "绿标"
+    ],
+    "soft": [
+      "指定商品拍照暂存",
+      "称重拍照",
+      "库内拍摄照片/视频"
+    ]
+  },
+  "boundaryRules": [
+    "与 F-001 都可能含换标+上架。仅当正文明确「包裹条码正常、商品条码异常 / 包裹类异常」且换商品标上架时，才高置信标本场景。",
+    "有尺重/辨识/绿标/混SKU/对应关系时优先 F-001，不要抢标本场景。",
+    "区分不了时 decision=ambiguous，supported=false，转人工，不得进入 check-completeness。",
+    "拦截不上架 / 先放一边不是本场景。",
+    "拍照暂存、库内拍照/视频不是本场景。",
+    "不能仅凭 OW01V1602 或「入库其他服务需求」命中。",
+    "sceneKey 为本次拟新增，仓库内原先无此 key；PRD §4.2 未列此 key。"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：异常包裹 / 商品条码",
+    "动作：换商品标签（可含补包裹标）",
+    "去向：上架到新入库单并关闭异常单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "confirmed_from_data",
+    "enforcement": "required",
+    "omsWhitelistFieldKeys": [
+      "VAS_ATTR_REL_LF",
+      "VAS_ATTR_REL_AOOI",
+      "TRPP",
+      "CEO_SOA"
+    ],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_LF"
+    ],
+    "note": "来自 _runs/20260908_3scene_build/attachment-analysis.md：入库桶精确命中 A 共 5 case，SUBMIT 仅 VAS_ATTR_REL_LF（标签文件）出现率 100%。不得借用 F-001 旧模拟三必填，不得自造 fieldKey。另建议校验上架入库单号 VAS_ATTR_REL_NWEON/WI。"
+  },
+  "sopTemplateHints": [
+    "补贴包裹标签 × 数量（若需求写了）",
+    "补贴商品标签 × 数量",
+    "上架到新入库单",
+    "将异常单状态变更为已完成"
+  ],
+  "examples": [
+    {
+      "id": "a-positive-2-5",
+      "kind": "positive",
+      "sourceType": "derived_example",
+      "text": "包裹类异常，包裹条码正常但商品条码异常，请换商品标签后上架到新入库单",
+      "note": "从新版知识库 §2.5 定义+模板抽出，不是历史 gold"
+    },
+    {
+      "id": "a-boundary-348477",
+      "kind": "boundary",
+      "sourceType": "shadow_pending",
+      "text": "物流标签盖住绿标 SKU，撕开后按 SKU 换商品条码再上架",
+      "note": "VASC000000348477 边界待判，不能当 A 的金标正例"
+    }
+  ],
+  "notes": "status=supported。附件策略按 20260908 入库数据分析：SUBMIT 必填仅标签文件 LF；命中后可进 check-completeness。仍须与 F-001 边界 ambiguous 时转人工。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "处理范围",
+      "description": "需要明确处理的包裹数量、箱数或整单处理",
+      "frequency": "100%",
+      "examples": [
+        "3个SKU需要补贴商品条码",
+        "35个包裹全部重新补贴商品条码",
+        "50件货物",
+        "异常1箱a包裹2件商品",
+        "EB0126081932324412等3个包裹"
+      ],
+      "required": true
+    },
+    {
+      "field": "新入库单号",
+      "description": "需要上架到的新预报单/入库单号",
+      "frequency": "93%",
+      "examples": [
+        "上架到预报单：WI51519902",
+        "新单上WI50387161",
+        "原单WI51095972上架",
+        "新单号：WI51598958",
+        "按新单WI51576425上架"
+      ],
+      "required": true
+    },
+    {
+      "field": "商品标签数量",
+      "description": "需要补贴的商品标签数量，可能按SKU分别说明",
+      "frequency": "87%",
+      "examples": [
+        "单品数量：30",
+        "A110RH11==82",
+        "138PCS全部重新贴商品标签",
+        "50件货物",
+        "2件商品"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "包裹标签处理",
+      "description": "是否需要补贴或更换包裹标签",
+      "frequency": "47%",
+      "examples": [
+        "补贴完商品条码后根据新单补贴新单的包裹条码",
+        "更换新的包裹条码上架货物",
+        "需要补贴包裹标签以及商品标签",
+        "WI50566982这个的包裹标签覆盖到这里"
+      ],
+      "required": false
+    },
+    {
+      "field": "SKU对应关系",
+      "description": "多SKU时需要明确每个SKU的数量和对应关系，或说明是否随机贴",
+      "frequency": "60%",
+      "examples": [
+        "US1-BKZWJ-B-E15005001830=M010000000011384530=单品数量：30",
+        "EB0126073131782987=A110RH11==82",
+        "包裹标签和商品标签随机贴就好。没有对应关系",
+        "按照附件sn码对应新包裹关系进行对应贴标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "SKU识别方式",
+      "description": "如何区分不同SKU（如通过尺寸、SN码等）",
+      "frequency": "33%",
+      "examples": [
+        "箱子测面有尺寸信息，仓库可以看尺寸信息区分SKU",
+        "对应size:W1500*D500*H1830(mm)",
+        "原包裹上有贴sn码，没有任何的winit标签",
+        "按照附件sn码对应新包裹"
+      ],
+      "required": false
+    },
+    {
+      "field": "原单号",
+      "description": "原入库单号或预报单号",
+      "frequency": "40%",
+      "examples": [
+        "原单WI49615681",
+        "原单WI51095972上架",
+        "WI48841022单剩下没有登记异常的35个包裹",
+        "WI49968900已到仓卸货未上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签覆盖说明",
+      "description": "是否需要覆盖原有错误标签",
+      "frequency": "33%",
+      "examples": [
+        "实物贴的标签是错误的，需要商品标签要覆盖新的",
+        "WI50566982这个的包裹标签覆盖到这里",
+        "包裹条码被涂改导致难以分辨"
+      ],
+      "required": false
+    }
+  ]
+}

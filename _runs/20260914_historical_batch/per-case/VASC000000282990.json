@@ -1,0 +1,55 @@
+{
+  "orderNo": "VASC000000282990",
+  "outcome": "sop_llm_failed",
+  "threadId": "om_x100b654de3bf2ca4c276abff3baac7b",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "action": "override_scene",
+      "note": "overrideScene=instock_relabel_change_sku",
+      "sceneKey": "instock_relabel_change_sku"
+    },
+    {
+      "round": 2,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop_llm_failed",
+      "note": "SOP 编造了输入中没有的单号：VASC000000278868",
+      "sceneKey": "instock_relabel_change_sku"
+    }
+  ],
+  "simulated": [
+    "选择场景：【库内】指定单品/库位商品更换标签上架【换标前后SKU不一样】（来源：OMS 审核员实际选择）"
+  ],
+  "final": {
+    "orderNo": "VASC000000282990",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "llm-generate-sop",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "llm-generate-sop",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "instock_relabel_change_sku",
+    "sceneName": "【库内】指定单品/库位商品更换标签上架【换标前后SKU不一样】",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "override_by_auditor",
+    "llmText": "",
+    "llmError": "SOP 编造了输入中没有的单号：VASC000000278868",
+    "analysis": "增值单 VASC000000282990 SOP 生成失败：SOP 编造了输入中没有的单号：VASC000000278868。请转人工处理，不要当作场景不确定。",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "✅ AI 判断场景：【库内】指定单品/库位商品更换标签上架【换标前后SKU不一样】（置信度：高）"
+  },
+  "omsWriteAttempted": false
+}

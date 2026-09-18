@@ -1,0 +1,101 @@
+{
+  "orderNo": "VASC000000338049",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "instock_good_to_defective_shelve"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000338049",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "目标入库单号",
+        "present": true,
+        "evidence": "入库单号WI51908492（客户明确提供）"
+      },
+      {
+        "field": "处理对象标识",
+        "present": true,
+        "evidence": "EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988 四个异常单对应的商品，具体商品标签对应关系在已上传附件【商品和标签对应关系】模板0819.xlsx中"
+      },
+      {
+        "field": "转换原因/背景",
+        "present": true,
+        "evidence": "需要补贴商品条码上架到不良品（说明原商品需要补贴标签后作为不良品处理，隐含了商品存在问题需要转不良品的背景）"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "商品和标签的对应关系",
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_TCRBCAL",
+        "fileName": "【商品和标签对应关系】模板0819.xlsx",
+        "label": "商品和标签的对应关系"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "B-YG012.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "A00-G6-1.75-1000-SPL.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "A01-W3-1.75-1000-SPLFREE.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "B-QA002.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "EB0526081332214735  EB0526081032110332  EB0526081032110341  EB0526080632036988 需要补贴商品条码上架到不良品，入库单号WI51908492，异常单对应商品标签看附件\nEB0526081332214735  EB0526081032110332  EB0526081032110341  EB0526080632036988 需要补贴商品条码上架到不良品，入库单号WI51908492，异常单对应商品标签看附件",
+    "requirementLength": 237,
+    "sceneKey": "instock_good_to_defective_shelve",
+    "sceneName": "【库内】良品转不良品上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988 关联入库单 WI51908492，需按已上传的「商品和标签对应关系」（【商品和标签对应关系】模板0819.xlsx）及标签文件（B-YG012.pdf、A00-G6-1.75-1000-SPL.pdf、A01-W3-1.75-1000-SPLFREE.pdf、B-QA002.pdf），为商品补贴新条码标签后上架至不良品库位。\n\n【需求背景】\n到仓商品条码与系统登记不符或缺失，需按客户提供的商品与标签对应关系补贴新标签后，上架至不良品库位。\n\n【操作要求】\n1. 根据异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988 定位待处理货物；\n2. 打开附件「【商品和标签对应关系】模板0819.xlsx」，核对实物商品与对应标签文件的匹配关系；\n3. 按对应关系打印标签文件（B-YG012.pdf、A00-G6-1.75-1000-SPL.pdf、A01-W3-1.75-1000-SPLFREE.pdf、B-QA002.pdf）并补贴至对应商品；\n4. 使用入库单 WI51908492 扫描上架至不良品库位；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 务必核对商品与标签的对应关系，避免贴错标签；\n- 上架至不良品库位，不可上架至良品库位。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988 关联入库单 WI51908492，需按已上传的「商品和标签对应关系」（【商品和标签对应关系】模板0819.xlsx）及标签文件（B-YG012.pdf、A00-G6-1.75-1000-SPL.pdf、A01-W3-1.75-1000-SPLFREE.pdf、B-QA002.pdf），为商品补贴新条码标签后上架至不良品库位。\n\n【需求背景】\n到仓商品条码与系统登记不符或缺失，需按客户提供的商品与标签对应关系补贴新标签后，上架至不良品库位。\n\n【操作要求】\n1. 根据异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988 定位待处理货物；\n2. 打开附件「【商品和标签对应关系】模板0819.xlsx」，核对实物商品与对应标签文件的匹配关系；\n3. 按对应关系打印标签文件（B-YG012.pdf、A00-G6-1.75-1000-SPL.pdf、A01-W3-1.75-1000-SPLFREE.pdf、B-QA002.pdf）并补贴至对应商品；\n4. 使用入库单 WI51908492 扫描上架至不良品库位；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 务必核对商品与标签的对应关系，避免贴错标签；\n- 上架至不良品库位，不可上架至良品库位。",
+    "conclusionOneLiner": "商品条码异常需补贴后转不良品上架",
+    "judgmentBasis": "🔍 异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988：单品条码无法扫描(需客户处理）（商品）[oms_api]\n📋 识别的动作：补贴商品条码、上架到不良品库位、查看附件中的商品标签对应关系\n✅ AI 判断场景：【库内】良品转不良品上架（置信度：高）\n💡 AI 理由：商品条码异常需补贴后转不良品上架"
+  },
+  "omsWriteAttempted": false
+}

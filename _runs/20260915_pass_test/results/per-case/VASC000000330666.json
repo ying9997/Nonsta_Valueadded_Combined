@@ -1,0 +1,75 @@
+{
+  "orderNo": "VASC000000330666",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "instock_change_sku_defective_shelve"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000330666",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [],
+    "infoCheckSkipped": true,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "商品和标签的对应关系",
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_TCRBCAL",
+        "fileName": "【商品和标签对应关系】模板 (1).xlsx",
+        "label": "商品和标签的对应关系"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "A00-D02-1.75-1000-SPLFREE-US2 SKU条码.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "A01-N0-1.75-1000-SPLFREE SKU条码.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "EB0526080531978530  EB0526073031771275  需补贴商品条码并上架到不良品。入库单号WI51572764\nEB0526080531978530  EB0526073031771275  需补贴商品条码并上架到不良品。入库单号WI51572764",
+    "requirementLength": 135,
+    "sceneKey": "instock_change_sku_defective_shelve",
+    "sceneName": "【库内】更换SKU做不良品上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0526080531978530、EB0526073031771275 关联入库单 WI51572764 的货物，因商品条码异常无法正常上架。需按客户提供的商品与条码对应关系（【商品和标签对应关系】模板 (1).xlsx）及标签文件（A00-D02-1.75-1000-SPLFREE-US2 SKU条码.pdf、A01-N0-1.75-1000-SPLFREE SKU条码.pdf），为商品补贴新条码后上架至不良品库位。\n\n【需求背景】\n到仓商品条码与系统登记不符或缺失，需按客户提供的实物与条码对应关系补贴标签后上架至不良品区。\n\n【操作要求】\n1. 通过入库单 WI51572764 在系统中查询货物存放库位，前往实物位置定位异常单 EB0526080531978530、EB0526073031771275 对应的待处理货物。\n2. 核对实物 SKU、数量与入库单 WI51572764 记录是否一致，确认货物归属。\n3. 打开【商品和标签对应关系】模板 (1).xlsx，根据文件中的 SKU 编码、商品描述、图片等信息字段，结合实物的外观特征、原有标签信息、包装标识，将每件商品与表格中的记录逐一匹配对应。\n4. 使用仓库标签打印机，按热敏或 A4 规格打印 A00-D02-1.75-1000-SPLFREE-US2 SKU条码.pdf 和 A01-N0-1.75-1000-SPLFREE SKU条码.pdf 中对应的商品条码标签。\n5. 将打印的新条码标签准确贴于对应商品的可见位置，确保条码清晰可扫描，覆盖或移除原有异常条码。\n6. 扫描新贴条码，将货物上架至不良品库位，系统中关联入库单 WI51572764。\n7. 操作完成后，将异常单 EB0526080531978530、EB0526073031771275 状态变更为已完成。\n\n【注意事项】\n- 补贴标签时务必核对对应关系文件，避免贴错导致二次异常。\n- 新条码标签需贴于商品表面平整位置，确保后续扫描识别准确。\n- 上架至不良品库位时需在系统中正确标记库位类型。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0526080531978530、EB0526073031771275 关联入库单 WI51572764 的货物，因商品条码异常无法正常上架。需按客户提供的商品与条码对应关系（【商品和标签对应关系】模板 (1).xlsx）及标签文件（A00-D02-1.75-1000-SPLFREE-US2 SKU条码.pdf、A01-N0-1.75-1000-SPLFREE SKU条码.pdf），为商品补贴新条码后上架至不良品库位。\n\n【需求背景】\n到仓商品条码与系统登记不符或缺失，需按客户提供的实物与条码对应关系补贴标签后上架至不良品区。\n\n【操作要求】\n1. 通过入库单 WI51572764 在系统中查询货物存放库位，前往实物位置定位异常单 EB0526080531978530、EB0526073031771275 对应的待处理货物。\n2. 核对实物 SKU、数量与入库单 WI51572764 记录是否一致，确认货物归属。\n3. 打开【商品和标签对应关系】模板 (1).xlsx，根据文件中的 SKU 编码、商品描述、图片等信息字段，结合实物的外观特征、原有标签信息、包装标识，将每件商品与表格中的记录逐一匹配对应。\n4. 使用仓库标签打印机，按热敏或 A4 规格打印 A00-D02-1.75-1000-SPLFREE-US2 SKU条码.pdf 和 A01-N0-1.75-1000-SPLFREE SKU条码.pdf 中对应的商品条码标签。\n5. 将打印的新条码标签准确贴于对应商品的可见位置，确保条码清晰可扫描，覆盖或移除原有异常条码。\n6. 扫描新贴条码，将货物上架至不良品库位，系统中关联入库单 WI51572764。\n7. 操作完成后，将异常单 EB0526080531978530、EB0526073031771275 状态变更为已完成。\n\n【注意事项】\n- 补贴标签时务必核对对应关系文件，避免贴错导致二次异常。\n- 新条码标签需贴于商品表面平整位置，确保后续扫描识别准确。\n- 上架至不良品库位时需在系统中正确标记库位类型。",
+    "conclusionOneLiner": "补贴商品条码并上架到不良品入库单",
+    "judgmentBasis": "🔍 异常单 EB0526080531978530、EB0526073031771275：单品条码无法扫描(需客户处理）（商品）[oms_api]\n📋 识别的动作：补贴商品条码、上架到不良品入库单WI51572764\n✅ AI 判断场景：【库内】更换SKU做不良品上架（置信度：高）\n💡 AI 理由：补贴商品条码并上架到不良品入库单"
+  },
+  "omsWriteAttempted": false
+}

@@ -1,0 +1,110 @@
+{
+  "orderNo": "VASC000000320616",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_third_party_merchandise_barcode"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000320616",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "EB0126070431047768"
+      },
+      {
+        "field": "目标入库单",
+        "present": true,
+        "evidence": "客户下了6个新单：WI51058417、WI51058290、WI51057543、WI51058328、WI51058358、WI51058447，并明确要求使用新入库单上架"
+      },
+      {
+        "field": "扫描对象",
+        "present": true,
+        "evidence": "实物产品条码正确，仓库帮忙按新单补贴新单的包裹标签操作上架（说明扫描包裹标签上架）"
+      },
+      {
+        "field": "第三方条码维护状态",
+        "present": true,
+        "evidence": "第三方的编码系统已经关联，并列出了6个第三方编码与SKU的对应关系（441227341830=X004VWEFGT等）"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "WI51058447包裹标签.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "WI51058358包裹标签.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "WI51058328包裹标签.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "WI51057543包裹标签.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "WI51058290包裹标签.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "WI51058417包裹标签.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "异常单：EB0126070431047768   登记的异常是：包裹条码异常(需客户处理)   和仓库核实实际是有6款不同的产品，客户下了6个新单，标准无法一起操作，需要非标处理\n异常单：EB0126070431047768  登记的异常是：包裹条码异常(需客户处理)   拍的产品sku：X004VEHAYL     和仓库核实实际此异常是有6款不同的sku，对应新单以及对应的第三方编码：  441227341830 WI51058417 M010000000012342990 =X004VWEFGT  441229931014 WI51058290 M010000000012343047 =X004VECQ3L  441229926150 WI51057543 M010000000012343033 =X004VEGOWZ   441229929222 WI51058328 M010000000012343032 =X004VEGS3P  441227344902 WI51058358 M010000000012342998 =X004VEHAYL  441229182726 WI51058447 M010000000012343019 =X004VWISOJ  按标准只能填写一个入库单无法操作上架，只能通过非标处理  实物产品条码正确，第三方的编码系统已经关联，客户要求使用新入库单上架，仓库帮忙按新单补贴新单的包裹标签操作上架，帮忙更新非标报价，谢谢。",
+    "requirementLength": 618,
+    "sceneKey": "inbound_third_party_merchandise_barcode",
+    "sceneName": "【入库】关联第三方商品条码上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126070431047768 涉及 6 款不同 SKU 的商品，因包裹条码异常无法按标准流程上架。客户已创建 6 个新入库单（WI51058417、WI51058290、WI51057543、WI51058328、WI51058358、WI51058447），并提供了实物第三方编码与新 SKU 的对应关系及各入库单的包裹标签文件。需仓库按对应关系为每款商品补贴对应入库单的包裹标签后分别上架。\n\n【需求背景】\n到仓包裹内含 6 款不同商品，因条码异常且标准流程无法支持多 SKU 混合处理，需按客户提供的对应关系补贴新包裹标签后分别上架到对应入库单。\n\n【操作要求】\n1. 根据异常单 EB0126070431047768 定位待处理包裹；\n2. 按客户提供的对应关系辨识 6 款商品：441227341830→X004VWEFGT、441229931014→X004VECQ3L、441229926150→X004VEGOWZ、441229929222→X004VEGS3P、441227344902→X004VEHAYL、441229182726→X004VWISOJ；\n3. 为每款商品补贴对应入库单的包裹标签（使用已上传的 6 个包裹标签 PDF 文件）；\n4. 按对应关系将商品分别上架到入库单 WI51058417、WI51058290、WI51057543、WI51058328、WI51058358、WI51058447；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 实物产品条码正确，第三方编码系统已关联，请严格按对应关系操作；\n- 共 6 款商品对应 6 个入库单，每款商品使用对应入库单的包裹标签文件。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126070431047768 涉及 6 款不同 SKU 的商品，因包裹条码异常无法按标准流程上架。客户已创建 6 个新入库单（WI51058417、WI51058290、WI51057543、WI51058328、WI51058358、WI51058447），并提供了实物第三方编码与新 SKU 的对应关系及各入库单的包裹标签文件。需仓库按对应关系为每款商品补贴对应入库单的包裹标签后分别上架。\n\n【需求背景】\n到仓包裹内含 6 款不同商品，因条码异常且标准流程无法支持多 SKU 混合处理，需按客户提供的对应关系补贴新包裹标签后分别上架到对应入库单。\n\n【操作要求】\n1. 根据异常单 EB0126070431047768 定位待处理包裹；\n2. 按客户提供的对应关系辨识 6 款商品：441227341830→X004VWEFGT、441229931014→X004VECQ3L、441229926150→X004VEGOWZ、441229929222→X004VEGS3P、441227344902→X004VEHAYL、441229182726→X004VWISOJ；\n3. 为每款商品补贴对应入库单的包裹标签（使用已上传的 6 个包裹标签 PDF 文件）；\n4. 按对应关系将商品分别上架到入库单 WI51058417、WI51058290、WI51057543、WI51058328、WI51058358、WI51058447；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 实物产品条码正确，第三方编码系统已关联，请严格按对应关系操作；\n- 共 6 款商品对应 6 个入库单，每款商品使用对应入库单的包裹标签文件。",
+    "conclusionOneLiner": "客户已关联第三方编码，按新单扫描上架",
+    "judgmentBasis": "🔍 异常单 EB0126070431047768：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：补贴包裹标签、关联第三方商品条码、按新入库单补贴包裹标签、上架到新单\n✅ AI 判断场景：【入库】关联第三方商品条码上架（置信度：高）\n💡 AI 理由：客户已关联第三方编码，按新单扫描上架"
+  },
+  "omsWriteAttempted": false
+}

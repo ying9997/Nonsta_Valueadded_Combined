@@ -1,0 +1,81 @@
+{
+  "orderNo": "VASC000000270780",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_kit_then_shelve"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000270780",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "组合数量",
+        "present": true,
+        "evidence": "异常内20个，实际要按一个单品上架"
+      },
+      {
+        "field": "组合规则",
+        "present": true,
+        "evidence": "20个异常商品按一个单品上架，贴一个新单的A+包裹标签，用纸箱包装"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "包裹和标签的对应关系",
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "TRPP",
+        "fileName": "【包裹和标签的对应关系】模板.xlsx",
+        "label": "包裹和标签的对应关系"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "fileDownload+1000C.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "EB0126041428787040异常内20个，实际要按一个单品上架，\n贴一个新单的A+包裹标签  包裹用纸箱包装  正常的商品尺寸是26*24*32，安排尽量合适的纸箱",
+    "requirementLength": 84,
+    "sceneKey": "inbound_kit_then_shelve",
+    "sceneName": "【入库】组合后上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126041428787040 内的 20 个商品需组合为 1 个包裹单位后上架至入库单 WI49426980。根据客户提供的包裹和标签对应关系（【包裹和标签的对应关系】模板.xlsx）及标签文件（fileDownload+1000C.pdf），为组合后的包裹补贴 A+ 包裹标签，使用纸箱包装，参考商品尺寸 26×24×32cm 选择合适纸箱规格。\n\n【需求背景】\n异常单内商品无法按标准流程上架，需按客户要求将多个商品组合为单一包裹单位并补贴新包裹标签后入库。\n\n【操作要求】\n1. 根据异常单 EB0126041428787040 定位待处理的 20 个商品，核对商品 SKU 和数量与异常单记录一致；\n2. 根据附件「【包裹和标签的对应关系】模板.xlsx」确认商品构成，将 20 个商品组合放入纸箱（参考尺寸 26×24×32cm，选择合适规格纸箱）；\n3. 根据附件「fileDownload+1000C.pdf」打印 A+ 包裹标签，贴于纸箱顶部中央位置，确保标签平整、条码清晰可扫描；\n4. 在系统中打开入库单 WI49426980，扫描包裹标签上的条码完成上架，按系统分配的库位将包裹放置到指定位置；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n1. 组合前需核对商品数量准确性，避免多装或漏装；\n2. 纸箱选择需确保包装牢固，避免运输过程中商品损坏；\n3. 包裹标签必须贴于纸箱外部显眼位置，不得遮挡或折叠。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126041428787040 内的 20 个商品需组合为 1 个包裹单位后上架至入库单 WI49426980。根据客户提供的包裹和标签对应关系（【包裹和标签的对应关系】模板.xlsx）及标签文件（fileDownload+1000C.pdf），为组合后的包裹补贴 A+ 包裹标签，使用纸箱包装，参考商品尺寸 26×24×32cm 选择合适纸箱规格。\n\n【需求背景】\n异常单内商品无法按标准流程上架，需按客户要求将多个商品组合为单一包裹单位并补贴新包裹标签后入库。\n\n【操作要求】\n1. 根据异常单 EB0126041428787040 定位待处理的 20 个商品，核对商品 SKU 和数量与异常单记录一致；\n2. 根据附件「【包裹和标签的对应关系】模板.xlsx」确认商品构成，将 20 个商品组合放入纸箱（参考尺寸 26×24×32cm，选择合适规格纸箱）；\n3. 根据附件「fileDownload+1000C.pdf」打印 A+ 包裹标签，贴于纸箱顶部中央位置，确保标签平整、条码清晰可扫描；\n4. 在系统中打开入库单 WI49426980，扫描包裹标签上的条码完成上架，按系统分配的库位将包裹放置到指定位置；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n1. 组合前需核对商品数量准确性，避免多装或漏装；\n2. 纸箱选择需确保包装牢固，避免运输过程中商品损坏；\n3. 包裹标签必须贴于纸箱外部显眼位置，不得遮挡或折叠。",
+    "conclusionOneLiner": "20个包裹组合成单品并用纸箱包装上架",
+    "judgmentBasis": "🔍 异常单 EB0126041428787040：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：将20个包裹按一个单品组合、贴新单的A+包裹标签、用纸箱包装(尺寸26*24*32)、组合后上架\n✅ AI 判断场景：【入库】组合后上架（置信度：高）\n💡 AI 理由：20个包裹组合成单品并用纸箱包装上架"
+  },
+  "omsWriteAttempted": false
+}

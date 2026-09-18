@@ -1,0 +1,64 @@
+{
+  "orderNo": "VASC000000287754",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_replace_custom_packaging"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000287754",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [],
+    "infoCheckSkipped": true,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "商品标签 (8).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "对应异常是包装破损，因仓库没有这么大的包材，客户自行邮寄包材处理，故非标申请，麻烦审批，谢谢\nEB0125120124755532此异常是A+包裹质量异常；    因异常SKU仓库现有包材装不了，客户自寄纸箱包材已经发到仓库，对应这个SKU：M010000000007679498包材，    1、WO11473683066下架这个包材SKU；  2、异常货物拆掉外包装更换成客制包材：M010000000007679498；  3、按新单WI50082783上架处理，谢谢",
+    "requirementLength": 229,
+    "sceneKey": "inbound_replace_custom_packaging",
+    "sceneName": "【入库】更换客制包材",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0125120124755532（A+包裹质量异常）关联入库单 WI50082783：因异常货物原包装破损且仓库现有包材尺寸不适配，客户已自寄客制包材（SKU：M010000000007679498）至仓库。需先通过出库单 WO11473683066 下架该包材 SKU，再将异常货物拆除原包装后更换为客制包材，按标签文件（商品标签 (8).pdf）处理商品标签，最后使用新入库单 WI50082783 上架。\n\n【需求背景】\n到仓包裹外包装破损且仓库标准包材无法满足尺寸需求，需使用客户自寄的客制包材重新包装后上架。\n\n【操作要求】\n1. 根据异常单 EB0125120124755532 定位待处理的异常货物；\n2. 使用出库单 WO11473683066 下架客户自寄的包材 SKU M010000000007679498；\n3. 拆除异常货物的原破损外包装，检查商品完好性；\n4. 使用下架的客制包材（SKU：M010000000007679498）重新包装商品，确保包装牢固；\n5. 根据标签文件（商品标签 (8).pdf）打印商品标签，粘贴于新包装外侧可见位置（如正面或顶面），若商品原有旧标签需先移除后再贴新标签；\n6. 使用入库单 WI50082783 扫描上架；\n7. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 客制包材 SKU M010000000007679498 需通过指定出库单下架，不可使用其他库存；\n- 更换包装时需确认商品无二次损坏，如有异常及时反馈；\n- 标签粘贴位置需清晰可见，便于后续扫描识别。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0125120124755532（A+包裹质量异常）关联入库单 WI50082783：因异常货物原包装破损且仓库现有包材尺寸不适配，客户已自寄客制包材（SKU：M010000000007679498）至仓库。需先通过出库单 WO11473683066 下架该包材 SKU，再将异常货物拆除原包装后更换为客制包材，按标签文件（商品标签 (8).pdf）处理商品标签，最后使用新入库单 WI50082783 上架。\n\n【需求背景】\n到仓包裹外包装破损且仓库标准包材无法满足尺寸需求，需使用客户自寄的客制包材重新包装后上架。\n\n【操作要求】\n1. 根据异常单 EB0125120124755532 定位待处理的异常货物；\n2. 使用出库单 WO11473683066 下架客户自寄的包材 SKU M010000000007679498；\n3. 拆除异常货物的原破损外包装，检查商品完好性；\n4. 使用下架的客制包材（SKU：M010000000007679498）重新包装商品，确保包装牢固；\n5. 根据标签文件（商品标签 (8).pdf）打印商品标签，粘贴于新包装外侧可见位置（如正面或顶面），若商品原有旧标签需先移除后再贴新标签；\n6. 使用入库单 WI50082783 扫描上架；\n7. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 客制包材 SKU M010000000007679498 需通过指定出库单下架，不可使用其他库存；\n- 更换包装时需确认商品无二次损坏，如有异常及时反馈；\n- 标签粘贴位置需清晰可见，便于后续扫描识别。",
+    "conclusionOneLiner": "包装破损需更换客户邮寄的客制包材",
+    "judgmentBasis": "🔍 异常单 EB0125120124755532：A+包裹质量异常（商品）[oms_api]\n📋 识别的动作：下架旧包材SKU M010000000007679498、拆掉异常货物外包装、更换成客制包材M010000000007679498、按新单WI50082783上架\n✅ AI 判断场景：【入库】更换客制包材（置信度：高）\n💡 AI 理由：包装破损需更换客户邮寄的客制包材"
+  },
+  "omsWriteAttempted": false
+}

@@ -1,0 +1,55 @@
+{
+  "orderNo": "VASC000000272679",
+  "outcome": "sop_after_rounds",
+  "threadId": "om_x100b654c52c3a0a4c4547c2d591b4c9",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "action": "override_scene",
+      "note": "overrideScene=instock_aplus_parcel_relabel_shelve",
+      "sceneKey": "instock_aplus_parcel_relabel_shelve"
+    },
+    {
+      "round": 2,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "instock_aplus_parcel_relabel_shelve"
+    }
+  ],
+  "simulated": [
+    "选择场景：【库内】A+包裹更换标签上架（来源：OMS 审核员实际选择）"
+  ],
+  "final": {
+    "orderNo": "VASC000000272679",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "instock_aplus_parcel_relabel_shelve",
+    "sceneName": "【库内】A+包裹更换标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "override_by_auditor",
+    "llmText": "【需求描述】\n异常单 EB0126042429047371 的包裹因下单类型错误（误下为 A 包裹，实际为 A+ 包裹），需补贴新的 A+ 包裹条码标签后上架到入库单 WI49560098。客户已上传标签文件（新-包裹条码.pdf），要求整箱出库，不按 pcs 拆分上架。\n\n【需求背景】\n客户下单时误将 A+ 包裹下单为 A 包裹，导致系统包裹类型与实际不符，需更换为 A+ 包裹标签后按整箱上架。\n\n【操作要求】\n1. 在 WMS 系统查询异常单 EB0126042429047371 的库位信息，到对应异常处理区域定位待处理包裹；\n2. 打开客户上传的标签文件（新-包裹条码.pdf），打印 A+ 包裹条码标签；\n3. 将新打印的 A+ 包裹条码标签补贴到包裹外箱上，覆盖或移除原有 A 包裹标签；\n4. 在 WMS 系统打开入库单 WI49560098，扫描包裹上新贴的 A+ 条码标签，完成关联上架操作；\n5. 在 WMS 异常处理模块关闭异常单 EB0126042429047371，备注填写：已按增值单 VASC000000272679 完成 A+ 标签更换并上架到 WI49560098。\n\n【注意事项】\n- 包裹保持整箱状态，不拆分按 pcs 上架；\n- 确保新标签粘贴牢固且条码清晰可扫描；\n- 上架前核对入库单号 WI49560098 与系统显示一致。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126042429047371 的包裹因下单类型错误（误下为 A 包裹，实际为 A+ 包裹），需补贴新的 A+ 包裹条码标签后上架到入库单 WI49560098。客户已上传标签文件（新-包裹条码.pdf），要求整箱出库，不按 pcs 拆分上架。\n\n【需求背景】\n客户下单时误将 A+ 包裹下单为 A 包裹，导致系统包裹类型与实际不符，需更换为 A+ 包裹标签后按整箱上架。\n\n【操作要求】\n1. 在 WMS 系统查询异常单 EB0126042429047371 的库位信息，到对应异常处理区域定位待处理包裹；\n2. 打开客户上传的标签文件（新-包裹条码.pdf），打印 A+ 包裹条码标签；\n3. 将新打印的 A+ 包裹条码标签补贴到包裹外箱上，覆盖或移除原有 A 包裹标签；\n4. 在 WMS 系统打开入库单 WI49560098，扫描包裹上新贴的 A+ 条码标签，完成关联上架操作；\n5. 在 WMS 异常处理模块关闭异常单 EB0126042429047371，备注填写：已按增值单 VASC000000272679 完成 A+ 标签更换并上架到 WI49560098。\n\n【注意事项】\n- 包裹保持整箱状态，不拆分按 pcs 上架；\n- 确保新标签粘贴牢固且条码清晰可扫描；\n- 上架前核对入库单号 WI49560098 与系统显示一致。",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "✅ AI 判断场景：【库内】A+包裹更换标签上架（置信度：高）"
+  },
+  "omsWriteAttempted": false
+}

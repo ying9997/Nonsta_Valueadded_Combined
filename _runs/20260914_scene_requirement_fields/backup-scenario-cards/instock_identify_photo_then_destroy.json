@@ -1,0 +1,73 @@
+{
+  "sceneKey": "instock_identify_photo_then_destroy",
+  "sceneName": "【库内】辨识拍照后销毁",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.23",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "销毁",
+      "辨识后销毁",
+      "拍照后销毁",
+      "辨识拍照销毁",
+      "找出后销毁"
+    ],
+    "weak": [
+      "找出库内",
+      "辨识",
+      "拍照",
+      "根据客户要求",
+      "L007盘亏"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴标签",
+      "重新上架",
+      "入库",
+      "调拨"
+    ],
+    "soft": [
+      "质检",
+      "暂存",
+      "自提",
+      "下架"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景辨识后直接销毁，不做换标上架",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景辨识后做销毁处理，不做补贴标签上架",
+    "和【入库】指定商品拍照暂存的区别是：本场景拍照后做销毁处理并L007盘亏，不是暂存",
+    "和【入库】商品质检的区别是：本场景是辨识拍照后直接销毁，不是质检后上架或其他处理"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：库内xx商品，需明确商品SKU或描述",
+    "动作：辨识、拍照、销毁三个动作缺一不可",
+    "去向：销毁处理，原SKU做L007盘亏"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "找出库内指定商品及数量",
+    "根据客户要求进行辨识",
+    "对商品进行拍照记录",
+    "将商品做销毁处理",
+    "原SKU做L007盘亏处理"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.23. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode remapped alias 20250407045（【库内】辨识后贴标上架+销毁）。SOP辨识拍照后销毁 ≈ OMS辨识后贴标上架+销毁",
+  "omsSceneCode": "20250407045"
+}

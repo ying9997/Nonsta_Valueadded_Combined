@@ -1,0 +1,52 @@
+{
+  "orderNo": "VASC000000368331",
+  "demoLabel": "",
+  "source": "",
+  "expectedOutputPath": "",
+  "outputPath": "needs_field_clarification",
+  "ruleOutputPath": "needs_field_clarification",
+  "failureGate": "check-completeness",
+  "missing": [
+    "商品标签数量未说明",
+    "标签文件"
+  ],
+  "clarificationPrompts": [
+    "本场景（【入库】包裹类异常换商品标签上架）需要知道商品标签数量，请补充。",
+    "请上传「标签文件」。"
+  ],
+  "sceneKey": "inbound_package_exception_relabel_shelving",
+  "scenarioName": "【入库】包裹类异常换商品标签上架",
+  "decision": "supported",
+  "confidence": "high",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "根据规则A：异常单详情显示异常名称为「包裹条码异常(需客户处理)」，这是单个包裹的异常，不是批量异常。虽然客户需求描述中提到「补贴包裹操作上架」，但异常名称明确是「包裹条码异常」而非「包裹条码批量异常」。根据规则A，异常名称含「商品条码异常」或单个「包裹条码异常」时应选inbound_package_exception_relabel_shelving。客户提到「异常登记数量和实际异常数量不一致」「实际是有1个包裹」说明是单个包裹的异常处理，不是批量场景。虽然客户口语表达为「补贴包裹」，但根据优先级规则，OMS异常名称优先于客户口语描述。此场景核心是处理包裹条码异常后换标上架。",
+  "llmText": "您好，该增值单已识别为「【入库】包裹类异常换商品标签上架」，但还缺少以下信息/附件：\n\n**增值单号**：VASC000000368331  \n**客户**：TikTok Inc.-5 / 20177679  \n**仓库**：DENW3 Warehouse / DENW3  \n**已绑定异常单**：EB0126090732864679  \n**已绑定入库单**：WI52466852、WI51115924  \n\n**您已提交的需求**：异常单EB0126090732864679包裹条码异常，实际有1个包裹但登记数量是2个，需要仓库按新单WI52466852补贴包裹操作上架。\n\n**已上传附件**：包裹和标签的对应关系（异常单号EB0126090732864679对应的包裹条码.xlsx）\n\n**还缺少的关键信息**：\n- **商品标签数量**：换标上架场景需要明确需要打印多少张商品标签，请补充具体数量。\n\n**还缺少的附件**：\n- **标签文件**：请上传需要打印的标签文件（OMS字段名：标签文件）。\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "warehouse": "DENW3 Warehouse",
+  "structuredReview": {
+    "vascNo": "VASC000000368331",
+    "requirementComplete": false,
+    "missingRequirements": [
+      "商品标签数量未说明"
+    ],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_package_exception_relabel_shelving",
+      "confidence": 0.9
+    },
+    "materialsComplete": false,
+    "missingMaterials": [
+      "标签文件"
+    ],
+    "outputPath": "needs_field_clarification",
+    "llmGeneratedText": "您好，该增值单已识别为「【入库】包裹类异常换商品标签上架」，但还缺少以下信息/附件：\n\n**增值单号**：VASC000000368331  \n**客户**：TikTok Inc.-5 / 20177679  \n**仓库**：DENW3 Warehouse / DENW3  \n**已绑定异常单**：EB0126090732864679  \n**已绑定入库单**：WI52466852、WI51115924  \n\n**您已提交的需求**：异常单EB0126090732864679包裹条码异常，实际有1个包裹但登记数量是2个，需要仓库按新单WI52466852补贴包裹操作上架。\n\n**已上传附件**：包裹和标签的对应关系（异常单号EB0126090732864679对应的包裹条码.xlsx）\n\n**还缺少的关键信息**：\n- **商品标签数量**：换标上架场景需要明确需要打印多少张商品标签，请补充具体数量。\n\n**还缺少的附件**：\n- **标签文件**：请上传需要打印的标签文件（OMS字段名：标签文件）。\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

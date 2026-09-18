@@ -1,0 +1,75 @@
+{
+  "sceneKey": "instock_void_outbound_after_pack",
+  "sceneName": "【库内】打包完成后作废出库单（有商品增值）",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.36",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "打包完成后",
+      "作废出库单",
+      "重新粘贴包裹条码",
+      "新入库上架单",
+      "冻结的库存"
+    ],
+    "weak": [
+      "出库单",
+      "包裹条码",
+      "包裹标签",
+      "上架单",
+      "盘亏",
+      "L007盘亏",
+      "重新上架"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "辨识",
+      "质检",
+      "串仓",
+      "自提",
+      "无主货"
+    ],
+    "soft": [
+      "预报",
+      "SKU不符",
+      "第三方条码",
+      "暂存"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景是打包完成后才发现问题需要作废出库单，而不是下架后直接换入库单",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景重点是作废出库单+重新上架，不涉及换商品标签",
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景是打包后的逆向流程（作废出库单+盘亏），不是入库时的辨识换标",
+    "关键特征：已经打包完成 → 发现问题 → 作废出库单 → 重新粘贴包裹条码 → 新建入库单重新上架 → 原出库单冻结库存做盘亏"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：已打包完成的包裹/出库单",
+    "动作：作废出库单、重新粘贴包裹条码、重新上架、盘亏冻结库存",
+    "去向：通过新入库单重新上架到库存"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "根据异常单找出商品码",
+    "重新粘贴包裹条码（需要新的包裹标签）",
+    "根据新入库上架单做重新上架",
+    "原出库单冻结的库存做L007盘亏",
+    "操作完成后关闭异常单据"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.36. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

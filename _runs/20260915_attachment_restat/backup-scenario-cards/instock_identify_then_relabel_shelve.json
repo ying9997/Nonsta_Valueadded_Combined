@@ -1,0 +1,77 @@
+{
+  "sceneKey": "instock_identify_then_relabel_shelve",
+  "sceneName": "【库内】库内辨识+辨识后重新贴标上架",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.33",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "库内商品",
+      "库内辨识",
+      "辨识后重新贴标",
+      "辨识后上架",
+      "定位库内待处理商品",
+      "辨识结果的对应关系",
+      "补贴新的包裹标签",
+      "上架到客户指定的入库单"
+    ],
+    "weak": [
+      "外观辨识",
+      "条码辨识",
+      "开箱辨识",
+      "商品身份",
+      "辨识方法",
+      "辨识结果"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "到货",
+      "收货",
+      "整柜",
+      "海运",
+      "串仓"
+    ],
+    "soft": [
+      "尺重",
+      "自提",
+      "无主货",
+      "调拨"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景针对已在库内的商品，而非入库环节的辨识",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景是库内商品辨识后重新上架，而非入库时的辨识",
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景需要先辨识商品身份再贴标上架，而非直接换单上架",
+    "和【入库】指定商品拍照暂存的区别是：本场景辨识后需重新贴标上架，而非仅拍照暂存"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：库内哪些商品需要辨识（商品条码/商品编码）",
+    "动作：如何辨识（外观/条码/开箱，辨识方法和示例图片）",
+    "去向：辨识后如何处理（重新贴标并上架到指定入库单）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "定位库内待处理商品",
+    "按辨识方法识别商品并记录结果",
+    "拍摄实物照片",
+    "客户提供辨识结果对应关系",
+    "补贴新包裹标签并上架到指定入库单"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.33. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

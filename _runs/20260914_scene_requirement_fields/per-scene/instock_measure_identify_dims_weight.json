@@ -1,0 +1,155 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.239Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "instock_measure_identify_dims_weight",
+  "sceneName": "【库内】商品尺重测量辨识",
+  "omsSceneCode": "【Warehouse】Measurement and identification of commodity weight",
+  "fileName": "instock_measure_identify_dims_weight.json",
+  "category": "instock",
+  "approvedOrderCount": 14,
+  "sampleCount": 10,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：退货单号（RTxxx）或具体商品",
+    "动作：测量商品原箱的尺寸（长宽高）和重量，拆除外包装但保留原箱，拍照回传",
+    "去向：测量数据用于系统登记，补贴RM标签后可能涉及上架"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "测量对象标识",
+      "description": "需要明确测量哪些货物，可以是SKU、异常单号、托盘、退货单号等",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "M010000000006796398、M010000000005276475等SKU",
+        "异常单号：EB0526052929906385",
+        "这4托货物",
+        "EB0126071531314354异常货物"
+      ],
+      "required": true
+    },
+    {
+      "field": "测量内容要求",
+      "description": "需要说明测量尺寸还是重量，或者两者都要",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "测量尺寸重量",
+        "称下单品的重量",
+        "测量托盘尺寸以及重量",
+        "复测尺寸重量数据"
+      ],
+      "required": true
+    },
+    {
+      "field": "包装处理方式",
+      "description": "需要说明是否拆包装、保留什么包装、测量什么状态下的尺寸",
+      "frequency": "约70%的历史单提到了",
+      "examples": [
+        "拆除外包装（保留原箱）",
+        "若是快递袋撕掉快递袋再测量彩盒",
+        "拆开快递袋",
+        "原本已经装箱的可以直接沿用"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "照片回传要求",
+      "description": "是否需要拍照，以及照片需要拍摄的具体内容",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "拍照回传尺寸照片",
+        "需要显示外箱的SKU编码",
+        "提供测量图片",
+        "拍照看产品颜色"
+      ],
+      "required": false
+    },
+    {
+      "field": "后续处理动作",
+      "description": "测量完成后需要做什么操作，如补贴标签、重新打包、数据反馈等",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "补贴RM标签",
+        "测量后再补贴M码标签到彩盒上再上架",
+        "需要找纸箱重新打包",
+        "复测完成后把复测尺寸重量数据反馈给客服同步修改系统尺寸"
+      ],
+      "required": false
+    },
+    {
+      "field": "抽样方式",
+      "description": "如果不是全部测量，需要说明如何抽样",
+      "frequency": "约10%的历史单提到了",
+      "examples": [
+        "仓库随机拣选"
+      ],
+      "required": false
+    },
+    {
+      "field": "业务背景说明",
+      "description": "说明为什么需要测量，测量数据的用途",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "历史库存的SKU尺寸，都是以前的物流包装尺寸，现需要重新测量彩盒包装",
+        "对应测量图片后续要在其他仓库做申述用",
+        "现在需要确认货物具体情况安排调拨"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000297027",
+      "requirementDescription": "以下sku：M010000000006796398、M010000000005276475、M010000000006573330、M010000000006037616、M010000000004903961、M010000000005680248、M010000000006636226、M010000000005451989、M010000000005127477需使用彩盒包装复测处理方式:仓库随机拣选，若是彩盒则直接测量;若是快递袋撕掉快递袋再测量彩盒并且测量后再补贴M码标签到彩盒上再上架；复测完成后把复测尺寸重量数据反馈给客服同步修改系统尺寸",
+      "requirementBackground": "我司自今年此均以彩盒入库，历史库存的SKU尺寸，都是以前的物流包装尺寸，现需要重新测量彩盒包装并且更新系统尺寸重量"
+    },
+    {
+      "orderNo": "VASC000000347376",
+      "requirementDescription": "EB0126071531314354异常货物需要拆托，原本已经装箱的可以直接沿用，圈起来的这种小散件需要找纸箱重新打包，纸箱规格没有要求，可用最大6号纸箱打包。处理完后，每个包裹需要测量尺寸重量返还数据（包含原箱以及winit打包的纸箱",
+      "requirementBackground": "找的新货代无法承运托盘渠道，需要改成包裹发出；原增值单VASC000000331698的打托增值需要进行拆托"
+    },
+    {
+      "orderNo": "VASC000000335640",
+      "requirementDescription": "对应商品条码：M010000000008607545  SKU：440351110  需要提供测量尺重图片，需要显示外箱的SKU编码，如示例图",
+      "requirementBackground": "对应测量图片后续要在其他仓库做申述用，一定要拍到显示SKU编码位置，故非标提交"
+    },
+    {
+      "orderNo": "VASC000000290616",
+      "requirementDescription": "异常单号：EB0526052929906385，麻烦拆开快递袋，拍照看产品颜色和称重量",
+      "requirementBackground": "异常单号：EB0526052929906385，麻烦拆开快递袋，拍照看产品颜色和称重量"
+    },
+    {
+      "orderNo": "VASC000000300360",
+      "requirementDescription": "背景：  anker有一批包材已经寄到仓库，目前anker不清楚实物尺寸，需要仓库协助测量下包材尺寸后再注册sku和退入库单",
+      "requirementBackground": "因sku没有注册，无法提标准增值"
+    },
+    {
+      "orderNo": "VASC000000273219",
+      "requirementDescription": "异常单号：EB0526042729072952，麻烦称下单品的重量反馈",
+      "requirementBackground": "异常单号：EB0526042729072952，麻烦称下单品的重量反馈"
+    },
+    {
+      "orderNo": "VASC000000277122",
+      "requirementDescription": "异常单号：EB0526050429221362，2件单品麻烦称重量",
+      "requirementBackground": "异常单号：EB0526050429221362，2件单品麻烦称重量"
+    },
+    {
+      "orderNo": "VASC000000317244",
+      "requirementDescription": "异常单号：EB0426070731102299，麻烦称下商品的重量",
+      "requirementBackground": "异常单号：EB0426070731102299，麻烦称下商品的重量"
+    },
+    {
+      "orderNo": "VASC000000329784",
+      "requirementDescription": "这4托货物，需要仓库测量托盘尺寸以及重量，并提供测量图片",
+      "requirementBackground": "其他仓库调拨4托货物到贵司仓库，现在需要确认货物具体情况安排调拨"
+    },
+    {
+      "orderNo": "VASC000000293277",
+      "requirementDescription": "异常单号：EB0526060129965299 麻烦称重量",
+      "requirementBackground": "异常单号：EB0526060129965299 麻烦称重量"
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "orderNo": "VASC000000330510",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_label_identify"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000330510",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "系统已掌握单据信息中明确：EB0326080331871097"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "客户需求描述中明确：按新单WI51576425上架；系统已掌握单据信息中也确认：WI51576425"
+      },
+      {
+        "field": "商品条码对应关系",
+        "present": true,
+        "evidence": "客户已上传附件：Order - 2026-08-07T175502.714.pdf（标签文件），该文件通常包含商品条码对应关系"
+      },
+      {
+        "field": "处理数量",
+        "present": true,
+        "evidence": "已上传标签文件Order - 2026-08-07T175502.714.pdf，标签文件中通常包含需要处理的数量信息"
+      },
+      {
+        "field": "辨识方法",
+        "present": true,
+        "evidence": "已上传标签文件，换标操作通常是扫描标签文件中的条码进行换标，辨识方法可从附件中获取"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order - 2026-08-07T175502.714.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "WINIT头程，国内漏验导致异常，增值申请不收费\nEB0326080331871097 ，WINIT头程到仓异常，要按新单WI51576425上架",
+    "requirementLength": 73,
+    "sceneKey": "inbound_label_identify",
+    "sceneName": "【入库】尺重/标签辨识后换标上架",
+    "decision": "supported",
+    "confidence": "medium",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0326080331871097 涉及的货物因 [待补充] 头程到仓时国内漏验导致条码异常，需按客户提供的标签文件（Order - 2026-08-07T175502.714.pdf）重新辨识商品并补贴新标签后，关联到新入库单 WI51576425 上架。\n\n【需求背景】\n[待补充] 头程货物到仓后发现条码异常，无法按原入库单正常上架，需重新辨识并换标后按新入库单处理。\n\n【操作要求】\n1. 在系统中通过异常单号 EB0326080331871097 查询货物当前存放位置，前往该库位取货；\n2. 核对货物实物信息与标签文件（Order - 2026-08-07T175502.714.pdf）中的商品信息是否一致；\n3. 撕除或完全覆盖旧条码标签，将新标签贴于外箱或商品包装正面显著位置；\n4. 对换标后的货物进行拍照留存（需清晰显示新标签条码）；\n5. 扫描新标签条码，在系统中关联入库单 WI51576425 并上架至系统分配的库位；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 换标时确保新标签条码清晰可扫描，避免二次异常；\n- 拍照需包含货物全貌及新标签特写，作为操作凭证。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0326080331871097 涉及的货物因 [待补充] 头程到仓时国内漏验导致条码异常，需按客户提供的标签文件（Order - 2026-08-07T175502.714.pdf）重新辨识商品并补贴新标签后，关联到新入库单 WI51576425 上架。\n\n【需求背景】\n[待补充] 头程货物到仓后发现条码异常，无法按原入库单正常上架，需重新辨识并换标后按新入库单处理。\n\n【操作要求】\n1. 在系统中通过异常单号 EB0326080331871097 查询货物当前存放位置，前往该库位取货；\n2. 核对货物实物信息与标签文件（Order - 2026-08-07T175502.714.pdf）中的商品信息是否一致；\n3. 撕除或完全覆盖旧条码标签，将新标签贴于外箱或商品包装正面显著位置；\n4. 对换标后的货物进行拍照留存（需清晰显示新标签条码）；\n5. 扫描新标签条码，在系统中关联入库单 WI51576425 并上架至系统分配的库位；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 换标时确保新标签条码清晰可扫描，避免二次异常；\n- 拍照需包含货物全貌及新标签特写，作为操作凭证。",
+    "conclusionOneLiner": "异常类型复杂且需换单上架，归入通用辨识场景",
+    "judgmentBasis": "🔍 异常单 EB0326080331871097：包裹内出现订单外商品（商品）[oms_api]\n📋 识别的动作：按新入库单WI51576425上架、处理包裹内订单外商品异常\n✅ AI 判断场景：【入库】尺重/标签辨识后换标上架（置信度：中）\n💡 AI 理由：异常类型复杂且需换单上架，归入通用辨识场景"
+  },
+  "omsWriteAttempted": false
+}

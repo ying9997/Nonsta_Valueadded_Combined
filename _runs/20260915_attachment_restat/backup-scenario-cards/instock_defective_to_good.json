@@ -1,0 +1,74 @@
+{
+  "sceneKey": "instock_defective_to_good",
+  "sceneName": "【库内】不良品转良品",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250808002",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.19",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "不良品转良品",
+      "不良转良",
+      "解冻",
+      "原不良品原因",
+      "确认为良品",
+      "复核商品状态",
+      "返回良品库位"
+    ],
+    "weak": [
+      "转良品",
+      "状态变更",
+      "库位调整",
+      "系统状态更新"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库",
+      "换标",
+      "条码",
+      "质检",
+      "预报"
+    ],
+    "soft": [
+      "拍照",
+      "暂存",
+      "调拨",
+      "自提"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品质检的区别是：质检是入库时首次判定商品状态，本场景是已判定不良品后的二次确认转回",
+    "和【入库】包裹类异常换商品标签上架的区别是：换标场景涉及标签更换和上架动作，本场景只涉及状态变更和库位调整",
+    "和【入库】商品下架后换入库单重新上架的区别是：换入库单场景涉及下架和重新上架流程，本场景是库内状态转换不涉及入库流程",
+    "关键识别点：必须明确提到'不良品'和'转良品'或'解冻'等状态变更词汇，且不涉及入库、换标等操作"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：具体SKU编号和数量",
+    "动作：从不良品状态转为良品状态（解冻、复核、确认）",
+    "去向：返回良品库位并更新系统状态"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "必须包含SKU和数量信息",
+    "必须说明原不良品原因",
+    "必须包含复核商品状态的步骤",
+    "必须包含解冻和返回良品库位的操作",
+    "必须包含更新系统状态的步骤"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.19. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 20250808002（【库内】不良品转良品上架）。"
+}

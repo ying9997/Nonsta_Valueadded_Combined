@@ -1,0 +1,76 @@
+{
+  "sceneKey": "instock_add_remove_accessories",
+  "sceneName": "【库内】商品拆箱加/减配件",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250421001",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.39",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "拆箱",
+      "加配件",
+      "减配件",
+      "还原包装",
+      "在库SKU",
+      "封箱"
+    ],
+    "weak": [
+      "下架",
+      "上架原库位",
+      "工时费",
+      "销毁费"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "到货",
+      "换标",
+      "补贴标签",
+      "质检",
+      "串仓"
+    ],
+    "soft": [
+      "辨识",
+      "拍照",
+      "自提",
+      "调拨"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是对在库商品做拆箱加减配件，不涉及换标签；换标场景是入库时发现标签问题需要更换",
+    "和【入库】商品质检的区别是：本场景是对商品做拆箱加减配件的操作，不是检查商品质量；质检场景是检验商品是否合格",
+    "和【入库】上架前自提的区别是：本场景是对已上架的在库商品做下架-拆箱处理-上架的闭环操作；自提是入库流程中客户要求提货不上架",
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景需要拆箱加减配件并还原包装；换入库单场景只是更换入库单号不涉及拆箱操作"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确是哪些在库SKU需要拆箱处理",
+    "动作：说明是加配件还是减配件，以及具体的加减要求",
+    "去向：处理完成后上架回原库位，减掉的配件如何处理（销毁或其他）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_NWEON"
+    ],
+    "note": "auto-generated from OMS stats n=22 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+  },
+  "sopTemplateHints": [
+    "对在库SKU做下架操作",
+    "根据客户要求拆箱加减配件",
+    "还原包装并封箱",
+    "上架回原库位",
+    "如有减配件需做销毁处理并收取销毁费"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.39. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250421001."
+}

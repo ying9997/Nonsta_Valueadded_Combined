@@ -1,0 +1,90 @@
+{
+  "orderNo": "VASC000000333423",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "instock_appearance_identify_label"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000333423",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "辨识对象范围",
+        "present": true,
+        "evidence": "异常单号EB0526081032108622已在系统掌握，对应入库单WI52043555，说明处理范围为该异常单下的所有商品"
+      },
+      {
+        "field": "辨识方法/依据",
+        "present": true,
+        "evidence": "通过检测产品是否漏气来辨识：漏气产品vs不漏气产品"
+      },
+      {
+        "field": "辨识后处理动作",
+        "present": true,
+        "evidence": "漏气产品七件上架到AU-WD-H-D-LP，不漏气的上架到AU-WD-H-D-P"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "入库单号WI52043555（系统已掌握的单据信息中也确认了此单号）"
+      },
+      {
+        "field": "SKU对应关系",
+        "present": true,
+        "evidence": "漏气产品对应库位AU-WD-H-D-LP，不漏气产品对应库位AU-WD-H-D-P；已上传标签文件Order (42).pdf可能包含具体SKU信息"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (42).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "异常单号：\tEB0526081032108622，，漏气产品七件上架到AU-WD-H-D-LP，不漏气的上架到AU-WD-H-D-P，，入库单号WI52043555\n异常单号：\tEB0526081032108622，，漏气产品七件上架到AU-WD-H-D-LP，不漏气的上架到AU-WD-H-D-P，，入库单号WI52043555",
+    "requirementLength": 165,
+    "sceneKey": "instock_appearance_identify_label",
+    "sceneName": "【库内】商品外观辨识+贴标上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0526081032108622 关联入库单 WI52043555，需对到仓商品进行漏气检测并分类上架：漏气产品（7件）上架至库位 AU-WD-H-D-LP，不漏气产品上架至库位 AU-WD-H-D-P。客户已提供标签文件 Order (42).pdf 用于商品标识。\n\n【需求背景】\n到仓商品需进行质量检测（漏气辨识）并按检测结果分类上架到不同库位，无法走标准入库流程。\n\n【操作要求】\n1. 根据异常单 EB0526081032108622 定位入库单 WI52043555 对应的待处理货物；\n2. 逐件检查商品是否漏气（检测方法：轻压产品包装听是否有漏气声，或目视检查包装是否有明显破损变形，如客户另有指定检测标准以客户要求为准）；\n3. 根据标签文件 Order (42).pdf 打印标签并为每件商品补贴标签（标签粘贴位置：商品包装可见面，确保扫描时清晰可读）；\n4. 将检测为漏气的商品（共7件）扫描上架至库位 AU-WD-H-D-LP；\n5. 将检测为不漏气的商品扫描上架至库位 AU-WD-H-D-P；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n1. 漏气商品数量应为7件，如实际检测数量与客户申报不符，需记录实际数量并在系统中备注；\n2. 两类商品严格分开上架，避免混放导致后续发货错误；\n3. 如标签文件包含多个 SKU 或标签规格不明确，按商品实物信息匹配对应标签，无法匹配时暂存并上报主管处理。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0526081032108622 关联入库单 WI52043555，需对到仓商品进行漏气检测并分类上架：漏气产品（7件）上架至库位 AU-WD-H-D-LP，不漏气产品上架至库位 AU-WD-H-D-P。客户已提供标签文件 Order (42).pdf 用于商品标识。\n\n【需求背景】\n到仓商品需进行质量检测（漏气辨识）并按检测结果分类上架到不同库位，无法走标准入库流程。\n\n【操作要求】\n1. 根据异常单 EB0526081032108622 定位入库单 WI52043555 对应的待处理货物；\n2. 逐件检查商品是否漏气（检测方法：轻压产品包装听是否有漏气声，或目视检查包装是否有明显破损变形，如客户另有指定检测标准以客户要求为准）；\n3. 根据标签文件 Order (42).pdf 打印标签并为每件商品补贴标签（标签粘贴位置：商品包装可见面，确保扫描时清晰可读）；\n4. 将检测为漏气的商品（共7件）扫描上架至库位 AU-WD-H-D-LP；\n5. 将检测为不漏气的商品扫描上架至库位 AU-WD-H-D-P；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n1. 漏气商品数量应为7件，如实际检测数量与客户申报不符，需记录实际数量并在系统中备注；\n2. 两类商品严格分开上架，避免混放导致后续发货错误；\n3. 如标签文件包含多个 SKU 或标签规格不明确，按商品实物信息匹配对应标签，无法匹配时暂存并上报主管处理。",
+    "conclusionOneLiner": "按漏气外观辨识后分别上架良品/不良品区",
+    "judgmentBasis": "🔍 异常单 EB0526081032108622：包裹内商品错装（商品）[oms_api]\n📋 识别的动作：检查商品是否漏气（外观辨识）、漏气产品7件上架到AU-WD-H-D-LP（不良品区）、不漏气产品上架到AU-WD-H-D-P（良品区）\n✅ AI 判断场景：【库内】商品外观辨识+贴标上架（置信度：高）\n💡 AI 理由：按漏气外观辨识后分别上架良品/不良品区"
+  },
+  "omsWriteAttempted": false
+}

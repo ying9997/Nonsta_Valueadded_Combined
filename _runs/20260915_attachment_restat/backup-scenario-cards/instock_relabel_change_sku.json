@@ -1,0 +1,234 @@
+{
+  "sceneKey": "instock_relabel_change_sku",
+  "sceneName": "【库内】指定单品/库位商品更换标签上架【换标前后SKU不一样】",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250407062",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.9",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "库内",
+      "指定单品",
+      "指定库位",
+      "换标前后SKU不一样",
+      "新SKU",
+      "原SKU做盘亏",
+      "补贴新SKU标签"
+    ],
+    "weak": [
+      "下架",
+      "补贴标签",
+      "重新上架",
+      "解冻库存",
+      "已上架商品",
+      "L007盘亏"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "到货",
+      "尺重辨识",
+      "批量辨识",
+      "海运整柜",
+      "串仓"
+    ],
+    "soft": [
+      "入库单异常",
+      "包裹条码异常",
+      "质检",
+      "暂存"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是库内已上架商品的换标，对方是入库过程中的换标",
+    "和【入库】商品下架后换入库单重新上架（不更换SKU）的区别是：本场景换标前后SKU不一样且需做盘亏，对方SKU不变",
+    "和【入库】关联第三方条码上架的区别是：本场景是库内商品换标且涉及盘亏流程,对方是入库时关联第三方条码",
+    "和库内标准轻加工增值服务的区别是：本场景换标前后SKU不同或涉及第三方UPC码,标准服务仅支持同SKU或已注册SKU"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：必须明确是库内已上架的指定库位或指定单品(SKU)",
+    "动作：更换标签且换标前后SKU不一样,需做盘亏处理",
+    "去向：补贴新SKU标签后按新入库单重新上架"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_NWEON"
+    ],
+    "note": "auto-generated from OMS stats n=49 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+  },
+  "sopTemplateHints": [
+    "必须包含原SKU做L007盘亏的步骤",
+    "必须包含补贴新SKU标签的步骤",
+    "必须包含补贴新入库单包裹标签的步骤",
+    "必须包含按新入库单重新上架的步骤",
+    "需检查新入库单与出库单SKU是否一致"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.9. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 20250407062（【库内】指定单品/库位商品更换标签上架）。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "原SKU信息",
+      "description": "需要换标的原商品SKU编码，用于定位需要处理的货物",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "M010000000006759987",
+        "M010000000009097953*14和M010000000009098251*12",
+        "M010000000010223170",
+        "A-BFG-LHU-KS-FAGY-B"
+      ],
+      "required": true
+    },
+    {
+      "field": "新SKU信息",
+      "description": "换标后的新商品SKU编码，用于补贴新标签和上架",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "M010000000006527332",
+        "M010000000008884692*8",
+        "X000ZUKLO3",
+        "A-BFG-DAU-KS-FAGY-B"
+      ],
+      "required": true
+    },
+    {
+      "field": "新入库单号",
+      "description": "换标后按新入库单上架的单号，用于重新验货上架",
+      "frequency": "约85%的历史单提到了",
+      "examples": [
+        "WI50591314",
+        "WI49141262",
+        "WI50126795",
+        "WI51628771",
+        "WI49843327"
+      ],
+      "required": true
+    },
+    {
+      "field": "处理数量",
+      "description": "需要换标的商品数量，可以是件数、箱数或包裹数",
+      "frequency": "约90%的历史单提到了",
+      "examples": [
+        "共26件货物",
+        "113箱",
+        "295件",
+        "1959件",
+        "20件"
+      ],
+      "required": true
+    },
+    {
+      "field": "下架单号/定位方式",
+      "description": "用于定位需要换标货物的下架单号、库位或入库单号",
+      "frequency": "约80%的历史单提到了",
+      "examples": [
+        "WO11625775083",
+        "WO11478906606",
+        "库位在VNA-11-31-D-02",
+        "根据WI47965441这个入库单找出"
+      ],
+      "required": true
+    },
+    {
+      "field": "标签类型/尺寸",
+      "description": "需要补贴的标签类型（商品标签/FNSKU/包裹标签）及尺寸要求",
+      "frequency": "约75%的历史单提到了",
+      "examples": [
+        "使用70*50mm标签",
+        "使用60*40mm标签",
+        "FNSKU条码为X001BPDKVR",
+        "补贴商品条码和包裹条码"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "旧标签清除要求",
+      "description": "是否需要清除原有标签及清除方式，如覆盖、撕除等",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "清除产品包装上面的全部标签信息",
+        "覆盖原先的条码",
+        "可以直接粘贴合理的不透明标签做覆盖"
+      ],
+      "required": false
+    },
+    {
+      "field": "货物辨识方法",
+      "description": "当无法通过单号定位时，提供的实物特征辨识方法",
+      "frequency": "约35%的历史单提到了",
+      "examples": [
+        "M010000000006915612=C40556400C1-10KG（米桶）产品尺寸是40x34.5x18",
+        "产品中间有孔的对应sku：V2.JZZZ37.H",
+        "黑色盒子上有一张供货商小标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "包装处理要求",
+      "description": "对商品包装的特殊处理要求，如开箱、原箱装回、去除缠绕膜等",
+      "frequency": "约45%的历史单提到了",
+      "examples": [
+        "需要仓库开箱将里面的小商品更换FNSKU",
+        "换好FNSKU标签后需要原箱装回",
+        "去掉缠绕膜并且补贴商品标签",
+        "不要损坏产品包装"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签贴法/位置要求",
+      "description": "标签粘贴的具体位置或方式要求",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "不要把透明计划二维码覆盖了",
+        "包裹条码随机对应SKU贴即可",
+        "5个面都需要操作",
+        "商品标签不能有made in china字样"
+      ],
+      "required": false
+    },
+    {
+      "field": "第三方条码处理",
+      "description": "涉及第三方商品条码或单品条码的解绑、绑定操作",
+      "frequency": "约30%的历史单提到了",
+      "examples": [
+        "需解绑第三方商品条码",
+        "考虑换标的是什么标签，外部标签是否有关联到第三方商品条码",
+        "因为客户贴的商品条码是另外一个客户账号下的商品条码"
+      ],
+      "required": false
+    },
+    {
+      "field": "拍照要求",
+      "description": "需要拍摄换标前后的照片作为凭证",
+      "frequency": "约35%的历史单提到了",
+      "examples": [
+        "请拍摄1张换标前+1张换标后的小商品照片",
+        "请拍摄1张换标前+1张换标后的照片"
+      ],
+      "required": false
+    },
+    {
+      "field": "数量核实要求",
+      "description": "在换标过程中需要核实实际数量是否与预期一致",
+      "frequency": "约25%的历史单提到了",
+      "examples": [
+        "换标的同时请核实数量",
+        "如果数量不对，请跟我们反馈下"
+      ],
+      "required": false
+    }
+  ]
+}

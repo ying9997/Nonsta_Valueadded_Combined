@@ -1,0 +1,90 @@
+{
+  "orderNo": "VASC000000330510",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_label_identify"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000330510",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "EB0326080331871097"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "WI51576425"
+      },
+      {
+        "field": "商品条码对应关系",
+        "present": true,
+        "evidence": "客户已上传标签文件，标签文件中通常包含条码对应关系"
+      },
+      {
+        "field": "处理数量",
+        "present": true,
+        "evidence": "异常单号已明确，可推断为该异常单下的全部货物需要处理"
+      },
+      {
+        "field": "辨识方法",
+        "present": true,
+        "evidence": "客户已上传标签文件，标签文件本身即为辨识依据，操作人员可根据标签文件进行换标"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order - 2026-08-07T175502.714.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "WINIT头程，国内漏验导致异常，增值申请不收费\nEB0326080331871097 ，WINIT头程到仓异常，要按新单WI51576425上架",
+    "requirementLength": 73,
+    "sceneKey": "inbound_label_identify",
+    "sceneName": "【入库】尺重/标签辨识后换标上架",
+    "decision": "supported",
+    "confidence": "medium",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0326080331871097 对应的货物因 [待补充] 头程国内漏验导致到仓异常，需按客户提供的标签文件（Order - 2026-08-07T175502.714.pdf）重新辨识并换标后，上架至新入库单 WI51576425。本次为 [待补充] 头程异常处理，不收取增值费用。\n\n【需求背景】\n[待补充] 头程到仓货物因国内漏验导致条码/标签异常，无法按原计划上架，需重新辨识并换标后按新入库单处理。\n\n【操作要求】\n1. 根据异常单 EB0326080331871097 在 AU Warehouse 仓库定位待处理货物；\n2. 按客户上传的标签文件（Order - 2026-08-07T175502.714.pdf）辨识商品并补贴新标签；\n3. 使用新入库单 WI51576425 扫描上架；\n4. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 本批次为 [待补充] 头程异常，按客户要求不收取增值费用；\n- 严格按照标签文件中的对应关系进行换标操作。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0326080331871097 对应的货物因 [待补充] 头程国内漏验导致到仓异常，需按客户提供的标签文件（Order - 2026-08-07T175502.714.pdf）重新辨识并换标后，上架至新入库单 WI51576425。本次为 [待补充] 头程异常处理，不收取增值费用。\n\n【需求背景】\n[待补充] 头程到仓货物因国内漏验导致条码/标签异常，无法按原计划上架，需重新辨识并换标后按新入库单处理。\n\n【操作要求】\n1. 根据异常单 EB0326080331871097 在 AU Warehouse 仓库定位待处理货物；\n2. 按客户上传的标签文件（Order - 2026-08-07T175502.714.pdf）辨识商品并补贴新标签；\n3. 使用新入库单 WI51576425 扫描上架；\n4. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 本批次为 [待补充] 头程异常，按客户要求不收取增值费用；\n- 严格按照标签文件中的对应关系进行换标操作。",
+    "conclusionOneLiner": "订单外商品异常需辨识后按新单上架",
+    "judgmentBasis": "🔍 异常单 EB0326080331871097：包裹内出现订单外商品（商品）[oms_api]\n📋 识别的动作：辨识包裹内订单外商品、按新入库单WI51576425上架\n✅ AI 判断场景：【入库】尺重/标签辨识后换标上架（置信度：中）\n💡 AI 理由：订单外商品异常需辨识后按新单上架"
+  },
+  "omsWriteAttempted": false
+}

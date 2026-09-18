@@ -1,0 +1,198 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.238Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "instock_good_to_defective_shelve",
+  "sceneName": "【库内】良品转不良品上架",
+  "omsSceneCode": "20250808003",
+  "fileName": "instock_good_to_defective_shelve.json",
+  "category": "instock",
+  "approvedOrderCount": 16,
+  "sampleCount": 16,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：已上架的良品商品(通常来自退货单或其他入库单)",
+    "动作：登记单品包装破损异常、复核确认、更改库存属性",
+    "去向：转为不良品存储(库存属性从良品改为不良品)"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "目标入库单号",
+      "description": "需要明确商品要上架到哪个不良品入库单/预报单",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "入库单号WI51908492",
+        "入库单WI50591614",
+        "新入库单WI51427083",
+        "预报单：WI51722554",
+        "原入库单WI50351073"
+      ],
+      "required": true
+    },
+    {
+      "field": "处理对象标识",
+      "description": "需要明确是哪些商品/箱码/SKU需要转不良品，可以是箱码、异常单号、SKU编码等",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "EB0526081332214735",
+        "M010000000008453352",
+        "61pcs T520QJ20（M010000000011878557）",
+        "LXJM0120260509000269等10个箱码",
+        "11304010760现有库存"
+      ],
+      "required": true
+    },
+    {
+      "field": "转换原因/背景",
+      "description": "说明为什么要从良品转不良品，如库内破损、误操作上架、质量异常、包装问题等",
+      "frequency": "约75%的历史单明确提到了",
+      "examples": [
+        "库内破损异常",
+        "误操作将库存上架为良品库存，实际产品都判定为不良品",
+        "库内单品质量异常",
+        "包装问题",
+        "实际是不良品"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "是否需要补贴标签",
+      "description": "部分情况需要补贴商品条码、包裹标签或SN标签后再上架",
+      "frequency": "约44%的历史单提到了",
+      "examples": [
+        "需要补贴商品条码上架到不良品",
+        "补贴包裹标签，标签见附件",
+        "需要更换一个外箱，采集SN上架到不良品库位"
+      ],
+      "required": false
+    },
+    {
+      "field": "原入库单信息",
+      "description": "当涉及重新上架时，需要说明原来是从哪个入库单上架的",
+      "frequency": "约31%的历史单提到了",
+      "examples": [
+        "原单WI50048193",
+        "WI50591614这个入库单上架的61pcs",
+        "然后仓库重新用原入库单WI50351073上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "后续处理要求",
+      "description": "转不良品后的进一步操作，如盘亏处理、退回国内、防止混放等",
+      "frequency": "约31%的历史单提到了",
+      "examples": [
+        "不良品做盘亏L007处理",
+        "后续需要退回国内",
+        "为防止同款产品亚马逊移除订单入库后与原库存混放",
+        "后续要退回香港工厂处理"
+      ],
+      "required": false
+    },
+    {
+      "field": "数量信息",
+      "description": "需要转不良品的具体数量",
+      "frequency": "约38%的历史单明确提到了",
+      "examples": [
+        "61pcs",
+        "共计2pcs",
+        "10个箱码"
+      ],
+      "required": false
+    },
+    {
+      "field": "是否需要换标",
+      "description": "少数情况需要更换SKU标签",
+      "frequency": "约6%的历史单提到了",
+      "examples": [
+        "原sku9345750988194需要换标成9345750052864"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000313497",
+      "requirementDescription": "背景：  原单WI50048193以下10个箱码当时要求上架到WI50480131，不良品（当时下了增值单：VASC000000298929 ），但仓库直接良品上架到原单了（未按照增值单要求执行，但是增值单还点完成了），现在需要把这些良品库存转不良品，请仓库按单据执行到位！  LXJM0120260509000269  LXJM0120260509000256  LXJM0120260509000293  LXJM0120260509000265  LXJM0120260509000107  LXJM0120260509000266  LXJM0120260509000242  LXJM0120260509000248  LXJM0120260509000247  LXJM0120260509000240  原单WI50160095，以下箱码要求从良品转为不良品  AE1033Z1-85 3pcs，三方箱码如下：  DSDC0120260414001975  DSDC0120260417000071  DSDC0120260417000140  AE1033Z1 4pcs，三方箱码如下  LXJM0120260422000023  LXJM0120260422000020  LXJM0120260422000037  LXJM0120260422000028",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000338049",
+      "requirementDescription": "EB0526081332214735  EB0526081032110332  EB0526081032110341  EB0526080632036988 需要补贴商品条码上架到不良品，入库单号WI51908492，异常单对应商品标签看附件",
+      "requirementBackground": "EB0526081332214735  EB0526081032110332  EB0526081032110341  EB0526080632036988 需要补贴商品条码上架到不良品，入库单号WI51908492，异常单对应商品标签看附件"
+    },
+    {
+      "orderNo": "VASC000000336762",
+      "requirementDescription": "M010000000008453352  仓库：au仓  如上sku在库良品库存共计2pcs都需要转为不良品等级",
+      "requirementBackground": "M010000000008453352此SKU实际是不良品，误操作将库存上架为良品库存，实际产品都判定为不良品无法销售，后续要退回香港工厂处理，不希望被误发给到买家，需要将M010000000008453352共计2pcs的良品库存操作良品转不良品"
+    },
+    {
+      "orderNo": "VASC000000313506",
+      "requirementDescription": "1、WI50591614这个入库单上架的61pcs T520QJ20（M010000000011878557）不良品做盘亏L007 处理；  2、然后仓库重新用原入库单WI50351073上架61pcs T520QJ20（M010000000011878557），不良品，上架后重新回传上架数据给Anker。",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000330666",
+      "requirementDescription": "EB0526080531978530  EB0526073031771275  需补贴商品条码并上架到不良品。入库单号WI51572764",
+      "requirementBackground": "EB0526080531978530  EB0526073031771275  需补贴商品条码并上架到不良品。入库单号WI51572764"
+    },
+    {
+      "orderNo": "VASC000000344016",
+      "requirementDescription": "EB0526082632522481、EB0526082532467932 需补贴商品条码上架不良品库位WI52147590",
+      "requirementBackground": "EB0526082632522481、EB0526082532467932 需补贴商品条码上架不良品库位WI52147590"
+    },
+    {
+      "orderNo": "VASC000000341493",
+      "requirementDescription": "原sku9345750988194需要换标成9345750052864通过预报单WI47723108上架为不良品",
+      "requirementBackground": "原sku9345750988194需要换标成9345750052864通过预报单WI47723108上架为不良品"
+    },
+    {
+      "orderNo": "VASC000000271338",
+      "requirementDescription": "EB0426041728882170，库内破损异常，需要按不良品上架到入库单 WI49443002，谢谢",
+      "requirementBackground": "库内异常标准增值无法直接不良品上架到对应的预报单中，需要非标处理，之前的增值单提交错误，作废重新提交，谢谢"
+    },
+    {
+      "orderNo": "VASC000000344007",
+      "requirementDescription": "EB0526082732529765 需要更换一个外箱，采集SN上架到不良品库位 WI52147590",
+      "requirementBackground": "EB0526082732529765 需要更换一个外箱，采集SN上架到不良品库位 WI52147590"
+    },
+    {
+      "orderNo": "VASC000000271116",
+      "requirementDescription": "这个sku库内产品实际为不良品，需要转成不良品上架做区分处理，后续需要退回国内",
+      "requirementBackground": "把M010000000009761576，改成不良品上架到 WI49482152"
+    },
+    {
+      "orderNo": "VASC000000324477",
+      "requirementDescription": "11304010760现有库存转移不良品仓",
+      "requirementBackground": "为防止同款产品亚马逊移除订单入库后与原库存混放，现需将11304010760原有库存转移到不良品仓"
+    },
+    {
+      "orderNo": "VASC000000338898",
+      "requirementDescription": "EB0526082032335518  库内单品质量异常，请上架到不良品，不良品预报单WI51931863",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000330411",
+      "requirementDescription": "需补贴商品条码并上架到不良品。入库单号WI51572764",
+      "requirementBackground": "需补贴商品条码并上架到不良品。入库单号WI51572764"
+    },
+    {
+      "orderNo": "VASC000000326907",
+      "requirementDescription": "EB0526072931700490库内破损异常，请上架到不良品    新入库单WI51427083",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000330753",
+      "requirementDescription": "EB0526073031768296  请上架到不良品，入库单：WI51587732",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000333723",
+      "requirementDescription": "库内异常，包装问题要上架到不良品  预报单：WI51722554",
+      "requirementBackground": "暂无标准增值"
+    }
+  ]
+}

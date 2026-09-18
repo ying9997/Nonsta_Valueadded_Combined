@@ -1,0 +1,73 @@
+{
+  "sceneKey": "inbound_reshelve_change_wi_keep_sku",
+  "sceneName": "【入库】商品下架后换入库单重新上架（不更换SKU）",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.11",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "下架后",
+      "换入库单",
+      "不更换SKU",
+      "下架换单",
+      "原SKU上架"
+    ],
+    "weak": [
+      "包裹标签",
+      "无箱单预报",
+      "100%A+包入库",
+      "不收费",
+      "重新上架"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "辨识",
+      "串仓",
+      "自提",
+      "拍照"
+    ],
+    "soft": [
+      "尺重",
+      "整柜",
+      "调拨",
+      "暂存"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景不更换SKU，不涉及换标或辨识操作，只是换入库单重新上架",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景不换商品标签，保持原SKU不变",
+    "和【入库】入库预报SKU与实际到货SKU不符合的区别是：本场景是商品已下架后的重新上架，不是预报与实际不符的问题",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景不涉及辨识和补贴条码，只是换入库单"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：已下架的商品/包裹",
+    "动作：换入库单、贴包裹标签（特定情况下）",
+    "去向：重新上架（保持原SKU不变）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "确认商品已下架状态",
+    "判断是否需要贴包裹标签（无箱单预报单、100%A+包入库除外）",
+    "更换入库单信息",
+    "保持原SKU不变",
+    "重新上架操作"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.11. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code. SOP 内容不足，信号词可能不准。"
+}

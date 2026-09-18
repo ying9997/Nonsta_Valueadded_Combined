@@ -1,0 +1,74 @@
+{
+  "sceneKey": "inbound_replace_winit_packaging",
+  "sceneName": "【入库】更换winit包装",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.24",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "更换winit包装",
+      "更换包装",
+      "winit包材",
+      "标准包装打包费",
+      "客制包装打包费",
+      "缠绕膜加固",
+      "换包装重新上架"
+    ],
+    "weak": [
+      "包裹质量异常",
+      "补贴新的包裹条码",
+      "覆盖原标签",
+      "用纸箱进行包装"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "批量辨识",
+      "串仓",
+      "自提",
+      "质检",
+      "无主货"
+    ],
+    "soft": [
+      "换商品标签",
+      "拍照暂存",
+      "预报SKU不符",
+      "关联第三方条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景重点是更换包装材料（winit包材/缠绕膜/客制包材），而非辨识尺寸重量",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是更换包裹外层包装，而非仅更换商品标签",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景强调包装材料的更换和打包费用，而非批量辨识流程",
+    "和【入库】商品质检的区别是：本场景是因包装问题需要更换包材，而非对商品本身进行质量检验"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确是哪些包裹/异常单需要更换包装",
+    "动作：说明使用什么类型的包材更换（winit标准包材/缠绕膜/客制包材）",
+    "去向：更换包装后的上架目标仓位或处理方式"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确使用的包材类型（winit标准包材/缠绕膜/客制包材）",
+    "说明对应的费用项编码和收费规则",
+    "描述更换包装的具体操作步骤",
+    "补贴新包裹条码并覆盖原标签",
+    "关闭异常单并变更状态为仓库已完成"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.24. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

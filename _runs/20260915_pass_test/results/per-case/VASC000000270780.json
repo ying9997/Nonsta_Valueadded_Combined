@@ -1,0 +1,90 @@
+{
+  "orderNo": "VASC000000270780",
+  "outcome": "needs_field_clarification",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "needs_field_clarification",
+      "ruleOutputPath": "needs_field_clarification",
+      "action": "stop_first_round",
+      "note": "pass-test 只记第一轮，不模拟补附件/选场景",
+      "sceneKey": "inbound_package_exception_relabel_shelving"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000270780",
+    "outputPath": "needs_field_clarification",
+    "ruleOutputPath": "needs_field_clarification",
+    "node": "check-scene-completeness",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness"
+    ],
+    "failureGate": "check-completeness",
+    "missing": [
+      "新入库单号未说明"
+    ],
+    "missingRequirementItems": [
+      "新入库单号未说明"
+    ],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [
+      "本场景（【入库】包裹类异常换商品标签上架）需要知道新入库单号，请补充。"
+    ],
+    "infoChecks": [
+      {
+        "field": "处理范围",
+        "present": true,
+        "evidence": "EB0126041428787040异常内20个"
+      },
+      {
+        "field": "新入库单号",
+        "present": false,
+        "evidence": ""
+      },
+      {
+        "field": "商品标签数量",
+        "present": true,
+        "evidence": "实际要按一个单品上架，即1个商品标签；客户已上传「包裹和标签的对应关系、标签文件」，具体标签信息应在附件中"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "包裹和标签的对应关系",
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "TRPP",
+        "fileName": "【包裹和标签的对应关系】模板.xlsx",
+        "label": "包裹和标签的对应关系"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "fileDownload+1000C.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "EB0126041428787040异常内20个，实际要按一个单品上架，\n贴一个新单的A+包裹标签  包裹用纸箱包装  正常的商品尺寸是26*24*32，安排尽量合适的纸箱",
+    "requirementLength": 84,
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "sceneName": "【入库】包裹类异常换商品标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "您好，该增值单已识别为「【入库】包裹类异常换商品标签上架」，但还缺少以下信息/附件：\n\n**增值单号**：VASC000000270780  \n**客户/仓库**：****************************************** / 15687358 / AU Warehouse (EWD)  \n**已绑定异常单**：EB0126041428787040  \n**已绑定入库单**：WI49426980  \n\n**已提交需求**：异常单 EB0126041428787040 内有 20 个商品，需按一个单品上架，贴新单的 A+ 包裹标签，用纸箱包装（商品尺寸 26*24*32cm）。\n\n**已上传附件**：\n- 包裹和标签的对应关系（【包裹和标签的对应关系】模板.xlsx）\n- 标签文件（fileDownload+1000C.pdf）\n\n**还缺少信息**：\n- **新入库单号**：您提到要按新单上架，但未说明新入库单号是多少，请补充具体的新入库单号。\n\n**还缺少附件**：\n- 操作说明附件\n- 商品和标签的对应关系\n- 视频拍摄SOP（中文+英文）\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "llmError": "",
+    "analysis": "您好，该增值单已识别为「【入库】包裹类异常换商品标签上架」，但还缺少以下信息/附件：\n\n**增值单号**：VASC000000270780  \n**客户/仓库**：****************************************** / 15687358 / AU Warehouse (EWD)  \n**已绑定异常单**：EB0126041428787040  \n**已绑定入库单**：WI49426980  \n\n**已提交需求**：异常单 EB0126041428787040 内有 20 个商品，需按一个单品上架，贴新单的 A+ 包裹标签，用纸箱包装（商品尺寸 26*24*32cm）。\n\n**已上传附件**：\n- 包裹和标签的对应关系（【包裹和标签的对应关系】模板.xlsx）\n- 标签文件（fileDownload+1000C.pdf）\n\n**还缺少信息**：\n- **新入库单号**：您提到要按新单上架，但未说明新入库单号是多少，请补充具体的新入库单号。\n\n**还缺少附件**：\n- 操作说明附件\n- 商品和标签的对应关系\n- 视频拍摄SOP（中文+英文）\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "conclusionOneLiner": "包裹条码异常，换商品标签后上架",
+    "judgmentBasis": "🔍 异常单 EB0126041428787040：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：将20个包裹按一个单品处理、贴新单的A+包裹标签、用纸箱包装（尺寸26*24*32）、上架\n✅ AI 判断场景：【入库】包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：包裹条码异常，换商品标签后上架"
+  },
+  "omsWriteAttempted": false
+}

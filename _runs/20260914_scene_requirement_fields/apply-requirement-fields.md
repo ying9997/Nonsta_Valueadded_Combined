@@ -1,0 +1,84 @@
+# apply-requirement-fields
+
+- 写入：32 张
+- 跳过：43 张
+
+## 写入
+- inbound_aplus_direct_shelve required=3 optional=4 sample=20
+- inbound_batch_identify_relabel_barcode required=5 optional=6 sample=20
+- inbound_collect_sn required=5 optional=3 sample=7
+- inbound_destroy_before_shelve required=3 optional=4 sample=7
+- inbound_kit_then_shelve required=2 optional=5 sample=20
+- inbound_label_identify required=5 optional=5 sample=20
+- inbound_package_barcode_batch_relabel required=4 optional=7 sample=20
+- inbound_package_exception_relabel_shelving required=3 optional=5 sample=15
+- inbound_parcel_cross_warehouse_transfer required=4 optional=4 sample=5
+- inbound_photo_hold required=4 optional=5 sample=20
+- inbound_remove_label required=4 optional=5 sample=20
+- inbound_third_party_merchandise_barcode required=4 optional=5 sample=20
+- inbound_transparent_label required=5 optional=5 sample=13
+- inbound_unpack_shelve required=3 optional=5 sample=14
+- instock_add_remove_accessories required=6 optional=6 sample=20
+- instock_aplus_parcel_relabel_shelve required=3 optional=5 sample=6
+- instock_appearance_identify_label required=5 optional=6 sample=20
+- instock_exception_rephoto required=3 optional=3 sample=10
+- instock_exception_to_defective_shelve required=3 optional=4 sample=20
+- instock_good_defective_inspection required=3 optional=7 sample=12
+- instock_good_to_defective_shelve required=3 optional=5 sample=16
+- instock_identify_photo_then_destroy required=4 optional=3 sample=9
+- instock_inventory_freeze_unfreeze required=4 optional=6 sample=11
+- instock_measure_identify_dims_weight required=3 optional=4 sample=10
+- instock_nonstandard_charge required=3 optional=4 sample=10
+- instock_photo_video required=4 optional=6 sample=20
+- instock_product_kitting required=7 optional=5 sample=20
+- instock_reinforce required=4 optional=3 sample=6
+- instock_relabel_change_sku required=6 optional=7 sample=20
+- instock_replace_custom_packaging required=5 optional=5 sample=8
+- instock_specified_position_label required=5 optional=4 sample=6
+- instock_split_sku required=5 optional=6 sample=18
+
+## 跳过
+- inbound_anker_combine_carton 无 OMS 码，待补充
+- inbound_basic_3pl_winit_kit 无 OMS 码，待补充
+- inbound_bulk_return_new_inbound 无 OMS 码，待补充
+- inbound_expedited_inbound 无 OMS 码，待补充
+- inbound_forecast_sku_mismatch 无 OMS 码，待补充
+- inbound_identify_sku_relabel_parcel 无 OMS 码，待补充
+- inbound_pre_shelve_inventory_identify 样本 4 < 5
+- inbound_product_quality_inspection 缓存中无已审通过单，待补充
+- inbound_provide_inbound_video 已下线（独立原子）
+- inbound_replace_custom_packaging 样本 3 < 5
+- inbound_replace_winit_packaging 无 OMS 码，待补充
+- inbound_reshelve_change_wi_keep_sku 无 OMS 码，待补充
+- inbound_self_pickup_before_shelve 已下线（独立原子）
+- inbound_serialized_sn_handling 无 OMS 码，待补充
+- inbound_sku_mgmt_cross_warehouse_b 无 OMS 码，待补充
+- inbound_split_return_order 无 OMS 码，待补充
+- inbound_unclaimed_goods_relabel_shelve 已下线（独立原子）
+- inbound_unsigned_not_received_proof 无 OMS 码，待补充
+- inbound_winit_fault_multi_action 无 OMS 码，待补充
+- instock_audit_inventory 已下线（独立原子）
+- instock_cancel_self_pickup_need_wi 无 OMS 码，待补充
+- instock_cancel_self_pickup_outbound 无 OMS 码，待补充
+- instock_carton_to_each 无 OMS 码，待补充
+- instock_change_sku_defective_shelve 无 OMS 码，待补充
+- instock_collect_sn 无 OMS 码，待补充
+- instock_damaged_repack_reshelve 无 OMS 码，待补充
+- instock_defective_to_good 样本 3 < 5
+- instock_identify_then_relabel_shelve 无 OMS 码，待补充
+- instock_instructional_label_photo 已审需求样本不足（2 < 3），待补充
+- instock_inter_warehouse_transfer 样本 3 < 5
+- instock_inter_warehouse_transfer_anker 无 OMS 码，待补充
+- instock_inventory_destroy 无 OMS 码，待补充
+- instock_ownership_transfer 已下线（独立原子）
+- instock_ownership_transfer_relabel 已下线（独立原子）
+- instock_procure_packaging_bambu 已下线（独立原子）
+- instock_procure_packaging_materials 已下线（独立原子）
+- instock_remove_cover_label 无 OMS 码，待补充
+- instock_replace_mfg_date_label 缓存中无已审通过单，待补充
+- instock_rework_reshelve 无 OMS 码，待补充
+- instock_sn_mgmt_change_reshelve 无 OMS 码，待补充
+- instock_unbox_identify_change_sku 无 OMS 码，待补充
+- instock_void_outbound_after_pack 无 OMS 码，待补充
+- instock_winit_pack_offline_ship 无 OMS 码，待补充
+

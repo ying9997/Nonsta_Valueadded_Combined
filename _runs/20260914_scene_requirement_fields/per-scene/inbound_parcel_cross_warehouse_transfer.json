@@ -1,0 +1,141 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.248Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+  "sceneName": "【入库】包裹串仓异常调拨",
+  "omsSceneCode": "[Warehouse]AbnormalTransferOfParcelsFromMultipleWarehouses",
+  "fileName": "inbound_parcel_cross_warehouse_transfer.json",
+  "category": "inbound",
+  "approvedOrderCount": 8,
+  "sampleCount": 5,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：明确异常包裹编号(如EB开头的编号)",
+    "动作：调拨/转移到另一个仓库",
+    "去向：明确目的仓库代码(如DE仓、DEBR2、USWC2等)"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "异常包裹编号",
+      "description": "需要明确哪些包裹/箱子发错仓库了，可以是EB单号、箱唛编号或入库单号",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "EB0126062430696495",
+        "EB0126070230983595",
+        "箱唛编号：B0400000001428392495",
+        "WI48246636整单",
+        "124箱其中3箱小件"
+      ],
+      "required": true
+    },
+    {
+      "field": "目的仓库",
+      "description": "需要明确包裹应该转到哪个仓库，必须提供仓库代码",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "USWC2仓",
+        "DEBR2仓",
+        "DE Warehouse",
+        "DG仓",
+        "USWC"
+      ],
+      "required": true
+    },
+    {
+      "field": "目标入库单号",
+      "description": "包裹在目的仓库应该上架到哪个入库单",
+      "frequency": "约80%的历史单提到了",
+      "examples": [
+        "WI50892274",
+        "WI49687657",
+        "按照失败做上架"
+      ],
+      "required": true
+    },
+    {
+      "field": "当前所在仓库",
+      "description": "包裹实际发到了哪个错误的仓库",
+      "frequency": "约80%的历史单明确或隐含提到了",
+      "examples": [
+        "货物运抵USWC仓库",
+        "整单发到了DE仓",
+        "USKY3串去USWC"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "是否需要更换标签",
+      "description": "是否需要更换包裹标签、单品条码等，特别是单品化管理的SKU",
+      "frequency": "约60%的历史单提到了",
+      "examples": [
+        "贴包裹便签",
+        "补贴winit包裹标签",
+        "需要更换包裹条码以及单品条码",
+        "更换目的仓库入库单包裹标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "特殊货物属性",
+      "description": "货物是否有特殊属性，如DG品、小件、退货等",
+      "frequency": "约40%的历史单提到了",
+      "examples": [
+        "3箱小件货品",
+        "货物实际是DG品",
+        "原出库单派送失败退回"
+      ],
+      "required": false
+    },
+    {
+      "field": "处理范围说明",
+      "description": "明确是整单处理还是部分箱子处理",
+      "frequency": "约40%的历史单明确说明了",
+      "examples": [
+        "整单发到了DE仓",
+        "124箱，其中包含3箱小件",
+        "这3箱小件不上架直接贴包裹便签调拨"
+      ],
+      "required": false
+    },
+    {
+      "field": "商品清单",
+      "description": "涉及的具体SKU和数量信息",
+      "frequency": "约20%的历史单提供了",
+      "examples": [
+        "HRL-004：12件 20pcs：200件"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000327054",
+      "requirementDescription": "更换包裹便签",
+      "requirementBackground": "客户：义乌市望鹏汽车配件有限公司  客户编码：20097902  入库单据号：WI50831137  本次货物一共 124 箱，其中包含 3 箱小件货品。货物运抵 USWC 仓库后，这3 箱小件不上架直接贴包裹便签调拨转运至 USWC2 仓    箱唛编号：  B0400000001428392495  B0400000001428392505  B0400000001428392514  商品清单：  HRL-004：12 件  20pcs：200 件  货品总量合计 212 件"
+    },
+    {
+      "orderNo": "VASC000000285561",
+      "requirementDescription": "WI48246636  自验-直发-海卡 订单，目的仓：DEBR2仓，整单发到了DE仓了，需要转到正确的仓库DEBR2仓上架，标准无法操作需要提交非标增值处理，帮忙报价，谢谢（原单仓库终止，但是实际仓库收到也是可以操作上架）",
+      "requirementBackground": "WI48246636  自验-直发-海卡\t订单，目的仓：DEBR2仓，整单发到了DE仓了，需要转到正确的仓库DEBR2仓上架，标准无法操作需要提交非标增值处理"
+    },
+    {
+      "orderNo": "VASC000000307506",
+      "requirementDescription": "EB0126062430696495  实物是原出库单：WO11537395743派送失败退回的，原出库单是：DE Warehouse，请帮忙把异常转回\tDE Warehouse，并按照按照失败做上架",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000313224",
+      "requirementDescription": "EB0126070230983595  货物实际是DG品，需要转回DG仓上架，请帮忙把货物转到DG仓，上架到WI50892274，补贴winit包裹标签",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000276648",
+      "requirementDescription": "需要更换包裹条码以及单品条码，重新上架到：WI49687657",
+      "requirementBackground": "USKY3串去USWC,要在USWC上架，SKU是单品化管理的，需要更换包裹条码以及单品条码 上架"
+    }
+  ]
+}

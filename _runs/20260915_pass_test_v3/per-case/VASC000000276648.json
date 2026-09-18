@@ -1,0 +1,81 @@
+{
+  "orderNo": "VASC000000276648",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_sku_mgmt_cross_warehouse_b"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000276648",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [],
+    "infoCheckSkipped": true,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "商品和标签的对应关系",
+      "包裹和标签的对应关系",
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_TCRBCAL",
+        "fileName": "【商品和标签对应关系】模板.xlsx",
+        "label": "商品和标签的对应关系"
+      },
+      {
+        "fileType": "TRPP",
+        "fileName": "【包裹和标签的对应关系】模板.xlsx",
+        "label": "包裹和标签的对应关系"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "商品条码.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "包裹条码.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "USKY3串去USWC,要在USWC上架，SKU是单品化管理的，需要更换包裹条码以及单品条码 上架\n需要更换包裹条码以及单品条码，重新上架到：WI49687657",
+    "requirementLength": 81,
+    "sceneKey": "inbound_sku_mgmt_cross_warehouse_b",
+    "sceneName": "【入库】A仓单品化管理的包裹串仓到B仓异常--在B仓上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n客户货物从 USKY3 仓串仓至 USWC 仓，因 SKU 为单品化管理，需更换包裹条码和单品条码后上架到入库单 WI49687657。客户已提供商品和包裹的条码对应关系表格及新条码文件。\n\n【需求背景】\n串仓货物的原条码系统与目标仓库 SKU 管理模式不匹配，需更换为目标仓库可识别的新条码后方可上架。\n\n【操作要求】\n1. 在系统中查询异常单 EB0126050629263041 关联的原包裹条码，到对应库位找到实物包裹；\n2. 核对包裹内商品 SKU、数量与异常单信息是否一致；\n3. 打开客户提供的「【包裹和标签的对应关系】模板.xlsx」和「包裹条码.pdf」，移除包裹上的旧包裹条码，按对应关系找到新包裹条码并打印，贴在包裹外箱明显位置；\n4. 打开包裹，打开「【商品和标签对应关系】模板.xlsx」和「商品条码.pdf」，逐一核对商品，按对应关系为每个商品打印并贴上新单品条码，贴在商品包装不遮挡原有信息的位置；\n5. 扫描新包裹条码和所有新单品条码，确认系统可正常识别；\n6. 在系统中打开入库单 WI49687657，扫描新包裹条码，按系统提示完成上架操作并记录上架库位；\n7. 上架完成后，将异常单 EB0126050629263041 状态变更为已完成。\n\n【注意事项】\n- 更换条码前务必核对对应关系表格，避免贴错；\n- 新条码需确保清晰可扫描，不得褶皱或遮挡；\n- 单品条码需贴在不影响商品信息识别的位置。",
+    "llmError": "",
+    "analysis": "【需求描述】\n客户货物从 USKY3 仓串仓至 USWC 仓，因 SKU 为单品化管理，需更换包裹条码和单品条码后上架到入库单 WI49687657。客户已提供商品和包裹的条码对应关系表格及新条码文件。\n\n【需求背景】\n串仓货物的原条码系统与目标仓库 SKU 管理模式不匹配，需更换为目标仓库可识别的新条码后方可上架。\n\n【操作要求】\n1. 在系统中查询异常单 EB0126050629263041 关联的原包裹条码，到对应库位找到实物包裹；\n2. 核对包裹内商品 SKU、数量与异常单信息是否一致；\n3. 打开客户提供的「【包裹和标签的对应关系】模板.xlsx」和「包裹条码.pdf」，移除包裹上的旧包裹条码，按对应关系找到新包裹条码并打印，贴在包裹外箱明显位置；\n4. 打开包裹，打开「【商品和标签对应关系】模板.xlsx」和「商品条码.pdf」，逐一核对商品，按对应关系为每个商品打印并贴上新单品条码，贴在商品包装不遮挡原有信息的位置；\n5. 扫描新包裹条码和所有新单品条码，确认系统可正常识别；\n6. 在系统中打开入库单 WI49687657，扫描新包裹条码，按系统提示完成上架操作并记录上架库位；\n7. 上架完成后，将异常单 EB0126050629263041 状态变更为已完成。\n\n【注意事项】\n- 更换条码前务必核对对应关系表格，避免贴错；\n- 新条码需确保清晰可扫描，不得褶皱或遮挡；\n- 单品条码需贴在不影响商品信息识别的位置。",
+    "conclusionOneLiner": "单品化管理包裹从USKY3串仓到USWC，需在B仓换标上架",
+    "judgmentBasis": "🔍 异常单 EB0126050629263041：客户直发包裹串仓（包裹）[oms_api]\n📋 识别的动作：更换包裹条码、更换单品条码、上架到新入库单WI49687657\n✅ AI 判断场景：【入库】A仓单品化管理的包裹串仓到B仓异常--在B仓上架（置信度：高）\n💡 AI 理由：单品化管理包裹从USKY3串仓到USWC，需在B仓换标上架"
+  },
+  "omsWriteAttempted": false
+}

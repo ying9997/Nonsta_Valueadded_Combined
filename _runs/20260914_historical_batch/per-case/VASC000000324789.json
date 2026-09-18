@@ -1,0 +1,55 @@
+{
+  "orderNo": "VASC000000324789",
+  "outcome": "sop_after_rounds",
+  "threadId": "om_x100b6543ac3c7ca4c4c2b8d226afb94",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "action": "override_scene",
+      "note": "overrideScene=inbound_package_barcode_batch_relabel",
+      "sceneKey": "inbound_package_barcode_batch_relabel"
+    },
+    {
+      "round": 2,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_barcode_batch_relabel"
+    }
+  ],
+  "simulated": [
+    "选择场景：【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架（来源：OMS 审核员实际选择）"
+  ],
+  "final": {
+    "orderNo": "VASC000000324789",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "inbound_package_barcode_batch_relabel",
+    "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "override_by_auditor",
+    "llmText": "【需求描述】\n异常单 EB0326072231524525 涉及 13 个入库单（WI51348575、WI51348420、WI51348541、WI51348338、WI51348395、WI51348630、WI51348694、WI51348608、WI51348360、WI51348515、WI51348455、WI51348484、WI51348663），实物产品 SKU 为 X0053SDAEX，因客户下了多个入库单且标准流程无法批量操作，需按各入库单对应的新 SKU 和包裹条码补贴新包裹标签后分别上架。客户已上传 13 个入库单对应的标签文件，实物条码正确且第三方编码系统已关联。\n\n【需求背景】\n到仓包裹涉及多个入库单，标准流程仅支持单一入库单操作，无法批量处理，需通过非标方式按新入库单补贴包裹标签后上架。\n\n【操作要求】\n1. 根据异常单 EB0326072231524525 定位待处理货物（实物 SKU：X0053SDAEX）；\n2. 核对实物条码与客户提供的 13 个入库单及对应 SKU 的映射关系（详见需求描述中的入库单-SKU 清单）；\n3. 按各入库单对应的标签文件（WI51348575.pdf、WI51348420.pdf、WI51348541.pdf、WI51348338.pdf、WI51348395.pdf、WI51348630.pdf、WI51348694.pdf、WI51348608.pdf、WI51348360.pdf、WI51348515.pdf、WI51348455.pdf、WI51348484.pdf、WI51348663.pdf）补贴新包裹标签；\n4. 使用对应入库单号扫描上架；\n5. 完成后关闭或推进异常单 EB0326072231524525。\n\n【注意事项】\n- 实物条码正确，仅需补贴包裹标签，不涉及商品标签更换；\n- 13 个入库单需分别操作，不可混批；\n- 标签文件与入库单一一对应，操作时注意核对。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0326072231524525 涉及 13 个入库单（WI51348575、WI51348420、WI51348541、WI51348338、WI51348395、WI51348630、WI51348694、WI51348608、WI51348360、WI51348515、WI51348455、WI51348484、WI51348663），实物产品 SKU 为 X0053SDAEX，因客户下了多个入库单且标准流程无法批量操作，需按各入库单对应的新 SKU 和包裹条码补贴新包裹标签后分别上架。客户已上传 13 个入库单对应的标签文件，实物条码正确且第三方编码系统已关联。\n\n【需求背景】\n到仓包裹涉及多个入库单，标准流程仅支持单一入库单操作，无法批量处理，需通过非标方式按新入库单补贴包裹标签后上架。\n\n【操作要求】\n1. 根据异常单 EB0326072231524525 定位待处理货物（实物 SKU：X0053SDAEX）；\n2. 核对实物条码与客户提供的 13 个入库单及对应 SKU 的映射关系（详见需求描述中的入库单-SKU 清单）；\n3. 按各入库单对应的标签文件（WI51348575.pdf、WI51348420.pdf、WI51348541.pdf、WI51348338.pdf、WI51348395.pdf、WI51348630.pdf、WI51348694.pdf、WI51348608.pdf、WI51348360.pdf、WI51348515.pdf、WI51348455.pdf、WI51348484.pdf、WI51348663.pdf）补贴新包裹标签；\n4. 使用对应入库单号扫描上架；\n5. 完成后关闭或推进异常单 EB0326072231524525。\n\n【注意事项】\n- 实物条码正确，仅需补贴包裹标签，不涉及商品标签更换；\n- 13 个入库单需分别操作，不可混批；\n- 标签文件与入库单一一对应，操作时注意核对。",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "✅ AI 判断场景：包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架（置信度：高）"
+  },
+  "omsWriteAttempted": false
+}

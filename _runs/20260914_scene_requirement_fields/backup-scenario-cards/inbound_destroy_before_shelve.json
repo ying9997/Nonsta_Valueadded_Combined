@@ -1,0 +1,75 @@
+{
+  "sceneKey": "inbound_destroy_before_shelve",
+  "sceneName": "【入库】上架前销毁",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "INBOUND_DESTORY_BF_SHELVE",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.22",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "销毁",
+      "上架前销毁",
+      "部分销毁",
+      "全部销毁",
+      "剩余货物上架",
+      "标注销毁的包裹"
+    ],
+    "weak": [
+      "部分货物",
+      "剩余货物",
+      "做销毁处理",
+      "增值-销毁"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴标签",
+      "尺重",
+      "辨识",
+      "质检",
+      "自提"
+    ],
+    "soft": [
+      "拍照",
+      "开箱",
+      "换商品标签"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】上架前自提的区别是：销毁场景是货物不要了要销毁，自提场景是客户要把货物取走",
+    "和【入库】商品质检的区别是：销毁场景明确要求销毁货物，质检场景是检查货物质量后决定是否上架",
+    "和【入库】包裹类异常换商品标签上架的区别是：销毁场景的核心动作是销毁货物，换标场景的核心动作是更换标签后上架",
+    "和【入库】指定商品拍照暂存的区别是：销毁场景最终要销毁货物，暂存场景是拍照后暂时存放不销毁"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确哪些货物需要销毁（部分/全部/指定包裹/指定SKU）",
+    "动作：销毁处理，以及剩余货物（如有）的上架动作",
+    "去向：销毁的货物不上架，剩余货物上架到指定入库单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_NWEON"
+    ],
+    "note": "auto-generated from OMS stats n=7 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+  },
+  "sopTemplateHints": [
+    "将指定货物做销毁处理",
+    "将剩余货物（如有）做正常入库上架",
+    "上架到指定入库单",
+    "关闭异常单（如有）",
+    "计费：增值-销毁"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.22. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INBOUND_DESTORY_BF_SHELVE."
+}

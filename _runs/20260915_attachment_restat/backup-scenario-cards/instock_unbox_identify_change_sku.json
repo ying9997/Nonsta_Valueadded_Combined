@@ -1,0 +1,76 @@
+{
+  "sceneKey": "instock_unbox_identify_change_sku",
+  "sceneName": "【库内】拆箱辨识后重新更换SKU上架",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.30",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "拆箱辨识",
+      "重新更换SKU",
+      "库内商品",
+      "辨识后重新上架",
+      "手写商品编号",
+      "辨识结果对应关系",
+      "补贴新的包裹标签",
+      "按辨识结果换标"
+    ],
+    "weak": [
+      "开箱查看",
+      "商品身份确认",
+      "实物比对",
+      "辨识方法",
+      "换标上架"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "到货",
+      "收货",
+      "整柜",
+      "串仓",
+      "自提"
+    ],
+    "soft": [
+      "尺重",
+      "质检",
+      "调拨",
+      "无主货"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景针对库内已上架商品，需先拆箱辨识再更换SKU重新上架；入库场景是在入库环节直接辨识换标",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景是库内商品需要更换SKU后重新上架，入库场景是首次上架时补贴条码",
+    "和【入库】商品下架后换入库单重新上架（不更换SKU）的区别是：本场景需要更换SKU，该场景不更换SKU只换入库单",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是库内主动辨识后换SKU，该场景是入库时发现异常才换标签"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：库内已上架的商品（需提供商品条码/商品编码）",
+    "动作：拆箱辨识商品身份，根据辨识结果更换SKU并补贴新包裹标签",
+    "去向：按新SKU重新上架到指定入库单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "定位库内待辨识商品并按辨识方法识别（外包装/开箱/示例图片比对）",
+    "记录辨识结果并拍照，商品化管理需手写编号",
+    "客户根据辨识结果提供实物与包裹标签的对应关系",
+    "仓库按对应关系补贴新包裹标签并更换SKU",
+    "将商品上架到客户指定的新入库单并关闭异常单"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.30. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

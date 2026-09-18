@@ -1,0 +1,198 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.248Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "inbound_package_exception_relabel_shelving",
+  "sceneName": "【入库】包裹类异常换商品标签上架",
+  "omsSceneCode": "20250407008",
+  "fileName": "inbound-package-exception-relabel-shelving.json",
+  "category": "inbound",
+  "approvedOrderCount": 15,
+  "sampleCount": 15,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：异常包裹 / 商品条码",
+    "动作：换商品标签（可含补包裹标）",
+    "去向：上架到新入库单并关闭异常单"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "处理范围",
+      "description": "需要明确处理的包裹数量、箱数或整单处理",
+      "frequency": "100%",
+      "examples": [
+        "3个SKU需要补贴商品条码",
+        "35个包裹全部重新补贴商品条码",
+        "50件货物",
+        "异常1箱a包裹2件商品",
+        "EB0126081932324412等3个包裹"
+      ],
+      "required": true
+    },
+    {
+      "field": "新入库单号",
+      "description": "需要上架到的新预报单/入库单号",
+      "frequency": "93%",
+      "examples": [
+        "上架到预报单：WI51519902",
+        "新单上WI50387161",
+        "原单WI51095972上架",
+        "新单号：WI51598958",
+        "按新单WI51576425上架"
+      ],
+      "required": true
+    },
+    {
+      "field": "商品标签数量",
+      "description": "需要补贴的商品标签数量，可能按SKU分别说明",
+      "frequency": "87%",
+      "examples": [
+        "单品数量：30",
+        "A110RH11==82",
+        "138PCS全部重新贴商品标签",
+        "50件货物",
+        "2件商品"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "包裹标签处理",
+      "description": "是否需要补贴或更换包裹标签",
+      "frequency": "47%",
+      "examples": [
+        "补贴完商品条码后根据新单补贴新单的包裹条码",
+        "更换新的包裹条码上架货物",
+        "需要补贴包裹标签以及商品标签",
+        "WI50566982这个的包裹标签覆盖到这里"
+      ],
+      "required": false
+    },
+    {
+      "field": "SKU对应关系",
+      "description": "多SKU时需要明确每个SKU的数量和对应关系，或说明是否随机贴",
+      "frequency": "60%",
+      "examples": [
+        "US1-BKZWJ-B-E15005001830=M010000000011384530=单品数量：30",
+        "EB0126073131782987=A110RH11==82",
+        "包裹标签和商品标签随机贴就好。没有对应关系",
+        "按照附件sn码对应新包裹关系进行对应贴标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "SKU识别方式",
+      "description": "如何区分不同SKU（如通过尺寸、SN码等）",
+      "frequency": "33%",
+      "examples": [
+        "箱子测面有尺寸信息，仓库可以看尺寸信息区分SKU",
+        "对应size:W1500*D500*H1830(mm)",
+        "原包裹上有贴sn码，没有任何的winit标签",
+        "按照附件sn码对应新包裹"
+      ],
+      "required": false
+    },
+    {
+      "field": "原单号",
+      "description": "原入库单号或预报单号",
+      "frequency": "40%",
+      "examples": [
+        "原单WI49615681",
+        "原单WI51095972上架",
+        "WI48841022单剩下没有登记异常的35个包裹",
+        "WI49968900已到仓卸货未上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "标签覆盖说明",
+      "description": "是否需要覆盖原有错误标签",
+      "frequency": "33%",
+      "examples": [
+        "实物贴的标签是错误的，需要商品标签要覆盖新的",
+        "WI50566982这个的包裹标签覆盖到这里",
+        "包裹条码被涂改导致难以分辨"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000311520",
+      "requirementDescription": "需要仓库整单拦截，有3个SKU需要补贴商品条码扫描上架，  箱子测面有尺寸信息，仓库可以看尺寸信息区分SKU  SKU: US1-BKZWJ-B-E15005001830=M010000000011384530=单品数量：30==对应size:W1500*D500*H1830(mm)  SKU: US1-BKZWJ-B-E12006001830=M010000000011384495=单品数量：30==对应size:W1200*D600*H1830(mm)  SKU: US1-BKZWJ-B-E9004001830=M010000000011384403=单品数量：20==对应size:W900*D400*H1830(mm)",
+      "requirementBackground": "有3个SKU漏贴标，需要仓库整单拦截，补贴商品条码后扫描上架  US1-BKZWJ-B-E15005001830==单品数量：30  US1-BKZWJ-B-E12006001830==单品数量：30  US1-BKZWJ-B-E9004001830==单品数量：20"
+    },
+    {
+      "orderNo": "VASC000000329235",
+      "requirementDescription": "EB0126073131782987  EB0126073131782618  EB0126073131782510  EB0126073131782432    登记的包裹异常，需要重新补贴商品标签后上架到预报单：WI51519902，贴标数量和对应关系如下    EB0126073131782987=A110RH11==82  EB0126073131782618=A110RH41==37  EB0126073131782432=A110RH91==7  EB0126073131782510=A110RH31==32  标签见附件",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000271665",
+      "requirementDescription": "1将WI48841022单剩下没有登记异常的35个包裹全部重新补贴商品条码  2补贴完商品条码后根据新单补贴新单的包裹条码，按新单验货上架  （备注：仓库登记的3个包裹异常已通过标准增值处理，未登记异常的35个包裹138PCS 通过该增值补贴标签处理）  该订单都是一个SKU 包裹标签和商品标签随机贴就好。没有对应关系",
+      "requirementBackground": "由于工厂在出货的时候没有贴商品标签，导致货物到仓报异常，目前仓库只报了3个包裹的异常。剩下的包裹还没有报。  因此申请入库非标增值，整个单剩下的138PCS全部重新贴商品标签+新单的包裹标签按新单上架。"
+    },
+    {
+      "orderNo": "VASC000000296319",
+      "requirementDescription": "需求： 50件货物新单上WI50387161，更换新的包裹条码上架货物。  注意：原包裹上有贴sn码，没有任何的winit标签，请按照附件“sn码对应新包裹”关系进行对应贴标签，请勿贴错。  附件已上传新包裹标签PDF文件。  非标原因：因异常单登记时仓库没有将商品标签挂再异常单名下，提交标准增值时，无法用sn码对应新包裹条码填写文件进去。",
+      "requirementBackground": "原单WI49615681 ，50件货物，领星推单的，没有推成功100%A+包裹产品，导致原单无法使用。  货物到仓报异常，外箱只贴了sn码，现在要新单上，换winit包裹标签。"
+    },
+    {
+      "orderNo": "VASC000000331374",
+      "requirementDescription": "异常1箱a包裹2件商品，原单WI51095972上架，需要补贴包裹标签以及商品标签。  附件已上传标签。  提交非标原因：异常类型包裹级，不支持选择补贴商品标签。实物贴的标签是错误的，需要商品标签要覆盖新的。",
+      "requirementBackground": "1箱2件货物没有贴标签，里面商品标签也贴错了，需要补贴包裹标，更换商品标签。"
+    },
+    {
+      "orderNo": "VASC000000342429",
+      "requirementDescription": "EB0126081932324412  EB0126081932324199  EB0126081932323983    请补贴winit商品标签上架到新单：WI51652234，标签见附件",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000330957",
+      "requirementDescription": "对应异常单实际是A类包裹里面对应SKU没有条码，麻烦补贴对应SKU条码在新单上架的——新单号：WI51598958",
+      "requirementBackground": "因异常类型是包裹条码异常没法选择补贴商品条码，故非标申请，谢谢。"
+    },
+    {
+      "orderNo": "VASC000000319617",
+      "requirementDescription": "EB0126070230988464  需要补贴万邑通的商品标签上架，SKU：A3936G12，上架到预报单WI51052110，标签见附件",
+      "requirementBackground": "包裹异常暂无换商品标签的标准增值"
+    },
+    {
+      "orderNo": "VASC000000332697",
+      "requirementDescription": "对应包裹是A类包裹，里面的配件商品需要贴条码： 4301821P1后重新按新单上架——WI51688686",
+      "requirementBackground": "对应异常单是包裹条码异常无法选择补贴商品条码处理，故非标申请"
+    },
+    {
+      "orderNo": "VASC000000342420",
+      "requirementDescription": "EB0126081932324811  EB0126081932324742    请补贴winit商品标签并上架到新单：WI51652234，标签见附件",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000342426",
+      "requirementDescription": "EB0126081932324574  EB0126081932302560  请补贴万邑通商品标签上架到新单：WI51652234  标签见附件",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000296325",
+      "requirementDescription": "异常单号EB0126060330030603辨认条码信息重新打印条码上架",
+      "requirementBackground": "异常单号EB0126060330030603因包裹条码被涂改导致难以分辨条码扫描上架"
+    },
+    {
+      "orderNo": "VASC000000301812",
+      "requirementDescription": "WI50566982这个的包裹标签覆盖到这里  不用一一对应   全部一种产品",
+      "requirementBackground": "WI50566982这个的标签覆盖到这里  不用一一对应   全部一种产品"
+    },
+    {
+      "orderNo": "VASC000000330510",
+      "requirementDescription": "EB0326080331871097 ，WINIT头程到仓异常，要按新单WI51576425上架",
+      "requirementBackground": "WINIT头程，国内漏验导致异常，增值申请不收费"
+    },
+    {
+      "orderNo": "VASC000000293940",
+      "requirementDescription": "WI49968900已到仓卸货未上架，没有商品标签，要贴上商品标签按不良品上架",
+      "requirementBackground": "没有异常单"
+    }
+  ]
+}

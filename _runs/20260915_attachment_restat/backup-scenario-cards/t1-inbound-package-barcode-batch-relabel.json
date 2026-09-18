@@ -1,0 +1,279 @@
+{
+  "sceneKey": "inbound_package_barcode_batch_relabel",
+  "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "20250430",
+  "aliases": {
+    "kbNames": [
+      "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架"
+    ],
+    "kbMatch": "pending_kb_verify",
+    "note": "本地暂无独立知识库标题核验；候选写法暂用 OMS 全名"
+  },
+  "testPool": "T1",
+  "sourceRefs": [
+    {
+      "path": "_runs/20260909_inbound_scene_probe/scene-rank-v4.json",
+      "credibility": "derived",
+      "note": "测集 T1；v4 实用门槛第 1；EB/HQ/客户指标来源"
+    },
+    {
+      "path": "_runs/20260909_inbound_scene_probe/_oms_cache/",
+      "credibility": "derived",
+      "note": "本窗 atoms/attrs：场景码 20250430，需求描述高频为包裹条码批量异常、补贴万邑通包裹标签上架"
+    },
+    {
+      "path": "internal-review-copilot/knowledge/scenario-cards/f001-inbound-label-identify.json",
+      "credibility": "derived",
+      "note": "卡结构对标；边界：F-001 偏尺重/辨识/绿标/混SKU 换标，本场景偏批量包裹条码异常后补贴包裹标"
+    },
+    {
+      "path": "internal-review-copilot/knowledge/scenario-cards/inbound-package-exception-relabel-shelving.json",
+      "credibility": "derived",
+      "note": "边界：A 强调包裹条码正常+商品条码异常换商品标；本场景是包裹条码批量异常补贴包裹标"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "包裹条码批量异常",
+      "批量异常",
+      "补贴包裹标签",
+      "补贴万邑通包裹标签",
+      "辨识后补贴包裹标签",
+      "辨识",
+      "包裹标都无法识别",
+      "整单包裹标",
+      "需客户处理"
+    ],
+    "weak": [
+      "补贴包裹条码",
+      "换包裹标签",
+      "包裹标签上架",
+      "确认SKU",
+      "异常的包裹",
+      "异常包裹",
+      "无法识别",
+      "上架",
+      "关闭异常"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "绿标",
+      "混SKU",
+      "商品条码与包裹条码不对应",
+      "包裹条码正常",
+      "商品条码异常",
+      "换商品标签",
+      "关联第三方商品条码",
+      "指定商品拍照暂存",
+      "拦截不上架"
+    ],
+    "soft": [
+      "辨识后换标",
+      "第三方条码",
+      "拍照暂存",
+      "仅写上架未写批量包裹异常"
+    ]
+  },
+  "boundaryRules": [
+    "OMS 场景码 20250430 可辅助，不能单独当命中；须正文体现「包裹条码批量异常 / 批量无法识别」+「补贴包裹标签上架」。",
+    "与 F-001：有尺重/绿标/混SKU/商品-包裹对应关系时优先 F-001，不要抢标 T1。",
+    "「辨识」同时出现在 F-001 和 T1 的 strong signal 中。当正文同时含「辨识」+「包裹标签/包裹条码」时优先 T1；含「辨识」+「商品标签/商品条码/换标」时优先 F-001。区分不了 → ambiguous。",
+    "与 A（20250407008）：A 是包裹条码正常、商品条码异常、换商品标；T1 是包裹条码批量异常、补贴包裹标。区分不了 → ambiguous。",
+    "与 T3（202506120001）：已维护/关联第三方商品条码后直接扫描上架 → T3，不是本场景的「补贴万邑通包裹标签」。",
+    "与近邻 OMS「100%A+/A包裹包裹条码批量异常」等：码不同则不要仅凭「批量异常」口语并码。",
+    "不能仅凭 OW01V1602 / 入库其他服务需求命中。",
+    "附件必填与金标须等样本轮用真实 case 再确认，禁止自造 fieldKey。"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：批量异常的包裹 / 包裹条码",
+    "动作：辨识后补贴（万邑通）包裹标签",
+    "去向：上架（常含关闭异常 / 对应 WI）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "required",
+    "omsWhitelistFieldKeys": [
+      "VAS_ATTR_REL_LF",
+      "VAS_ATTR_REL_NWEON",
+      "VAS_ATTR_REL_AOOI",
+      "NSVASTN",
+      "VAS_ATTR_REL_RD",
+      "BEOR",
+      "TRPP",
+      "CEO_SOA",
+      "VSS"
+    ],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_LF"
+    ],
+    "note": "本窗 20250430 共 76 单 SUBMIT 均出现 VAS_ATTR_REL_LF 键（标签文件）。正式 required 须样本轮按「有实际附件/非空」再确认≥70% 口径；不得自造 fieldKey。另常见上架入库单号 VAS_ATTR_REL_NWEON。"
+  },
+  "sopTemplateHints": [
+    "写明批量异常范围（整单 / 箱数 / 件数）",
+    "补贴包裹标签 × 数量（或随机贴规则，若单 SKU）",
+    "标签文件附件",
+    "上架目标入库单 WI",
+    "异常单关闭要求"
+  ],
+  "examples": [
+    {
+      "id": "t1-positive-272889",
+      "kind": "positive",
+      "sourceType": "oms_attr_excerpt",
+      "text": "入库单整单包裹标都无法识别，需要全部补贴万邑通包裹标签上架，264箱，入库单只有1个SKU，随机贴即可",
+      "note": "摘自 VASC000000272889 需求描述口径；非正式 gold"
+    },
+    {
+      "id": "t1-positive-batch-count",
+      "kind": "positive",
+      "sourceType": "oms_attr_excerpt",
+      "text": "异常只登记1个，实际有240件货物需要新单上架并补贴包裹标签，标准流程无法对应关系登记",
+      "note": "摘自 VASC000000276171 类表述；非正式 gold"
+    },
+    {
+      "id": "t1-negative-f001",
+      "kind": "negative",
+      "sourceType": "derived_example",
+      "text": "物流标签盖住绿标，撕开后按露出的 SKU 换商品条码再上架",
+      "note": "F-001 典型，不得收成 T1"
+    },
+    {
+      "id": "t1-negative-a",
+      "kind": "negative",
+      "sourceType": "derived_example",
+      "text": "包裹类异常，包裹条码正常但商品条码异常，请换商品标签后上架",
+      "note": "场景 A 典型，不得收成 T1"
+    }
+  ],
+  "notes": "status=supported (installed 20260909; attachment policy pending_business_confirmation)。测集 T1。授权范围：本轮只建卡，抽样/jsonl 下一轮。晋升 supported 前须完成：知识库标题核验、样本附件统计、与 F-001/A/T3 边界抽检。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "异常单号",
+      "description": "需要处理的异常单编号（EB开头）",
+      "frequency": "约95%的历史单都提到了",
+      "examples": [
+        "EB0126070731088220",
+        "EB0326072231524525",
+        "EB0126070431047891",
+        "EB0126062730786666"
+      ],
+      "required": true
+    },
+    {
+      "field": "目标入库单WI",
+      "description": "补贴标签后需要上架的新入库单号（WI开头），可能是单个或多个",
+      "frequency": "约100%的历史单都提到了",
+      "examples": [
+        "WI51348575",
+        "WI50382906",
+        "WI50470175",
+        "WI51281707、WI51281645、WI51281677"
+      ],
+      "required": true
+    },
+    {
+      "field": "SKU与入库单对应关系",
+      "description": "明确每个SKU（M010开头或其他编码）对应哪个入库单WI，特别是多SKU混装场景",
+      "frequency": "约85%的历史单都提到了",
+      "examples": [
+        "WI51348575 下单sku：M010000000012342929=2082925774116870",
+        "M010000000006918075=SHP11E-USSSS=108pcs=9箱",
+        "WI50748482 下单sku: M010000000012166666 ==2081114506664454"
+      ],
+      "required": true
+    },
+    {
+      "field": "处理数量或范围",
+      "description": "需要补贴标签的箱数、件数或包裹条码数量",
+      "frequency": "约70%的历史单都提到了",
+      "examples": [
+        "264箱",
+        "共9箱",
+        "108pcs=9箱",
+        "GLSH10A261400233-1 GLSH10A261400230-1等多个包裹条码"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "包裹标签文件",
+      "description": "需要补贴的包裹条码标签文件（附件），通常按SKU或箱号范围命名",
+      "frequency": "约40%的历史单明确提到了附件",
+      "examples": [
+        "附件名字为『WI50470175_ID 2889_SHP11E-USSSS-1-9』的包裹条码标签檔案",
+        "附件名字为M010000000009139917的包裹条码标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "辨识依据",
+      "description": "如何辨识正确的SKU以便贴对应标签，如通过外箱标签、产品条码、SOP文档等",
+      "frequency": "约60%的历史单都提到了",
+      "examples": [
+        "需要通过外箱標籤去辨识正确的sku",
+        "辨识外箱上的SKU编码，如是SHP11E-USSSS这个SKU",
+        "需要通过PDF的SOP去辨识正确的sku",
+        "和仓库核实实际此异常是有多款不同的sku"
+      ],
+      "required": false
+    },
+    {
+      "field": "第三方编码关联",
+      "description": "第三方包裹条码（GLSH开头）或产品编码与系统SKU的对应关系",
+      "frequency": "约50%的历史单提到了",
+      "examples": [
+        "GLSH10A261400240-1",
+        "441227341830 WI51058417 M010000000012342990 =X004VWEFGT",
+        "第三方产品编码：9B073516E6"
+      ],
+      "required": false
+    },
+    {
+      "field": "是否需要更换产品标签",
+      "description": "明确是否只补贴包裹标签，还是同时需要更换产品条码/SN条码",
+      "frequency": "约35%的历史单明确说明了",
+      "examples": [
+        "包裹里的SN条码都导入正确，不需要更换SN条条码，只需要补贴第三方包裹条码标签",
+        "产品标签不用贴，仓库帮忙按新单补贴新单的包裹标签操作上架",
+        "不需要更换彩盒商品编码+SN条条码，只需要补贴包裹条码标签"
+      ],
+      "required": false
+    },
+    {
+      "field": "上架优先级",
+      "description": "多个入库单时，是否有特定的上架顺序要求",
+      "frequency": "约5%的历史单提到了",
+      "examples": [
+        "入库单需优先上架 M010000000009139919"
+      ],
+      "required": false
+    },
+    {
+      "field": "异常原因说明",
+      "description": "包裹条码异常的具体原因，如工厂漏贴、重复粘贴、错误粘贴等",
+      "frequency": "约45%的历史单提到了",
+      "examples": [
+        "箱唛重复粘贴，工厂端应该粘贴GLSH10A261400240-1的第三方包裹条码标签，但未正确粘贴",
+        "工廠漏貼包裹標",
+        "包裹外箱的包裹条码标签错误粘贴"
+      ],
+      "required": false
+    },
+    {
+      "field": "标准流程不适用原因",
+      "description": "为什么无法通过标准增值服务处理，需要非标操作",
+      "frequency": "约60%的历史单提到了",
+      "examples": [
+        "按标准只能填写一个入库单无法操作上架，只能通过非标处理",
+        "系统提示：(第三方)包裹条码【GLSH10A261400240-1）】状態=已上架/草稿/已終止,不允许提交增值!",
+        "发起标准增值服务无法正确对应到每箱去提供到正确的对应关系"
+      ],
+      "required": false
+    }
+  ]
+}

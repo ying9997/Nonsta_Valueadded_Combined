@@ -1,0 +1,80 @@
+{
+  "orderNo": "VASC000000272679",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "instock_aplus_parcel_relabel_shelve"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000272679",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "WI49560098"
+      },
+      {
+        "field": "原单据号",
+        "present": true,
+        "evidence": "EB0126042429047371（异常单号）"
+      },
+      {
+        "field": "处理范围",
+        "present": true,
+        "evidence": "异常单EB0126042429047371的包裹（整单处理），且客户已上传标签文件，标签数量和对应关系应在附件中"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "新-包裹条码.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "EB0126042429047371此异常单的包裹实际是A+包裹，下单误下为A包裹，实际是需要整箱出库的，不需要更换商品的包装按pcs上架，需补贴新单包裹条码标签上架为A+包裹，标准增值不支持，故提交入库非标特批增值操作\n1.仓内上架单：WI49560098，异常单包裹EB0126042429047371补贴A+包裹条码标签上架到WI49560098    2.上架完成后关闭异常单EB0126042429047371",
+    "requirementLength": 207,
+    "sceneKey": "instock_aplus_parcel_relabel_shelve",
+    "sceneName": "【库内】A+包裹更换标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n客户入库单 WI49560098 下单时误选为 A 包裹（按件上架），实际到仓货物为 A+ 包裹（整箱出库）。异常单 EB0126042429047371 对应的包裹需补贴新的 A+ 包裹条码标签后，按整箱方式上架到原入库单 WI49560098，商品本身保持原包装不变。客户已上传新包裹条码标签文件（新-包裹条码.pdf）。\n\n【需求背景】\n到仓包裹类型与系统登记不符（A 包裹误登记为 A+ 包裹），需补贴正确的包裹条码标签后按整箱方式上架。\n\n【操作要求】\n1. 在系统中查询异常单 EB0126042429047371 对应的包裹存放位置，前往该位置取出待处理包裹；\n2. 核对包裹实物与异常单信息是否一致，确认为需要更换标签的目标包裹；\n3. 打开客户上传的标签文件「新-包裹条码.pdf」，打印对应的 A+ 包裹条码标签，将新标签贴在包裹外箱上（覆盖或移除旧的 A 包裹标签），商品内部包装保持不变；\n4. 使用上架设备先扫描入库单号 WI49560098，再扫描包裹上的新 A+ 包裹条码，完成整箱上架操作；\n5. 上架完成后，将异常单 EB0126042429047371 状态变更为已完成。\n\n【注意事项】\n- 仅更换包裹外箱条码标签，不拆箱、不更换商品包装；\n- 上架时按 A+ 包裹（整箱）方式处理，不按件拆分。",
+    "llmError": "",
+    "analysis": "【需求描述】\n客户入库单 WI49560098 下单时误选为 A 包裹（按件上架），实际到仓货物为 A+ 包裹（整箱出库）。异常单 EB0126042429047371 对应的包裹需补贴新的 A+ 包裹条码标签后，按整箱方式上架到原入库单 WI49560098，商品本身保持原包装不变。客户已上传新包裹条码标签文件（新-包裹条码.pdf）。\n\n【需求背景】\n到仓包裹类型与系统登记不符（A 包裹误登记为 A+ 包裹），需补贴正确的包裹条码标签后按整箱方式上架。\n\n【操作要求】\n1. 在系统中查询异常单 EB0126042429047371 对应的包裹存放位置，前往该位置取出待处理包裹；\n2. 核对包裹实物与异常单信息是否一致，确认为需要更换标签的目标包裹；\n3. 打开客户上传的标签文件「新-包裹条码.pdf」，打印对应的 A+ 包裹条码标签，将新标签贴在包裹外箱上（覆盖或移除旧的 A 包裹标签），商品内部包装保持不变；\n4. 使用上架设备先扫描入库单号 WI49560098，再扫描包裹上的新 A+ 包裹条码，完成整箱上架操作；\n5. 上架完成后，将异常单 EB0126042429047371 状态变更为已完成。\n\n【注意事项】\n- 仅更换包裹外箱条码标签，不拆箱、不更换商品包装；\n- 上架时按 A+ 包裹（整箱）方式处理，不按件拆分。",
+    "conclusionOneLiner": "库内A+包裹需补贴包裹标签整箱上架",
+    "judgmentBasis": "🔍 异常单 EB0126042429047371：商品质量异常(影响销售)（商品）[oms_api]\n📋 识别的动作：补贴A+包裹条码标签、上架到WI49560098、关闭异常单EB0126042429047371\n✅ AI 判断场景：【库内】A+包裹更换标签上架（置信度：高）\n💡 AI 理由：库内A+包裹需补贴包裹标签整箱上架"
+  },
+  "omsWriteAttempted": false
+}

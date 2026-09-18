@@ -1,0 +1,91 @@
+{
+  "orderNo": "VASC000000344016",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "instock_exception_to_defective_shelve"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000344016",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "EB0526082632522481、EB0526082532467932"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "WI52147590"
+      },
+      {
+        "field": "异常原因",
+        "present": true,
+        "evidence": "需补贴商品条码（说明商品条码缺失或无法扫描）"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "商品和标签的对应关系",
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_TCRBCAL",
+        "fileName": "【商品和标签对应关系】模板 (2).xlsx",
+        "label": "商品和标签的对应关系"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "B-QA012.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "A01-K1-1.75-1000-SPL.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "EB0526082632522481、EB0526082532467932 需补贴商品条码上架不良品库位WI52147590\nEB0526082632522481、EB0526082532467932 需补贴商品条码上架不良品库位WI52147590",
+    "requirementLength": 125,
+    "sceneKey": "instock_exception_to_defective_shelve",
+    "sceneName": "【库内】异常商品转不良品上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0526082632522481、EB0526082532467932 关联入库单 WI52147590，需按已上传的「商品和标签的对应关系」（【商品和标签对应关系】模板 (2).xlsx）及「标签文件」（B-QA012.pdf、A01-K1-1.75-1000-SPL.pdf），为异常商品补贴商品条码后上架至不良品库位。\n\n【需求背景】\n到仓商品条码异常，无法按标准流程上架，需补贴商品条码后转入不良品库位管理。\n\n【操作要求】\n1. 根据异常单 EB0526082632522481、EB0526082532467932 定位待处理货物；\n2. 核对商品实物与「商品和标签的对应关系」文件（【商品和标签对应关系】模板 (2).xlsx）中的映射信息；\n3. 按「标签文件」（B-QA012.pdf、A01-K1-1.75-1000-SPL.pdf）打印并补贴对应的商品条码标签；\n4. 将补贴标签后的商品上架至不良品库位；\n5. 使用入库单 WI52147590 完成系统扫描上架操作；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 严格按照对应关系文件核对商品与标签的匹配关系，避免贴错标签；\n- 上架至不良品库位，不得混入正常库存区域；\n- 保留操作过程照片备查。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0526082632522481、EB0526082532467932 关联入库单 WI52147590，需按已上传的「商品和标签的对应关系」（【商品和标签对应关系】模板 (2).xlsx）及「标签文件」（B-QA012.pdf、A01-K1-1.75-1000-SPL.pdf），为异常商品补贴商品条码后上架至不良品库位。\n\n【需求背景】\n到仓商品条码异常，无法按标准流程上架，需补贴商品条码后转入不良品库位管理。\n\n【操作要求】\n1. 根据异常单 EB0526082632522481、EB0526082532467932 定位待处理货物；\n2. 核对商品实物与「商品和标签的对应关系」文件（【商品和标签对应关系】模板 (2).xlsx）中的映射信息；\n3. 按「标签文件」（B-QA012.pdf、A01-K1-1.75-1000-SPL.pdf）打印并补贴对应的商品条码标签；\n4. 将补贴标签后的商品上架至不良品库位；\n5. 使用入库单 WI52147590 完成系统扫描上架操作；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 严格按照对应关系文件核对商品与标签的匹配关系，避免贴错标签；\n- 上架至不良品库位，不得混入正常库存区域；\n- 保留操作过程照片备查。",
+    "conclusionOneLiner": "异常商品补贴商品条码后转不良品上架",
+    "judgmentBasis": "🔍 异常单 EB0526082632522481、EB0526082532467932：单品条码无法扫描(需客户处理）（商品）[oms_api]\n📋 识别的动作：补贴商品条码、上架到不良品库位\n✅ AI 判断场景：【库内】异常商品转不良品上架（置信度：高）\n💡 AI 理由：异常商品补贴商品条码后转不良品上架"
+  },
+  "omsWriteAttempted": false
+}

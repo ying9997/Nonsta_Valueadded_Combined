@@ -1,0 +1,85 @@
+{
+  "orderNo": "VASC000000298617",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_photo_hold"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000298617",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "拍照对象范围",
+        "present": true,
+        "evidence": "EB0326061230366501 和 EB0326061230362709 两个异常单，每个异常单随机抽1件商品"
+      },
+      {
+        "field": "拍照内容要求",
+        "present": true,
+        "evidence": "拍正、后、侧面三张实物照片"
+      },
+      {
+        "field": "是否需要拆包/开箱",
+        "present": true,
+        "evidence": "随机抽1件商品拆包装"
+      },
+      {
+        "field": "拍照目的/背景",
+        "present": true,
+        "evidence": "返回照片后再进行辨识处理（说明照片用于辨识判断）"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "操作说明附件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_AOOI",
+        "fileName": "新建 XLSX 工作表.xlsx",
+        "label": "操作说明附件"
+      }
+    ],
+    "customerIntent": "EB0326061230366501 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实物照片，  EB0326061230362709 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实实物照片，  返回照片后再进行辨识处理\nEB0326061230366501 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实物照片，  EB0326061230362709 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实实物照片，  返回照片后再进行辨识处理",
+    "requirementLength": 223,
+    "sceneKey": "inbound_photo_hold",
+    "sceneName": "【入库】指定商品拍照暂存",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n针对异常单 EB0326061230366501 和 EB0326061230362709，需对每个异常单随机抽取 1 件商品进行拆包装拍照，拍摄正面、后面、侧面共 3 张实物照片，照片上传后将货物暂存，待后续进行辨识处理。操作说明详见已上传附件「新建 XLSX 工作表.xlsx」。\n\n【需求背景】\n入库商品需要通过实物照片进行辨识确认，无法按标准流程直接上架。\n\n【操作要求】\n1. 根据异常单 EB0326061230366501 定位对应货物，随机抽取 1 件商品进行拆包装；\n2. 按要求拍摄该商品正面、后面、侧面共 3 张实物照片，照片命名格式为：异常单号_角度_序号（例如：EB0326061230366501_正面_1.jpg）；\n3. 根据异常单 EB0326061230362709 定位对应货物，随机抽取 1 件商品进行拆包装；\n4. 按要求拍摄该商品正面、后面、侧面共 3 张实物照片，照片命名格式为：异常单号_角度_序号（例如：EB0326061230362709_正面_1.jpg）；\n5. 将 6 张照片上传至对应异常单的附件区域；\n6. 拍照完成后将货物暂存至指定区域，照片上传后可进行后续辨识操作；\n7. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 每个异常单仅抽取 1 件商品，共拍摄 6 张照片（2 个异常单 × 3 个角度）；\n- 照片需清晰展示商品正面、后面、侧面特征，确保可辨识；\n- 照片文件名必须包含异常单号和拍摄角度，便于后续匹配。",
+    "llmError": "",
+    "analysis": "【需求描述】\n针对异常单 EB0326061230366501 和 EB0326061230362709，需对每个异常单随机抽取 1 件商品进行拆包装拍照，拍摄正面、后面、侧面共 3 张实物照片，照片上传后将货物暂存，待后续进行辨识处理。操作说明详见已上传附件「新建 XLSX 工作表.xlsx」。\n\n【需求背景】\n入库商品需要通过实物照片进行辨识确认，无法按标准流程直接上架。\n\n【操作要求】\n1. 根据异常单 EB0326061230366501 定位对应货物，随机抽取 1 件商品进行拆包装；\n2. 按要求拍摄该商品正面、后面、侧面共 3 张实物照片，照片命名格式为：异常单号_角度_序号（例如：EB0326061230366501_正面_1.jpg）；\n3. 根据异常单 EB0326061230362709 定位对应货物，随机抽取 1 件商品进行拆包装；\n4. 按要求拍摄该商品正面、后面、侧面共 3 张实物照片，照片命名格式为：异常单号_角度_序号（例如：EB0326061230362709_正面_1.jpg）；\n5. 将 6 张照片上传至对应异常单的附件区域；\n6. 拍照完成后将货物暂存至指定区域，照片上传后可进行后续辨识操作；\n7. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 每个异常单仅抽取 1 件商品，共拍摄 6 张照片（2 个异常单 × 3 个角度）；\n- 照片需清晰展示商品正面、后面、侧面特征，确保可辨识；\n- 照片文件名必须包含异常单号和拍摄角度，便于后续匹配。",
+    "conclusionOneLiner": "客户要求拍照回传后再辨识，符合拍照暂存场景",
+    "judgmentBasis": "🔍 异常单 EB0326061230366501、EB0326061230362709：包裹内出现订单外商品（商品）[oms_api]\n📋 识别的动作：辨识、随机抽1件商品拆包装、拍摄正面、后面、侧面三张实物照片、返回照片后再进行辨识处理\n✅ AI 判断场景：【入库】指定商品拍照暂存（置信度：高）\n💡 AI 理由：客户要求拍照回传后再辨识，符合拍照暂存场景"
+  },
+  "omsWriteAttempted": false
+}

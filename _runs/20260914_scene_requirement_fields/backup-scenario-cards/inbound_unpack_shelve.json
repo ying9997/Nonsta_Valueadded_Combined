@@ -1,0 +1,80 @@
+{
+  "sceneKey": "inbound_unpack_shelve",
+  "sceneName": "【入库】拆包/拆箱上架",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.16",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "拆包",
+      "拆箱",
+      "拆中箱",
+      "拆外箱",
+      "包中包",
+      "拆箱箱数",
+      "拆除纸箱",
+      "拆开包装"
+    ],
+    "weak": [
+      "上架前",
+      "箱型",
+      "中箱",
+      "外箱",
+      "大箱",
+      "纸箱垃圾"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "辨识",
+      "质检",
+      "拍照",
+      "自提"
+    ],
+    "soft": [
+      "尺重",
+      "标签异常",
+      "无主货",
+      "SKU不符"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景是拆除包装箱体，不涉及换标签或辨识商品信息",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别：本场景重点是物理拆箱动作,不涉及补贴条码",
+    "和【入库】包裹类异常换商品标签上架的区别：本场景是正常拆箱需求,不是因为标签异常而换标",
+    "和【入库】商品质检的区别：本场景只做拆箱动作,不涉及质量检验"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确是拆外箱、中箱还是包中包的哪一层包装",
+    "动作：拆除包装箱体,可能包含拆胶带、倾倒、压平纸箱等具体步骤",
+    "去向：拆箱后的商品如何上架,是保留内部包装还是单品上架"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_NWEON"
+    ],
+    "note": "auto-generated from OMS stats n=18 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+  },
+  "sopTemplateHints": [
+    "判断增值单对象是否为包裹",
+    "确认具体的拆箱箱数和箱型(大箱/中箱)",
+    "明确拆箱层级(拆外箱保留内包/拆到单品)",
+    "按箱型和数量计算工时成本",
+    "处理拆除后的纸箱垃圾(压平、收集)"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.16. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode remapped alias 20250407003（【入库】上架前拆包装）。SOP拆包/拆箱上架 ≈ OMS上架前拆包装",
+  "omsSceneCode": "20250407003"
+}

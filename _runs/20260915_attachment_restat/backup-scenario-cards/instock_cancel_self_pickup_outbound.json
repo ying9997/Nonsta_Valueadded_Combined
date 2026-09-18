@@ -1,0 +1,74 @@
+{
+  "sceneKey": "instock_cancel_self_pickup_outbound",
+  "sceneName": "【库内】自提单取消出库",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.11",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "自提单取消",
+      "作废出库单",
+      "已下架",
+      "取消出库",
+      "自提单",
+      "原出库单"
+    ],
+    "weak": [
+      "新入库单",
+      "返架",
+      "原sku",
+      "不换标",
+      "冻结库存",
+      "L007盘亏"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "批量辨识",
+      "海运整柜",
+      "串仓",
+      "质检",
+      "无主货"
+    ],
+    "soft": [
+      "拍照暂存",
+      "预报不符",
+      "更换SKU"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品下架后换入库单重新上架的区别：本场景是自提单取消后的返架，原出库单需作废且冻结库存做L007盘亏;后者是普通下架后重新上架",
+    "和【入库】上架前自提的区别：本场景是已下架的自提单取消,需要作废出库单;后者是上架前就自提,不涉及出库单作废",
+    "和【入库】包裹类异常换商品标签上架的区别：本场景强调原sku返架、不换标、不收增值费;后者需要换商品标签",
+    "和【入库】关联第三方条码上架的区别：本场景仅在第三方商品标签不一致时才需要关联;后者主要处理第三方条码关联问题"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：已下架的自提单/作废的出库单WOxxx",
+    "动作：取消出库、作废出库单、按新入库单返架",
+    "去向：原sku直接上架(不换标)、冻结库存做L007盘亏"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "作废原出库单WOxxx",
+    "检查新入库单与原出库单的包裹数量和商品是否一致",
+    "检查第三方商品标签是否一致,不一致需确认处理方式",
+    "按新入库单WIxxx上架(原商品条码不换标)",
+    "原出库单冻结库存做L007盘亏备注"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.11. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

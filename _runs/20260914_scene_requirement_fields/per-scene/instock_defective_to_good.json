@@ -1,0 +1,114 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.230Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "instock_defective_to_good",
+  "sceneName": "【库内】不良品转良品",
+  "omsSceneCode": "20250808002",
+  "fileName": "instock_defective_to_good.json",
+  "category": "instock",
+  "approvedOrderCount": 3,
+  "sampleCount": 3,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：具体SKU编号和数量",
+    "动作：从不良品状态转为良品状态（解冻、复核、确认）",
+    "去向：返回良品库位并更新系统状态"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "SKU信息",
+      "description": "需要转良品的SKU编码或商品条码",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "AI00455531001==M010000000006648494",
+        "AI00455511001==M010000000006431937",
+        "出库库单WO11427994473内的sku"
+      ],
+      "required": true
+    },
+    {
+      "field": "数量或范围",
+      "description": "需要转良品的具体数量或涉及的单据范围",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "9个单品",
+        "WO11427994473内的sku",
+        "下架单WO11423417888"
+      ],
+      "required": true
+    },
+    {
+      "field": "原不良品原因",
+      "description": "商品被标记为不良品的原因或背景说明",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "外箱和彩盒破损上架了不良品",
+        "不良品已下架，加固包装后",
+        "需要更换原商品条码"
+      ],
+      "required": true
+    },
+    {
+      "field": "上架目标单号",
+      "description": "转良品后需要上架的入库单号",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "上架到WI49841015",
+        "入库WI49970767",
+        "WI50246853上架良品"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "换包材操作",
+      "description": "是否需要更换外箱、彩盒等包装材料",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "需要把下架单WO11423417888的外箱和彩盒换成WO11423431504这个下架单的包材"
+      ],
+      "required": false
+    },
+    {
+      "field": "拍照要求",
+      "description": "操作过程中需要拍照记录的环节和要求",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "换箱前箱内产品拍照",
+        "换箱后拍照反馈（装完彩盒拍一张，装完外箱拍一张）"
+      ],
+      "required": false
+    },
+    {
+      "field": "源下架单号",
+      "description": "不良品原来所在的下架单或出库单号",
+      "frequency": "约67%的历史单提到了",
+      "examples": [
+        "下架单WO11423417888",
+        "出库库单WO11427994473",
+        "WO11503203308出库单"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000281424",
+      "requirementDescription": "1.需要把下架单WO11423417888 的外箱和彩盒换成WO11423431504这个下架单的包材 （这2个SKU是同一个型号产品，包材都是一样的）  2.把换箱完成的【AI00455531001==M010000000006648494】和【AI00455511001==M010000000006431937】良品上架到 WI49841015   3.换箱前箱内产品拍照  4.换箱后拍照反馈（装完彩盒拍一张，装完外箱拍一张）",
+      "requirementBackground": "【AI00455531001==M010000000006648494】和【AI00455511001==M010000000006431937】外箱和彩盒破损上架了不良品，现在需要换包材上架良品"
+    },
+    {
+      "orderNo": "VASC000000284700",
+      "requirementDescription": "需要将出库库单，WO11427994473，内的sku不良品，更换原商品条码，变更成良品重新上架，入库WI49970767",
+      "requirementBackground": "需要将出库库单，WO11427994473，内的sku不良品，更换原商品条码，变更成良品重新上架，入库WI49970767"
+    },
+    {
+      "orderNo": "VASC000000291852",
+      "requirementDescription": "以下9个单品需要转良品上架",
+      "requirementBackground": "WO11503203308出库单的不良品已下架，加固包装后WI50246853上架良品"
+    }
+  ]
+}

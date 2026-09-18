@@ -1,0 +1,76 @@
+{
+  "sceneKey": "inbound_split_return_order",
+  "sceneName": "【入库】分开退货单入库",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.13",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "分开退货单",
+      "单件售卖",
+      "同一个RN码",
+      "分别使用RN码",
+      "无RMA退货单",
+      "原退货单盘亏",
+      "拆开包裹分开上架"
+    ],
+    "weak": [
+      "退货单",
+      "RN码",
+      "增加包装",
+      "新创建退货单",
+      "盘亏",
+      "更换包装"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "辨识",
+      "补贴条码",
+      "串仓",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "拍照",
+      "暂存",
+      "调拨",
+      "下架"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景是拆分退货单而非换标签",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景是分开使用不同RN码上架，不是补贴条码",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是拆分退货单创建新单，不是换标签",
+    "和【入库】商品下架后换入库单重新上架的区别是：本场景是退货单拆分，不是下架后重新上架"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确是哪个退货单(RT单号)、哪些商品条码(RM码)",
+    "动作：将多件商品从同一退货单中拆开，分别使用不同RN码",
+    "去向：原退货单做盘亏，新建无RMA退货单分开上架"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "找出待处理的退货单号和商品条码",
+    "拆开包裹并增加包装(使用WINIT纸箱)",
+    "新创建无RMA退货单,使用不同RN码分开上架",
+    "原退货单的商品条码做L007盘亏",
+    "按更换包装的费用收取"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.13. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

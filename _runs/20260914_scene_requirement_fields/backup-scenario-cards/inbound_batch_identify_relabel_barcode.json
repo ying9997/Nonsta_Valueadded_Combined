@@ -1,0 +1,78 @@
+{
+  "sceneKey": "inbound_batch_identify_relabel_barcode",
+  "sceneName": "【入库】批量辨识商品后补贴商品条码及包裹条码上架",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "202506120003",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.2",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "批量辨识",
+      "补贴商品条码",
+      "补贴包裹条码",
+      "辨识后补贴",
+      "提供对应关系",
+      "辨识结果对应关系",
+      "补贴新的包裹标签"
+    ],
+    "weak": [
+      "辨识商品",
+      "辨识方法",
+      "辨识结果",
+      "开箱辨识",
+      "回传辨识结果"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "换标",
+      "整柜",
+      "串仓",
+      "调拨",
+      "自提"
+    ],
+    "soft": [
+      "仅拍照",
+      "无主货",
+      "预报不符",
+      "下架后"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景是补贴条码上架,不涉及尺重测量和换标动作",
+    "和【入库】包裹类异常换商品标签上架的区别：本场景是批量辨识后补贴包裹条码和商品条码,而不是单纯换商品标签",
+    "和【入库】指定商品拍照暂存的区别：本场景辨识后需补贴条码并上架,不是暂存",
+    "和【入库】无主货异常补贴标签上架的区别：本场景是先批量辨识再补贴,无主货是直接补贴标签"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需辨识的入库单号、包裹号、商品条码/编码",
+    "动作：批量辨识商品身份后,根据辨识结果补贴商品条码和包裹条码",
+    "去向：补贴条码后上架到指定入库单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_NWEON"
+    ],
+    "note": "auto-generated from OMS stats n=47 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+  },
+  "sopTemplateHints": [
+    "客户需提供辨识需求(入库单号、包裹号、商品条码、辨识方法等)",
+    "仓库按辨识方法识别商品并记录辨识结果(商品条码、编码、SI数量、实物照片)",
+    "客户根据辨识结果提供包裹和标签的对应关系",
+    "仓库按对应关系补贴新的包裹标签和商品条码",
+    "将包裹上架到指定入库单并关闭异常单"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.2. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 202506120003."
+}

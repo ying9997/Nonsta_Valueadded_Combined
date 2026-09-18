@@ -1,0 +1,196 @@
+{
+  "sceneKey": "instock_inventory_freeze_unfreeze",
+  "sceneName": "【库内】库存冻结/解冻",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "INSTOCK_INVENTORY_FREEZE_UNFREEZE",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.10",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "库存冻结",
+      "库存解冻",
+      "冻结库存",
+      "解冻库存",
+      "指定S码冻结",
+      "指定S码解冻",
+      "StorageFrozen"
+    ],
+    "weak": [
+      "冻结原因",
+      "冻结操作",
+      "解冻操作",
+      "库存操作",
+      "TOM系统"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "换标",
+      "辨识",
+      "质检",
+      "拍照"
+    ],
+    "soft": [
+      "下架",
+      "调拨",
+      "自提",
+      "条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品下架后换入库单重新上架的区别：本场景是对已上架库存进行冻结/解冻状态变更，不涉及下架重新上架动作",
+    "和【入库】包裹串仓异常调拨的区别：本场景是库存状态管理（冻结/解冻），不涉及货物物理位置的调拨转移",
+    "和所有入库类场景的区别：本场景针对已入库上架的库存进行状态管理，不涉及入库、上架、换标、辨识等入库流程操作",
+    "关键识别点：客户明确提出'冻结'或'解冻'库存的需求，且货物已在库内"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：具体的SKU编码（M01开头）和数量",
+    "动作：明确是冻结还是解冻操作",
+    "原因/去向：说明冻结或解冻的原因（如质量问题、销售策略调整等）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确SKU编码和数量",
+    "明确是冻结还是解冻操作",
+    "说明冻结/解冻原因",
+    "登录对应仓库TOM系统执行操作",
+    "记录操作日志和费用项"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.10. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INSTOCK_INVENTORY_FREEZE_UNFREEZE. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "SKU编码",
+      "description": "需要冻结或解冻的SKU编码，可能是M码或其他编码",
+      "frequency": "约100%的历史单都提到了",
+      "examples": [
+        "M010000000010306532",
+        "M010000000007778991",
+        "M010000000005070263",
+        "B01-K0-1.75-1000-SPL"
+      ],
+      "required": true
+    },
+    {
+      "field": "操作类型",
+      "description": "明确是冻结还是解冻操作",
+      "frequency": "约100%的历史单都提到了",
+      "examples": [
+        "冻结",
+        "解冻",
+        "指定单品解结",
+        "紧急冻结"
+      ],
+      "required": true
+    },
+    {
+      "field": "数量",
+      "description": "需要冻结或解冻的具体数量",
+      "frequency": "约82%的历史单都提到了",
+      "examples": [
+        "2pcs",
+        "973pcs",
+        "120pcs",
+        "966件",
+        "1件"
+      ],
+      "required": true
+    },
+    {
+      "field": "冻结/解冻原因",
+      "description": "说明为什么要进行冻结或解冻操作的背景原因",
+      "frequency": "约73%的历史单都提到了",
+      "examples": [
+        "客户反馈WI50505305、WI50505278这两单入库的货物有问题",
+        "因批次异常",
+        "疑似商品可能有漏液等情况",
+        "需要增值返修测试",
+        "历史AS240627000084 提交库内拍照冻结库存"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "指定单品条码/S码",
+      "description": "是否需要按指定的单品条码或S码进行冻结/解冻",
+      "frequency": "约27%的历史单提到了",
+      "examples": [
+        "S500089000547639616",
+        "S500090000547639615",
+        "附件表内的500条单品条码"
+      ],
+      "required": false
+    },
+    {
+      "field": "批次信息",
+      "description": "针对入库批次管理的SKU，需要指定批次号进行冻结/解冻",
+      "frequency": "约45%的历史单提到了",
+      "examples": [
+        "ID20260706",
+        "ED20270511",
+        "ED20270512",
+        "ID20260401批次"
+      ],
+      "required": false
+    },
+    {
+      "field": "入库单号",
+      "description": "指定某个入库单下的库存进行冻结/解冻",
+      "frequency": "约45%的历史单提到了",
+      "examples": [
+        "WI50505305",
+        "WI50505278",
+        "WI52044633",
+        "WI49609563"
+      ],
+      "required": false
+    },
+    {
+      "field": "库位信息",
+      "description": "指定具体的库位进行冻结/解冻",
+      "frequency": "约36%的历史单提到了",
+      "examples": [
+        "V-14-28-D-01",
+        "V-11-51-D-01",
+        "V-15-23-D-01",
+        "B80X6"
+      ],
+      "required": false
+    },
+    {
+      "field": "仓库",
+      "description": "明确在哪个仓库进行操作",
+      "frequency": "约36%的历史单提到了",
+      "examples": [
+        "DEBR2 Warehouse",
+        "美国周一时间"
+      ],
+      "required": false
+    },
+    {
+      "field": "商品等级",
+      "description": "指定冻结/解冻的商品等级（良品/次品等）",
+      "frequency": "约18%的历史单提到了",
+      "examples": [
+        "良品",
+        "5.29到仓的WI50016757 WI49680338是良品，其余库存需要隔离"
+      ],
+      "required": false
+    }
+  ]
+}

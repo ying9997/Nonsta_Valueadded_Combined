@@ -1,0 +1,74 @@
+{
+  "sceneKey": "instock_specified_position_label",
+  "sceneName": "【库内】指定位置贴标",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20260127001",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.22",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "指定位置",
+      "指定库位",
+      "贴至指定库位",
+      "库位号",
+      "库位标签"
+    ],
+    "weak": [
+      "贴标",
+      "标签类型",
+      "商品标签",
+      "特殊标签",
+      "标签规格"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "更换标签",
+      "辨识",
+      "质检",
+      "拍照",
+      "下架"
+    ],
+    "soft": [
+      "上架前",
+      "入库单",
+      "预报",
+      "异常"
+    ]
+  },
+  "boundaryRules": [
+    "和【库内】指定单品/库位商品更换标签上架的区别是：本场景只贴标不换标,是在指定位置新增标签",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景不涉及辨识环节,直接在已知库位贴标",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景不处理异常,不换标,只在指定位置贴标",
+    "和【入库】无主货异常补贴标签上架的区别是：本场景针对指定库位而非无主货,且不涉及异常处理"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：必须明确SKU编号和具体库位号",
+    "动作：在指定库位贴上特定类型的标签",
+    "去向：标签贴至指定库位后保持原位置不变"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "明确SKU编号（M01000000000xxxxx格式）",
+    "指定具体库位号",
+    "说明标签类型（商品标签/库位标签/特殊标签）",
+    "描述贴标位置要求（贴至指定库位）",
+    "注明标签规格建议（5cmX2.5cm或15cmX10cm）"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.22. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 20260127001（【库内】商品指定位置贴标）。"
+}

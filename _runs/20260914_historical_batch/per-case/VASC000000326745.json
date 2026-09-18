@@ -1,0 +1,55 @@
+{
+  "orderNo": "VASC000000326745",
+  "outcome": "sop_after_rounds",
+  "threadId": "om_x100b654c412328a4c00f9151d2f5395",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "action": "override_scene",
+      "note": "overrideScene=inbound_unpack_shelve",
+      "sceneKey": "inbound_unpack_shelve"
+    },
+    {
+      "round": 2,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_unpack_shelve"
+    }
+  ],
+  "simulated": [
+    "选择场景：【入库】拆包/拆箱上架（来源：OMS 审核员实际选择）"
+  ],
+  "final": {
+    "orderNo": "VASC000000326745",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "inbound_unpack_shelve",
+    "sceneName": "【入库】拆包/拆箱上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "override_by_auditor",
+    "llmText": "【需求描述】\n异常单 EB0126072831660743 关联入库单 WI51317824：1个异常包裹实际为工厂合并打包的2箱货物，需拆分为2个独立包裹并分别补贴包裹标签后上架。拆分后数量为：包裹标签 B0400000001436242483 对应19件商品，包裹标签 B0400000001436242551 对应5件商品。标签文件已提供（Order (46).pdf、Order (47).pdf），拆分完成后按原入库单 WI51317824 上架并关闭异常。\n\n【需求背景】\n工厂将2箱货物合并打包导致包裹与系统登记不符，需拆包后按正确包裹标签上架到原入库单。\n\n【操作要求】\n1. 根据异常单 EB0126072831660743 定位待处理的合并包裹；\n2. 将1个异常包裹拆分为2个独立包裹；\n3. 按附件标签文件（Order (46).pdf、Order (47).pdf）分别补贴包裹标签：B0400000001436242483（19件商品）、B0400000001436242551（5件商品）；\n4. 核对拆分后每个包裹的商品数量与标签对应关系；\n5. 使用入库单 WI51317824 扫描上架；\n6. 完成后关闭异常单 EB0126072831660743。\n\n【注意事项】\n- 拆分时确保商品数量准确：第一箱19件，第二箱5件\n- 每个包裹必须贴对应的包裹标签后才能上架",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126072831660743 关联入库单 WI51317824：1个异常包裹实际为工厂合并打包的2箱货物，需拆分为2个独立包裹并分别补贴包裹标签后上架。拆分后数量为：包裹标签 B0400000001436242483 对应19件商品，包裹标签 B0400000001436242551 对应5件商品。标签文件已提供（Order (46).pdf、Order (47).pdf），拆分完成后按原入库单 WI51317824 上架并关闭异常。\n\n【需求背景】\n工厂将2箱货物合并打包导致包裹与系统登记不符，需拆包后按正确包裹标签上架到原入库单。\n\n【操作要求】\n1. 根据异常单 EB0126072831660743 定位待处理的合并包裹；\n2. 将1个异常包裹拆分为2个独立包裹；\n3. 按附件标签文件（Order (46).pdf、Order (47).pdf）分别补贴包裹标签：B0400000001436242483（19件商品）、B0400000001436242551（5件商品）；\n4. 核对拆分后每个包裹的商品数量与标签对应关系；\n5. 使用入库单 WI51317824 扫描上架；\n6. 完成后关闭异常单 EB0126072831660743。\n\n【注意事项】\n- 拆分时确保商品数量准确：第一箱19件，第二箱5件\n- 每个包裹必须贴对应的包裹标签后才能上架",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "✅ AI 判断场景：拆包/拆箱上架（置信度：高）"
+  },
+  "omsWriteAttempted": false
+}

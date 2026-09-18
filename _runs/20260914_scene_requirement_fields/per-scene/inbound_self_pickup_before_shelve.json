@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.257Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "inbound_self_pickup_before_shelve",
+  "sceneName": "【入库】上架前自提",
+  "omsSceneCode": "INBOUND_PICKUP_BF_SHELVE",
+  "fileName": "inbound_self_pickup_before_shelve.json",
+  "category": "inbound",
+  "approvedOrderCount": 7,
+  "sampleCount": 7,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：已到仓的无主货/错送货物/客户包裹",
+    "动作：客户或承运商到仓自提",
+    "去向：不入库,直接提走"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "提货原因说明",
+      "description": "说明为什么需要自提，通常涉及错送货、无主货、DG品无法上架等情况",
+      "frequency": "约71%的历史单提到了自提原因",
+      "examples": [
+        "货代送错了货物，被仓库登记了无主货",
+        "误装到去德国万邑通的车上",
+        "该退货是属于DG品，目前anker已暂停UKGF仓业务，此退货无法上架",
+        "未同步万邑通，头程代理误装"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "异常单号",
+      "description": "需要明确关联的异常单号（EB开头或WO开头），用于确认异常登记状态",
+      "frequency": "约43%的历史单明确提到了异常单号",
+      "examples": [
+        "EB0126070931169382",
+        "WO11473785098"
+      ],
+      "required": false
+    },
+    {
+      "field": "提货时间安排",
+      "description": "客户或承运商计划到仓提货的具体日期",
+      "frequency": "约29%的历史单明确提到了提货时间",
+      "examples": [
+        "7月22号来仓自提",
+        "6月11日车牌号DX61257/DMI02RX"
+      ],
+      "required": false
+    },
+    {
+      "field": "提货人/承运商信息",
+      "description": "提货车辆车牌号、承运商名称或提货联系人信息",
+      "frequency": "约29%的历史单提到了提货方信息",
+      "examples": [
+        "车牌号DX61257/DMI02RX",
+        "让货代安排车提走",
+        "会安排物流上门自提"
+      ],
+      "required": false
+    },
+    {
+      "field": "提货凭证",
+      "description": "提货所需的BOL或其他证明文件",
+      "frequency": "约14%的历史单提到了提货凭证",
+      "examples": [
+        "附件为提货BOL"
+      ],
+      "required": false
+    },
+    {
+      "field": "自提前操作要求",
+      "description": "在自提前需要完成的换箱、贴标等特殊处理",
+      "frequency": "约29%的历史单提到了自提前的额外操作",
+      "examples": [
+        "按原装箱方式全部换纸箱，贴发票面单、FEDEX面单、BV-FH0375标签和彩色电池标签",
+        "按照原本箱子顺序贴对应的箱唛"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000321498",
+      "requirementDescription": "1.WO11473785098 按原装箱方式全部换纸箱，贴发票面单、FEDEX面单、BV-FH0375标签和彩色电池标签  2.7月22号来仓自提",
+      "requirementBackground": "1.每箱按原装箱方式换纸箱；换箱后请将原包裹條碼对应贴在每箱上  2.贴标：标签文件名：WO11473785098-BV-FH0375==14件箱唛（每箱都要贴，一箱贴一张）  3.电池标签：电池标使用3481，要打印彩色的出来，不能黑白的，并贴好在外箱。外箱上不能有危险标签之类  4.贴发票面单(只需要贴一张874601413946主号这一箱上就行)，文件名：874601413946-inv，然后再打印一份给快递员；  5.FEDEX面单：每箱贴一张；文件名：FEDEX面单-874601413946-德国14件"
+    },
+    {
+      "orderNo": "VASC000000298650",
+      "requirementDescription": "DB260527192113，6月11日车牌号DX61257/DMI02RX，这票未同步万邑通，头程代理误装到去德国万邑通的车上，到仓麻烦安排分出来，告诉halara让货代安排车提走",
+      "requirementBackground": "DB260527192113，6月11日车牌号DX61257/DMI02RX，这票未同步万邑通，头程代理误装到去德国万邑通的车上，到仓麻烦安排分出来，告诉halara让货代安排车提走"
+    },
+    {
+      "orderNo": "VASC000000315669",
+      "requirementDescription": "无主货异常：EB0126070931169382  背景：该客户的货代送错了货物，被仓库登记了无主货，申请自提走，附件为提货BOL",
+      "requirementBackground": "异常关联客户后状态是已处理，无法提入库增值"
+    },
+    {
+      "orderNo": "VASC000000336522",
+      "requirementDescription": "RT16000292500272CN   该退货是属于DG品，目前anker已暂停UKGF仓业务，此退货无法上架，需要自提出库，会安排物流上门自提",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000267576",
+      "requirementDescription": "按照原本箱子顺序贴对应的箱唛",
+      "requirementBackground": "需要覆盖原本的箱唛"
+    },
+    {
+      "orderNo": "VASC000000318972",
+      "requirementDescription": "111",
+      "requirementBackground": "111"
+    },
+    {
+      "orderNo": "VASC000000296610",
+      "requirementDescription": "测试",
+      "requirementBackground": "测试"
+    }
+  ]
+}

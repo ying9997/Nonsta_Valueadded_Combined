@@ -1,0 +1,75 @@
+{
+  "sceneKey": "instock_inventory_destroy",
+  "sceneName": "【库内】库内库存销毁",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.25",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "销毁",
+      "库存销毁",
+      "冻结库存",
+      "盘亏",
+      "L007",
+      "老库存",
+      "质量问题库存"
+    ],
+    "weak": [
+      "冻结",
+      "指定库存",
+      "部分库存",
+      "区分库存",
+      "销毁费用",
+      "重量计算"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库",
+      "换标",
+      "辨识",
+      "条码",
+      "拍照"
+    ],
+    "soft": [
+      "质检",
+      "暂存",
+      "调拨",
+      "自提"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】商品质检的区别：质检是检查后决定是否上架,本场景是已确定要销毁的库存",
+    "和【入库】指定商品拍照暂存的区别：拍照暂存是临时存放等待处理,本场景是永久性销毁处理",
+    "和【入库】商品下架后换入库单重新上架的区别：下架重新上架是继续使用库存,本场景是彻底销毁不再使用",
+    "关键识别点：必须包含'销毁'动作且涉及库存冻结和盘亏L007操作"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确指定需要销毁的库存(如老库存、质量问题库存、特定SKU或特定入库单之外的库存)",
+    "动作：销毁处理(包含冻结、销毁、盘亏三个步骤)",
+    "去向：做L007盘亏处理(表示不做赔付的销毁)"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "第一步：找到并冻结需要销毁的库存明细",
+    "第二步：对冻结商品执行销毁处理",
+    "第三步：原SKU做L007盘亏登记",
+    "费用说明：需收取工时费和按重量计算的销毁费用",
+    "特殊说明：所有因增值产生的销毁都需要做盘亏L007"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.25. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

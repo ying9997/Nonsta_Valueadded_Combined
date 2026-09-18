@@ -1,0 +1,47 @@
+{
+  "orderNo": "VASC000000272319",
+  "outcome": "l4_direct",
+  "threadId": "om_x100b65baa4e9e0a0c451dafd436e331",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_label_identify"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000272319",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "inbound_label_identify",
+    "sceneName": "【入库】尺重/标签辨识后换标上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126042429036817 涉及两个包裹，分别对应 SKU 112981310（1件）和 SKU 112981110（1件）。因标准增值无法区分处理，需按包裹上已贴标签辨识 SKU，用标签纸覆盖原箱体错误标签后，按入库单 WI49543982 上架。客户已提供标签覆盖示例文件（需覆盖掉的标签示例.jpg）。\n\n【需求背景】\n到仓包裹原箱体标签错误，需按实物已贴标签辨识 SKU 并覆盖错误标签后上架。\n\n【操作要求】\n1. 根据异常单 EB0126042429036817 定位对应的两个包裹；\n2. 检查每个包裹上已贴的标签，读取标签上的 SKU 信息，确认一个包裹为 SKU 112981310（1件），另一个为 SKU 112981110（1件）；\n3. 对于原箱体上的错误标签，使用标签纸完全覆盖（覆盖方式参考附件「需覆盖掉的标签示例.jpg」），确保错误信息不可见；\n4. 在系统中调出入库单 WI49543982；\n5. 依次扫描每个包裹上的正确标签条码，系统匹配 SKU 和数量后，扫描对应货位条码完成上架；\n6. 两个 SKU 全部上架完成后，将异常单 EB0126042429036817 状态变更为已完成。\n\n【注意事项】\n- 必须以包裹上已贴标签为准进行 SKU 辨识，不得凭外箱原标签操作；\n- 覆盖错误标签时需完全遮盖，避免扫描时误读；\n- 两个 SKU 需分别扫描上架，不可混淆。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126042429036817 涉及两个包裹，分别对应 SKU 112981310（1件）和 SKU 112981110（1件）。因标准增值无法区分处理，需按包裹上已贴标签辨识 SKU，用标签纸覆盖原箱体错误标签后，按入库单 WI49543982 上架。客户已提供标签覆盖示例文件（需覆盖掉的标签示例.jpg）。\n\n【需求背景】\n到仓包裹原箱体标签错误，需按实物已贴标签辨识 SKU 并覆盖错误标签后上架。\n\n【操作要求】\n1. 根据异常单 EB0126042429036817 定位对应的两个包裹；\n2. 检查每个包裹上已贴的标签，读取标签上的 SKU 信息，确认一个包裹为 SKU 112981310（1件），另一个为 SKU 112981110（1件）；\n3. 对于原箱体上的错误标签，使用标签纸完全覆盖（覆盖方式参考附件「需覆盖掉的标签示例.jpg」），确保错误信息不可见；\n4. 在系统中调出入库单 WI49543982；\n5. 依次扫描每个包裹上的正确标签条码，系统匹配 SKU 和数量后，扫描对应货位条码完成上架；\n6. 两个 SKU 全部上架完成后，将异常单 EB0126042429036817 状态变更为已完成。\n\n【注意事项】\n- 必须以包裹上已贴标签为准进行 SKU 辨识，不得凭外箱原标签操作；\n- 覆盖错误标签时需完全遮盖，避免扫描时误读；\n- 两个 SKU 需分别扫描上架，不可混淆。",
+    "conclusionOneLiner": "混SKU需辨识标签并覆盖错误标签上架",
+    "judgmentBasis": "🔍 异常单 EB0126042429036817：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：辨识2个SKU（112981310和112981110各1件）、按包裹上贴的标签为准确认正确标签、用标签纸覆盖原箱错误标签、按预报单WI49543982上架\n✅ AI 判断场景：【入库】尺重/标签辨识后换标上架（置信度：高）\n💡 AI 理由：混SKU需辨识标签并覆盖错误标签上架"
+  },
+  "omsWriteAttempted": false
+}

@@ -1,0 +1,111 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.236Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "instock_inter_warehouse_transfer",
+  "sceneName": "【库内】库内仓间调拨",
+  "omsSceneCode": "20250407074",
+  "fileName": "instock_inter_warehouse_transfer.json",
+  "category": "instock",
+  "approvedOrderCount": 4,
+  "sampleCount": 3,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：需要调拨的包裹/商品(通常会提供出库单号或包裹信息)",
+    "动作：从源仓库出库并转移",
+    "去向：明确的目的仓库(如从美西仓调到美东仓)"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "源仓库信息",
+      "description": "需要明确从哪个仓库调出货物，可以是仓库代码或仓库类型（如DG仓、普仓）",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "DG仓",
+        "DEBR2",
+        "普仓"
+      ],
+      "required": true
+    },
+    {
+      "field": "目的仓库信息",
+      "description": "需要明确调拨到哪个仓库，可以是仓库代码或仓库类型",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "DG仓",
+        "普仓",
+        "USWC5"
+      ],
+      "required": true
+    },
+    {
+      "field": "关联单号",
+      "description": "需要提供源仓的出库单号或下架单号，以及目的仓的入库单号或上架单号，用于关联调拨操作",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "退货单：RT16000299720167CN，入库单：WI51285995",
+        "下架单：WO11621025965，上架单：WI50752532",
+        "WO12149906136"
+      ],
+      "required": true
+    },
+    {
+      "field": "调拨货物标识",
+      "description": "需要明确调拨的具体货物，可以是SKU、数量、或货物描述",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "一个电池（DG品）",
+        "4pcs货物",
+        "AS320011"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "调拨原因",
+      "description": "说明为什么需要仓间调拨，如货物属性不匹配、合并发货等业务原因",
+      "frequency": "约67%的历史单提到了",
+      "examples": [
+        "派送失败，退回来是一个电池（DG品），无法在普仓上架",
+        "需要和WO12149906136该订单货物一起装车发走"
+      ],
+      "required": false
+    },
+    {
+      "field": "特殊处理要求",
+      "description": "调拨过程中的特殊操作要求，如补贴箱唛、合并装车等",
+      "frequency": "约33%的历史单提到了",
+      "examples": [
+        "补贴winit箱唛",
+        "一起装车发走"
+      ],
+      "required": false
+    },
+    {
+      "field": "包裹条码关联说明",
+      "description": "明确出库单的包裹条码如何作为第三方包裹条码关联入库单",
+      "frequency": "约0%的历史单明确提到（但SOP要求）",
+      "examples": [],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000324315",
+      "requirementDescription": "退货单：RT16000299720167CN   此单是派送失败，发出去的是个纸箱，退回来是一个电池（DG品），无法在普仓上架，需要转到DG仓做上架，入库单：WI51285995，补贴winit箱唛",
+      "requirementBackground": "暂无标准增值，已跟产品沟通过，按照该方案走"
+    },
+    {
+      "orderNo": "VASC000000333273",
+      "requirementDescription": "清仓出库，需要仓库把4pcs货物安排仓间调拨到USWC5和WO12149906136该订单货物一起装车发走",
+      "requirementBackground": "清仓出库，需要仓库把4pcs货物安排仓间调拨到USWC5和WO12149906136该订单货物一起装车发走"
+    },
+    {
+      "orderNo": "VASC000000309039",
+      "requirementDescription": "DE仓下架单：WO11621025965  DEBR2上架单：WI50752532    请帮忙把AS320011从DG仓转到普仓做上架",
+      "requirementBackground": "暂无标准增值"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "sceneKey": "inbound_identify_sku_relabel_parcel",
+  "sceneName": "【入库】辨识商品条码重新贴包裹标签",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.27",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "辨识商品条码",
+      "重新贴包裹标签",
+      "辨识结果对应关系",
+      "补贴新的包裹标签",
+      "商品未贴条码",
+      "自主辨别贴码",
+      "辨识后客户需提供",
+      "包裹和标签的对应关系"
+    ],
+    "weak": [
+      "辨识方法",
+      "商品条码",
+      "包裹标签",
+      "辨识结果",
+      "开箱辨识",
+      "实物照片"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "换商品标签",
+      "串仓",
+      "调拨",
+      "质检",
+      "无主货"
+    ],
+    "soft": [
+      "仅拍照",
+      "暂存不上架",
+      "预报不符",
+      "下架后重新上架"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景重点是辨识商品条码后重新贴包裹标签,不涉及尺重测量和换商品标签",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别：本场景强调先辨识后由客户提供对应关系再贴标,是二次处理流程,而非批量一次性补贴",
+    "和【入库】包裹类异常换商品标签上架的区别：本场景是贴包裹标签而非换商品标签,且必须先辨识商品条码",
+    "和【入库】无主货异常补贴标签上架的区别：本场景是有主货但商品未贴条码需辨识,不是无主货场景"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：入库单号、包裹号、商品条码/商品编码",
+    "动作：辨识商品条码、重新贴包裹标签、上架",
+    "去向：指定入库单号、关闭异常单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "第一阶段：按辨识方法识别商品条码和商品编码",
+    "第二阶段：客户根据辨识结果提供包裹和标签对应关系",
+    "第三阶段：按对应关系补贴新的包裹标签",
+    "第四阶段：上架到指定入库单",
+    "第五阶段：关闭异常单"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.27. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

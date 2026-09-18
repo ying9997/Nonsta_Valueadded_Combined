@@ -1,0 +1,77 @@
+{
+  "sceneKey": "inbound_serialized_sn_handling",
+  "sceneName": "【入库】单品化管理的SN处理场景",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.31",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "SN",
+      "序列号",
+      "单品化管理",
+      "单品化",
+      "SN码",
+      "序列号管理",
+      "单品追溯",
+      "SN录入"
+    ],
+    "weak": [
+      "唯一标识",
+      "单独管理",
+      "独立追踪",
+      "一对一",
+      "单件管理",
+      "序列化"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴标签",
+      "重新贴标",
+      "辨识",
+      "质检",
+      "拍照"
+    ],
+    "soft": [
+      "批量",
+      "整柜",
+      "串仓",
+      "调拨"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景强调SN序列号的单品化管理，不涉及换标或辨识操作",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景是单品级别的SN管理，不是批量补贴标签",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景是正常的SN录入管理流程，不是异常换标处理",
+    "和【入库】关联第三方条码上架的区别是：本场景关注的是SN序列号管理，不是关联第三方条码系统"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需要单品化管理的商品（通常是高价值或需要追溯的商品）",
+    "动作：录入/绑定/管理SN序列号",
+    "去向：完成SN绑定后正常上架入库"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "确认商品是否需要SN单品化管理",
+    "扫描或录入商品的SN序列号",
+    "将SN与系统中的SKU进行绑定",
+    "验证SN的唯一性和有效性",
+    "完成SN绑定后按正常流程上架"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.31. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code. SOP 内容不足，信号词可能不准。"
+}

@@ -1,0 +1,1588 @@
+{
+  "orderNo": "VASC000000370434",
+  "outputPath": "sop_generated",
+  "ruleOutputPath": "sop_generated",
+  "node": "format-output",
+  "nodesHit": [
+    "validate-input",
+    "context-bind",
+    "check-requirement",
+    "match-template",
+    "sku-consistency-check",
+    "check-scene-completeness",
+    "llm-generate-sop",
+    "format-output"
+  ],
+  "failureGate": "",
+  "missingRequirementItems": [],
+  "missingAttachments": [],
+  "missingFields": [],
+  "missing": [],
+  "clarificationPrompts": [],
+  "requirementCheck": {
+    "complete": true,
+    "missingRequirementItems": [],
+    "clarificationPrompts": [],
+    "normalizedRequirement": "因客户要求，WI51636814这个入库单有68箱A+包裹需要在上架前更换新的商品标签，预计10月2日到仓 原WI51636814入库单号，预计10月2日到仓，需要上架前拦截，将原A+包裹标签，更换为新单WI52653783的A+ 包裹标签",
+    "objectMatch": "WI51636814",
+    "objectBoundBypass": true,
+    "actionMatch": "上架",
+    "purposeMatch": "因",
+    "purposeBoundBypass": true
+  },
+  "matchResult": {
+    "matched": false,
+    "supported": false,
+    "category": "C",
+    "sceneKey": "inbound_label_identify",
+    "scenarioId": "inbound_label_identify",
+    "scenarioName": "【入库】尺重/标签辨识后换标上架",
+    "confidence": "medium",
+    "reason": "ambiguous_top1_top2_close",
+    "score": 4,
+    "candidateTemplate": "F-001",
+    "decision": "ambiguous",
+    "confidenceScore": 0.3333333333333333,
+    "candidates": [
+      {
+        "sceneKey": "inbound_label_identify",
+        "sceneName": "【入库】尺重/标签辨识后换标上架",
+        "score": 4,
+        "confidenceScore": 0.3333333333333333,
+        "confidence": "medium",
+        "matchedSignals": [
+          "weak:商品标签",
+          "weak:包裹标签",
+          "weak:上架",
+          "weak:新单"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_winit_fault_multi_action",
+        "sceneName": "【入库】因winit原因做入库拦截、辨识、重新包装、销毁或上架等多种动作",
+        "score": 3,
+        "confidenceScore": 0.25,
+        "confidence": "medium",
+        "matchedSignals": [
+          "strong:拦截"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "sceneName": "【入库】包裹类异常换商品标签上架",
+        "score": 2,
+        "confidenceScore": 0.16666666666666666,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:商品标签",
+          "weak:上架"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_sku_mgmt_cross_warehouse_b",
+        "sceneName": "【入库】A仓单品化管理的包裹串仓到B仓异常--在B仓上架",
+        "score": 2,
+        "confidenceScore": 0.16666666666666666,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:包裹标",
+          "weak:商品标"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_identify_sku_relabel_parcel",
+        "sceneName": "【入库】辨识商品条码重新贴包裹标签",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:包裹标签"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_package_barcode_batch_relabel",
+        "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:上架"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_reshelve_change_wi_keep_sku",
+        "sceneName": "【入库】商品下架后换入库单重新上架（不更换SKU）",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:包裹标签"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_unpack_shelve",
+        "sceneName": "【入库】拆包/拆箱上架",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:上架前"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_anker_combine_carton",
+        "sceneName": "【入库】anker 合箱入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_aplus_direct_shelve",
+        "sceneName": "【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_basic_3pl_winit_kit",
+        "sceneName": "【入库】Basic 3PL-Winit 组套产品审核",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_batch_identify_relabel_barcode",
+        "sceneName": "【入库】批量辨识商品后补贴商品条码及包裹条码上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_bulk_return_new_inbound",
+        "sceneName": "【入库】批量退货（≥20件商品）异常包裹建新入库单入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_collect_sn",
+        "sceneName": "【入库】收集SN码",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_destroy_before_shelve",
+        "sceneName": "【入库】上架前销毁",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_expedited_inbound",
+        "sceneName": "【入库】加急入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_forecast_sku_mismatch",
+        "sceneName": "【入库】入库预报SKU与实际到货SKU不符合",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_kit_then_shelve",
+        "sceneName": "【入库】组合后上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+        "sceneName": "【入库】包裹串仓异常调拨",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "sceneName": "【入库】指定商品拍照暂存",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "relabel_then_shelve"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_pre_shelve_inventory_identify",
+        "sceneName": "【入库】上架前盘点-辨识费",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_product_quality_inspection",
+        "sceneName": "【入库】商品质检",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_remove_label",
+        "sceneName": "【入库】清除标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_replace_custom_packaging",
+        "sceneName": "【入库】更换客制包材",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_replace_winit_packaging",
+        "sceneName": "【入库】更换winit包装",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_serialized_sn_handling",
+        "sceneName": "【入库】单品化管理的SN处理场景",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_split_return_order",
+        "sceneName": "【入库】分开退货单入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_third_party_merchandise_barcode",
+        "sceneName": "【入库】关联第三方商品条码上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_transparent_label",
+        "sceneName": "【入库】补贴透明标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_unsigned_not_received_proof",
+        "sceneName": "【入库】签署仓库未收到货证明",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_add_remove_accessories",
+        "sceneName": "【库内】商品拆箱加/减配件",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_aplus_parcel_relabel_shelve",
+        "sceneName": "【库内】A+包裹更换标签上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_appearance_identify_label",
+        "sceneName": "【库内】商品外观辨识+贴标上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_cancel_self_pickup_need_wi",
+        "sceneName": "【库内】异常单：自提单取消出库（需要客户下入库单）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_cancel_self_pickup_outbound",
+        "sceneName": "【库内】自提单取消出库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_carton_to_each",
+        "sceneName": "【库内】箱转单一",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_change_sku_defective_shelve",
+        "sceneName": "【库内】更换SKU做不良品上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_collect_sn",
+        "sceneName": "【库内】采集SN码",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_damaged_repack_reshelve",
+        "sceneName": "【库内】包装破损商品更换包材重新上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_defective_to_good",
+        "sceneName": "【库内】不良品转良品",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_exception_rephoto",
+        "sceneName": "【库内】异常重新拍照",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_exception_to_defective_shelve",
+        "sceneName": "【库内】异常商品转不良品上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_good_defective_inspection",
+        "sceneName": "【库内】良品/不良品检测",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_good_to_defective_shelve",
+        "sceneName": "【库内】良品转不良品上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_identify_photo_then_destroy",
+        "sceneName": "【库内】辨识拍照后销毁",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_identify_then_relabel_shelve",
+        "sceneName": "【库内】库内辨识+辨识后重新贴标上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_instructional_label_photo",
+        "sceneName": "【库内】商品贴指令性标签（警示标语/使用说明/清洁维护等）+拍照",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inter_warehouse_transfer",
+        "sceneName": "【库内】库内仓间调拨",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inter_warehouse_transfer_anker",
+        "sceneName": "【库内】库内仓间调拨-Anker",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inventory_destroy",
+        "sceneName": "【库内】库内库存销毁",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inventory_freeze_unfreeze",
+        "sceneName": "【库内】库存冻结/解冻",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_measure_identify_dims_weight",
+        "sceneName": "【库内】商品尺重测量辨识",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_nonstandard_charge",
+        "sceneName": "【库内】非标收费",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_photo_video",
+        "sceneName": "【库内】拍摄照片/视频",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_product_kitting",
+        "sceneName": "【库内】商品组合",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_reinforce",
+        "sceneName": "【库内】库内加固",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_relabel_change_sku",
+        "sceneName": "【库内】指定单品/库位商品更换标签上架【换标前后SKU不一样】",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_remove_cover_label",
+        "sceneName": "【库内】清除/覆盖标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_replace_custom_packaging",
+        "sceneName": "【库内】更换客制包装",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_replace_mfg_date_label",
+        "sceneName": "【库内】更换商品生产日期标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_rework_reshelve",
+        "sceneName": "【库内】商品改制重新上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_sn_mgmt_change_reshelve",
+        "sceneName": "【库内】SN采集+管理方式变更+重新上架（复合场景）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_specified_position_label",
+        "sceneName": "【库内】指定位置贴标",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_split_sku",
+        "sceneName": "【库内】拆分SKU",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_unbox_identify_change_sku",
+        "sceneName": "【库内】拆箱辨识后重新更换SKU上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_void_outbound_after_pack",
+        "sceneName": "【库内】打包完成后作废出库单（有商品增值）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_winit_pack_offline_ship",
+        "sceneName": "【库内】WINIT标准包材线下寄件出库（需尾程线下面单）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      }
+    ],
+    "topK": [
+      {
+        "sceneKey": "inbound_label_identify",
+        "sceneName": "【入库】尺重/标签辨识后换标上架",
+        "score": 4,
+        "confidenceScore": 0.3333333333333333,
+        "confidence": "medium",
+        "matchedSignals": [
+          "weak:商品标签",
+          "weak:包裹标签",
+          "weak:上架",
+          "weak:新单"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_winit_fault_multi_action",
+        "sceneName": "【入库】因winit原因做入库拦截、辨识、重新包装、销毁或上架等多种动作",
+        "score": 3,
+        "confidenceScore": 0.25,
+        "confidence": "medium",
+        "matchedSignals": [
+          "strong:拦截"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      }
+    ],
+    "llmUsed": false,
+    "querySignals": {
+      "text": "因客户要求，WI51636814这个入库单有68箱A+包裹需要在上架前更换新的商品标签，预计10月2日到仓 原WI51636814入库单号，预计10月2日到仓，需要上架前拦截，将原A+包裹标签，更换为新单WI52653783的A+ 包裹标签",
+      "interceptHold": false,
+      "hasPhoto": false,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": true,
+      "hasShelve": true,
+      "hasIdentify": false,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "gap": 1,
+    "decisionPath": "top1=F-001(4) top2=inbound_winit_fault_multi_action(3) gap=1 < CLEAR_GAP(3) → ambiguous",
+    "matchedActions": [],
+    "actionCandidateScenes": [],
+    "actionExcludedScenes": []
+  },
+  "completenessResult": {
+    "applicable": true,
+    "complete": true,
+    "missingAttachments": [],
+    "missingFields": [],
+    "providedCount": 0,
+    "totalRequired": 0,
+    "sceneKey": "inbound_label_identify",
+    "missingInfo": [],
+    "infoChecks": [],
+    "infoCheckSkipped": true,
+    "infoCheckError": ""
+  },
+  "sceneCompletenessResult": {
+    "complete": true,
+    "missingInfo": [],
+    "missingAttachments": [],
+    "clarificationPrompts": [],
+    "sceneKey": "inbound_label_identify",
+    "infoChecks": [],
+    "infoCheckSkipped": true,
+    "infoCheckError": "",
+    "attachment": {
+      "applicable": true,
+      "complete": true,
+      "missingAttachments": [],
+      "missingFields": [],
+      "providedCount": 0,
+      "totalRequired": 0,
+      "sceneKey": "inbound_label_identify"
+    }
+  },
+  "contextFacts": {
+    "orderNo": "VASC000000370434",
+    "customerCode": "19733794",
+    "customerName": "福席户外用品有限公司",
+    "warehouseCode": "USGA",
+    "warehouseName": "USGA Warehouse",
+    "eventNo": "",
+    "businessOrderNo": "WI51636814",
+    "allEventNos": [],
+    "allBusinessOrderNos": [
+      "WI51636814",
+      "WI52653783"
+    ],
+    "vaSource": "INBOUND",
+    "businessType": "INBOUND",
+    "businessTypeDesc": "入库订单",
+    "sceneKey": "",
+    "sceneName": "【入库】上架前拦截",
+    "sceneCode": "202507021814",
+    "serviceAtom": "OW01V1602",
+    "attachmentStatus": {
+      "操作说明附件": "missing",
+      "商品和标签的对应关系": "missing",
+      "包裹和标签的对应关系": "missing",
+      "视频拍摄SOP（中文+英文）": "missing",
+      "标签文件": "uploaded"
+    },
+    "providedFields": {
+      "BEOR": "因客户要求，WI51636814这个入库单有68箱A+包裹需要在上架前更换新的商品标签，预计10月2日到仓",
+      "VAS_ATTR_REL_RD": "原WI51636814入库单号，预计10月2日到仓，需要上架前拦截，将原A+包裹标签，更换为新单WI52653783的A+ 包裹标签",
+      "VAS_ATTR_REL_NWEON": "WI52653783"
+    },
+    "boundKeys": [
+      "businessOrderNo",
+      "warehouseCode",
+      "customerCode",
+      "VAS_ATTR_REL_NWEON",
+      "标签文件"
+    ],
+    "uploadedFileNames": [
+      "Order - 2026-09-16T184644.589.pdf"
+    ]
+  },
+  "ownerFacts": {
+    "submittedBy": "doreen1103@hotmail.com",
+    "customerService": [],
+    "sales": [],
+    "reviewers": []
+  },
+  "agentInput": {
+    "mode": "internal_review_copilot",
+    "vascNo": "VASC000000370434",
+    "query": "因客户要求，WI51636814这个入库单有68箱A+包裹需要在上架前更换新的商品标签，预计10月2日到仓\n原WI51636814入库单号，预计10月2日到仓，需要上架前拦截，将原A+包裹标签，更换为新单WI52653783的A+ 包裹标签",
+    "customerIntent": "因客户要求，WI51636814这个入库单有68箱A+包裹需要在上架前更换新的商品标签，预计10月2日到仓\n原WI51636814入库单号，预计10月2日到仓，需要上架前拦截，将原A+包裹标签，更换为新单WI52653783的A+ 包裹标签",
+    "serviceAtom": "OW01V1602",
+    "sceneKey": "",
+    "sceneName": "【入库】上架前拦截",
+    "sceneCode": "202507021814",
+    "recommendedVasc": {
+      "vascCode": "VASC202411192246131",
+      "vascName": "入库非标增值（特批）"
+    },
+    "pageContext": {
+      "entryScene": "INTERNAL_REVIEW",
+      "vaSource": "INBOUND",
+      "businessType": "INBOUND",
+      "businessTypeDesc": "入库订单",
+      "warehouseCode": "USGA",
+      "warehouseName": "USGA Warehouse",
+      "customerCode": "19733794",
+      "customerName": "福席户外用品有限公司",
+      "eventNo": "",
+      "businessOrderNo": "WI51636814",
+      "attachmentStatus": {
+        "操作说明附件": "missing",
+        "商品和标签的对应关系": "missing",
+        "包裹和标签的对应关系": "missing",
+        "视频拍摄SOP（中文+英文）": "missing",
+        "标签文件": "uploaded"
+      }
+    },
+    "providedFields": {
+      "BEOR": "因客户要求，WI51636814这个入库单有68箱A+包裹需要在上架前更换新的商品标签，预计10月2日到仓",
+      "VAS_ATTR_REL_RD": "原WI51636814入库单号，预计10月2日到仓，需要上架前拦截，将原A+包裹标签，更换为新单WI52653783的A+ 包裹标签",
+      "VAS_ATTR_REL_NWEON": "WI52653783"
+    },
+    "omsFacts": {
+      "customerRequirementDescription": "原WI51636814入库单号，预计10月2日到仓，需要上架前拦截，将原A+包裹标签，更换为新单WI52653783的A+ 包裹标签",
+      "requirementBackground": "因客户要求，WI51636814这个入库单有68箱A+包裹需要在上架前更换新的商品标签，预计10月2日到仓",
+      "fieldValues": {
+        "VAS_ATTR_REL_NWEON": "WI52653783"
+      },
+      "attachmentStatus": {
+        "操作说明附件": "missing",
+        "商品和标签的对应关系": "missing",
+        "包裹和标签的对应关系": "missing",
+        "视频拍摄SOP（中文+英文）": "missing",
+        "标签文件": "uploaded"
+      },
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "Order - 2026-09-16T184644.589.pdf",
+          "label": "标签文件"
+        }
+      ]
+    },
+    "responsiblePeople": {
+      "submittedBy": "doreen1103@hotmail.com",
+      "customerService": [],
+      "sales": [],
+      "reviewers": []
+    },
+    "conversationEvidence": [],
+    "enrichedContext": {
+      "orderNo": "VASC000000370434",
+      "customerCode": "19733794",
+      "customerName": "福席户外用品有限公司",
+      "warehouseCode": "USGA",
+      "warehouseName": "USGA Warehouse",
+      "eventNo": "",
+      "businessOrderNo": "WI51636814",
+      "allEventNos": [],
+      "allBusinessOrderNos": [
+        "WI51636814",
+        "WI52653783"
+      ],
+      "vaSource": "INBOUND",
+      "businessType": "INBOUND",
+      "businessTypeDesc": "入库订单",
+      "sceneName": "【入库】上架前拦截",
+      "sceneCode": "202507021814"
+    }
+  },
+  "riskFlags": [],
+  "skuCheckResult": {
+    "triggered": true,
+    "oldWi": "WI51636814",
+    "newWi": "WI52653783",
+    "oldSkus": [
+      "EXA2428-SLR",
+      "EXA2830-SLR",
+      "EXA3033-SLR",
+      "EXA3337-SLR",
+      "EXA3740-SLR",
+      "EXA4042-SLR",
+      "EXA4245-SLR",
+      "EXA4548-SLR",
+      "EXB1820-SLR",
+      "EXB2022-SLR",
+      "EXB2224-SLR",
+      "EXB2426-SLR",
+      "EXC2023-SLR",
+      "EXC2326-SLR",
+      "EXC2629-SLR",
+      "EXC2932-SLR",
+      "EXC3235-SLR",
+      "EXC3538-SLR",
+      "EXFW2933-SLR",
+      "EXTC0810-SLR",
+      "EXTC1012-SLR",
+      "Flat Strap Bungees",
+      "GLCB02",
+      "GLCB04",
+      "GLCC2-BLK",
+      "GLCC2-HTR",
+      "GLCC2-KHA",
+      "GLCC2-NVY",
+      "GLCG02",
+      "GLCG04",
+      "GLCN02",
+      "GLCN04",
+      "GLCT02",
+      "GLCT04",
+      "GLCTYD2",
+      "GLEB02",
+      "GLECCB02",
+      "GLECCG02",
+      "GLECCN02",
+      "GLECCT02",
+      "GLEEZB02",
+      "GLEEZG02",
+      "GLEEZN02",
+      "GLEEZT02",
+      "GLEG02",
+      "GLEN02",
+      "GLET02",
+      "GLEYDB02",
+      "GLEYDG02",
+      "GLEYDN02",
+      "GLEYDT02",
+      "NCBKL-SLR",
+      "NCCB02",
+      "NCCB04",
+      "NCCC2-BLK",
+      "NCCDCL-SLR",
+      "NCCDCM-SLR",
+      "NCCTYD2",
+      "NCEB02",
+      "NCECCB02",
+      "NCEEZB02",
+      "NCEYDB02",
+      "NCSCSC-SLR",
+      "NCSLAL-SLR",
+      "NCSRAL-SLR",
+      "NCTRTL-SLR",
+      "NCTRTM-SLR",
+      "NCTRTS-SLR",
+      "SS-363B78FRAME",
+      "SS-363B84FRAME",
+      "SS-463B84FRAME",
+      "SS-463B90FRAME",
+      "SS-463B96FRAME",
+      "SS-543B78FRAME",
+      "SS-543B90FRAME",
+      "WKCCB1896B-NVY",
+      "WKCCB1896B-SLR",
+      "WKCCB2096B-NVY",
+      "WKCCB2096B-SLR",
+      "WKCCB2296B-NVY",
+      "WKCCB2296B-SLR",
+      "WKCCB24102B-NVY",
+      "WKCCB24102B-SLR",
+      "WKCCBR1896B-NVY",
+      "WKCCBR1896B-SLR",
+      "WKCCBR2096B-NVY",
+      "WKCCBR2096B-SLR",
+      "WKCCBR2296B-NVY",
+      "WKCCBR2296B-SLR",
+      "WKCCBR24102B-NVY",
+      "WKCCBR24102B-SLR",
+      "WKDAYC2096-NVY",
+      "WKDAYC2096-SLR",
+      "WKDAYC2296-NVY",
+      "WKDAYC2296-SLR",
+      "WKDAYC2496-NVY",
+      "WKDAYC2496-SLR",
+      "WKDAYC2696-NVY",
+      "WKDAYC2696-SLR",
+      "WKDAYC2896-NVY",
+      "WKDAYC2896-SLR",
+      "WKHPCBN22102-NVY",
+      "WKHPCBN22102-SLR",
+      "WKHPCBN24102-NVY",
+      "WKHPCBN24102-SLR",
+      "WKHPCBN26120-NVY",
+      "WKHPCBN26120-SLR",
+      "WKHPCBN28120-NVY",
+      "WKHPCBN28120-SLR",
+      "WKHPCBN30120-NVY",
+      "WKHPCBN30120-SLR",
+      "WKHPCBN32120-NVY",
+      "WKHPCBN32120-SLR",
+      "WKHPCBN34120-NVY",
+      "WKHPCBN34120-SLR",
+      "WKINF1270B-NVY",
+      "WKINF1270B-SLR",
+      "WKINF1474B-NVY",
+      "WKINF1474B-SLR",
+      "WKINF1676B-NVY",
+      "WKINF1676B-SLR",
+      "WKINF18100B-NVY",
+      "WKINF18100B-SLR",
+      "WKINFB1066B-NVY",
+      "WKINFB1066B-SLR",
+      "WKINFB1270B-NVY",
+      "WKINFB1270B-SLR",
+      "WKINFB1474B-NVY",
+      "WKINFB1474B-SLR",
+      "WKINFCC1270B-NVY",
+      "WKINFCC1270B-SLR",
+      "WKINFCC1478B-NVY",
+      "WKINFCC1478B-SLR",
+      "WKINFCC1690B-NVY",
+      "WKINFCC1690B-SLR",
+      "WKINFCC18100B-NVY",
+      "WKINFCC18100B-SLR",
+      "WKINFCC20102B-NVY",
+      "WKINFCC20102B-SLR",
+      "WKINFCC22111B-NVY",
+      "WKINFCC22111B-SLR",
+      "WKINFCC24111B-NVY",
+      "WKINFCC24111B-SLR",
+      "WKOJB1472B-NVY",
+      "WKOJB1472B-SLR",
+      "WKOJB1672B-NVY",
+      "WKOJB1672B-SLR",
+      "WKOJB1884B-NVY",
+      "WKOJB1884B-SLR",
+      "WKOJB2084B-NVY",
+      "WKOJB2084B-SLR",
+      "WKPERF22102B-NVY",
+      "WKPERF22102B-SLR",
+      "WKPERF24102B-NVY",
+      "WKPERF24102B-SLR",
+      "WKPERF26120B-NVY",
+      "WKPERF26120B-SLR",
+      "WKPERF28120B-NVY",
+      "WKPERF28120B-SLR",
+      "WKPERF30120B-NVY",
+      "WKPERF30120B-SLR",
+      "WKPERF32120B-NVY",
+      "WKPERF32120B-SLR",
+      "WKPERF34120B-NVY",
+      "WKPERF34120B-SLR",
+      "WKPERF36120B-NVY",
+      "WKPERF36120B-SLR",
+      "WKPERF38120B-NVY",
+      "WKPERF38120B-SLR",
+      "WKPERF40120B-NVY",
+      "WKPERF40120B-SLR",
+      "WSCCB1896B-BLK",
+      "WSCCB1896B-CHL",
+      "WSCCB1896B-KHA",
+      "WSCCB1896B-RYL",
+      "WSCCB2096B-BLK",
+      "WSCCB2096B-CHL",
+      "WSCCB2096B-KHA",
+      "WSCCB2096B-RYL",
+      "WSCCB2296B-BLK",
+      "WSCCB2296B-CHL",
+      "WSCCB2296B-KHA",
+      "WSCCB2296B-RYL",
+      "WSCCB24102B-BLK",
+      "WSCCB24102B-CHL",
+      "WSCCB24102B-KHA",
+      "WSCCB24102B-RYL",
+      "WSCCBR1896B-BLK",
+      "WSCCBR1896B-CHL",
+      "WSCCBR1896B-KHA",
+      "WSCCBR1896B-RYL",
+      "WSCCBR2096B-BLK",
+      "WSCCBR2096B-CHL",
+      "WSCCBR2096B-KHA",
+      "WSCCBR2096B-RYL",
+      "WSCCBR2296B-BLK",
+      "WSCCBR2296B-CHL",
+      "WSCCBR2296B-KHA",
+      "WSCCBR2296B-RYL",
+      "WSCCBR24102B-BLK",
+      "WSCCBR24102B-CHL",
+      "WSCCBR24102B-KHA",
+      "WSCCBR24102B-RYL",
+      "WSDAYC2096-BLK",
+      "WSDAYC2096-CHL",
+      "WSDAYC2096-KHA",
+      "WSDAYC2096-RYL",
+      "WSDAYC2296-BLK",
+      "WSDAYC2296-CHL",
+      "WSDAYC2296-KHA",
+      "WSDAYC2296-RYL",
+      "WSDAYC2496-BLK",
+      "WSDAYC2496-CHL",
+      "WSDAYC2496-KHA",
+      "WSDAYC2496-RYL",
+      "WSDAYC2696-BLK",
+      "WSDAYC2696-CHL",
+      "WSDAYC2696-KHA",
+      "WSDAYC2696-RYL",
+      "WSDAYC2896-BLK",
+      "WSDAYC2896-CHL",
+      "WSDAYC2896-KHA",
+      "WSDAYC2896-RYL",
+      "WSHPCBN22102-BLK",
+      "WSHPCBN22102-CHL",
+      "WSHPCBN22102-KHA",
+      "WSHPCBN22102-RYL",
+      "WSHPCBN24102-BLK",
+      "WSHPCBN24102-CHL",
+      "WSHPCBN24102-KHA",
+      "WSHPCBN24102-RYL",
+      "WSHPCBN26120-BLK",
+      "WSHPCBN26120-CHL",
+      "WSHPCBN26120-KHA",
+      "WSHPCBN26120-RYL",
+      "WSHPCBN28120-BLK",
+      "WSHPCBN28120-CHL",
+      "WSHPCBN28120-KHA",
+      "WSHPCBN28120-RYL",
+      "WSHPCBN30120-BLK",
+      "WSHPCBN30120-CHL",
+      "WSHPCBN30120-KHA",
+      "WSHPCBN30120-RYL",
+      "WSHPCBN32120-BLK",
+      "WSHPCBN32120-CHL",
+      "WSHPCBN32120-KHA",
+      "WSHPCBN32120-RYL",
+      "WSHPCBN34120-BLK",
+      "WSHPCBN34120-CHL",
+      "WSHPCBN34120-KHA",
+      "WSHPCBN34120-RYL",
+      "WSINF1270B-BLK",
+      "WSINF1270B-CHL",
+      "WSINF1270B-KHA",
+      "WSINF1270B-RYL",
+      "WSINF1474B-BLK",
+      "WSINF1474B-CHL",
+      "WSINF1474B-KHA",
+      "WSINF1474B-RYL",
+      "WSINF1676B-BLK",
+      "WSINF1676B-CHL",
+      "WSINF1676B-KHA",
+      "WSINF1676B-RYL",
+      "WSINF18100B-BLK",
+      "WSINF18100B-CHL",
+      "WSINF18100B-KHA",
+      "WSINF18100B-RYL",
+      "WSINFB1066B-BLK",
+      "WSINFB1066B-CHL",
+      "WSINFB1066B-KHA",
+      "WSINFB1066B-RYL",
+      "WSINFB1270B-BLK",
+      "WSINFB1270B-CHL",
+      "WSINFB1270B-KHA",
+      "WSINFB1270B-RYL",
+      "WSINFB1474B-BLK",
+      "WSINFB1474B-CHL",
+      "WSINFB1474B-KHA",
+      "WSINFB1474B-RYL",
+      "WSINFCC1270B-BLK",
+      "WSINFCC1270B-CHL",
+      "WSINFCC1270B-KHA",
+      "WSINFCC1270B-RYL",
+      "WSINFCC1478B-BLK",
+      "WSINFCC1478B-CHL",
+      "WSINFCC1478B-KHA",
+      "WSINFCC1478B-RYL",
+      "WSINFCC1690B-BLK",
+      "WSINFCC1690B-CHL",
+      "WSINFCC1690B-KHA",
+      "WSINFCC1690B-RYL",
+      "WSINFCC18100B-BLK",
+      "WSINFCC18100B-CHL",
+      "WSINFCC18100B-KHA",
+      "WSINFCC18100B-RYL",
+      "WSINFCC20102B-BLK",
+      "WSINFCC20102B-CHL",
+      "WSINFCC20102B-KHA",
+      "WSINFCC20102B-RYL",
+      "WSINFCC22111B-BLK",
+      "WSINFCC22111B-CHL",
+      "WSINFCC22111B-KHA",
+      "WSINFCC22111B-RYL",
+      "WSINFCC24111B-BLK",
+      "WSINFCC24111B-CHL",
+      "WSINFCC24111B-KHA",
+      "WSINFCC24111B-RYL",
+      "WSOJB1472B-BLK",
+      "WSOJB1472B-CHL",
+      "WSOJB1472B-KHA",
+      "WSOJB1472B-RYL",
+      "WSOJB1672B-BLK",
+      "WSOJB1672B-CHL",
+      "WSOJB1672B-KHA",
+      "WSOJB1672B-RYL",
+      "WSOJB1884B-BLK",
+      "WSOJB1884B-CHL",
+      "WSOJB1884B-KHA",
+      "WSOJB1884B-RYL",
+      "WSOJB2084B-BLK",
+      "WSOJB2084B-CHL",
+      "WSOJB2084B-KHA",
+      "WSOJB2084B-RYL",
+      "WSPERF22102B-BLK",
+      "WSPERF22102B-CHL",
+      "WSPERF22102B-KHA",
+      "WSPERF22102B-RYL",
+      "WSPERF24102B-BLK",
+      "WSPERF24102B-CHL",
+      "WSPERF24102B-KHA",
+      "WSPERF24102B-RYL",
+      "WSPERF26120B-BLK",
+      "WSPERF26120B-CHL",
+      "WSPERF26120B-KHA",
+      "WSPERF26120B-RYL",
+      "WSPERF28120B-BLK",
+      "WSPERF28120B-CHL",
+      "WSPERF28120B-KHA",
+      "WSPERF28120B-RYL",
+      "WSPERF30120B-BLK",
+      "WSPERF30120B-CHL",
+      "WSPERF30120B-KHA",
+      "WSPERF30120B-RYL",
+      "WSPERF32120B-BLK",
+      "WSPERF32120B-CHL",
+      "WSPERF32120B-KHA",
+      "WSPERF32120B-RYL",
+      "WSPERF34120B-BLK",
+      "WSPERF34120B-CHL",
+      "WSPERF34120B-KHA",
+      "WSPERF34120B-RYL",
+      "WSPERF36120B-BLK",
+      "WSPERF36120B-CHL",
+      "WSPERF36120B-KHA",
+      "WSPERF36120B-RYL",
+      "WSPERF38120B-BLK",
+      "WSPERF38120B-CHL",
+      "WSPERF38120B-KHA",
+      "WSPERF38120B-RYL",
+      "WSPERF40120B-BLK",
+      "WSPERF40120B-CHL",
+      "WSPERF40120B-KHA",
+      "WSPERF40120B-RYL",
+      "WSVR1686-CHL",
+      "WSVR1896-CHL",
+      "WSVR26102B-BLK",
+      "WSVR26102B-CHL",
+      "WSVR26102B-KHA",
+      "WSVR26102B-RYL",
+      "WSVR28102B-BLK",
+      "WSVR28102B-CHL",
+      "WSVR28102B-KHA",
+      "WSVR28102B-RYL",
+      "WSVR30102B-BLK",
+      "WSVR30102B-CHL",
+      "WSVR30102B-KHA",
+      "WSVR30102B-RYL"
+    ],
+    "newSkus": [
+      "EXA2428G",
+      "EXA2830G",
+      "EXA3033G",
+      "EXA3337G",
+      "EXA3740G",
+      "EXA4042G",
+      "EXA4245G",
+      "EXA4548G",
+      "EXB1820G",
+      "EXB2022G",
+      "EXB2224G",
+      "EXB2426G",
+      "EXC2023G",
+      "EXC2326G",
+      "EXC2629G",
+      "EXC2932G",
+      "EXC3235G",
+      "EXC3538G",
+      "EXFW2933G",
+      "EXTC0810G",
+      "EXTC1012G"
+    ],
+    "match": "mismatch",
+    "mismatchDetails": "原单 377 个 SKU、新单 21 个 SKU。原单有但新单没有：EXA2428-SLR、EXA2830-SLR、EXA3033-SLR、EXA3337-SLR、EXA3740-SLR、EXA4042-SLR、EXA4245-SLR、EXA4548-SLR、EXB1820-SLR、EXB2022-SLR 等共 377 个；新单有但原单没有：EXA2428G、EXA2830G、EXA3033G、EXA3337G、EXA3740G、EXA4042G、EXA4245G、EXA4548G、EXB1820G、EXB2022G 等共 21 个",
+    "source": "dws"
+  },
+  "llm": {
+    "text": "【需求描述】\n入库单 WI51636814 预计 10 月 2 日到仓，共 68 箱 A+ 包裹需在上架前拦截，将原包裹标签更换为新入库单 WI52653783 的 A+ 包裹标签。已提供标签文件（Order - 2026-09-16T184644.589.pdf）。注意：原入库单与新入库单 SKU 存在差异（原单 377 个 SKU 如 EXA2428-SLR、EXA2830-SLR 等，新单 21 个 SKU 如 EXA2428G、EXA2830G 等），请按标签文件执行换标操作。\n\n【需求背景】\n客户要求对到仓 A+ 包裹更换新入库单标签后上架。\n\n【操作要求】\n1. 10 月 2 日到仓时，根据入库单 WI51636814 拦截全部 68 箱 A+ 包裹，暂存待处理区域。提示：原入库单 SKU（EXA2428-SLR、EXA2830-SLR、EXA3033-SLR 等共 377 个）与新入库单 SKU（EXA2428G、EXA2830G、EXA3033G 等共 21 个）不一致，按标签文件执行换标。\n2. 按标签文件（Order - 2026-09-16T184644.589.pdf）打印新入库单 WI52653783 的 A+ 包裹标签。\n3. 逐箱拆开包裹，撕除原 WI51636814 包裹标签，补贴新 WI52653783 包裹标签。\n4. 换标完成后，使用新入库单 WI52653783 扫描上架。\n5. 操作完成后，将增值单 VASC000000370434 状态变更为仓库已处理。\n\n【注意事项】\n1. 如实际到仓箱数不是 68 箱、标签文件无法打印或 SKU 实物差异过大，暂停操作并上报主管处理。\n2. 换标时确保新标签完整覆盖原标签位置，避免条码重复扫描。\n3. [待补充：操作说明附件]、[待补充：商品和标签的对应关系]、[待补充：包裹和标签的对应关系]、[待补充：视频拍摄SOP（中文+英文）]。",
+    "model": "claude-sonnet-4-5",
+    "mocked": false,
+    "error": null,
+    "sop": {
+      "requirementBackground": "客户要求对到仓 A+ 包裹更换新入库单标签后上架",
+      "requirementDescription": "入库单 WI51636814（预计 10 月 2 日到仓）的 68 箱 A+ 包裹需在上架前拦截，将原包裹标签更换为新入库单 WI52653783 的包裹标签。原入库单包含 377 个 SKU（如 EXA2428-SLR、EXA2830-SLR 等），新入库单包含 21 个 SKU（如 EXA2428G、EXA2830G 等），两单 SKU 不一致。已提供标签文件（Order - 2026-09-16T184644.589.pdf），按此文件执行换标操作后使用新入库单上架",
+      "warehouseSop": "1. 10 月 2 日到仓时，根据入库单 WI51636814 拦截全部 68 箱 A+ 包裹，暂存待处理区域。提示：原入库单 SKU（EXA2428-SLR、EXA2830-SLR、EXA3033-SLR 等共 377 个）与新入库单 SKU（EXA2428G、EXA2830G、EXA3033G 等共 21 个）不一致，按标签文件执行换标。\n2. 按标签文件（Order - 2026-09-16T184644.589.pdf）打印新入库单 WI52653783 的 A+ 包裹标签。\n3. 逐箱拆开包裹，撕除原 WI51636814 包裹标签,补贴新 WI52653783 包裹标签。\n4. 换标完成后，使用新入库单 WI52653783 扫描上架。\n5. 操作完成后，将增值单 VASC000000370434 状态变更为仓库已处理。\n\n【注意事项】\n1. 如实际到仓箱数不是 68 箱、标签文件无法打印或 SKU 实物差异过大，暂停操作并上报主管处理。\n2. 换标时确保新标签完整覆盖原标签位置，避免条码重复扫描。\n3. [待补充：操作说明附件]、[待补充：商品和标签的对应关系]、[待补充：包裹和标签的对应关系]、[待补充：视频拍摄SOP（中文+英文）]。",
+      "sopText": "【需求描述】\n入库单 WI51636814 预计 10 月 2 日到仓，共 68 箱 A+ 包裹需在上架前拦截，将原包裹标签更换为新入库单 WI52653783 的 A+ 包裹标签。已提供标签文件（Order - 2026-09-16T184644.589.pdf）。注意：原入库单与新入库单 SKU 存在差异（原单 377 个 SKU 如 EXA2428-SLR、EXA2830-SLR 等，新单 21 个 SKU 如 EXA2428G、EXA2830G 等），请按标签文件执行换标操作。\n\n【需求背景】\n客户要求对到仓 A+ 包裹更换新入库单标签后上架。\n\n【操作要求】\n1. 10 月 2 日到仓时，根据入库单 WI51636814 拦截全部 68 箱 A+ 包裹，暂存待处理区域。提示：原入库单 SKU（EXA2428-SLR、EXA2830-SLR、EXA3033-SLR 等共 377 个）与新入库单 SKU（EXA2428G、EXA2830G、EXA3033G 等共 21 个）不一致，按标签文件执行换标。\n2. 按标签文件（Order - 2026-09-16T184644.589.pdf）打印新入库单 WI52653783 的 A+ 包裹标签。\n3. 逐箱拆开包裹，撕除原 WI51636814 包裹标签，补贴新 WI52653783 包裹标签。\n4. 换标完成后，使用新入库单 WI52653783 扫描上架。\n5. 操作完成后，将增值单 VASC000000370434 状态变更为仓库已处理。\n\n【注意事项】\n1. 如实际到仓箱数不是 68 箱、标签文件无法打印或 SKU 实物差异过大，暂停操作并上报主管处理。\n2. 换标时确保新标签完整覆盖原标签位置，避免条码重复扫描。\n3. [待补充：操作说明附件]、[待补充：商品和标签的对应关系]、[待补充：包裹和标签的对应关系]、[待补充：视频拍摄SOP（中文+英文）]。",
+      "scenarioName": "【入库】尺重/标签辨识后换标上架",
+      "fieldsUsed": [
+        "VAS_ATTR_REL_RD",
+        "VAS_ATTR_REL_NWEON",
+        "businessOrderNo",
+        "标签文件（Order - 2026-09-16T184644.589.pdf）",
+        "增值单号 VASC000000370434"
+      ],
+      "mocked": false,
+      "model": "claude-sonnet-4-5",
+      "extractedWiNumbers": [
+        "WI51636814",
+        "WI52653783"
+      ],
+      "extractedEbNumbers": []
+    },
+    "reflectionPass": false,
+    "reflectionIssues": [
+      "「操作前核对确认」「操作前务必与客户或主管确认对应关系」属于非仓库职责。仓库只负责实物操作，不应包含「与客户确认」「联系主管」等沟通步骤。",
+      "SOP 未明确关闭增值单 VASC000000370434 的步骤。操作完成后应将增值单状态变更为已完成。",
+      "「将处理结果记录并更新为仓库已处理状态」表述模糊，未明确在哪个系统、如何记录、更新什么状态。应具体说明是关闭增值单还是其他操作。",
+      "缺少异常处理机制：如果到仓箱数不是 68 箱、或标签文件无法打印、或 SKU 实物与预期不符时，仓库应如何处理？"
+    ],
+    "regenerated": true
+  },
+  "structured": {
+    "mode": "internal_review_copilot",
+    "outputPath": "sop_generated",
+    "node": "format-output",
+    "sceneKey": "inbound_label_identify",
+    "scenarioName": "【入库】尺重/标签辨识后换标上架",
+    "missingRequirementItems": [],
+    "missingFields": [],
+    "missingAttachments": [],
+    "requirementDescription": "入库单 WI51636814（预计 10 月 2 日到仓）的 68 箱 A+ 包裹需在上架前拦截，将原包裹标签更换为新入库单 WI52653783 的包裹标签。原入库单包含 377 个 SKU（如 EXA2428-SLR、EXA2830-SLR 等），新入库单包含 21 个 SKU（如 EXA2428G、EXA2830G 等），两单 SKU 不一致。已提供标签文件（Order - 2026-09-16T184644.589.pdf），按此文件执行换标操作后使用新入库单上架",
+    "requirementBackground": "客户要求对到仓 A+ 包裹更换新入库单标签后上架",
+    "warehouseSop": "1. 10 月 2 日到仓时，根据入库单 WI51636814 拦截全部 68 箱 A+ 包裹，暂存待处理区域。提示：原入库单 SKU（EXA2428-SLR、EXA2830-SLR、EXA3033-SLR 等共 377 个）与新入库单 SKU（EXA2428G、EXA2830G、EXA3033G 等共 21 个）不一致，按标签文件执行换标。\n2. 按标签文件（Order - 2026-09-16T184644.589.pdf）打印新入库单 WI52653783 的 A+ 包裹标签。\n3. 逐箱拆开包裹，撕除原 WI51636814 包裹标签,补贴新 WI52653783 包裹标签。\n4. 换标完成后，使用新入库单 WI52653783 扫描上架。\n5. 操作完成后，将增值单 VASC000000370434 状态变更为仓库已处理。\n\n【注意事项】\n1. 如实际到仓箱数不是 68 箱、标签文件无法打印或 SKU 实物差异过大，暂停操作并上报主管处理。\n2. 换标时确保新标签完整覆盖原标签位置，避免条码重复扫描。\n3. [待补充：操作说明附件]、[待补充：商品和标签的对应关系]、[待补充：包裹和标签的对应关系]、[待补充：视频拍摄SOP（中文+英文）]。",
+    "llmGeneratedText": "【需求描述】\n入库单 WI51636814 预计 10 月 2 日到仓，共 68 箱 A+ 包裹需在上架前拦截，将原包裹标签更换为新入库单 WI52653783 的 A+ 包裹标签。已提供标签文件（Order - 2026-09-16T184644.589.pdf）。注意：原入库单与新入库单 SKU 存在差异（原单 377 个 SKU 如 EXA2428-SLR、EXA2830-SLR 等，新单 21 个 SKU 如 EXA2428G、EXA2830G 等），请按标签文件执行换标操作。\n\n【需求背景】\n客户要求对到仓 A+ 包裹更换新入库单标签后上架。\n\n【操作要求】\n1. 10 月 2 日到仓时，根据入库单 WI51636814 拦截全部 68 箱 A+ 包裹，暂存待处理区域。提示：原入库单 SKU（EXA2428-SLR、EXA2830-SLR、EXA3033-SLR 等共 377 个）与新入库单 SKU（EXA2428G、EXA2830G、EXA3033G 等共 21 个）不一致，按标签文件执行换标。\n2. 按标签文件（Order - 2026-09-16T184644.589.pdf）打印新入库单 WI52653783 的 A+ 包裹标签。\n3. 逐箱拆开包裹，撕除原 WI51636814 包裹标签，补贴新 WI52653783 包裹标签。\n4. 换标完成后，使用新入库单 WI52653783 扫描上架。\n5. 操作完成后，将增值单 VASC000000370434 状态变更为仓库已处理。\n\n【注意事项】\n1. 如实际到仓箱数不是 68 箱、标签文件无法打印或 SKU 实物差异过大，暂停操作并上报主管处理。\n2. 换标时确保新标签完整覆盖原标签位置，避免条码重复扫描。\n3. [待补充：操作说明附件]、[待补充：商品和标签的对应关系]、[待补充：包裹和标签的对应关系]、[待补充：视频拍摄SOP（中文+英文）]。",
+    "llmError": null,
+    "processingMethod": "暂时",
+    "imActionProposal": {
+      "requiresUserConfirm": true,
+      "mentionRoles": [
+        "reviewers"
+      ],
+      "messageDraft": "【需求描述】\n入库单 WI51636814 预计 10 月 2 日到仓，共 68 箱 A+ 包裹需在上架前拦截，将原包裹标签更换为新入库单 WI52653783 的 A+ 包裹标签。已提供标签文件（Order - 2026-09-16T184644.589.pdf）。注意：原入库单与新入库单 SKU 存在差异（原单 377 个 SKU 如 EXA2428-SLR、EXA2830-SLR 等，新单 21 个 SKU 如 EXA2428G、EXA2830G 等），请按标签文件执行换标操作。\n\n【需求背景】\n客户要求对到仓 A+ 包裹更换新入库单标签后上架。\n\n【操作要求】\n1. 10 月 2 日到仓时，根据入库单 WI51636814 拦截全部 68 箱 A+ 包裹，暂存待处理区域。提示：原入库单 SKU（EXA2428-SLR、EXA2830-SLR、EXA3033-SLR 等共 377 个）与新入库单 SKU（EXA2428G、EXA2830G、EXA3033G 等共 21 个）不一致，按标签文件执行换标。\n2. 按标签文件（Order - 2026-09-16T184644.589.pdf）打印新入库单 WI52653783 的 A+ 包裹标签。\n3. 逐箱拆开包裹，撕除原 WI51636814 包裹标签，补贴新 WI52653783 包裹标签。\n4. 换标完成后，使用新入库单 WI52653783 扫描上架。\n5. 操作完成后，将增值单 VASC000000370434 状态变更为仓库已处理。\n\n【注意事项】\n1. 如实际到仓箱数不是 68 箱、标签文件无法打印或 SKU 实物差异过大，暂停操作并上报主管处理。\n2. 换标时确保新标签完整覆盖原标签位置，避免条码重复扫描。\n3. [待补充：操作说明附件]、[待补充：商品和标签的对应关系]、[待补充：包裹和标签的对应关系]、[待补充：视频拍摄SOP（中文+英文）]。"
+    }
+  },
+  "analysis": "【需求描述】\n入库单 WI51636814 预计 10 月 2 日到仓，共 68 箱 A+ 包裹需在上架前拦截，将原包裹标签更换为新入库单 WI52653783 的 A+ 包裹标签。已提供标签文件（Order - 2026-09-16T184644.589.pdf）。注意：原入库单与新入库单 SKU 存在差异（原单 377 个 SKU 如 EXA2428-SLR、EXA2830-SLR 等，新单 21 个 SKU 如 EXA2428G、EXA2830G 等），请按标签文件执行换标操作。\n\n【需求背景】\n客户要求对到仓 A+ 包裹更换新入库单标签后上架。\n\n【操作要求】\n1. 10 月 2 日到仓时，根据入库单 WI51636814 拦截全部 68 箱 A+ 包裹，暂存待处理区域。提示：原入库单 SKU（EXA2428-SLR、EXA2830-SLR、EXA3033-SLR 等共 377 个）与新入库单 SKU（EXA2428G、EXA2830G、EXA3033G 等共 21 个）不一致，按标签文件执行换标。\n2. 按标签文件（Order - 2026-09-16T184644.589.pdf）打印新入库单 WI52653783 的 A+ 包裹标签。\n3. 逐箱拆开包裹，撕除原 WI51636814 包裹标签，补贴新 WI52653783 包裹标签。\n4. 换标完成后，使用新入库单 WI52653783 扫描上架。\n5. 操作完成后，将增值单 VASC000000370434 状态变更为仓库已处理。\n\n【注意事项】\n1. 如实际到仓箱数不是 68 箱、标签文件无法打印或 SKU 实物差异过大，暂停操作并上报主管处理。\n2. 换标时确保新标签完整覆盖原标签位置，避免条码重复扫描。\n3. [待补充：操作说明附件]、[待补充：商品和标签的对应关系]、[待补充：包裹和标签的对应关系]、[待补充：视频拍摄SOP（中文+英文）]。",
+  "structuredReview": {
+    "vascNo": "VASC000000370434",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "ambiguous",
+      "topScene": "inbound_label_identify",
+      "confidence": 0.3333333333333333
+    },
+    "materialsComplete": true,
+    "missingMaterials": [],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "【需求描述】\n入库单 WI51636814 预计 10 月 2 日到仓，共 68 箱 A+ 包裹需在上架前拦截，将原包裹标签更换为新入库单 WI52653783 的 A+ 包裹标签。已提供标签文件（Order - 2026-09-16T184644.589.pdf）。注意：原入库单与新入库单 SKU 存在差异（原单 377 个 SKU 如 EXA2428-SLR、EXA2830-SLR 等，新单 21 个 SKU 如 EXA2428G、EXA2830G 等），请按标签文件执行换标操作。\n\n【需求背景】\n客户要求对到仓 A+ 包裹更换新入库单标签后上架。\n\n【操作要求】\n1. 10 月 2 日到仓时，根据入库单 WI51636814 拦截全部 68 箱 A+ 包裹，暂存待处理区域。提示：原入库单 SKU（EXA2428-SLR、EXA2830-SLR、EXA3033-SLR 等共 377 个）与新入库单 SKU（EXA2428G、EXA2830G、EXA3033G 等共 21 个）不一致，按标签文件执行换标。\n2. 按标签文件（Order - 2026-09-16T184644.589.pdf）打印新入库单 WI52653783 的 A+ 包裹标签。\n3. 逐箱拆开包裹，撕除原 WI51636814 包裹标签，补贴新 WI52653783 包裹标签。\n4. 换标完成后，使用新入库单 WI52653783 扫描上架。\n5. 操作完成后，将增值单 VASC000000370434 状态变更为仓库已处理。\n\n【注意事项】\n1. 如实际到仓箱数不是 68 箱、标签文件无法打印或 SKU 实物差异过大，暂停操作并上报主管处理。\n2. 换标时确保新标签完整覆盖原标签位置，避免条码重复扫描。\n3. [待补充：操作说明附件]、[待补充：商品和标签的对应关系]、[待补充：包裹和标签的对应关系]、[待补充：视频拍摄SOP（中文+英文）]。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

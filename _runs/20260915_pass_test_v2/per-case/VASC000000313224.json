@@ -1,0 +1,89 @@
+{
+  "orderNo": "VASC000000313224",
+  "outcome": "needs_field_clarification",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "needs_field_clarification",
+      "ruleOutputPath": "needs_field_clarification",
+      "action": "stop_first_round",
+      "note": "pass-test 只记第一轮，不模拟补附件/选场景",
+      "sceneKey": "inbound_parcel_cross_warehouse_transfer"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000313224",
+    "outputPath": "needs_field_clarification",
+    "ruleOutputPath": "needs_field_clarification",
+    "node": "check-scene-completeness",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness"
+    ],
+    "failureGate": "check-completeness",
+    "missing": [
+      "当前所在仓库未说明"
+    ],
+    "missingRequirementItems": [
+      "当前所在仓库未说明"
+    ],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [
+      "本场景（【入库】包裹串仓异常调拨）需要知道当前所在仓库，请补充。"
+    ],
+    "infoChecks": [
+      {
+        "field": "异常包裹编号",
+        "present": true,
+        "evidence": "EB0126070230983595"
+      },
+      {
+        "field": "目的仓库",
+        "present": true,
+        "evidence": "DG仓"
+      },
+      {
+        "field": "目标入库单号",
+        "present": true,
+        "evidence": "WI50892274"
+      },
+      {
+        "field": "当前所在仓库",
+        "present": false,
+        "evidence": ""
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (40).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值\nEB0126070230983595  货物实际是DG品，需要转回DG仓上架，请帮忙把货物转到DG仓，上架到WI50892274，补贴winit包裹标签",
+    "requirementLength": 82,
+    "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+    "sceneName": "【入库】包裹串仓异常调拨",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "您好，该增值单已识别为「【入库】包裹串仓异常调拨」，但还缺少以下信息/附件：\n\n**增值单号：** VASC000000313224  \n**客户：** **************************** / 16758605  \n**仓库：** DEBR2 Warehouse / DEBR2  \n**已绑定异常单：** EB0126070230983595  \n**已绑定入库单：** WI50892274  \n**已提交需求：** 货物实际是DG品，需要转回DG仓上架，请帮忙把货物转到DG仓，上架到WI50892274，补贴winit包裹标签\n\n**已上传附件：**  \n- 标签文件（Order (40).pdf）\n\n**还缺少的关键信息：**  \n- **当前所在仓库**：货物现在在哪个仓库？需要明确从哪个仓库转到DG仓，才能安排调拨操作。\n\n**还缺少的附件：**  \n- **操作说明附件**：请提供详细的操作说明文件\n- **商品和标签的对应关系**：需要说明哪些商品对应哪些标签\n- **包裹和标签的对应关系**：需要说明包裹与标签的匹配关系\n- **视频拍摄SOP（中文+英文）**：如涉及视频拍摄需求，请提供中英文SOP\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "llmError": "",
+    "analysis": "您好，该增值单已识别为「【入库】包裹串仓异常调拨」，但还缺少以下信息/附件：\n\n**增值单号：** VASC000000313224  \n**客户：** **************************** / 16758605  \n**仓库：** DEBR2 Warehouse / DEBR2  \n**已绑定异常单：** EB0126070230983595  \n**已绑定入库单：** WI50892274  \n**已提交需求：** 货物实际是DG品，需要转回DG仓上架，请帮忙把货物转到DG仓，上架到WI50892274，补贴winit包裹标签\n\n**已上传附件：**  \n- 标签文件（Order (40).pdf）\n\n**还缺少的关键信息：**  \n- **当前所在仓库**：货物现在在哪个仓库？需要明确从哪个仓库转到DG仓，才能安排调拨操作。\n\n**还缺少的附件：**  \n- **操作说明附件**：请提供详细的操作说明文件\n- **商品和标签的对应关系**：需要说明哪些商品对应哪些标签\n- **包裹和标签的对应关系**：需要说明包裹与标签的匹配关系\n- **视频拍摄SOP（中文+英文）**：如涉及视频拍摄需求，请提供中英文SOP\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "conclusionOneLiner": "货物送错仓库需跨仓调拨到DG仓",
+    "judgmentBasis": "🔍 异常单 EB0126070230983595：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：补贴包裹标签、转回DG仓、上架到WI50892274、补贴winit包裹标签\n✅ AI 判断场景：【入库】包裹串仓异常调拨（置信度：高）\n💡 AI 理由：货物送错仓库需跨仓调拨到DG仓"
+  },
+  "omsWriteAttempted": false
+}

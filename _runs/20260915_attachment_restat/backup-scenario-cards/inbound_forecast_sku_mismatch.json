@@ -1,0 +1,77 @@
+{
+  "sceneKey": "inbound_forecast_sku_mismatch",
+  "sceneName": "【入库】入库预报SKU与实际到货SKU不符合",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.10",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "sku码贴错",
+      "到仓包裹混了其他sku",
+      "预报SKU与实际到货SKU不符",
+      "按照客户给的辨识方案进行辨识",
+      "上架到新入库单",
+      "计划外的异常",
+      "扫描鞋盒的SKU标签上架",
+      "客户再下新单进行后续处理"
+    ],
+    "weak": [
+      "拆包",
+      "贴新的商品标签",
+      "换包装",
+      "拍照回传给客户辨识",
+      "无法识别或上架",
+      "暂存"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "批量辨识",
+      "100%A+",
+      "串仓",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "调拨",
+      "下架后重新上架",
+      "关联第三方条码",
+      "退货单"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景强调预报SKU与实际到货不符，需要客户辨识方案或下新单；尺重辨识场景侧重于尺寸重量测量后换标",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景是单个或少量包裹的SKU错误，需要客户确认正确SKU；批量辨识是大批量商品的条码补贴",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景核心是预报与实际不符，需要上架到新入库单或客户下新单；包裹类异常换标是在原入库单内换标",
+    "和【入库】无主货异常补贴标签上架的区别是：本场景的货物有预报单但SKU不对，需要客户辨识；无主货是完全没有预报信息的货物"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：预报SKU与实际到货SKU不符的包裹/商品",
+    "动作：拆包辨识、换标、换包装、上架到新入库单或等待客户下新单",
+    "去向：上架到新入库单（场景一）或拍照暂存等待客户处理（场景二）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "拆包并按客户辨识方案进行辨识",
+    "贴新的商品标签和包裹标签",
+    "换包装（如需要）",
+    "上架到新入库单或等待客户下新单",
+    "异常状态变更为仓库已完成并关闭异常单"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.10. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

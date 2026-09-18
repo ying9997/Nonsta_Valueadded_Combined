@@ -1,0 +1,157 @@
+{
+  "generatedAt": "2026-09-14T10:21:50.232Z",
+  "dateFrom": "2026-04-21",
+  "dateTo": "2026-09-03",
+  "sceneKey": "instock_nonstandard_charge",
+  "sceneName": "【库内】非标收费",
+  "omsSceneCode": "20250620001",
+  "fileName": "instock_nonstandard_charge.json",
+  "category": "instock",
+  "approvedOrderCount": 47,
+  "sampleCount": 10,
+  "skipReason": "",
+  "llmError": "",
+  "existingHints": [
+    "处理对象：已做IT改数操作的订单/SKU",
+    "动作：补收IT改数费用",
+    "原因/背景：仓库无库存导致无法提交正常库内非标增值"
+  ],
+  "requiredInfoFields": [
+    {
+      "field": "非标服务类型",
+      "description": "需要明确具体的非标服务内容，如IT改数、商品编码更新、批次修改、条码关系调整等",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "IT改数服务",
+        "商品编码需要更新",
+        "修改失效日期",
+        "解绑对应的箱产品和箱内单品码的关系",
+        "申请账号间不同SKU共享第三方商品条码"
+      ],
+      "required": true
+    },
+    {
+      "field": "操作对象标识",
+      "description": "需要明确操作的SKU、出库单号、入库单号或账号等具体标识",
+      "frequency": "约90%的历史单提到了",
+      "examples": [
+        "11304010760",
+        "出库单 RRF-X004TE5Y5Z * 11",
+        "WI51464228",
+        "WO12168193291",
+        "sku清单见增值文件"
+      ],
+      "required": true
+    },
+    {
+      "field": "业务背景/原因",
+      "description": "说明为什么需要做这个非标操作，帮助理解需求合理性",
+      "frequency": "约80%的历史单提到了",
+      "examples": [
+        "因客户内部核算要求，需要分俩个主体清算",
+        "客户的API推单有问题，API信息流没有推完整",
+        "需要将SKU统一归类",
+        "效期维护不正确",
+        "为防止新入库同款商品与老库存混用"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "操作数量/范围",
+      "description": "涉及的SKU数量、出库单数量或具体件数",
+      "frequency": "约50%",
+      "examples": [
+        "出库单 RRF-X004TE5Y5Z * 11",
+        "2-12行sku",
+        "sku清单见增值文件"
+      ],
+      "required": false
+    },
+    {
+      "field": "后续操作要求",
+      "description": "完成非标操作后需要进行的下一步动作",
+      "frequency": "约40%",
+      "examples": [
+        "完成商品条码重新绑定后，并按照新提交的入库单上架到新SKU上",
+        "客户可以重新推新单",
+        "待出库单操作完成后，一加会再同步上架到TK库存的入库单号"
+      ],
+      "required": false
+    },
+    {
+      "field": "时效要求",
+      "description": "是否需要加急处理或指定完成时间",
+      "frequency": "约30%",
+      "examples": [
+        "需要帮忙加急今天下架完成",
+        "需尽快提供报价",
+        "本周日刷"
+      ],
+      "required": false
+    },
+    {
+      "field": "关联账号/主体信息",
+      "description": "涉及多账号或多主体时需要说明账号关系",
+      "frequency": "约20%",
+      "examples": [
+        "申请账号组 14081998——IWT TECHNOLOGIES INC. 20270893——巴別魚技術(香港)有限公司",
+        "同客户，不同万邑通主体，不同国家"
+      ],
+      "required": false
+    }
+  ],
+  "samples": [
+    {
+      "orderNo": "VASC000000336606",
+      "requirementDescription": "申请账号间不同SKU共享第三方商品条码  1、申请账号组  14081998——IWT TECHNOLOGIES INC.  20270893——巴別魚技術(香港)有限公司  2、申请原因  因客户内部核算要求，需要分俩个主体清算，故注册了俩个万邑通账号（同客户，不同万邑通主体，不同国家），但是客户的同一款产品是同一个工厂出的，美国和德国是一样的EAN码和UPC码，所以需要支持不同账号间不同的M码可以关联一样的第三方商品条码。",
+      "requirementBackground": "申请账号间不同SKU共享第三方商品条码  1、申请账号组  14081998——IWT TECHNOLOGIES INC.  20270893——巴別魚技術(香港)有限公司  2、申请原因  因客户内部核算要求，需要分俩个主体清算，故注册了俩个万邑通账号（同客户，不同万邑通主体，不同国家），但是客户的同一款产品是同一个工厂出的，美国和德国是一样的EAN码和UPC码，所以需要支持不同账号间不同的M码可以关联一样的第三方商品条码。"
+    },
+    {
+      "orderNo": "VASC000000329397",
+      "requirementDescription": "解绑对应的箱产品和箱内单品码的关系，客户可以重新推新单",
+      "requirementBackground": "WI51464228  海外验-直发-空卡  USWC2 Warehouse  下单的都是箱产品，客户下单时把单品条码导入绑定在箱产品上了，但客户反馈他们的API推单有问题，API信息流没有推完整，客户直接把这个入库单点了终止  后续客户想就WI51464228导入绑定在箱产品上的单品条码进行再次下发新入库单，也都是箱产品，但是无法下发，报错单品条码已被使用"
+    },
+    {
+      "orderNo": "VASC000000334077",
+      "requirementDescription": "WO12168193291  需求背景：一加英国新增TikTok业务，现在先下架用自定义库存属性CIA01商城的在库库存，再上架库存属性CIA02的Tiktok库存。  仓库操作步骤是先将此WO12168193291做下架，待出库单操作完成后，一加会再同步上架到TK库存的入库单号。需要帮忙加急今天下架完成，谢谢",
+      "requirementBackground": "暂无标准增值"
+    },
+    {
+      "orderNo": "VASC000000332814",
+      "requirementDescription": "将出库单 RRF-X004TE5Y5Z * 11 RRF-X004W20891 * 6 RRF-X004UH5587 * 7 RRF—X004TE7D9F * 24 全部下架并暂存，完成商品条码重新绑定后，并按照新提交的入库单上架到新SKU上。",
+      "requirementBackground": "需要将SKU统一归类。"
+    },
+    {
+      "orderNo": "VASC000000334980",
+      "requirementDescription": "将出库单RRF-X004W20891 * 19  RRF-X004TE5Y5Z * 13  RRF-X004UH5587 * 32  RRF—X004TE7D9F * 16 全部下架，并按照新提交的入库单上架到新SKU上.",
+      "requirementBackground": "需要将SKU统一归类"
+    },
+    {
+      "orderNo": "VASC000000318969",
+      "requirementDescription": "需求：1、2-12行sku修改失效日期。2、13行9421908378977，修改批次号。麻烦报价",
+      "requirementBackground": "2-12行SKU效期维护不正确；13行批次信息维护不正确。需尽快提供报价"
+    },
+    {
+      "orderNo": "VASC000000326892",
+      "requirementDescription": "商品编码需要更新，先用这几个sku进行测试（sku清单见增值文件）",
+      "requirementBackground": "商品编码需要更新，先用这几个sku进行测试（sku清单见增值文件）"
+    },
+    {
+      "orderNo": "VASC000000326775",
+      "requirementDescription": "11304010760库存改值统一批次",
+      "requirementBackground": "11304010760为防止新入库同款商品与老库存混用，现原有库存该值，统一批次"
+    },
+    {
+      "orderNo": "VASC000000336429",
+      "requirementDescription": "商品编码需要更新，sku清单见增值文件（本周日刷）",
+      "requirementBackground": "商品编码需要更新，sku清单见增值文件（本周日刷）"
+    },
+    {
+      "orderNo": "VASC000000331257",
+      "requirementDescription": "商品编码需要更新，sku清单见增值文件",
+      "requirementBackground": "商品编码需要更新，sku清单见增值文件"
+    }
+  ]
+}

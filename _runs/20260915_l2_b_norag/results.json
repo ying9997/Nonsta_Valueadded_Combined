@@ -1,0 +1,494 @@
+[
+  {
+    "orderNo": "VASC000000326295",
+    "outcome": "l4_direct",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "inbound_package_barcode_batch_relabel"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000326295",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [
+        {
+          "field": "异常单号",
+          "present": true,
+          "evidence": "EB0126070431054581"
+        },
+        {
+          "field": "目标入库单WI",
+          "present": true,
+          "evidence": "WI51254073、WI51253745、WI51254041、WI51254014、WI51253895、WI51253924、WI51253954、WI51253833、WI51253865、WI51253987、WI51253770、WI51253802 共12个入库单"
+        },
+        {
+          "field": "SKU与入库单对应关系",
+          "present": true,
+          "evidence": "每个入库单都明确对应了SKU和订单号，例如：WI51254073对应M010000000012343027==2082929904982022，WI51253745对应M010000000012342943==2082925774379014等"
+        },
+        {
+          "field": "处理数量或范围",
+          "present": true,
+          "evidence": "客户已上传标签文件附件，其中应包含每个入库单需要补贴标签的具体数量信息；且客户要求'按新单补贴新单的包裹标签操作上架'，说明处理范围为所有12个新入库单"
+        }
+      ],
+      "infoCheckSkipped": false,
+      "infoCheckError": "",
+      "attachmentComplete": true,
+      "uploadedAttachments": [
+        "标签文件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51253745.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51253770.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51253802.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51253833.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51253865.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51253895.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51253924.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51253954.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51253987.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51254014.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51254041.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "WI51254073.pdf",
+          "label": "标签文件"
+        }
+      ],
+      "customerIntent": "EB0126070431054581   背景：异常单：EB0126070431054581  登记的异常是：包裹条码异常(需客户处理)   和仓库核实实际是有多款不同的产品，客户下了多个新单，标准无法一起操作，需要非标处理\n异常单：EB0126070431054581     登记的异常是：包裹条码异常(需客户处理)   拍的产品sku：X0053SBXIX  和仓库核实实际此异常是有多款不同的sku，对应新单：  WI51254073 下单sku：M010000000012343027==2082929904982022  WI51253745 下单sku：M010000000012342943==2082925774379014  WI51254041 下单sku：M010000000012343000\t==2082929906554886  WI51254014 下单sku：M010000000012343009\t==2082929906292742\t  WI51253895 下单sku：M010000000012342958==2082925773068294  WI51253924 下单sku：M010000000012343043==2082929906030598  WI51253954 下单sku：\tM010000000012342531==2082908939753478   WI51253833 下单sku：M010000000012342967\t==2082925774641158  WI51253865 下单sku：M010000000012343005==2082929911273478  WI51253987 下单sku：M010000000012342987==2082925778049030  WI51253770 下单sku：M010000000012343044==2082929911011334\t  WI51253802 下单sku：\tM010000000012342983 ==2082925775689734    按标准只能填写一个入库单无法操作上架，只能通过非标处理  实物产品条码正确，客户要求使用新入库单上架，仓库帮忙按新单补贴新单的包裹标签操作上架，帮忙更新非标报价，谢谢。",
+      "requirementLength": 947,
+      "sceneKey": "inbound_package_barcode_batch_relabel",
+      "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n异常单 EB0126070431054581 登记为包裹条码异常，实际为一批货物包含多款不同 SKU，客户已创建 12 个新入库单分别对应不同商品。需按客户提供的 SKU-商品条码映射关系和标签文件，为每个包裹补贴对应入库单的包裹标签后分别上架。涉及入库单：WI51254073、WI51253745、WI51254041、WI51254014、WI51253895、WI51253924、WI51253954、WI51253833、WI51253865、WI51253987、WI51253770、WI51253802，已提供 12 个标签文件。\n\n【需求背景】\n到仓包裹内混装多个不同 SKU，标准流程无法按单一入库单上架，需按客户提供的 SKU-入库单对应关系补贴新包裹标签后分别上架。\n\n【操作要求】\n1. 根据异常单 EB0126070431054581 定位货位，找到所有待处理包裹\n2. 逐个核对实物商品条码，按需求描述中的 SKU-商品条码映射关系识别每个包裹对应的入库单（例如：实物商品条码 2082929904982022 对应 SKU M010000000012343027，归属入库单 WI51254073）\n3. 根据识别结果，打印对应入库单的包裹标签文件（如 WI51254073.pdf），覆盖原包裹标签位置粘贴新标签\n4. 核对 12 个入库单的实物包裹数量与预期是否一致，如有差异需在系统备注\n5. 扫描新包裹标签上的入库单号，将各包裹分别上架至对应入库单的库位\n6. 全部上架完成后，将异常单状态变更为已完成\n\n【注意事项】\n- 每个包裹必须与正确的入库单标签一一对应，避免混淆\n- 实物商品条码正确无需更换，仅补贴包裹标签\n- 共涉及 12 个入库单，需逐单核对上架",
+      "llmError": "",
+      "analysis": "【需求描述】\n异常单 EB0126070431054581 登记为包裹条码异常，实际为一批货物包含多款不同 SKU，客户已创建 12 个新入库单分别对应不同商品。需按客户提供的 SKU-商品条码映射关系和标签文件，为每个包裹补贴对应入库单的包裹标签后分别上架。涉及入库单：WI51254073、WI51253745、WI51254041、WI51254014、WI51253895、WI51253924、WI51253954、WI51253833、WI51253865、WI51253987、WI51253770、WI51253802，已提供 12 个标签文件。\n\n【需求背景】\n到仓包裹内混装多个不同 SKU，标准流程无法按单一入库单上架，需按客户提供的 SKU-入库单对应关系补贴新包裹标签后分别上架。\n\n【操作要求】\n1. 根据异常单 EB0126070431054581 定位货位，找到所有待处理包裹\n2. 逐个核对实物商品条码，按需求描述中的 SKU-商品条码映射关系识别每个包裹对应的入库单（例如：实物商品条码 2082929904982022 对应 SKU M010000000012343027，归属入库单 WI51254073）\n3. 根据识别结果，打印对应入库单的包裹标签文件（如 WI51254073.pdf），覆盖原包裹标签位置粘贴新标签\n4. 核对 12 个入库单的实物包裹数量与预期是否一致，如有差异需在系统备注\n5. 扫描新包裹标签上的入库单号，将各包裹分别上架至对应入库单的库位\n6. 全部上架完成后，将异常单状态变更为已完成\n\n【注意事项】\n- 每个包裹必须与正确的入库单标签一一对应，避免混淆\n- 实物商品条码正确无需更换，仅补贴包裹标签\n- 共涉及 12 个入库单，需逐单核对上架",
+      "conclusionOneLiner": "包裹条码异常，按12个新单补贴包裹标签上架",
+      "judgmentBasis": "🔍 异常单 EB0126070431054581：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：补贴包裹标签、辨识多款不同SKU产品、按12个新入库单分别补贴包裹标签、按新单上架\n✅ AI 判断场景：【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架（置信度：高）\n💡 AI 理由：包裹条码异常，按12个新单补贴包裹标签上架"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000298617",
+    "outcome": "transfer_human",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "action": "stop_first_round",
+        "note": "pass-test 只记第一轮，不模拟补附件/选场景",
+        "sceneKey": "inbound_label_identify"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000298617",
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "node": "match-template",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template"
+      ],
+      "failureGate": "match-template",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [],
+      "infoCheckSkipped": true,
+      "infoCheckError": "",
+      "uploadedAttachments": [
+        "操作说明附件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_AOOI",
+          "fileName": "新建 XLSX 工作表.xlsx",
+          "label": "操作说明附件"
+        }
+      ],
+      "customerIntent": "EB0326061230366501 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实物照片，  EB0326061230362709 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实实物照片，  返回照片后再进行辨识处理\nEB0326061230366501 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实物照片，  EB0326061230362709 随机抽1件商品拆包装按照要求拍正，后，侧面 三张实实物照片，  返回照片后再进行辨识处理",
+      "requirementLength": 223,
+      "sceneKey": "inbound_label_identify",
+      "sceneName": "【入库】尺重/标签辨识后换标上架",
+      "decision": "ambiguous",
+      "confidence": "medium",
+      "reason": "ambiguous_top1_top2_close",
+      "llmText": "客户需求涉及拍照后再进行辨识处理，场景匹配置信度较低（0.42），系统无法确定是否属于【入库】尺重/标签辨识后换标上架场景，需人工判断具体操作流程和费用标准。",
+      "llmError": "",
+      "analysis": "客户需求涉及拍照后再进行辨识处理，场景匹配置信度较低（0.42），系统无法确定是否属于【入库】尺重/标签辨识后换标上架场景，需人工判断具体操作流程和费用标准。",
+      "conclusionOneLiner": "需拍照返回客户确认后再处理，典型暂存场景",
+      "judgmentBasis": "🔍 异常单 EB0326061230366501、EB0326061230362709：包裹内出现订单外商品（商品）[oms_api]\n📋 识别的动作：辨识\n✅ AI 判断场景：【入库】尺重/标签辨识后换标上架（置信度：低）\n💡 AI 理由：需拍照返回客户确认后再处理，典型暂存场景"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000309288",
+    "outcome": "transfer_human",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "action": "stop_first_round",
+        "note": "pass-test 只记第一轮，不模拟补附件/选场景",
+        "sceneKey": "instock_aplus_parcel_relabel_shelve"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000309288",
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "node": "match-template",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template"
+      ],
+      "failureGate": "match-template",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [],
+      "infoCheckSkipped": true,
+      "infoCheckError": "",
+      "uploadedAttachments": [
+        "标签文件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "Order.pdf",
+          "label": "标签文件"
+        }
+      ],
+      "customerIntent": "因实际异常情况是错装需按实际SKU重新上架，故非标申请\n对应这几个异常单：  EB0526062530738732  EB0526062530738723  EB0526062530738675错装商品按实际SKU重新上架，新入库单：WI50744071",
+      "requirementLength": 124,
+      "sceneKey": "instock_aplus_parcel_relabel_shelve",
+      "sceneName": "【库内】A+包裹更换标签上架",
+      "decision": "ambiguous",
+      "confidence": "medium",
+      "reason": "ambiguous_below_high_confidence",
+      "llmText": "场景识别置信度较低（0.25），系统无法确定是否属于\"A+包裹更换标签上架\"场景。客户提到错装需按实际SKU重新上架，但缺少操作说明附件、商品和标签对应关系等关键材料，需人工核实具体操作需求和场景分类。",
+      "llmError": "",
+      "analysis": "场景识别置信度较低（0.25），系统无法确定是否属于\"A+包裹更换标签上架\"场景。客户提到错装需按实际SKU重新上架，但缺少操作说明附件、商品和标签对应关系等关键材料，需人工核实具体操作需求和场景分类。",
+      "conclusionOneLiner": "商品条码异常，错装需按实际SKU换标上架",
+      "judgmentBasis": "🔍 异常单 EB0526062530738732、EB0526062530738723、EB0526062530738675：单品条码无法扫描(需客户处理）（商品）[oms_api]\n✅ AI 判断场景：【库内】A+包裹更换标签上架（置信度：低）\n💡 AI 理由：商品条码异常，错装需按实际SKU换标上架"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000292770",
+    "outcome": "transfer_human",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "action": "stop_first_round",
+        "note": "pass-test 只记第一轮，不模拟补附件/选场景",
+        "sceneKey": "instock_good_defective_inspection"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000292770",
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "node": "match-template",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template"
+      ],
+      "failureGate": "match-template",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [],
+      "infoCheckSkipped": true,
+      "infoCheckError": "",
+      "uploadedAttachments": [
+        "标签文件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "Order (9).pdf",
+          "label": "标签文件"
+        }
+      ],
+      "customerIntent": "EB0126060129969286 EB0126060129969148 EB0526060129965365 EB0526052729824710 EB0526052129666652 EB0526051929552166 EB0526051829526756 EB0526051829526378 EB0526051829523504 需按对应关系补贴商品标签并将货物上架到不良品，入库单号WI50271247\nEB0126060129969286 EB0126060129969148 EB0526060129965365 EB0526052729824710 EB0526052129666652 EB0526051929552166 EB0526051829526756 EB0526051829526378 EB0526051829523504 需按对应关系补贴商品标签并将货物上架到不良品，入库单号WI50271247",
+      "requirementLength": 417,
+      "sceneKey": "instock_good_defective_inspection",
+      "sceneName": "【库内】良品/不良品检测",
+      "decision": "ambiguous",
+      "confidence": "medium",
+      "reason": "ambiguous_top1_top2_close",
+      "llmText": "客户要求将货物补贴标签后上架到不良品，但场景识别在「良品/不良品检测」和其他场景之间置信度接近，无法明确判定具体操作类型。需人工确认客户实际需求是检测分拣、换标上架还是其他库内操作。",
+      "llmError": "",
+      "analysis": "客户要求将货物补贴标签后上架到不良品，但场景识别在「良品/不良品检测」和其他场景之间置信度接近，无法明确判定具体操作类型。需人工确认客户实际需求是检测分拣、换标上架还是其他库内操作。",
+      "conclusionOneLiner": "质量异常+条码异常需换商品标签做不良品上架",
+      "judgmentBasis": "🔍 异常单 EB0126060129969286：商品质量异常(影响销售)（商品）[oms_api]\n🔍 异常单 EB0126060129969148：商品质量异常(影响销售)（商品）[oms_api]\n📋 识别的动作：换商品标签\n✅ AI 判断场景：【库内】良品/不良品检测（置信度：低）\n💡 AI 理由：质量异常+条码异常需换商品标签做不良品上架"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000338049",
+    "outcome": "transfer_human",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "action": "stop_first_round",
+        "note": "pass-test 只记第一轮，不模拟补附件/选场景",
+        "sceneKey": "instock_good_defective_inspection"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000338049",
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "node": "match-template",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template"
+      ],
+      "failureGate": "match-template",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [],
+      "infoCheckSkipped": true,
+      "infoCheckError": "",
+      "uploadedAttachments": [
+        "商品和标签的对应关系",
+        "标签文件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_TCRBCAL",
+          "fileName": "【商品和标签对应关系】模板0819.xlsx",
+          "label": "商品和标签的对应关系"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "B-YG012.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "A00-G6-1.75-1000-SPL.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "A01-W3-1.75-1000-SPLFREE.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "B-QA002.pdf",
+          "label": "标签文件"
+        }
+      ],
+      "customerIntent": "EB0526081332214735  EB0526081032110332  EB0526081032110341  EB0526080632036988 需要补贴商品条码上架到不良品，入库单号WI51908492，异常单对应商品标签看附件\nEB0526081332214735  EB0526081032110332  EB0526081032110341  EB0526080632036988 需要补贴商品条码上架到不良品，入库单号WI51908492，异常单对应商品标签看附件",
+      "requirementLength": 237,
+      "sceneKey": "instock_good_defective_inspection",
+      "sceneName": "【库内】良品/不良品检测",
+      "decision": "ambiguous",
+      "confidence": "medium",
+      "reason": "ambiguous_below_high_confidence",
+      "llmText": "客户需求是将入库单 WI51908492 中对应 4 个异常单的商品补贴条码后上架到不良品，但场景识别置信度仅 0.5，未达到自动处理阈值，需人工确认具体操作类型和费用标准。",
+      "llmError": "",
+      "analysis": "客户需求是将入库单 WI51908492 中对应 4 个异常单的商品补贴条码后上架到不良品，但场景识别置信度仅 0.5，未达到自动处理阈值，需人工确认具体操作类型和费用标准。",
+      "conclusionOneLiner": "异常名称为单品条码无法扫描，需换商品标签",
+      "judgmentBasis": "🔍 异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988：单品条码无法扫描(需客户处理）（商品）[oms_api]\n✅ AI 判断场景：【库内】良品/不良品检测（置信度：低）\n💡 AI 理由：异常名称为单品条码无法扫描，需换商品标签"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000344016",
+    "outcome": "l4_direct",
+    "threadId": "",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "instock_exception_to_defective_shelve"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000344016",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "clarificationPrompts": [],
+      "infoChecks": [
+        {
+          "field": "异常单号",
+          "present": true,
+          "evidence": "EB0526082632522481、EB0526082532467932"
+        },
+        {
+          "field": "新入库单号",
+          "present": true,
+          "evidence": "WI52147590"
+        },
+        {
+          "field": "异常原因",
+          "present": true,
+          "evidence": "需补贴商品条码（说明商品条码缺失或无法扫描）"
+        }
+      ],
+      "infoCheckSkipped": false,
+      "infoCheckError": "",
+      "attachmentComplete": true,
+      "uploadedAttachments": [
+        "商品和标签的对应关系",
+        "标签文件"
+      ],
+      "uploadedFiles": [
+        {
+          "fileType": "VAS_ATTR_REL_TCRBCAL",
+          "fileName": "【商品和标签对应关系】模板 (2).xlsx",
+          "label": "商品和标签的对应关系"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "B-QA012.pdf",
+          "label": "标签文件"
+        },
+        {
+          "fileType": "VAS_ATTR_REL_LF",
+          "fileName": "A01-K1-1.75-1000-SPL.pdf",
+          "label": "标签文件"
+        }
+      ],
+      "customerIntent": "EB0526082632522481、EB0526082532467932 需补贴商品条码上架不良品库位WI52147590\nEB0526082632522481、EB0526082532467932 需补贴商品条码上架不良品库位WI52147590",
+      "requirementLength": 125,
+      "sceneKey": "instock_exception_to_defective_shelve",
+      "sceneName": "【库内】异常商品转不良品上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n异常单 EB0526082632522481、EB0526082532467932 关联入库单 WI52147590，需按客户提供的商品与标签对应关系补贴新商品条码后，上架至不良品库位。客户已提供商品和标签对应关系文件（【商品和标签对应关系】模板 (2).xlsx）及标签文件（B-QA012.pdf、A01-K1-1.75-1000-SPL.pdf）。\n\n【需求背景】\n到仓商品条码异常，需按客户提供的对应关系补贴新商品条码后上架至不良品库位。\n\n【操作要求】\n1. 根据异常单 EB0526082632522481、EB0526082532467932 定位待处理货物；\n2. 打开客户提供的「商品和标签的对应关系」文件（【商品和标签对应关系】模板 (2).xlsx），查看文件中的原商品信息、对应新条码、数量等关键字段，核对实物商品与文件记录是否一致；\n3. 根据对应关系文件中的条码信息和数量要求，使用「标签文件」（B-QA012.pdf、A01-K1-1.75-1000-SPL.pdf）打印相应数量的商品条码标签，逐一补贴至对应商品上；\n4. 在系统中打开入库单 WI52147590，扫描已补贴新条码的商品，将商品上架至不良品库位；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n1. 补贴标签前必须核对对应关系文件，确保条码与商品匹配无误；\n2. 标签需平整牢固贴于商品指定位置，确保条码可正常扫描；\n3. 上架时确认库位为不良品库位。",
+      "llmError": "",
+      "analysis": "【需求描述】\n异常单 EB0526082632522481、EB0526082532467932 关联入库单 WI52147590，需按客户提供的商品与标签对应关系补贴新商品条码后，上架至不良品库位。客户已提供商品和标签对应关系文件（【商品和标签对应关系】模板 (2).xlsx）及标签文件（B-QA012.pdf、A01-K1-1.75-1000-SPL.pdf）。\n\n【需求背景】\n到仓商品条码异常，需按客户提供的对应关系补贴新商品条码后上架至不良品库位。\n\n【操作要求】\n1. 根据异常单 EB0526082632522481、EB0526082532467932 定位待处理货物；\n2. 打开客户提供的「商品和标签的对应关系」文件（【商品和标签对应关系】模板 (2).xlsx），查看文件中的原商品信息、对应新条码、数量等关键字段，核对实物商品与文件记录是否一致；\n3. 根据对应关系文件中的条码信息和数量要求，使用「标签文件」（B-QA012.pdf、A01-K1-1.75-1000-SPL.pdf）打印相应数量的商品条码标签，逐一补贴至对应商品上；\n4. 在系统中打开入库单 WI52147590，扫描已补贴新条码的商品，将商品上架至不良品库位；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n1. 补贴标签前必须核对对应关系文件，确保条码与商品匹配无误；\n2. 标签需平整牢固贴于商品指定位置，确保条码可正常扫描；\n3. 上架时确认库位为不良品库位。",
+      "conclusionOneLiner": "异常商品需补贴商品条码后上架不良品库位",
+      "judgmentBasis": "🔍 异常单 EB0526082632522481、EB0526082532467932：单品条码无法扫描(需客户处理）（商品）[oms_api]\n📋 识别的动作：补贴商品条码、上架到不良品库位\n✅ AI 判断场景：【库内】异常商品转不良品上架（置信度：高）\n💡 AI 理由：异常商品需补贴商品条码后上架不良品库位"
+    },
+    "omsWriteAttempted": false
+  }
+]

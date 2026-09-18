@@ -1,0 +1,75 @@
+{
+  "sceneKey": "inbound_unsigned_not_received_proof",
+  "sceneName": "【入库】签署仓库未收到货证明",
+  "status": "supported",
+  "category": "inbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.32",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "未收到货证明",
+      "证明函",
+      "法务",
+      "盖章",
+      "OA盖章申请",
+      "未使用头程",
+      "客户自己发货"
+    ],
+    "weak": [
+      "签署",
+      "文件",
+      "证明",
+      "申请流程",
+      "前提背景"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "条码",
+      "辨识",
+      "质检",
+      "拍照",
+      "调拨"
+    ],
+    "soft": [
+      "上架",
+      "SKU",
+      "预报",
+      "下架"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】上架前自提的区别是：本场景是签署证明文件，不涉及实际货物处理；自提是直接取走货物",
+    "和其他入库异常场景的区别是：本场景货物根本没到仓库，是出具证明；其他场景是货物已到仓但有问题需处理",
+    "本场景的前提是客户未使用万邑通头程服务，自己发货但货物未到达仓库",
+    "本场景需要走OA盖章流程，涉及法务文件签署，不是常规仓库操作"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：仓库未收到货证明文件",
+    "动作：签署/盖章",
+    "去向：提供给客户作为货物未到达的证明"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "确认客户未使用万邑通头程服务",
+    "确认货物确实未到达仓库",
+    "使用法务提供的证明函模板",
+    "发起OA盖章申请流程",
+    "盖章后将证明文件提供给客户"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.32. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code. SOP 内容不足，信号词可能不准。"
+}

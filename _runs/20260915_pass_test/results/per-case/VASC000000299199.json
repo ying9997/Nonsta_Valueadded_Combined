@@ -1,0 +1,90 @@
+{
+  "orderNo": "VASC000000299199",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_exception_relabel_shelving"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000299199",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "处理范围",
+        "present": true,
+        "evidence": "EB0126060330071043、EB0126060330073905、EB0126060330073002 共3个包裹"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "新单上架：WI50487032"
+      },
+      {
+        "field": "商品标签数量",
+        "present": true,
+        "evidence": "客户已上传标签文件附件，且明确了SKU（A2345341、A2039322），标签数量可从附件中获取"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "A2345341.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "A2039322.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "良品不良品示意图.jpg",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值\nEB0126060330071043  EB0126060330073905\"  补贴万邑通商品标签，A2345341，新单上架：WI50487032，请仓库实物是否是良品，良品就直接上架，不良品登记异常再重新处理新单上架    EB0126060330073002  补贴万邑通商品标签，A2039322，新单上架：WI50487032，请仓库实物是否是良品，良品就直接上架，不良品登记异常再重新处理新单上架    补贴标签见附件",
+    "requirementLength": 214,
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "sceneName": "【入库】包裹类异常换商品标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126060330071043、EB0126060330073905、EB0126060330073002 关联入库单 WI50487032，需对到仓商品进行良品辨识后补贴万邑通商品标签上架。具体为：EB0126060330071043 和 EB0126060330073905 补贴标签 A2345341；EB0126060330073002 补贴标签 A2039322。辨识标准见附件「良品不良品示意图.jpg」，标签文件见「A2345341.pdf」和「A2039322.pdf」。良品直接上架，不良品需登记异常后重新处理。\n\n【需求背景】\n到仓商品条码异常，需按客户提供的标签文件对实物进行良品辨识后补贴新商品标签上架。\n\n【操作要求】\n1. 根据异常单 EB0126060330071043、EB0126060330073905、EB0126060330073002 定位待处理货物\n2. 参照附件「良品不良品示意图.jpg」对实物进行良品辨识\n3. 良品货物按对应关系补贴万邑通商品标签：EB0126060330071043 和 EB0126060330073905 补贴标签 A2345341，EB0126060330073002 补贴标签 A2039322\n4. 良品货物使用入库单 WI50487032 扫描上架\n5. 不良品货物登记新异常单，暂存待后续处理\n6. 完成后将对应异常单状态变更为已完成\n\n【注意事项】\n- 严格按照「良品不良品示意图.jpg」标准进行辨识，不确定时拍照留存\n- 不良品必须登记新异常单，不可直接上架",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126060330071043、EB0126060330073905、EB0126060330073002 关联入库单 WI50487032，需对到仓商品进行良品辨识后补贴万邑通商品标签上架。具体为：EB0126060330071043 和 EB0126060330073905 补贴标签 A2345341；EB0126060330073002 补贴标签 A2039322。辨识标准见附件「良品不良品示意图.jpg」，标签文件见「A2345341.pdf」和「A2039322.pdf」。良品直接上架，不良品需登记异常后重新处理。\n\n【需求背景】\n到仓商品条码异常，需按客户提供的标签文件对实物进行良品辨识后补贴新商品标签上架。\n\n【操作要求】\n1. 根据异常单 EB0126060330071043、EB0126060330073905、EB0126060330073002 定位待处理货物\n2. 参照附件「良品不良品示意图.jpg」对实物进行良品辨识\n3. 良品货物按对应关系补贴万邑通商品标签：EB0126060330071043 和 EB0126060330073905 补贴标签 A2345341，EB0126060330073002 补贴标签 A2039322\n4. 良品货物使用入库单 WI50487032 扫描上架\n5. 不良品货物登记新异常单，暂存待后续处理\n6. 完成后将对应异常单状态变更为已完成\n\n【注意事项】\n- 严格按照「良品不良品示意图.jpg」标准进行辨识，不确定时拍照留存\n- 不良品必须登记新异常单，不可直接上架",
+    "conclusionOneLiner": "包裹条码异常需换商品标签上架",
+    "judgmentBasis": "🔍 异常单 EB0126060330071043、EB0126060330073905、EB0126060330073002：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：换商品标签、直接上架、补贴万邑通商品标签（A2345341、A2039322）、质检判定良品/不良品、良品直接上架到新单WI50487032、不良品登记异常重新处理\n✅ AI 判断场景：【入库】包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：包裹条码异常需换商品标签上架"
+  },
+  "omsWriteAttempted": false
+}

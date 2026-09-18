@@ -1,0 +1,85 @@
+{
+  "orderNo": "VASC000000342429",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_barcode_batch_relabel"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000342429",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "系统已掌握：EB0126081932324412、EB0126081932324199、EB0126081932323983"
+      },
+      {
+        "field": "目标入库单WI",
+        "present": true,
+        "evidence": "客户明确提到「上架到新单：WI51652234」，系统单据信息也已掌握该入库单号"
+      },
+      {
+        "field": "SKU与入库单对应关系",
+        "present": true,
+        "evidence": "客户已上传附件「Order (52).pdf」，文件名包含订单信息，且客户明确说明「标签见附件」，可合理推断附件中包含SKU与标签的对应关系"
+      },
+      {
+        "field": "处理数量或范围",
+        "present": true,
+        "evidence": "客户提供了3个异常单号，且上传了标签文件附件，可合理推断附件中包含需要补贴标签的具体数量信息"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (52).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值\nEB0126081932324412  EB0126081932324199  EB0126081932323983    请补贴winit商品标签上架到新单：WI51652234，标签见附件",
+    "requirementLength": 98,
+    "sceneKey": "inbound_package_barcode_batch_relabel",
+    "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983 关联的货物，需按客户提供的标签文件（Order (52).pdf）补贴 winit 商品标签后，上架到新入库单 WI51652234。客户明确暂无标准增值流程可用，需走非标特批处理。\n\n【需求背景】\n到仓包裹条码批量异常，无法按标准流程处理，需按客户指定标签重新贴标后上架到指定入库单。\n\n【操作要求】\n1. 根据异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983 定位待处理包裹；\n2. 打开标签文件 Order (52).pdf，按文件中的标签样式打印 winit 商品标签；\n3. 辨识包裹实物后，将新打印的商品标签补贴到对应包裹上；\n4. 使用入库单 WI51652234 扫描上架；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 标签文件为 PDF 格式，打印前确认标签尺寸与打印机设置匹配；\n- 补贴标签时确保条码清晰可扫描，不遮挡关键信息。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983 关联的货物，需按客户提供的标签文件（Order (52).pdf）补贴 winit 商品标签后，上架到新入库单 WI51652234。客户明确暂无标准增值流程可用，需走非标特批处理。\n\n【需求背景】\n到仓包裹条码批量异常，无法按标准流程处理，需按客户指定标签重新贴标后上架到指定入库单。\n\n【操作要求】\n1. 根据异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983 定位待处理包裹；\n2. 打开标签文件 Order (52).pdf，按文件中的标签样式打印 winit 商品标签；\n3. 辨识包裹实物后，将新打印的商品标签补贴到对应包裹上；\n4. 使用入库单 WI51652234 扫描上架；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 标签文件为 PDF 格式，打印前确认标签尺寸与打印机设置匹配；\n- 补贴标签时确保条码清晰可扫描，不遮挡关键信息。",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "🔍 异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：换商品标签\n✅ AI 判断场景：【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架（置信度：高）\n💡 AI 理由：规则A：异常名称含包裹条码异常"
+  },
+  "omsWriteAttempted": false
+}

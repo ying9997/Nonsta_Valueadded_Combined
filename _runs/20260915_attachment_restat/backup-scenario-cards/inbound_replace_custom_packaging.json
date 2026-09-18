@@ -1,0 +1,75 @@
+{
+  "sceneKey": "inbound_replace_custom_packaging",
+  "sceneName": "【入库】更换客制包材",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "20250509",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.25",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "客制包材",
+      "更换包材",
+      "邮寄包材",
+      "客制包装打包费",
+      "包装破损",
+      "更换包装"
+    ],
+    "weak": [
+      "补贴包裹条码",
+      "重新补贴",
+      "包裹包装",
+      "下架包材",
+      "上架包裹"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "标签辨识",
+      "批量辨识",
+      "串仓",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "换商品标签",
+      "拍照暂存",
+      "调拨",
+      "第三方条码"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹类异常换商品标签上架的区别：本场景是更换客制包材（外包装），不是换商品标签",
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景涉及客制包材的下架和更换，不涉及尺重测量或标签辨识",
+    "和【入库】商品质检的区别：本场景是因包装破损更换包材，不是对商品本身进行质检",
+    "关键特征：必须涉及客制包材的下架、更换和重新上架流程，且通常由客户邮寄包材"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确异常单号、出库单号(WO)、SKU、包裹信息",
+    "动作：下架客制包材 → 更换包装 → 补贴条码 → 上架",
+    "去向：指定上架位置(如WI开头的库位)，关闭异常单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "第一步：通过出库单下架指定SKU的客制包材",
+    "第二步：将异常包裹的包装更换成客制包材",
+    "第三步：重新补贴商品条码和包裹条码",
+    "第四步：上架到指定库位",
+    "第五步：变更异常单状态为仓库已完成并关闭"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.25. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250509."
+}

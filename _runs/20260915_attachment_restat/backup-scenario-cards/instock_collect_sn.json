@@ -1,0 +1,73 @@
+{
+  "sceneKey": "instock_collect_sn",
+  "sceneName": "【库内】采集SN码",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.26",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "采集SN码",
+      "SN码",
+      "序列号",
+      "采集后上架",
+      "采集商品SN",
+      "返回SN数据"
+    ],
+    "weak": [
+      "下架后暂存",
+      "等待客户上传",
+      "采集后重新上架",
+      "找出商品后采集"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "贴标签",
+      "补贴条码",
+      "质检",
+      "拍照",
+      "自提"
+    ],
+    "soft": [
+      "辨识",
+      "异常处理",
+      "调拨",
+      "换入库单"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景只采集SN码不换标签",
+    "和【入库】批量辨识商品后补贴商品条码的区别是：本场景是采集已有的SN码而非补贴新条码",
+    "和【入库】指定商品拍照暂存的区别是：本场景是采集SN码数据而非拍照",
+    "和【入库】关联第三方条码上架的区别是：本场景是采集SN码后暂存等待客户上传数据,而非直接关联上架"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需明确是哪些商品需要采集SN码(通过单据号或SKU指定)",
+    "动作：采集商品上的SN码/序列号",
+    "去向：采集后的数据返回给谁,以及采集后商品是重新上架还是暂存等待"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "根据单据找出需要采集的商品",
+    "采集商品上的SN码/序列号",
+    "将采集的SN数据返回给客服或客户",
+    "等待客户在系统上传SN数据",
+    "根据新的上架单重新上架或按指示处理"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.26. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 202507141（【出库】采集SN码）。 omsSceneCode pending_oms_code. 已清除跨类别 OMS 码."
+}

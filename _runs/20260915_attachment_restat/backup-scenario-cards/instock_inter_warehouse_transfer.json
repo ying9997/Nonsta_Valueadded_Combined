@@ -1,0 +1,77 @@
+{
+  "sceneKey": "instock_inter_warehouse_transfer",
+  "sceneName": "【库内】库内仓间调拨",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.40",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "仓间调拨",
+      "库内调拨",
+      "从A仓调到B仓",
+      "调拨到其他仓库",
+      "转仓",
+      "仓库之间转移",
+      "目的仓入库单",
+      "出库单关联入库单"
+    ],
+    "weak": [
+      "下出库单",
+      "尾程询价",
+      "包裹条码关联",
+      "第三方包裹条码",
+      "同时下入库单"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "辨识",
+      "质检",
+      "拍照",
+      "自提",
+      "串仓"
+    ],
+    "soft": [
+      "商品条码",
+      "SKU不符",
+      "无主货",
+      "暂存"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹串仓异常调拨的区别：串仓是包裹错误到达其他仓库的异常处理,仓间调拨是正常的库存转移需求",
+    "和【入库】商品下架后换入库单重新上架的区别：换入库单重新上架是在同一仓库内操作,仓间调拨涉及不同仓库之间的转移",
+    "和【入库】关联第三方条码上架的区别：关联第三方条码是入库上架操作,仓间调拨需要先出库再入库两个动作",
+    "关键特征：必须同时涉及出库和入库两个动作,且明确是从一个仓库转移到另一个仓库"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：需要调拨的包裹/商品(通常会提供出库单号或包裹信息)",
+    "动作：从源仓库出库并转移",
+    "去向：明确的目的仓库(如从美西仓调到美东仓)"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "第一步：在源仓库下出库单,走尾程询价流程",
+    "第二步：以出库单的包裹信息在目的仓下入库单",
+    "第三步：用出库单的包裹条码作为第三方包裹条码关联入库单",
+    "关键点：出库单和入库单需要通过包裹条码关联",
+    "注意：整个流程涉及两个仓库的协同操作"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.40. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode remapped alias 20250407074（【库内】库间调拨）。SOP库内仓间调拨 ≈ OMS库间调拨",
+  "omsSceneCode": "20250407074"
+}

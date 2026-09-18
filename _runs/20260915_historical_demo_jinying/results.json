@@ -1,0 +1,488 @@
+[
+  {
+    "orderNo": "VASC000000312144",
+    "outcome": "sop_llm_failed",
+    "threadId": "om_x100b65ba987b54acc02faebe254a1bb",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "action": "override_scene",
+        "note": "overrideScene=inbound_aplus_direct_shelve",
+        "sceneKey": "inbound_aplus_direct_shelve"
+      },
+      {
+        "round": 2,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "sop_llm_failed",
+        "note": "Expected ',' or '}' after property value in JSON at position 73 (line 2 column 72)",
+        "sceneKey": "inbound_aplus_direct_shelve"
+      }
+    ],
+    "simulated": [
+      "选择场景：【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架（来源：OMS 审核员实际选择）"
+    ],
+    "final": {
+      "orderNo": "VASC000000312144",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "llm-generate-sop",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "llm-generate-sop",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "sceneKey": "inbound_aplus_direct_shelve",
+      "sceneName": "【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "override_by_auditor",
+      "llmText": "",
+      "llmError": "Expected ',' or '}' after property value in JSON at position 73 (line 2 column 72)",
+      "analysis": "增值单 VASC000000312144 SOP 生成失败：Expected ',' or '}' after property value in JSON at position 73 (line 2 column 72)。请转人工处理，不要当作场景不确定。",
+      "conclusionOneLiner": "",
+      "judgmentBasis": "✅ AI 判断场景：【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架（置信度：高）"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000329235",
+    "outcome": "l4_direct",
+    "threadId": "om_x100b65ba937374a0c3f7eeca983a4b2",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "inbound_package_exception_relabel_shelving"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000329235",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "sceneKey": "inbound_package_exception_relabel_shelving",
+      "sceneName": "【入库】包裹类异常换商品标签上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n异常单 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432 登记的包裹需要重新补贴商品标签后上架到入库单 WI51519902。贴标对应关系：EB0126073131782987 贴 A110RH11 标签 82 件、EB0126073131782618 贴 A110RH41 标签 37 件、EB0126073131782432 贴 A110RH91 标签 7 件、EB0126073131782510 贴 A110RH31 标签 32 件。标签文件已提供（UPC-彩盒标签A110RH11.pdf、UPC-彩盒标签 A110RH31.pdf、UPC-彩盒标签A110RH91.pdf、UPC-彩盒标签A110RH41.pdf）。\n\n【需求背景】\n包裹异常导致商品标签缺失或不符，需按客户提供的标签文件和数量对应关系重新补贴商品标签后上架。\n\n【操作要求】\n1. 根据异常单 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432 定位待处理包裹；\n2. 打印客户提供的标签文件（UPC-彩盒标签A110RH11.pdf、UPC-彩盒标签 A110RH31.pdf、UPC-彩盒标签A110RH91.pdf、UPC-彩盒标签A110RH41.pdf）；\n3. 按对应关系补贴商品标签：EB0126073131782987 贴 A110RH11 标签 82 件、EB0126073131782618 贴 A110RH41 标签 37 件、EB0126073131782432 贴 A110RH91 标签 7 件、EB0126073131782510 贴 A110RH31 标签 32 件；\n4. 使用入库单 WI51519902 扫描上架；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 严格按照包裹号与 SKU 编码的对应关系贴标，确保数量准确；\n- 标签需贴在商品外包装明显位置，确保条码可扫描。",
+      "llmError": "",
+      "analysis": "【需求描述】\n异常单 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432 登记的包裹需要重新补贴商品标签后上架到入库单 WI51519902。贴标对应关系：EB0126073131782987 贴 A110RH11 标签 82 件、EB0126073131782618 贴 A110RH41 标签 37 件、EB0126073131782432 贴 A110RH91 标签 7 件、EB0126073131782510 贴 A110RH31 标签 32 件。标签文件已提供（UPC-彩盒标签A110RH11.pdf、UPC-彩盒标签 A110RH31.pdf、UPC-彩盒标签A110RH91.pdf、UPC-彩盒标签A110RH41.pdf）。\n\n【需求背景】\n包裹异常导致商品标签缺失或不符，需按客户提供的标签文件和数量对应关系重新补贴商品标签后上架。\n\n【操作要求】\n1. 根据异常单 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432 定位待处理包裹；\n2. 打印客户提供的标签文件（UPC-彩盒标签A110RH11.pdf、UPC-彩盒标签 A110RH31.pdf、UPC-彩盒标签A110RH91.pdf、UPC-彩盒标签A110RH41.pdf）；\n3. 按对应关系补贴商品标签：EB0126073131782987 贴 A110RH11 标签 82 件、EB0126073131782618 贴 A110RH41 标签 37 件、EB0126073131782432 贴 A110RH91 标签 7 件、EB0126073131782510 贴 A110RH31 标签 32 件；\n4. 使用入库单 WI51519902 扫描上架；\n5. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 严格按照包裹号与 SKU 编码的对应关系贴标，确保数量准确；\n- 标签需贴在商品外包装明显位置，确保条码可扫描。",
+      "conclusionOneLiner": "包裹条码异常需换商品标签上架",
+      "judgmentBasis": "🔍 异常单 EB0126073131782987、EB0126073131782618、EB0126073131782510、EB0126073131782432：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：换商品标签、补贴商品标签、上架到预报单WI51519902、按提供的SKU对应关系处理\n✅ AI 判断场景：【入库】包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：包裹条码异常需换商品标签上架"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000305787",
+    "outcome": "max_rounds_exceeded",
+    "threadId": "om_x100b65ba912c18a8df310a05e6dc472",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "action": "override_scene",
+        "note": "overrideScene=inbound_photo_hold",
+        "sceneKey": "inbound_photo_hold"
+      },
+      {
+        "round": 2,
+        "outputPath": "needs_field_clarification",
+        "ruleOutputPath": "needs_field_clarification",
+        "action": "l3_mock_attachment",
+        "note": "拍照目的/背景未说明"
+      },
+      {
+        "round": 3,
+        "outputPath": "needs_field_clarification",
+        "ruleOutputPath": "needs_field_clarification",
+        "action": "l3_mock_attachment",
+        "note": "拍照目的/背景未说明"
+      }
+    ],
+    "simulated": [
+      "选择场景：【入库】指定商品拍照暂存（来源：OMS 审核员实际选择）",
+      "[模拟] 已补齐：拍照目的/背景未说明",
+      "[模拟] 已补齐：拍照目的/背景未说明"
+    ],
+    "final": {
+      "orderNo": "VASC000000305787",
+      "outputPath": "needs_field_clarification",
+      "ruleOutputPath": "needs_field_clarification",
+      "node": "check-scene-completeness",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness"
+      ],
+      "failureGate": "check-completeness",
+      "missing": [
+        "拍照目的/背景未说明"
+      ],
+      "missingRequirementItems": [
+        "拍照目的/背景未说明"
+      ],
+      "missingAttachments": [],
+      "missingFields": [],
+      "sceneKey": "inbound_photo_hold",
+      "sceneName": "【入库】指定商品拍照暂存",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "您好，增值单 VASC000000305787 已识别为「【入库】指定商品拍照暂存」场景，但还缺少以下信息和附件：\n\n**客户**：****************************** / 13816111  \n**仓库**：USKY3 Warehouse / USKY3  \n**已绑定异常单**：EB0326062430682713、EB0326062430682779、EB0326062430682944、EB0326062430683001、EB0326062430683055、EB0326062430683283\n\n**已提交需求**：对上述6个异常单随机抽1件商品拆包装，拍正面、后面、侧面三张实物照片。\n\n**已上传附件**：操作说明附件（新建 XLSX 工作表.xlsx）\n\n**还缺少的关键信息**：\n- 拍照目的/背景未说明（例如：用于平台申诉、客户确认商品状态、质检记录等，需明确说明拍照用途）\n\n**还缺少的附件**（请在 OMS 对应字段上传）：\n- 商品和标签的对应关系\n- 包裹和标签的对应关系\n- 视频拍摄SOP（中文+英文）\n- 标签文件\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+      "llmError": "",
+      "analysis": "您好，增值单 VASC000000305787 已识别为「【入库】指定商品拍照暂存」场景，但还缺少以下信息和附件：\n\n**客户**：****************************** / 13816111  \n**仓库**：USKY3 Warehouse / USKY3  \n**已绑定异常单**：EB0326062430682713、EB0326062430682779、EB0326062430682944、EB0326062430683001、EB0326062430683055、EB0326062430683283\n\n**已提交需求**：对上述6个异常单随机抽1件商品拆包装，拍正面、后面、侧面三张实物照片。\n\n**已上传附件**：操作说明附件（新建 XLSX 工作表.xlsx）\n\n**还缺少的关键信息**：\n- 拍照目的/背景未说明（例如：用于平台申诉、客户确认商品状态、质检记录等，需明确说明拍照用途）\n\n**还缺少的附件**（请在 OMS 对应字段上传）：\n- 商品和标签的对应关系\n- 包裹和标签的对应关系\n- 视频拍摄SOP（中文+英文）\n- 标签文件\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+      "conclusionOneLiner": "需求明确要求拍照且等待客户确认处理",
+      "judgmentBasis": "🔍 异常单 EB0326062430682713、EB0326062430682779、EB0326062430682944、EB0326062430683001、EB0326062430683055、EB0326062430683283：包裹内出现订单外商品（商品）[cache]\n📋 识别的动作：拍照、随机抽取1件商品、拆包装、拍摄正面、后面、侧面三张实物照片\n✅ AI 判断场景：【入库】指定商品拍照暂存（置信度：高）\n💡 AI 理由：需求明确要求拍照且等待客户确认处理"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000272319",
+    "outcome": "l4_direct",
+    "threadId": "om_x100b65baa4e9e0a0c451dafd436e331",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "inbound_label_identify"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000272319",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "sceneKey": "inbound_label_identify",
+      "sceneName": "【入库】尺重/标签辨识后换标上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n异常单 EB0126042429036817 涉及两个包裹，分别对应 SKU 112981310（1件）和 SKU 112981110（1件）。因标准增值无法区分处理，需按包裹上已贴标签辨识 SKU，用标签纸覆盖原箱体错误标签后，按入库单 WI49543982 上架。客户已提供标签覆盖示例文件（需覆盖掉的标签示例.jpg）。\n\n【需求背景】\n到仓包裹原箱体标签错误，需按实物已贴标签辨识 SKU 并覆盖错误标签后上架。\n\n【操作要求】\n1. 根据异常单 EB0126042429036817 定位对应的两个包裹；\n2. 检查每个包裹上已贴的标签，读取标签上的 SKU 信息，确认一个包裹为 SKU 112981310（1件），另一个为 SKU 112981110（1件）；\n3. 对于原箱体上的错误标签，使用标签纸完全覆盖（覆盖方式参考附件「需覆盖掉的标签示例.jpg」），确保错误信息不可见；\n4. 在系统中调出入库单 WI49543982；\n5. 依次扫描每个包裹上的正确标签条码，系统匹配 SKU 和数量后，扫描对应货位条码完成上架；\n6. 两个 SKU 全部上架完成后，将异常单 EB0126042429036817 状态变更为已完成。\n\n【注意事项】\n- 必须以包裹上已贴标签为准进行 SKU 辨识，不得凭外箱原标签操作；\n- 覆盖错误标签时需完全遮盖，避免扫描时误读；\n- 两个 SKU 需分别扫描上架，不可混淆。",
+      "llmError": "",
+      "analysis": "【需求描述】\n异常单 EB0126042429036817 涉及两个包裹，分别对应 SKU 112981310（1件）和 SKU 112981110（1件）。因标准增值无法区分处理，需按包裹上已贴标签辨识 SKU，用标签纸覆盖原箱体错误标签后，按入库单 WI49543982 上架。客户已提供标签覆盖示例文件（需覆盖掉的标签示例.jpg）。\n\n【需求背景】\n到仓包裹原箱体标签错误，需按实物已贴标签辨识 SKU 并覆盖错误标签后上架。\n\n【操作要求】\n1. 根据异常单 EB0126042429036817 定位对应的两个包裹；\n2. 检查每个包裹上已贴的标签，读取标签上的 SKU 信息，确认一个包裹为 SKU 112981310（1件），另一个为 SKU 112981110（1件）；\n3. 对于原箱体上的错误标签，使用标签纸完全覆盖（覆盖方式参考附件「需覆盖掉的标签示例.jpg」），确保错误信息不可见；\n4. 在系统中调出入库单 WI49543982；\n5. 依次扫描每个包裹上的正确标签条码，系统匹配 SKU 和数量后，扫描对应货位条码完成上架；\n6. 两个 SKU 全部上架完成后，将异常单 EB0126042429036817 状态变更为已完成。\n\n【注意事项】\n- 必须以包裹上已贴标签为准进行 SKU 辨识，不得凭外箱原标签操作；\n- 覆盖错误标签时需完全遮盖，避免扫描时误读；\n- 两个 SKU 需分别扫描上架，不可混淆。",
+      "conclusionOneLiner": "混SKU需辨识标签并覆盖错误标签上架",
+      "judgmentBasis": "🔍 异常单 EB0126042429036817：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：辨识2个SKU（112981310和112981110各1件）、按包裹上贴的标签为准确认正确标签、用标签纸覆盖原箱错误标签、按预报单WI49543982上架\n✅ AI 判断场景：【入库】尺重/标签辨识后换标上架（置信度：高）\n💡 AI 理由：混SKU需辨识标签并覆盖错误标签上架"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000305892",
+    "outcome": "l4_direct",
+    "threadId": "om_x100b65babb14e4fcc4ee3fd5e32ecab",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "inbound_third_party_merchandise_barcode"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000305892",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "sceneKey": "inbound_third_party_merchandise_barcode",
+      "sceneName": "【入库】关联第三方商品条码上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n客户入库单 WI50504913 在到仓前未关联第三方商品编码，导致 77 个异常单（EB0126062330655515 等）被登记为「商品有条码但无法扫描」异常。客户已在系统中补充关联第三方编码，现需仓库直接扫描商品原条码完成上架，无需补贴或更换标签。因登记的第三方编码与系统关联不一致，无法走标准增值流程，需通过非标增值处理。\n\n【需求背景】\n到仓前系统未关联第三方商品编码，导致异常单无法按标准流程上架，需暂时处理后关闭异常单。\n\n【操作要求】\n1. 在异常货位或暂存区，根据异常单号（EB0126062330655515 等 77 个异常单，详见附件「操作说明附件（异常单号01.xlsx）」）定位对应货物；\n2. 核对货物外观与异常单登记信息是否一致；\n3. 在上架操作界面，先输入或扫描入库单号 WI50504913；\n4. 扫描商品原条码（第三方条码），系统已关联可直接识别，无需补贴或更换标签；\n5. 完成上架后，将异常单状态变更为已完成。\n\n【注意事项】\n1. 共 77 个异常单需处理，完整异常单号清单见附件「操作说明附件（异常单号01.xlsx）」；\n2. 商品原条码可直接扫描识别，不要补贴新标签；\n3. 所有货物必须上架到入库单 WI50504913。",
+      "llmError": "",
+      "analysis": "【需求描述】\n客户入库单 WI50504913 在到仓前未关联第三方商品编码，导致 77 个异常单（EB0126062330655515 等）被登记为「商品有条码但无法扫描」异常。客户已在系统中补充关联第三方编码，现需仓库直接扫描商品原条码完成上架，无需补贴或更换标签。因登记的第三方编码与系统关联不一致，无法走标准增值流程，需通过非标增值处理。\n\n【需求背景】\n到仓前系统未关联第三方商品编码，导致异常单无法按标准流程上架，需暂时处理后关闭异常单。\n\n【操作要求】\n1. 在异常货位或暂存区，根据异常单号（EB0126062330655515 等 77 个异常单，详见附件「操作说明附件（异常单号01.xlsx）」）定位对应货物；\n2. 核对货物外观与异常单登记信息是否一致；\n3. 在上架操作界面，先输入或扫描入库单号 WI50504913；\n4. 扫描商品原条码（第三方条码），系统已关联可直接识别，无需补贴或更换标签；\n5. 完成上架后，将异常单状态变更为已完成。\n\n【注意事项】\n1. 共 77 个异常单需处理，完整异常单号清单见附件「操作说明附件（异常单号01.xlsx）」；\n2. 商品原条码可直接扫描识别，不要补贴新标签；\n3. 所有货物必须上架到入库单 WI50504913。",
+      "conclusionOneLiner": "客户已关联第三方编码，直接原单扫描上架",
+      "judgmentBasis": "🔍 异常单 EB0126062330655515、EB0126062330655506、EB0126062330655467、EB0126062330655470、EB0126062330655419、EB0126062330655404、EB0126062330655281、EB0126062330655278、EB0126062330655152、EB0126062330655038、EB0126062330655047、EB0126062330655008、EB0126062330654888、EB0126062330654780、EB0126062330654750、EB0126062330654588、EB0126062330654534、EB0126062330654378、EB0126062330654387、EB0126062330654309、EB0126062330654312、EB0126062330654198、EB0126062330654186、EB0126062330654153、EB0126062330654165、EB0126062330654138、EB0126062330654078、EB0126062330654075、EB0126062330654072、EB0126062330654066、EB0126062330654045、EB0126062330654042、EB0126062330654000、EB0126062330653985、EB0126062330653961、EB0126062330653958、EB0126062330653952、EB0126062330653868、EB0126062330653877、EB0126062330653871、EB0126062330653835、EB0126062330653592、EB0126062330653595、EB0126062330653526、EB0126062330653442、EB0126062330653430、EB0126062330653364、EB0126062330653358、EB0126062330653286、EB0126062330653247、EB0126062330653238、EB0126062330653199、EB0126062330653055、EB0126062330653007、EB0126062330653010、EB0126062330652923、EB0126062330652926、EB0126062330652914、EB0126062330652917、EB0126062330652863、EB0126062330652842、EB0126062330652845、EB0126062330652857、EB0126062330652821、EB0126062330652812、EB0126062330652818、EB0126062330652815、EB0126062330652797、EB0126062330652806、EB0126062330652710、EB0126062330652713、EB0126062330652689、EB0126062330652638、EB0126062330652641、EB0126062330652518、EB0126062330652485：商品有条码但系统无法识别（商品）[oms_api]\n📋 识别的动作：关联第三方条码、直接上架、关闭增值单、直接扫描第三方编码、上架到原入库单\n✅ AI 判断场景：【入库】关联第三方商品条码上架（置信度：高）\n💡 AI 理由：客户已关联第三方编码，直接原单扫描上架"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000284952",
+    "outcome": "l4_direct",
+    "threadId": "om_x100b65bab5fcc8acc2201bb26d24bbe",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "l4_direct",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "instock_exception_to_defective_shelve"
+      }
+    ],
+    "simulated": [],
+    "final": {
+      "orderNo": "VASC000000284952",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "sceneKey": "instock_exception_to_defective_shelve",
+      "sceneName": "【库内】异常商品转不良品上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "【需求描述】\n订单 WO11365273924 拣选时发现 16 件商品外箱破损严重，无法扫描 SN 码，不满足出库要求。需将这批商品转为不良品上架至入库单 WI49974000，并关闭 16 个关联异常单。客户已提供标签文件（Order (74).pdf）。\n\n【需求背景】\n拣选发现商品破损无法正常出库，需转不良品库存处理。\n\n【操作要求】\n1. 根据以下 16 个异常单定位待处理商品：EB1226051929553915、EB1226051929553921、EB1226051929553927、EB1226051929554023、EB1226051929554005、EB1226051929554032、EB1226051929553924、EB1226051929553966、EB1226051929554035、EB1226051929553972、EB1226051929553933、EB1226051929554029、EB1226051929553987、EB1226051929553939、EB1226051929553945、EB1226051929553954；\n2. 确认商品外箱破损情况，核对数量为 16 件；\n3. 参照客户提供的标签文件（Order (74).pdf）补贴不良品标签；\n4. 使用入库单 WI49974000 扫描上架至不良品库位；\n5. 操作完成后，将上述 16 个异常单状态变更为已完成。\n\n【注意事项】\n- 商品外箱 SN 码无法扫描，按不良品处理，不可混入正常库存\n- 确保 16 个异常单与实物数量一致后再上架",
+      "llmError": "",
+      "analysis": "【需求描述】\n订单 WO11365273924 拣选时发现 16 件商品外箱破损严重，无法扫描 SN 码，不满足出库要求。需将这批商品转为不良品上架至入库单 WI49974000，并关闭 16 个关联异常单。客户已提供标签文件（Order (74).pdf）。\n\n【需求背景】\n拣选发现商品破损无法正常出库，需转不良品库存处理。\n\n【操作要求】\n1. 根据以下 16 个异常单定位待处理商品：EB1226051929553915、EB1226051929553921、EB1226051929553927、EB1226051929554023、EB1226051929554005、EB1226051929554032、EB1226051929553924、EB1226051929553966、EB1226051929554035、EB1226051929553972、EB1226051929553933、EB1226051929554029、EB1226051929553987、EB1226051929553939、EB1226051929553945、EB1226051929553954；\n2. 确认商品外箱破损情况，核对数量为 16 件；\n3. 参照客户提供的标签文件（Order (74).pdf）补贴不良品标签；\n4. 使用入库单 WI49974000 扫描上架至不良品库位；\n5. 操作完成后，将上述 16 个异常单状态变更为已完成。\n\n【注意事项】\n- 商品外箱 SN 码无法扫描，按不良品处理，不可混入正常库存\n- 确保 16 个异常单与实物数量一致后再上架",
+      "conclusionOneLiner": "产品破损无法扫描SN码，需转不良品上架",
+      "judgmentBasis": "🔍 异常单 EB1226051929553915、EB1226051929553921、EB1226051929553927、EB1226051929554023、EB1226051929554005、EB1226051929554032、EB1226051929553924、EB1226051929553966、EB1226051929554035、EB1226051929553972、EB1226051929553933、EB1226051929554029、EB1226051929553987、EB1226051929553939、EB1226051929553945、EB1226051929553954：SN码缺失无法采集（商品）[oms_api]\n📋 识别的动作：关闭16个异常单（EB1226051929553915等）、将破损商品转为不良品、使用入库单WI49974000做不良品上架、对原库存做盘亏L007处理\n✅ AI 判断场景：【库内】异常商品转不良品上架（置信度：高）\n💡 AI 理由：产品破损无法扫描SN码，需转不良品上架"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000338049",
+    "outcome": "max_rounds_exceeded",
+    "threadId": "om_x100b65bab36820b4c3e0f3780e72881",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "needs_field_clarification",
+        "ruleOutputPath": "needs_field_clarification",
+        "action": "l3_mock_attachment",
+        "note": "商品标签数量未说明"
+      },
+      {
+        "round": 2,
+        "outputPath": "needs_field_clarification",
+        "ruleOutputPath": "needs_field_clarification",
+        "action": "l3_mock_attachment",
+        "note": "商品条码/SKU编码未说明、处理数量未说明"
+      },
+      {
+        "round": 3,
+        "outputPath": "needs_field_clarification",
+        "ruleOutputPath": "needs_field_clarification",
+        "action": "l3_mock_attachment",
+        "note": "商品标签数量未说明"
+      }
+    ],
+    "simulated": [
+      "[模拟] 已补齐：商品标签数量未说明",
+      "[模拟] 已补齐：商品条码/SKU编码未说明、处理数量未说明",
+      "[模拟] 已补齐：商品标签数量未说明"
+    ],
+    "final": {
+      "orderNo": "VASC000000338049",
+      "outputPath": "needs_field_clarification",
+      "ruleOutputPath": "needs_field_clarification",
+      "node": "check-scene-completeness",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-requirement",
+        "match-template",
+        "check-scene-completeness"
+      ],
+      "failureGate": "check-completeness",
+      "missing": [
+        "商品标签数量未说明"
+      ],
+      "missingRequirementItems": [
+        "商品标签数量未说明"
+      ],
+      "missingAttachments": [],
+      "missingFields": [],
+      "sceneKey": "inbound_package_exception_relabel_shelving",
+      "sceneName": "【入库】包裹类异常换商品标签上架",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "supported_llm_clear",
+      "llmText": "您好,该增值单已识别为「【入库】包裹类异常换商品标签上架」,但还缺少以下信息:\n\n**增值单号:** VASC000000338049  \n**客户:** ************* / 16958250  \n**仓库:** DEBR2 Warehouse / DEBR2\n\n**已提交需求:**  \n客户提交了4个异常单(EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988),需要补贴商品条码上架到不良品,入库单号WI51908492,异常单对应商品标签看附件。\n\n**已上传附件:**\n- 商品和标签的对应关系(【商品和标签对应关系】模板0819.xlsx)\n- 标签文件(B-YG012.pdf)\n- 标签文件(A00-G6-1.75-1000-SPL.pdf)\n- 标签文件(A01-W3-1.75-1000-SPLFREE.pdf)\n- 标签文件(B-QA002.pdf)\n\n**缺少的关键信息:**\n- **商品标签数量:** 需要明确每个异常单对应需要补贴多少张商品标签,这是仓库执行换标上架的必要信息。请在需求描述中补充说明每个异常单/SKU需要补贴的标签具体数量。\n\nAI不代填事实、不自动审核。资料补齐后请再提交审核。",
+      "llmError": "",
+      "analysis": "您好,该增值单已识别为「【入库】包裹类异常换商品标签上架」,但还缺少以下信息:\n\n**增值单号:** VASC000000338049  \n**客户:** ************* / 16958250  \n**仓库:** DEBR2 Warehouse / DEBR2\n\n**已提交需求:**  \n客户提交了4个异常单(EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988),需要补贴商品条码上架到不良品,入库单号WI51908492,异常单对应商品标签看附件。\n\n**已上传附件:**\n- 商品和标签的对应关系(【商品和标签对应关系】模板0819.xlsx)\n- 标签文件(B-YG012.pdf)\n- 标签文件(A00-G6-1.75-1000-SPL.pdf)\n- 标签文件(A01-W3-1.75-1000-SPLFREE.pdf)\n- 标签文件(B-QA002.pdf)\n\n**缺少的关键信息:**\n- **商品标签数量:** 需要明确每个异常单对应需要补贴多少张商品标签,这是仓库执行换标上架的必要信息。请在需求描述中补充说明每个异常单/SKU需要补贴的标签具体数量。\n\nAI不代填事实、不自动审核。资料补齐后请再提交审核。",
+      "conclusionOneLiner": "商品条码无法扫描，需补贴商品标签上架",
+      "judgmentBasis": "🔍 异常单 EB0526081332214735、EB0526081032110332、EB0526081032110341、EB0526080632036988：单品条码无法扫描(需客户处理）（商品）[cache]\n📋 识别的动作：补贴商品条码、上架到不良品区域、按附件对应关系执行\n✅ AI 判断场景：【入库】包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：商品条码无法扫描，需补贴商品标签上架"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000321948",
+    "outcome": "sop_after_rounds",
+    "threadId": "om_x100b65bb4b2310a8dd484f035f799cc",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "action": "override_scene",
+        "note": "overrideScene=instock_reinforce",
+        "sceneKey": "instock_reinforce"
+      },
+      {
+        "round": 2,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "sop",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "instock_reinforce"
+      }
+    ],
+    "simulated": [
+      "选择场景：【库内】库内加固（来源：OMS 审核员实际选择）"
+    ],
+    "final": {
+      "orderNo": "VASC000000321948",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "sceneKey": "instock_reinforce",
+      "sceneName": "【库内】库内加固",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "override_by_auditor",
+      "llmText": "【需求描述】\n异常单 EB0426070931164183 涉及整箱库存（SKU：SLEU-CL-D220P-118D3-1-32）因外箱破损导致内部商品可能掉落。需对外箱进行加固封箱，补贴商品条码后上架至入库单 WI51234994。\n\n【需求背景】\n整箱库存外箱破损，内部商品有掉落风险，需加固后上架，标准增值流程未覆盖此类封箱加固场景。\n\n【操作要求】\n1. 根据异常单 EB0426070931164183 定位待处理整箱货物（SKU：SLEU-CL-D220P-118D3-1-32）；\n2. 使用透明胶带对外层大箱进行加固封箱，确保内部商品不会掉出；\n3. 参照已上传的标签文件（Order (86).pdf），在封好的外箱上补贴商品条码 M010000000013713330；\n4. 将处理完成的整箱货物扫描上架至入库单 WI51234994；\n5. 操作完成后，关闭异常单 EB0426070931164183。\n\n【注意事项】\n- 加固时确保胶带粘贴牢固，箱体完整密封；\n- 补贴条码位置需清晰可扫描，避免遮挡原有重要信息。",
+      "llmError": "",
+      "analysis": "【需求描述】\n异常单 EB0426070931164183 涉及整箱库存（SKU：SLEU-CL-D220P-118D3-1-32）因外箱破损导致内部商品可能掉落。需对外箱进行加固封箱，补贴商品条码后上架至入库单 WI51234994。\n\n【需求背景】\n整箱库存外箱破损，内部商品有掉落风险，需加固后上架，标准增值流程未覆盖此类封箱加固场景。\n\n【操作要求】\n1. 根据异常单 EB0426070931164183 定位待处理整箱货物（SKU：SLEU-CL-D220P-118D3-1-32）；\n2. 使用透明胶带对外层大箱进行加固封箱，确保内部商品不会掉出；\n3. 参照已上传的标签文件（Order (86).pdf），在封好的外箱上补贴商品条码 M010000000013713330；\n4. 将处理完成的整箱货物扫描上架至入库单 WI51234994；\n5. 操作完成后，关闭异常单 EB0426070931164183。\n\n【注意事项】\n- 加固时确保胶带粘贴牢固，箱体完整密封；\n- 补贴条码位置需清晰可扫描，避免遮挡原有重要信息。",
+      "conclusionOneLiner": "",
+      "judgmentBasis": "✅ AI 判断场景：【库内】库内加固（置信度：高）"
+    },
+    "omsWriteAttempted": false
+  },
+  {
+    "orderNo": "VASC000000318543",
+    "outcome": "sop_after_rounds",
+    "threadId": "om_x100b65bb454011a0c4ab4ec7afc8060",
+    "rounds": [
+      {
+        "round": 1,
+        "outputPath": "transfer_human",
+        "ruleOutputPath": "transfer_human",
+        "action": "override_scene",
+        "note": "overrideScene=instock_split_sku",
+        "sceneKey": "instock_split_sku"
+      },
+      {
+        "round": 2,
+        "outputPath": "sop_generated",
+        "ruleOutputPath": "sop_generated",
+        "action": "sop",
+        "note": "绿色卡片已发，按钮未点击",
+        "sceneKey": "instock_split_sku"
+      }
+    ],
+    "simulated": [
+      "选择场景：【库内】拆分SKU（来源：OMS 审核员实际选择）"
+    ],
+    "final": {
+      "orderNo": "VASC000000318543",
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "node": "format-output",
+      "nodesHit": [
+        "validate-input",
+        "context-bind",
+        "check-scene-completeness",
+        "llm-generate-sop",
+        "format-output"
+      ],
+      "failureGate": "",
+      "missing": [],
+      "missingRequirementItems": [],
+      "missingAttachments": [],
+      "missingFields": [],
+      "sceneKey": "instock_split_sku",
+      "sceneName": "【库内】拆分SKU",
+      "decision": "supported",
+      "confidence": "high",
+      "reason": "override_by_auditor",
+      "llmText": "【需求描述】\n异常单 EB0526062730797031 货物因仓库原因导致破损，需按商品状态分开上架：6个完好商品上架至入库单 WI51068760，5个彩盒破损商品加快递袋后上架至入库单 WI51067532。客户已提供4个标签文件（Order (66).pdf、Order (67).pdf、OrderWI51068760 (68).pdf、OrderWI51068760 (69).pdf），需按标签文件为商品补贴对应标签后分别上架。\n\n【需求背景】\n到仓货物因仓库操作导致部分商品彩盒破损，需按商品完好状态拆分至不同入库单分别上架。\n\n【操作要求】\n1. 根据异常单 EB0526062730797031 定位待处理货物，在系统中查看异常单关联的 SKU 信息，核对现场货物 SKU 是否与系统记录一致。\n2. 清点并区分商品状态：6个完好商品、5个彩盒破损商品。若现场清点数量与描述不符（非6+5=11个），暂停操作并拍照记录实际情况，通过系统备注异常。\n3. 检查商品外观：完好商品彩盒无破损，破损商品仅彩盒破损、商品本体完好。\n4. 打开附件中的4个标签文件，根据文件名中的入库单号（OrderWI51068760 (68).pdf、OrderWI51068760 (69).pdf 对应入库单 WI51068760；Order (66).pdf、Order (67).pdf 对应入库单 WI51067532）和标签内容，将标签打印后分别对应贴至相应商品。若标签文件与商品数量对应关系不明确，拍照记录并通过系统备注说明情况。\n5. 为5个破损商品加套快递袋包装，确保商品本体受到保护。\n6. 将6个完好商品（已补贴标签）扫描上架至入库单 WI51068760。\n7. 将5个破损商品（已补贴标签+快递袋包装）扫描上架至入库单 WI51067532。\n8. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 破损商品仅彩盒破损，商品本体需完好才可加快递袋上架；若商品本体破损，需拍照并通过系统备注。\n- 标签文件共4个，需根据文件名中的入库单号判断对应关系，确保标签与目标入库单匹配。\n- 上架前需确认扫描的入库单号与要求一致（完好品→WI51068760，破损品→WI51067532），避免混淆。",
+      "llmError": "",
+      "analysis": "【需求描述】\n异常单 EB0526062730797031 货物因仓库原因导致破损，需按商品状态分开上架：6个完好商品上架至入库单 WI51068760，5个彩盒破损商品加快递袋后上架至入库单 WI51067532。客户已提供4个标签文件（Order (66).pdf、Order (67).pdf、OrderWI51068760 (68).pdf、OrderWI51068760 (69).pdf），需按标签文件为商品补贴对应标签后分别上架。\n\n【需求背景】\n到仓货物因仓库操作导致部分商品彩盒破损，需按商品完好状态拆分至不同入库单分别上架。\n\n【操作要求】\n1. 根据异常单 EB0526062730797031 定位待处理货物，在系统中查看异常单关联的 SKU 信息，核对现场货物 SKU 是否与系统记录一致。\n2. 清点并区分商品状态：6个完好商品、5个彩盒破损商品。若现场清点数量与描述不符（非6+5=11个），暂停操作并拍照记录实际情况，通过系统备注异常。\n3. 检查商品外观：完好商品彩盒无破损，破损商品仅彩盒破损、商品本体完好。\n4. 打开附件中的4个标签文件，根据文件名中的入库单号（OrderWI51068760 (68).pdf、OrderWI51068760 (69).pdf 对应入库单 WI51068760；Order (66).pdf、Order (67).pdf 对应入库单 WI51067532）和标签内容，将标签打印后分别对应贴至相应商品。若标签文件与商品数量对应关系不明确，拍照记录并通过系统备注说明情况。\n5. 为5个破损商品加套快递袋包装，确保商品本体受到保护。\n6. 将6个完好商品（已补贴标签）扫描上架至入库单 WI51068760。\n7. 将5个破损商品（已补贴标签+快递袋包装）扫描上架至入库单 WI51067532。\n8. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 破损商品仅彩盒破损，商品本体需完好才可加快递袋上架；若商品本体破损，需拍照并通过系统备注。\n- 标签文件共4个，需根据文件名中的入库单号判断对应关系，确保标签与目标入库单匹配。\n- 上架前需确认扫描的入库单号与要求一致（完好品→WI51068760，破损品→WI51067532），避免混淆。",
+      "conclusionOneLiner": "",
+      "judgmentBasis": "✅ AI 判断场景：【库内】拆分SKU（置信度：高）"
+    },
+    "omsWriteAttempted": false
+  }
+]

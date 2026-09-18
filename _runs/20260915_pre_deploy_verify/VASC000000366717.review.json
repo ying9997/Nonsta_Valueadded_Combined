@@ -1,0 +1,54 @@
+{
+  "orderNo": "VASC000000366717",
+  "demoLabel": "",
+  "source": "",
+  "expectedOutputPath": "",
+  "outputPath": "needs_field_clarification",
+  "ruleOutputPath": "needs_field_clarification",
+  "failureGate": "check-completeness",
+  "missing": [
+    "商品标签数量未说明",
+    "标签文件"
+  ],
+  "clarificationPrompts": [
+    "本场景（【入库】包裹类异常换商品标签上架）需要知道商品标签数量，请补充。",
+    "请上传「标签文件」。"
+  ],
+  "sceneKey": "inbound_package_exception_relabel_shelving",
+  "scenarioName": "【入库】包裹类异常换商品标签上架",
+  "decision": "supported",
+  "confidence": "high",
+  "llmUsed": true,
+  "sceneLlmVersion": 2,
+  "llmReasoning": "根据规则A：异常单详情显示异常名称为'包裹条码异常(需客户处理)'，这是单个包裹的异常，不是'包裹条码批量异常'。虽然客户需求描述中提到'补贴包裹操作上架'，但根据规则A，异常名称含'商品条码异常'或单个'包裹条码异常'时，应优先选择inbound_package_exception_relabel_shelving（§2.5）。客户描述的'补贴包裹'是常见口语表达，不能覆盖OMS异常名称的判断。此场景核心是包裹类异常需要换标签上架，符合场景3的定义：包裹条码正常但需要处理异常后上架。",
+  "llmText": "您好，该增值单已识别为「【入库】包裹类异常换商品标签上架」，但还缺少以下信息/附件：\n\n**增值单号：** VASC000000366717  \n**已提交需求：** 异常单 EB0126082632523252 包裹条码异常，实际有1个包裹但登记数量是12个，需要按新单 WI52446691 补贴包裹操作上架。  \n**已绑定异常单：** EB0126082632523252  \n**已绑定入库单：** WI52446691  \n**已上传附件：** 包裹和标签的对应关系（异常单号EB0126082632523252对应的包裹条码.xlsx）\n\n**还缺少的信息：**  \n1. **商品标签数量**：换标上架场景需要明确要贴多少个商品标签，请补充具体数量。\n\n**还缺少的附件：**  \n2. **标签文件**：请上传需要打印的标签文件（OMS 字段名：标签文件）。\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+  "llmError": null,
+  "looksInvented": false,
+  "assertNoForbidden": "pass",
+  "processingMethod": "暂时",
+  "warehouse": "DENW3 Warehouse",
+  "structuredReview": {
+    "vascNo": "VASC000000366717",
+    "requirementComplete": false,
+    "missingRequirements": [
+      "商品标签数量未说明"
+    ],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_package_exception_relabel_shelving",
+      "confidence": 0.9
+    },
+    "materialsComplete": false,
+    "missingMaterials": [
+      "标签文件"
+    ],
+    "outputPath": "needs_field_clarification",
+    "llmGeneratedText": "您好，该增值单已识别为「【入库】包裹类异常换商品标签上架」，但还缺少以下信息/附件：\n\n**增值单号：** VASC000000366717  \n**已提交需求：** 异常单 EB0126082632523252 包裹条码异常，实际有1个包裹但登记数量是12个，需要按新单 WI52446691 补贴包裹操作上架。  \n**已绑定异常单：** EB0126082632523252  \n**已绑定入库单：** WI52446691  \n**已上传附件：** 包裹和标签的对应关系（异常单号EB0126082632523252对应的包裹条码.xlsx）\n\n**还缺少的信息：**  \n1. **商品标签数量**：换标上架场景需要明确要贴多少个商品标签，请补充具体数量。\n\n**还缺少的附件：**  \n2. **标签文件**：请上传需要打印的标签文件（OMS 字段名：标签文件）。\n\nAI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [
+      "单据归属未验证"
+    ],
+    "llmError": null
+  }
+}

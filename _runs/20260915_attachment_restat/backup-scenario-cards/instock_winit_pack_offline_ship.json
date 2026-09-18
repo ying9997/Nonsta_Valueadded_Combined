@@ -1,0 +1,73 @@
+{
+  "sceneKey": "instock_winit_pack_offline_ship",
+  "sceneName": "【库内】WINIT标准包材线下寄件出库（需尾程线下面单）",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.31",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "WINIT标准包材",
+      "线下面单",
+      "尾程面单",
+      "代采购包材",
+      "包材寄出",
+      "线下寄件出库"
+    ],
+    "weak": [
+      "快递袋",
+      "纸箱规格",
+      "库内非标增值",
+      "面单提供",
+      "包材费用"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "换标",
+      "辨识",
+      "质检",
+      "串仓"
+    ],
+    "soft": [
+      "自提",
+      "暂存",
+      "调拨",
+      "下架"
+    ]
+  },
+  "boundaryRules": [
+    "和入库场景的区别：本场景是库内包材出库寄件，不涉及商品入库、上架、换标等入库操作",
+    "和普通出库的区别：本场景寄出的是WINIT标准包材本身，不是客户已入库的商品",
+    "和其他库内增值的区别：本场景核心是解决WINIT标准包材无法出具面单的问题，必须依赖尾程提供线下面单",
+    "关键前置条件：必须先确认尾程能提供线下面单，否则无法执行"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：WINIT标准包材（快递袋/纸箱等，需明确规格和数量）",
+    "动作：线下寄件出库（使用尾程提供的线下面单）",
+    "去向：寄给客户指定地址（客户自用或寄回）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "Step 1：确认尾程面单可行性（必须先找尾程确认能否提供线下面单）",
+    "Step 2：提交库内非标增值单（代采购包材物料，收取包材费用）",
+    "Step 3：尾程提供面单（电子档上传或线下PDF，面单费用由尾程自行确认）",
+    "Step 4：仓库操作寄出（使用面单将包材寄给客户）",
+    "费用说明：增值单只收包材费，尾程面单费不挂在增值单上"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.31. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

@@ -1,0 +1,85 @@
+{
+  "orderNo": "VASC000000342429",
+  "outcome": "sop_llm_failed",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop_llm_failed",
+      "note": "Expected ',' or '}' after property value in JSON at position 1021 (line 6 column 25)",
+      "sceneKey": "inbound_package_barcode_batch_relabel"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000342429",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "llm-generate-sop",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "llm-generate-sop",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "系统已掌握：EB0126081932324412、EB0126081932324199、EB0126081932323983"
+      },
+      {
+        "field": "目标入库单WI",
+        "present": true,
+        "evidence": "客户明确提到「上架到新单：WI51652234」，系统单据信息也已掌握该入库单号"
+      },
+      {
+        "field": "SKU与入库单对应关系",
+        "present": true,
+        "evidence": "客户已上传附件「Order (52).pdf」，标签文件通常包含SKU与入库单的对应关系；且只有一个目标入库单WI51652234，对应关系可从附件推断"
+      },
+      {
+        "field": "处理数量或范围",
+        "present": true,
+        "evidence": "客户提到3个异常单号需要处理，已上传「标签见附件」的标签文件，标签文件中通常包含需要补贴的具体数量信息"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (52).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值\nEB0126081932324412  EB0126081932324199  EB0126081932323983    请补贴winit商品标签上架到新单：WI51652234，标签见附件",
+    "requirementLength": 98,
+    "sceneKey": "inbound_package_barcode_batch_relabel",
+    "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "",
+    "llmError": "Expected ',' or '}' after property value in JSON at position 1021 (line 6 column 25)",
+    "analysis": "增值单 VASC000000342429 SOP 生成失败：Expected ',' or '}' after property value in JSON at position 1021 (line 6 column 25)。请转人工处理，不要当作场景不确定。",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "🔍 异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：换商品标签\n✅ AI 判断场景：【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架（置信度：高）\n💡 AI 理由：规则A：异常名称含包裹条码异常"
+  },
+  "omsWriteAttempted": false
+}

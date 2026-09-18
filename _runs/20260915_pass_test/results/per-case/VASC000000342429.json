@@ -1,0 +1,80 @@
+{
+  "orderNo": "VASC000000342429",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_exception_relabel_shelving"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000342429",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "处理范围",
+        "present": true,
+        "evidence": "EB0126081932324412  EB0126081932324199  EB0126081932323983 三个包裹"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "上架到新单：WI51652234"
+      },
+      {
+        "field": "商品标签数量",
+        "present": true,
+        "evidence": "客户已上传标签附件，标签数量信息应包含在附件中"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (52).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值\nEB0126081932324412  EB0126081932324199  EB0126081932323983    请补贴winit商品标签上架到新单：WI51652234，标签见附件",
+    "requirementLength": 98,
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "sceneName": "【入库】包裹类异常换商品标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983 的包裹需补贴 Winit 商品标签后上架至入库单 WI51652234。客户已提供标签文件（Order (52).pdf），暂无标准增值流程可用，需按特批方式处理。\n\n【需求背景】\n包裹类异常导致无法走标准增值流程，需按客户提供的标签文件补贴商品标签后上架到指定入库单。\n\n【操作要求】\n1. 根据异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983 定位待处理包裹；\n2. 按客户提供的标签文件（Order (52).pdf）打印并补贴 Winit 商品标签；\n3. 使用入库单 WI51652234 扫描上架；\n4. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 标签打印需清晰可扫描，确保条码质量；\n- 上架前核对入库单号与标签信息一致性。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983 的包裹需补贴 Winit 商品标签后上架至入库单 WI51652234。客户已提供标签文件（Order (52).pdf），暂无标准增值流程可用，需按特批方式处理。\n\n【需求背景】\n包裹类异常导致无法走标准增值流程，需按客户提供的标签文件补贴商品标签后上架到指定入库单。\n\n【操作要求】\n1. 根据异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983 定位待处理包裹；\n2. 按客户提供的标签文件（Order (52).pdf）打印并补贴 Winit 商品标签；\n3. 使用入库单 WI51652234 扫描上架；\n4. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 标签打印需清晰可扫描，确保条码质量；\n- 上架前核对入库单号与标签信息一致性。",
+    "conclusionOneLiner": "异常名称为包裹条码异常，换商品标签上架",
+    "judgmentBasis": "🔍 异常单 EB0126081932324412、EB0126081932324199、EB0126081932323983：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：换商品标签、补贴winit商品标签、上架到新入库单WI51652234\n✅ AI 判断场景：【入库】包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：异常名称为包裹条码异常，换商品标签上架"
+  },
+  "omsWriteAttempted": false
+}

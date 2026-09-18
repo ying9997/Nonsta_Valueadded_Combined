@@ -1,0 +1,91 @@
+{
+  "orderNo": "VASC000000292200",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_exception_relabel_shelving"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000292200",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "处理范围",
+        "present": true,
+        "evidence": "明确说明了2件商品需要处理：N6Z102PG0S字样的衣服1件、N6Z065 S字样的产品1件"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "明确指定上架到入库单WI50251653，包裹条码B0400000001416934808内"
+      },
+      {
+        "field": "商品标签数量",
+        "present": true,
+        "evidence": "明确说明2件商品分别贴标：N6Z102PG0S对应1件、N6Z065HS0S对应1件，且已上传对应的标签PDF文件"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "操作说明附件",
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_AOOI",
+        "fileName": "N6Z065HS0S.pdf",
+        "label": "操作说明附件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_AOOI",
+        "fileName": "N6Z102PG0S.pdf",
+        "label": "操作说明附件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (9).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "EB0126050729300937异常单提交增值VASC000000278778拍照所给图片中有2个标签，需根据不同的标签对应贴标上架\nEB0126050729300937文件夹内数字1文件内衣服上标签N6Z102PG0S字样对应贴商品编码N6Z102PG0S  EB0126050729300937文件夹内数字1文件内衣服上标签N6Z065 S字样的产品对应贴商品编码N6Z065HS0S  以上2件都需要在入库单WI50251653包裹 条码B0400000001416934808内上架",
+    "requirementLength": 245,
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "sceneName": "【入库】包裹类异常换商品标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n本次操作对应增值单 VASC000000292200。客户在异常单 EB0126050729300937 中提交拍照增值 [待补充] 后，发现入库单 WI50251653 的包裹（条码 B0400000001416934808）内有 2 种不同标签的商品需分别贴标上架：实物标签显示「N6Z102PG0S」的商品需贴商品编码 N6Z102PG0S 标签；实物标签显示「N6Z065 S」（注意有空格）的商品需贴商品编码 N6Z065HS0S 标签。操作依据已上传的操作说明附件（N6Z065HS0S.pdf、N6Z102PG0S.pdf）和标签文件（Order (9).pdf）。\n\n【需求背景】\n包裹内混装多个 SKU 且商品标签与系统登记不符，需按实物标签特征补贴对应商品编码标签后上架到指定入库单。\n\n【操作要求】\n1. 确认原异常单 EB0126050729300937 及其关联的拍照增值单 [待补充] 已处理完毕。\n2. 根据增值单 VASC000000292200，在入库单 WI50251653 中定位包裹条码 B0400000001416934808。\n3. 打开附件文件夹 EB0126050729300937，查看数字1文件中的标签示例图，参考操作说明附件（N6Z065HS0S.pdf、N6Z102PG0S.pdf）和标签文件（Order (9).pdf）。\n4. 辨识包裹内商品：实物标签上印有「N6Z102PG0S」字样的商品 → 补贴商品编码 N6Z102PG0S 标签；实物标签上印有「N6Z065 S」（注意有空格）字样的商品 → 补贴商品编码 N6Z065HS0S 标签。\n5. 按标签文件（Order (9).pdf）打印并粘贴对应标签到商品上。\n6. 使用入库单 WI50251653 扫描上架。\n7. 将增值单 VASC000000292200 状态变更为已完成。\n\n【注意事项】\n- 实物标签「N6Z065 S」与商品编码「N6Z065HS0S」拼写不同，请严格按对应关系贴标，避免混淆。\n- 2 件商品均需在同一包裹 B0400000001416934808 内完成贴标后再上架。",
+    "llmError": "",
+    "analysis": "【需求描述】\n本次操作对应增值单 VASC000000292200。客户在异常单 EB0126050729300937 中提交拍照增值 [待补充] 后，发现入库单 WI50251653 的包裹（条码 B0400000001416934808）内有 2 种不同标签的商品需分别贴标上架：实物标签显示「N6Z102PG0S」的商品需贴商品编码 N6Z102PG0S 标签；实物标签显示「N6Z065 S」（注意有空格）的商品需贴商品编码 N6Z065HS0S 标签。操作依据已上传的操作说明附件（N6Z065HS0S.pdf、N6Z102PG0S.pdf）和标签文件（Order (9).pdf）。\n\n【需求背景】\n包裹内混装多个 SKU 且商品标签与系统登记不符，需按实物标签特征补贴对应商品编码标签后上架到指定入库单。\n\n【操作要求】\n1. 确认原异常单 EB0126050729300937 及其关联的拍照增值单 [待补充] 已处理完毕。\n2. 根据增值单 VASC000000292200，在入库单 WI50251653 中定位包裹条码 B0400000001416934808。\n3. 打开附件文件夹 EB0126050729300937，查看数字1文件中的标签示例图，参考操作说明附件（N6Z065HS0S.pdf、N6Z102PG0S.pdf）和标签文件（Order (9).pdf）。\n4. 辨识包裹内商品：实物标签上印有「N6Z102PG0S」字样的商品 → 补贴商品编码 N6Z102PG0S 标签；实物标签上印有「N6Z065 S」（注意有空格）字样的商品 → 补贴商品编码 N6Z065HS0S 标签。\n5. 按标签文件（Order (9).pdf）打印并粘贴对应标签到商品上。\n6. 使用入库单 WI50251653 扫描上架。\n7. 将增值单 VASC000000292200 状态变更为已完成。\n\n【注意事项】\n- 实物标签「N6Z065 S」与商品编码「N6Z065HS0S」拼写不同，请严格按对应关系贴标，避免混淆。\n- 2 件商品均需在同一包裹 B0400000001416934808 内完成贴标后再上架。",
+    "conclusionOneLiner": "异常名称为商品条码异常，需换商品标签上架",
+    "judgmentBasis": "🔍 异常单 EB0126050729300937：商品条码异常(需客户处理)（商品）[oms_api]\n📋 识别的动作：拍照、根据商品上标签辨识对应的商品编码、贴商品编码N6Z102PG0S、贴商品编码N6Z065HS0S、上架到入库单WI50251653包裹条码B0400000001416934808\n✅ AI 判断场景：【入库】包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：异常名称为商品条码异常，需换商品标签上架"
+  },
+  "omsWriteAttempted": false
+}

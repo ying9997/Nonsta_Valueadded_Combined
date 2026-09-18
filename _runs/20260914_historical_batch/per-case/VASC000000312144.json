@@ -1,0 +1,55 @@
+{
+  "orderNo": "VASC000000312144",
+  "outcome": "sop_after_rounds",
+  "threadId": "om_x100b65438654a0a0c45220493c1bb5a",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "action": "override_scene",
+      "note": "overrideScene=inbound_aplus_direct_shelve",
+      "sceneKey": "inbound_aplus_direct_shelve"
+    },
+    {
+      "round": 2,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_aplus_direct_shelve"
+    }
+  ],
+  "simulated": [
+    "选择场景：【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架（来源：OMS 审核员实际选择）"
+  ],
+  "final": {
+    "orderNo": "VASC000000312144",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "inbound_aplus_direct_shelve",
+    "sceneName": "【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "override_by_auditor",
+    "llmText": "【需求描述】\n入库单 WI50868720 下单时未勾选 100%A+/A 包裹（无包裹条码）的 PSC 服务，导致到仓后报异常单 EB0126070431029060（包裹条码批量异常）。客户已重新下单 WI50868720 并勾选正确的 PSC 服务。仓库需辨识外箱商品条码标签后，按新单要求完成上架并关闭异常单。\n\n【需求背景】\n入库单服务配置与实际货物状态不符，需按实际货物形态重新处理上架。\n\n【操作要求】\n1. 根据异常单 EB0126070431029060 定位待处理货物；\n2. 辨识外箱上的商品条码标签，确认商品信息；\n3. 按入库单 WI50868720（100%A+/A 包裹无包裹条码）的要求直接上架，无需扫描包裹条码；\n4. 完成上架后在系统中关闭异常单 EB0126070431029060。\n\n【注意事项】\n- 本批次货物为 100%A+ 或 A 包裹，无包裹条码，按商品条码直接上架即可；\n- 确认外箱商品条码清晰可识别后再进行上架操作。",
+    "llmError": "",
+    "analysis": "【需求描述】\n入库单 WI50868720 下单时未勾选 100%A+/A 包裹（无包裹条码）的 PSC 服务，导致到仓后报异常单 EB0126070431029060（包裹条码批量异常）。客户已重新下单 WI50868720 并勾选正确的 PSC 服务。仓库需辨识外箱商品条码标签后，按新单要求完成上架并关闭异常单。\n\n【需求背景】\n入库单服务配置与实际货物状态不符，需按实际货物形态重新处理上架。\n\n【操作要求】\n1. 根据异常单 EB0126070431029060 定位待处理货物；\n2. 辨识外箱上的商品条码标签，确认商品信息；\n3. 按入库单 WI50868720（100%A+/A 包裹无包裹条码）的要求直接上架，无需扫描包裹条码；\n4. 完成上架后在系统中关闭异常单 EB0126070431029060。\n\n【注意事项】\n- 本批次货物为 100%A+ 或 A 包裹，无包裹条码，按商品条码直接上架即可；\n- 确认外箱商品条码清晰可识别后再进行上架操作。",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "✅ AI 判断场景：海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架（置信度：高）"
+  },
+  "omsWriteAttempted": false
+}

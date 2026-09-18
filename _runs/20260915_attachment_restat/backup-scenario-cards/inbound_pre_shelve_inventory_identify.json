@@ -1,0 +1,78 @@
+{
+  "sceneKey": "inbound_pre_shelve_inventory_identify",
+  "sceneName": "【入库】上架前盘点-辨识费",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "202506120002",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.18",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "上架前盘点",
+      "开箱清点数量",
+      "辨识包裹标签",
+      "辨识商品标签",
+      "翻新仓来货",
+      "少货",
+      "贴标错误",
+      "实际装载数量"
+    ],
+    "weak": [
+      "每箱",
+      "是否与订单一致",
+      "是否与下单一致",
+      "开箱",
+      "清点",
+      "辨识费"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴条码",
+      "调拨",
+      "自提",
+      "拍照暂存",
+      "质检"
+    ],
+    "soft": [
+      "下架",
+      "重新上架",
+      "关联第三方条码",
+      "串仓"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景只做盘点辨识，不涉及换标操作",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别是：本场景不需要补贴条码，只验证标签是否一致",
+    "和【入库】商品质检的区别是：本场景重点是数量清点和标签辨识，不涉及商品质量检验",
+    "和【入库】无主货异常补贴标签上架的区别是：本场景针对的是翻新仓来货的预防性盘点,不是无主货异常处理"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确需要盘点的入库单号、SKU或包裹数量",
+    "动作：开箱清点数量、辨识包裹标签和商品标签是否与订单一致",
+    "去向：确认无误后正常上架（隐含）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "说明盘点背景（如翻新仓来货、可能存在的异常）",
+    "列出需要盘点的具体入库单号和数量",
+    "明确开箱清点实际装载数量是否与下单一致",
+    "明确辨识包裹标签及商品标签是否与下单一致",
+    "注明计费方式为增值-辨识费"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.18. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 模糊匹配 202506120002（【入库】上架前盘点）。"
+}

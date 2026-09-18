@@ -1,0 +1,157 @@
+{
+  "sceneKey": "inbound_destroy_before_shelve",
+  "sceneName": "【入库】上架前销毁",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "INBOUND_DESTORY_BF_SHELVE",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§2.22",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "销毁",
+      "上架前销毁",
+      "部分销毁",
+      "全部销毁",
+      "剩余货物上架",
+      "标注销毁的包裹"
+    ],
+    "weak": [
+      "部分货物",
+      "剩余货物",
+      "做销毁处理",
+      "增值-销毁"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "换标",
+      "补贴标签",
+      "尺重",
+      "辨识",
+      "质检",
+      "自提"
+    ],
+    "soft": [
+      "拍照",
+      "开箱",
+      "换商品标签"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】上架前自提的区别是：销毁场景是货物不要了要销毁，自提场景是客户要把货物取走",
+    "和【入库】商品质检的区别是：销毁场景明确要求销毁货物，质检场景是检查货物质量后决定是否上架",
+    "和【入库】包裹类异常换商品标签上架的区别是：销毁场景的核心动作是销毁货物，换标场景的核心动作是更换标签后上架",
+    "和【入库】指定商品拍照暂存的区别是：销毁场景最终要销毁货物，暂存场景是拍照后暂时存放不销毁"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确哪些货物需要销毁（部分/全部/指定包裹/指定SKU）",
+    "动作：销毁处理，以及剩余货物（如有）的上架动作",
+    "去向：销毁的货物不上架，剩余货物上架到指定入库单"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_NWEON"
+    ],
+    "note": "auto-generated from OMS stats n=7 window=2026-04-21~2026-09-03; requiredFieldKeys from appearance>=70% and nonempty>=50%. Source _runs/20260911_attachment_stats."
+  },
+  "sopTemplateHints": [
+    "将指定货物做销毁处理",
+    "将剩余货物（如有）做正常入库上架",
+    "上架到指定入库单",
+    "关闭异常单（如有）",
+    "计费：增值-销毁"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §2.22. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 INBOUND_DESTORY_BF_SHELVE. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "销毁对象范围",
+      "description": "明确指定需要销毁的货物范围，可以是SKU、包裹号、数量或整单",
+      "frequency": "100%的历史单都明确提到了",
+      "examples": [
+        "独立包装螺丝一件",
+        "4件受潮变形的",
+        "50箱左右的不良品",
+        "LPNWE356697629",
+        "sku：M010000000008783250"
+      ],
+      "required": true
+    },
+    {
+      "field": "销毁原因",
+      "description": "说明为什么需要销毁，如货物质量问题、混装错误、查验风险等",
+      "frequency": "约85%的历史单提到了",
+      "examples": [
+        "受潮变形不能再进行售卖",
+        "不良品",
+        "并非我司货物",
+        "货物实际有问题，不能售卖",
+        "涉及TS查验"
+      ],
+      "required": true
+    },
+    {
+      "field": "剩余货物处理方式",
+      "description": "明确销毁后剩余货物是否需要上架及上架到哪个入库单",
+      "frequency": "约71%的历史单提到了",
+      "examples": [
+        "剩下1款SKU贴有ZBJ-PJ-038 - M010000000009976451全部扫描上到原单：WI48784296",
+        "正常的2件上架到入库单WI49068271",
+        "其余已关联，麻烦扫描上架在WI49288565"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "识别方式",
+      "description": "如何识别需要销毁的货物，是否需要拆箱检查",
+      "frequency": "约29%的历史单提到了",
+      "examples": [
+        "外包装就可以看得出来；不需要拆箱",
+        "附件上传螺丝产品图，指定这1件进行销毁",
+        "根据历史拍照增值VASC000000270000 的图片编号以及文件里面整理出的图片编号对应的动作指令"
+      ],
+      "required": false
+    },
+    {
+      "field": "关联包裹/容器号",
+      "description": "涉及的具体包裹号、容器号或LPN号",
+      "frequency": "约57%的历史单提到了",
+      "examples": [
+        "对应包裹：B0400000001390465167",
+        "包裹B0400000001396007328",
+        "整单A+包裹",
+        "LPNWE356697629"
+      ],
+      "required": false
+    },
+    {
+      "field": "补贴标签要求",
+      "description": "销毁部分货物后，剩余货物是否需要补贴或更换标签",
+      "frequency": "约14%的历史单提到了",
+      "examples": [
+        "补贴包裹标签，用新标签覆盖原标签，包裹标签已经上传附件pdf"
+      ],
+      "required": false
+    },
+    {
+      "field": "时效要求",
+      "description": "是否有特殊的时间要求或紧急程度说明",
+      "frequency": "约14%的历史单提到了",
+      "examples": [
+        "订单预计5.29到港，需提前确认以上需求是否能操作及预估费用的"
+      ],
+      "required": false
+    }
+  ]
+}

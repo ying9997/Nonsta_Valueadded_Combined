@@ -1,0 +1,85 @@
+{
+  "orderNo": "VASC000000326745",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_exception_relabel_shelving"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000326745",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "处理范围",
+        "present": true,
+        "evidence": "异常单：EB0126072831660743，需要把一个异常包裹拆成两箱"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "原单上架WI51317824"
+      },
+      {
+        "field": "商品标签数量",
+        "present": true,
+        "evidence": "B0400000001436242483=19pcs+B0400000001436242551=5pcs，且客户已上传标签文件附件"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (46).pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (47).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值，因为需要原单上架所以无需用异常单发起增值\n异常单：EB0126072831660743  入库单：WI51317824    此异常实际是2箱货物，被工厂合并打包了，  需要仓库把一个异常包裹拆成两箱分别贴包裹标签上架，一箱19pcs，一箱5pcs，    拆完后原单上架WI51317824，补贴B0400000001436242483=19pcs+B0400000001436242551=5pcs，标签见附件，上架完成后关闭异常",
+    "requirementLength": 216,
+    "sceneKey": "inbound_package_exception_relabel_shelving",
+    "sceneName": "【入库】包裹类异常换商品标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126072831660743 关联入库单 WI51317824：工厂将 2 箱货物合并打包成 1 个异常包裹，需拆分为 2 箱并分别补贴包裹标签后上架。第一箱 19 件商品对应包裹标签 B0400000001436242483，第二箱 5 件商品对应包裹标签 B0400000001436242551。标签文件见附件 Order (46).pdf 和 Order (47).pdf。\n\n【需求背景】\n工厂错误将两箱货物合并打包，导致包裹数量与入库单不符，需拆分并补贴正确的包裹标签后按原入库单上架。\n\n【操作要求】\n1. 根据异常单 EB0126072831660743 定位待处理的合并包裹\n2. 将该包裹拆分为 2 箱：第一箱清点确认 19 件商品，第二箱清点确认 5 件商品\n3. 按附件 Order (46).pdf 和 Order (47).pdf 中的标签文件，为第一箱补贴包裹标签 B0400000001436242483，为第二箱补贴包裹标签 B0400000001436242551\n4. 使用入库单 WI51317824 扫描上架两箱货物\n5. 操作完成后，将异常单状态变更为已完成\n\n【注意事项】\n- 拆箱时务必核对每箱件数，确保第一箱 19 件、第二箱 5 件\n- 包裹标签与箱内件数必须严格对应",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126072831660743 关联入库单 WI51317824：工厂将 2 箱货物合并打包成 1 个异常包裹，需拆分为 2 箱并分别补贴包裹标签后上架。第一箱 19 件商品对应包裹标签 B0400000001436242483，第二箱 5 件商品对应包裹标签 B0400000001436242551。标签文件见附件 Order (46).pdf 和 Order (47).pdf。\n\n【需求背景】\n工厂错误将两箱货物合并打包，导致包裹数量与入库单不符，需拆分并补贴正确的包裹标签后按原入库单上架。\n\n【操作要求】\n1. 根据异常单 EB0126072831660743 定位待处理的合并包裹\n2. 将该包裹拆分为 2 箱：第一箱清点确认 19 件商品，第二箱清点确认 5 件商品\n3. 按附件 Order (46).pdf 和 Order (47).pdf 中的标签文件，为第一箱补贴包裹标签 B0400000001436242483，为第二箱补贴包裹标签 B0400000001436242551\n4. 使用入库单 WI51317824 扫描上架两箱货物\n5. 操作完成后，将异常单状态变更为已完成\n\n【注意事项】\n- 拆箱时务必核对每箱件数，确保第一箱 19 件、第二箱 5 件\n- 包裹标签与箱内件数必须严格对应",
+    "conclusionOneLiner": "包裹条码异常，拆包后补贴包裹标签上架",
+    "judgmentBasis": "🔍 异常单 EB0126072831660743：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：拆分1个异常包裹为2箱、补贴包裹标签B0400000001436242483(19pcs)和B0400000001436242551(5pcs)、上架到原入库单WI51317824、关闭异常单EB0126072831660743\n✅ AI 判断场景：【入库】包裹类异常换商品标签上架（置信度：高）\n💡 AI 理由：包裹条码异常，拆包后补贴包裹标签上架"
+  },
+  "omsWriteAttempted": false
+}

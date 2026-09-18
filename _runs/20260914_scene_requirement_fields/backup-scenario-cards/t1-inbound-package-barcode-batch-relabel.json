@@ -1,0 +1,153 @@
+{
+  "sceneKey": "inbound_package_barcode_batch_relabel",
+  "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+  "status": "supported",
+  "category": "inbound",
+  "omsSceneCode": "20250430",
+  "aliases": {
+    "kbNames": [
+      "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架"
+    ],
+    "kbMatch": "pending_kb_verify",
+    "note": "本地暂无独立知识库标题核验；候选写法暂用 OMS 全名"
+  },
+  "testPool": "T1",
+  "sourceRefs": [
+    {
+      "path": "_runs/20260909_inbound_scene_probe/scene-rank-v4.json",
+      "credibility": "derived",
+      "note": "测集 T1；v4 实用门槛第 1；EB/HQ/客户指标来源"
+    },
+    {
+      "path": "_runs/20260909_inbound_scene_probe/_oms_cache/",
+      "credibility": "derived",
+      "note": "本窗 atoms/attrs：场景码 20250430，需求描述高频为包裹条码批量异常、补贴万邑通包裹标签上架"
+    },
+    {
+      "path": "internal-review-copilot/knowledge/scenario-cards/f001-inbound-label-identify.json",
+      "credibility": "derived",
+      "note": "卡结构对标；边界：F-001 偏尺重/辨识/绿标/混SKU 换标，本场景偏批量包裹条码异常后补贴包裹标"
+    },
+    {
+      "path": "internal-review-copilot/knowledge/scenario-cards/inbound-package-exception-relabel-shelving.json",
+      "credibility": "derived",
+      "note": "边界：A 强调包裹条码正常+商品条码异常换商品标；本场景是包裹条码批量异常补贴包裹标"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "包裹条码批量异常",
+      "批量异常",
+      "补贴包裹标签",
+      "补贴万邑通包裹标签",
+      "辨识后补贴包裹标签",
+      "辨识",
+      "包裹标都无法识别",
+      "整单包裹标",
+      "需客户处理"
+    ],
+    "weak": [
+      "补贴包裹条码",
+      "换包裹标签",
+      "包裹标签上架",
+      "确认SKU",
+      "异常的包裹",
+      "异常包裹",
+      "无法识别",
+      "上架",
+      "关闭异常"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重",
+      "绿标",
+      "混SKU",
+      "商品条码与包裹条码不对应",
+      "包裹条码正常",
+      "商品条码异常",
+      "换商品标签",
+      "关联第三方商品条码",
+      "指定商品拍照暂存",
+      "拦截不上架"
+    ],
+    "soft": [
+      "辨识后换标",
+      "第三方条码",
+      "拍照暂存",
+      "仅写上架未写批量包裹异常"
+    ]
+  },
+  "boundaryRules": [
+    "OMS 场景码 20250430 可辅助，不能单独当命中；须正文体现「包裹条码批量异常 / 批量无法识别」+「补贴包裹标签上架」。",
+    "与 F-001：有尺重/绿标/混SKU/商品-包裹对应关系时优先 F-001，不要抢标 T1。",
+    "「辨识」同时出现在 F-001 和 T1 的 strong signal 中。当正文同时含「辨识」+「包裹标签/包裹条码」时优先 T1；含「辨识」+「商品标签/商品条码/换标」时优先 F-001。区分不了 → ambiguous。",
+    "与 A（20250407008）：A 是包裹条码正常、商品条码异常、换商品标；T1 是包裹条码批量异常、补贴包裹标。区分不了 → ambiguous。",
+    "与 T3（202506120001）：已维护/关联第三方商品条码后直接扫描上架 → T3，不是本场景的「补贴万邑通包裹标签」。",
+    "与近邻 OMS「100%A+/A包裹包裹条码批量异常」等：码不同则不要仅凭「批量异常」口语并码。",
+    "不能仅凭 OW01V1602 / 入库其他服务需求命中。",
+    "附件必填与金标须等样本轮用真实 case 再确认，禁止自造 fieldKey。"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：批量异常的包裹 / 包裹条码",
+    "动作：辨识后补贴（万邑通）包裹标签",
+    "去向：上架（常含关闭异常 / 对应 WI）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "required",
+    "omsWhitelistFieldKeys": [
+      "VAS_ATTR_REL_LF",
+      "VAS_ATTR_REL_NWEON",
+      "VAS_ATTR_REL_AOOI",
+      "NSVASTN",
+      "VAS_ATTR_REL_RD",
+      "BEOR",
+      "TRPP",
+      "CEO_SOA",
+      "VSS"
+    ],
+    "requiredFieldKeys": [
+      "VAS_ATTR_REL_LF"
+    ],
+    "note": "本窗 20250430 共 76 单 SUBMIT 均出现 VAS_ATTR_REL_LF 键（标签文件）。正式 required 须样本轮按「有实际附件/非空」再确认≥70% 口径；不得自造 fieldKey。另常见上架入库单号 VAS_ATTR_REL_NWEON。"
+  },
+  "sopTemplateHints": [
+    "写明批量异常范围（整单 / 箱数 / 件数）",
+    "补贴包裹标签 × 数量（或随机贴规则，若单 SKU）",
+    "标签文件附件",
+    "上架目标入库单 WI",
+    "异常单关闭要求"
+  ],
+  "examples": [
+    {
+      "id": "t1-positive-272889",
+      "kind": "positive",
+      "sourceType": "oms_attr_excerpt",
+      "text": "入库单整单包裹标都无法识别，需要全部补贴万邑通包裹标签上架，264箱，入库单只有1个SKU，随机贴即可",
+      "note": "摘自 VASC000000272889 需求描述口径；非正式 gold"
+    },
+    {
+      "id": "t1-positive-batch-count",
+      "kind": "positive",
+      "sourceType": "oms_attr_excerpt",
+      "text": "异常只登记1个，实际有240件货物需要新单上架并补贴包裹标签，标准流程无法对应关系登记",
+      "note": "摘自 VASC000000276171 类表述；非正式 gold"
+    },
+    {
+      "id": "t1-negative-f001",
+      "kind": "negative",
+      "sourceType": "derived_example",
+      "text": "物流标签盖住绿标，撕开后按露出的 SKU 换商品条码再上架",
+      "note": "F-001 典型，不得收成 T1"
+    },
+    {
+      "id": "t1-negative-a",
+      "kind": "negative",
+      "sourceType": "derived_example",
+      "text": "包裹类异常，包裹条码正常但商品条码异常，请换商品标签后上架",
+      "note": "场景 A 典型，不得收成 T1"
+    }
+  ],
+  "notes": "status=supported (installed 20260909; attachment policy pending_business_confirmation)。测集 T1。授权范围：本轮只建卡，抽样/jsonl 下一轮。晋升 supported 前须完成：知识库标题核验、样本附件统计、与 F-001/A/T3 边界抽检。"
+}

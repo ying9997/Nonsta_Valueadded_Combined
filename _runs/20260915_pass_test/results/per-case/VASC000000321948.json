@@ -1,0 +1,60 @@
+{
+  "orderNo": "VASC000000321948",
+  "outcome": "transfer_human",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "action": "stop_first_round",
+      "note": "pass-test 只记第一轮，不模拟补附件/选场景",
+      "sceneKey": "instock_split_sku"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000321948",
+    "outputPath": "transfer_human",
+    "ruleOutputPath": "transfer_human",
+    "node": "match-template",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template"
+    ],
+    "failureGate": "match-template",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [],
+    "infoCheckSkipped": true,
+    "infoCheckError": "",
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (86).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "这个异常单是国内直发的整箱类型库存 整箱库存内部商品破损所产生的异常，这个异常单内的产品SKU是个整箱类型的SKU 我们想要让海外仓用透明胶带将外箱重新封好后 原封不动得上架到原SKU上，标准增值内没有给产品封箱后上架得增值类型\nEB0426070931164183，这个异常单内的产品是个整箱类型的库存（SKU：SLEU-CL-D220P-118D3-1-32），麻烦用胶带将外层大箱子封好，保证内部得商品不会掉出，封好后需要补贴商品条码（M010000000013713330） 补贴完后再将这一箱产品上架入库单：WI51234994 内",
+    "requirementLength": 271,
+    "sceneKey": "instock_split_sku",
+    "sceneName": "【库内】拆分SKU",
+    "decision": "ambiguous",
+    "confidence": "medium",
+    "reason": "ambiguous_top1_top2_close",
+    "llmText": "客户需求是对整箱SKU外箱封箱后补贴条码上架，但场景识别在\"拆分SKU\"和其他场景间置信度较低（0.33），无法明确匹配标准增值模板，需人工判断具体操作类型和费用方案。",
+    "llmError": "",
+    "analysis": "客户需求是对整箱SKU外箱封箱后补贴条码上架，但场景识别在\"拆分SKU\"和其他场景间置信度较低（0.33），无法明确匹配标准增值模板，需人工判断具体操作类型和费用方案。",
+    "conclusionOneLiner": "商品包装异常需补贴商品条码后上架",
+    "judgmentBasis": "🔍 异常单 EB0426070931164183：商品包装异常（商品）[oms_api]\n✅ AI 判断场景：【库内】拆分SKU（置信度：低）\n💡 AI 理由：商品包装异常需补贴商品条码后上架"
+  },
+  "omsWriteAttempted": false
+}

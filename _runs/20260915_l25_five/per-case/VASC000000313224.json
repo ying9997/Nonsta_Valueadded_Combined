@@ -1,0 +1,85 @@
+{
+  "orderNo": "VASC000000313224",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_parcel_cross_warehouse_transfer"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000313224",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常包裹编号",
+        "present": true,
+        "evidence": "系统已掌握异常单号：EB0126070230983595，客户原文也明确提到此单号"
+      },
+      {
+        "field": "目的仓库",
+        "present": true,
+        "evidence": "客户明确要求'转到DG仓'，DG仓即为目的仓库代码"
+      },
+      {
+        "field": "目标入库单号",
+        "present": true,
+        "evidence": "客户明确要求'上架到WI50892274'，系统单据信息也显示此入库单号"
+      },
+      {
+        "field": "当前所在仓库",
+        "present": true,
+        "evidence": "系统已掌握当前单据仓库：DEBR2 Warehouse / DEBR2，这是包裹当前错误所在的仓库"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (40).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值\nEB0126070230983595  货物实际是DG品，需要转回DG仓上架，请帮忙把货物转到DG仓，上架到WI50892274，补贴winit包裹标签",
+    "requirementLength": 82,
+    "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+    "sceneName": "【入库】包裹串仓异常调拨",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126070230983595 关联入库单 WI50892274，货物实际为 DG 品（危险品），需从普通仓调拨至 DG 仓上架。按客户提供的标签文件（Order (40).pdf）补贴 winit 包裹标签后，转入 DG 仓并完成上架。\n\n【需求背景】\n到仓货物实际属性为危险品，与系统登记仓库类型不符，需跨仓调拨至 DG 专用仓库。\n\n【操作要求】\n1. 根据异常单 EB0126070230983595 定位待处理包裹；\n2. 按已上传的标签文件（Order (40).pdf）补贴 winit 包裹标签；\n3. 将货物从当前仓库（DEBR2）调拨至 DG 仓；\n4. 使用入库单 WI50892274 在 DG 仓扫描上架；\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 货物为 DG 品（危险品），调拨和上架需遵守 DG 仓操作规范；\n- 确认标签补贴位置清晰可扫描后再进行调拨。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126070230983595 关联入库单 WI50892274，货物实际为 DG 品（危险品），需从普通仓调拨至 DG 仓上架。按客户提供的标签文件（Order (40).pdf）补贴 winit 包裹标签后，转入 DG 仓并完成上架。\n\n【需求背景】\n到仓货物实际属性为危险品，与系统登记仓库类型不符，需跨仓调拨至 DG 专用仓库。\n\n【操作要求】\n1. 根据异常单 EB0126070230983595 定位待处理包裹；\n2. 按已上传的标签文件（Order (40).pdf）补贴 winit 包裹标签；\n3. 将货物从当前仓库（DEBR2）调拨至 DG 仓；\n4. 使用入库单 WI50892274 在 DG 仓扫描上架；\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 货物为 DG 品（危险品），调拨和上架需遵守 DG 仓操作规范；\n- 确认标签补贴位置清晰可扫描后再进行调拨。",
+    "conclusionOneLiner": "货物送错仓库需跨仓调拨到DG仓",
+    "judgmentBasis": "🔍 异常单 EB0126070230983595：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：补贴包裹标签、转回DG仓、上架到WI50892274、补贴winit包裹标签\n✅ AI 判断场景：【入库】包裹串仓异常调拨（置信度：高）\n💡 AI 理由：货物送错仓库需跨仓调拨到DG仓"
+  },
+  "omsWriteAttempted": false
+}

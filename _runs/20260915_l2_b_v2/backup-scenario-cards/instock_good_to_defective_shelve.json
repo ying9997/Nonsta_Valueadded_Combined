@@ -1,0 +1,172 @@
+{
+  "sceneKey": "instock_good_to_defective_shelve",
+  "sceneName": "【库内】良品转不良品上架",
+  "status": "supported",
+  "category": "instock",
+  "omsSceneCode": "20250808003",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.42",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "良品转不良品",
+      "库存属性改成不良品",
+      "单品包装破损异常",
+      "库内待复核的非丢失类异常",
+      "复核时确认为不良品",
+      "不良品存储"
+    ],
+    "weak": [
+      "退货单",
+      "更换新入库单",
+      "非标增值上架",
+      "A+包裹",
+      "无法直接选择更新上架"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "尺重辨识",
+      "批量辨识商品",
+      "海运整柜",
+      "串仓调拨",
+      "自提",
+      "质检"
+    ],
+    "soft": [
+      "换标",
+      "补贴标签",
+      "无主货",
+      "SKU不符"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】包裹类异常换商品标签上架的区别：本场景重点是库存属性从良品转为不良品,需要登记单品包装破损异常并在复核时改属性;换标场景只是换标签不涉及库存属性变更",
+    "和【入库】商品质检的区别：本场景是已上架的良品因包装破损等原因需转为不良品,质检场景是入库前的质量检验",
+    "和【入库】商品下架后换入库单重新上架的区别：本场景必须涉及库存属性变更(良品→不良品),换入库单场景不涉及库存属性变更",
+    "关键识别点：必须同时包含'良品转不良品'或'库存属性改成不良品'+'单品包装破损异常'或'复核确认为不良品'这两类信息"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：已上架的良品商品(通常来自退货单或其他入库单)",
+    "动作：登记单品包装破损异常、复核确认、更改库存属性",
+    "去向：转为不良品存储(库存属性从良品改为不良品)"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "找到需要转属性的良品商品(根据退货单或入库单)",
+    "使用新入库单做上架操作",
+    "登记【单品包装破损】异常,生成库内待复核的非丢失类异常记录",
+    "在复核环节确认为不良品",
+    "将库存属性从良品改成不良品存储"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.42. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250808003. SOP 内容不足，信号词可能不准。 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "requiredInfoFields": [
+    {
+      "field": "目标入库单号",
+      "description": "需要明确商品要上架到哪个不良品入库单/预报单",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "入库单号WI51908492",
+        "入库单WI50591614",
+        "新入库单WI51427083",
+        "预报单：WI51722554",
+        "原入库单WI50351073"
+      ],
+      "required": true
+    },
+    {
+      "field": "处理对象标识",
+      "description": "需要明确是哪些商品/箱码/SKU需要转不良品，可以是箱码、异常单号、SKU编码等",
+      "frequency": "100%的历史单都提到了",
+      "examples": [
+        "EB0526081332214735",
+        "M010000000008453352",
+        "61pcs T520QJ20（M010000000011878557）",
+        "LXJM0120260509000269等10个箱码",
+        "11304010760现有库存"
+      ],
+      "required": true
+    },
+    {
+      "field": "转换原因/背景",
+      "description": "说明为什么要从良品转不良品，如库内破损、误操作上架、质量异常、包装问题等",
+      "frequency": "约75%的历史单明确提到了",
+      "examples": [
+        "库内破损异常",
+        "误操作将库存上架为良品库存，实际产品都判定为不良品",
+        "库内单品质量异常",
+        "包装问题",
+        "实际是不良品"
+      ],
+      "required": true
+    }
+  ],
+  "optionalInfoFields": [
+    {
+      "field": "是否需要补贴标签",
+      "description": "部分情况需要补贴商品条码、包裹标签或SN标签后再上架",
+      "frequency": "约44%的历史单提到了",
+      "examples": [
+        "需要补贴商品条码上架到不良品",
+        "补贴包裹标签，标签见附件",
+        "需要更换一个外箱，采集SN上架到不良品库位"
+      ],
+      "required": false
+    },
+    {
+      "field": "原入库单信息",
+      "description": "当涉及重新上架时，需要说明原来是从哪个入库单上架的",
+      "frequency": "约31%的历史单提到了",
+      "examples": [
+        "原单WI50048193",
+        "WI50591614这个入库单上架的61pcs",
+        "然后仓库重新用原入库单WI50351073上架"
+      ],
+      "required": false
+    },
+    {
+      "field": "后续处理要求",
+      "description": "转不良品后的进一步操作，如盘亏处理、退回国内、防止混放等",
+      "frequency": "约31%的历史单提到了",
+      "examples": [
+        "不良品做盘亏L007处理",
+        "后续需要退回国内",
+        "为防止同款产品亚马逊移除订单入库后与原库存混放",
+        "后续要退回香港工厂处理"
+      ],
+      "required": false
+    },
+    {
+      "field": "数量信息",
+      "description": "需要转不良品的具体数量",
+      "frequency": "约38%的历史单明确提到了",
+      "examples": [
+        "61pcs",
+        "共计2pcs",
+        "10个箱码"
+      ],
+      "required": false
+    },
+    {
+      "field": "是否需要换标",
+      "description": "少数情况需要更换SKU标签",
+      "frequency": "约6%的历史单提到了",
+      "examples": [
+        "原sku9345750988194需要换标成9345750052864"
+      ],
+      "required": false
+    }
+  ]
+}

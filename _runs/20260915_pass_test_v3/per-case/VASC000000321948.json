@@ -1,0 +1,64 @@
+{
+  "orderNo": "VASC000000321948",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "instock_damaged_repack_reshelve"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000321948",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [],
+    "infoCheckSkipped": true,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (86).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "这个异常单是国内直发的整箱类型库存 整箱库存内部商品破损所产生的异常，这个异常单内的产品SKU是个整箱类型的SKU 我们想要让海外仓用透明胶带将外箱重新封好后 原封不动得上架到原SKU上，标准增值内没有给产品封箱后上架得增值类型\nEB0426070931164183，这个异常单内的产品是个整箱类型的库存（SKU：SLEU-CL-D220P-118D3-1-32），麻烦用胶带将外层大箱子封好，保证内部得商品不会掉出，封好后需要补贴商品条码（M010000000013713330） 补贴完后再将这一箱产品上架入库单：WI51234994 内",
+    "requirementLength": 271,
+    "sceneKey": "instock_damaged_repack_reshelve",
+    "sceneName": "【库内】包装破损商品更换包材重新上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0426070931164183 关联的整箱库存（SKU：SLEU-CL-D220P-118D3-1-32）在入库过程中外箱破损，需对外箱进行封箱加固并补贴商品条码后上架至入库单 WI51234994。客户已提供标签文件（Order (86).pdf）用于打印条码标签。\n\n【需求背景】\n整箱库存外箱破损导致内部商品可能掉落，需封箱加固并补贴条码后重新上架，标准增值流程不包含此类封箱操作。\n\n【操作要求】\n1. 根据异常单 EB0426070931164183 定位待处理整箱货物，核对外箱原有标签或系统信息确认 SKU 为 SLEU-CL-D220P-118D3-1-32。\n2. 使用透明胶带对外箱破损处进行封箱加固，确保内部商品不会掉出，保持箱体完整。\n3. 打印标签文件（Order (86).pdf）中的条码标签，核对条码内容为 M010000000013713330 且打印清晰可扫描。\n4. 将打印好的条码标签 M010000000013713330 粘贴至外箱正面中央位置（若原箱条码破损则覆盖原标签；若原标签完好则粘贴在原标签旁边空白处）。\n5. 使用入库单 WI51234994 扫描上架，保持原 SKU 不变。\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 封箱时确保胶带粘贴牢固，箱体各破损处均已加固。\n- 补贴条码前必须确认打印的条码清晰可扫描，条码内容与 M010000000013713330 完全一致。\n- 上架时保持原 SKU（SLEU-CL-D220P-118D3-1-32）不变，不更改库存属性。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0426070931164183 关联的整箱库存（SKU：SLEU-CL-D220P-118D3-1-32）在入库过程中外箱破损，需对外箱进行封箱加固并补贴商品条码后上架至入库单 WI51234994。客户已提供标签文件（Order (86).pdf）用于打印条码标签。\n\n【需求背景】\n整箱库存外箱破损导致内部商品可能掉落，需封箱加固并补贴条码后重新上架，标准增值流程不包含此类封箱操作。\n\n【操作要求】\n1. 根据异常单 EB0426070931164183 定位待处理整箱货物，核对外箱原有标签或系统信息确认 SKU 为 SLEU-CL-D220P-118D3-1-32。\n2. 使用透明胶带对外箱破损处进行封箱加固，确保内部商品不会掉出，保持箱体完整。\n3. 打印标签文件（Order (86).pdf）中的条码标签，核对条码内容为 M010000000013713330 且打印清晰可扫描。\n4. 将打印好的条码标签 M010000000013713330 粘贴至外箱正面中央位置（若原箱条码破损则覆盖原标签；若原标签完好则粘贴在原标签旁边空白处）。\n5. 使用入库单 WI51234994 扫描上架，保持原 SKU 不变。\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 封箱时确保胶带粘贴牢固，箱体各破损处均已加固。\n- 补贴条码前必须确认打印的条码清晰可扫描，条码内容与 M010000000013713330 完全一致。\n- 上架时保持原 SKU（SLEU-CL-D220P-118D3-1-32）不变，不更改库存属性。",
+    "conclusionOneLiner": "外箱破损需封箱处理后上架，属包装破损更换包材场景",
+    "judgmentBasis": "🔍 异常单 EB0426070931164183：商品包装异常（商品）[oms_api]\n📋 识别的动作：用透明胶带将外箱重新封好、补贴商品条码M010000000013713330、上架到入库单WI51234994原SKU\n✅ AI 判断场景：【库内】包装破损商品更换包材重新上架（置信度：高）\n💡 AI 理由：外箱破损需封箱处理后上架，属包装破损更换包材场景"
+  },
+  "omsWriteAttempted": false
+}

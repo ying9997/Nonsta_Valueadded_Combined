@@ -1,0 +1,85 @@
+{
+  "orderNo": "VASC000000313224",
+  "outcome": "sop_llm_failed",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop_llm_failed",
+      "note": "Expected ',' or '}' after property value in JSON at position 850 (line 6 column 25)",
+      "sceneKey": "inbound_package_barcode_batch_relabel"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000313224",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "llm-generate-sop",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "llm-generate-sop",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "系统已掌握单据信息中明确显示：EB0126070230983595"
+      },
+      {
+        "field": "目标入库单WI",
+        "present": true,
+        "evidence": "客户需求描述中明确提到「上架到WI50892274」，且系统已掌握单据信息中也显示该入库单号"
+      },
+      {
+        "field": "SKU与入库单对应关系",
+        "present": true,
+        "evidence": "客户已上传附件Order (40).pdf，该文件大概率包含订单明细和SKU信息；且场景为整单转仓上架，可合理推断附件中包含SKU与WI50892274的对应关系"
+      },
+      {
+        "field": "处理数量或范围",
+        "present": true,
+        "evidence": "客户已上传附件Order (40).pdf，该标签文件应包含需要补贴标签的包裹清单和数量；且客户表述为「把货物转到DG仓」暗示整单处理"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order (40).pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "暂无标准增值\nEB0126070230983595  货物实际是DG品，需要转回DG仓上架，请帮忙把货物转到DG仓，上架到WI50892274，补贴winit包裹标签",
+    "requirementLength": 82,
+    "sceneKey": "inbound_package_barcode_batch_relabel",
+    "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "",
+    "llmError": "Expected ',' or '}' after property value in JSON at position 850 (line 6 column 25)",
+    "analysis": "增值单 VASC000000313224 SOP 生成失败：Expected ',' or '}' after property value in JSON at position 850 (line 6 column 25)。请转人工处理，不要当作场景不确定。",
+    "conclusionOneLiner": "DG品误入普通仓需跨仓调拨，属串仓异常",
+    "judgmentBasis": "🔍 异常单 EB0126070230983595：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：补贴包裹标签、转回DG仓、上架到WI50892274、补贴winit包裹标签\n✅ AI 判断场景：【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架（置信度：高）\n💡 AI 理由：DG品误入普通仓需跨仓调拨，属串仓异常"
+  },
+  "omsWriteAttempted": false
+}

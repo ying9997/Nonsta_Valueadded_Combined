@@ -1,0 +1,92 @@
+{
+  "orderNo": "VASC000000309966",
+  "outcome": "needs_field_clarification",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "needs_field_clarification",
+      "ruleOutputPath": "needs_field_clarification",
+      "action": "stop_first_round",
+      "note": "pass-test 只记第一轮，不模拟补附件/选场景",
+      "sceneKey": "inbound_package_barcode_batch_relabel"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000309966",
+    "outputPath": "needs_field_clarification",
+    "ruleOutputPath": "needs_field_clarification",
+    "node": "check-scene-completeness",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness"
+    ],
+    "failureGate": "check-completeness",
+    "missing": [
+      "异常单号未说明",
+      "目标入库单WI未说明"
+    ],
+    "missingRequirementItems": [
+      "异常单号未说明",
+      "目标入库单WI未说明"
+    ],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [
+      "本场景（【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架）需要知道异常单号，请补充。",
+      "本场景（【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架）需要知道目标入库单WI，请补充。"
+    ],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": false,
+        "evidence": ""
+      },
+      {
+        "field": "目标入库单WI",
+        "present": false,
+        "evidence": ""
+      },
+      {
+        "field": "SKU与入库单对应关系",
+        "present": true,
+        "evidence": "客户已上传标签文件附件，标签文件通常包含SKU与入库单的对应关系"
+      },
+      {
+        "field": "处理数量或范围",
+        "present": true,
+        "evidence": "客户已上传标签文件附件，标签文件中应包含需要补贴标签的具体数量信息"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "WI49455996-包裹标签.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "该入库单彩盒上有缠膜，标签无法扫描，且标签贴膜上后续尾程运输易脱落\n1.撕掉外膜 2.补贴1张包裹条码于彩盒顶部 3.操作完成后选3pcs拍照反馈4.关闭异常单",
+    "requirementLength": 80,
+    "sceneKey": "inbound_package_barcode_batch_relabel",
+    "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "您好，该增值单已识别为「【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架」，但还缺少以下信息/附件：\n\n**增值单号**：VASC000000309966  \n**客户**：********************** / 18513540  \n**仓库**：USNJ2 Warehouse / USNJ2  \n**已绑定异常单**：EB0126063030831702  \n**已绑定入库单**：WI49455996  \n\n**已提交需求**：该入库单彩盒上有缠膜，标签无法扫描，且标签贴膜上后续尾程运输易脱落。需要撕掉外膜、补贴1张包裹条码于彩盒顶部、操作完成后选3pcs拍照反馈、关闭异常单。\n\n**已上传附件**：标签文件（WI49455996-包裹标签.pdf）\n\n**还缺少的附件**：\n1. **操作说明附件** — 需要详细说明撕膜、补贴标签的具体操作步骤\n2. **商品和标签的对应关系** — 需要明确哪些商品对应哪些标签\n3. **包裹和标签的对应关系** — 需要说明包裹与标签的匹配规则\n4. **视频拍摄SOP（中文+英文）** — 需要提供拍照反馈的标准操作说明\n\n请补充以上附件后再提交审核。AI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "llmError": "",
+    "analysis": "您好，该增值单已识别为「【入库】\"包裹条码批量异常（需客户处理）\"辨识后补贴包裹标签上架」，但还缺少以下信息/附件：\n\n**增值单号**：VASC000000309966  \n**客户**：********************** / 18513540  \n**仓库**：USNJ2 Warehouse / USNJ2  \n**已绑定异常单**：EB0126063030831702  \n**已绑定入库单**：WI49455996  \n\n**已提交需求**：该入库单彩盒上有缠膜，标签无法扫描，且标签贴膜上后续尾程运输易脱落。需要撕掉外膜、补贴1张包裹条码于彩盒顶部、操作完成后选3pcs拍照反馈、关闭异常单。\n\n**已上传附件**：标签文件（WI49455996-包裹标签.pdf）\n\n**还缺少的附件**：\n1. **操作说明附件** — 需要详细说明撕膜、补贴标签的具体操作步骤\n2. **商品和标签的对应关系** — 需要明确哪些商品对应哪些标签\n3. **包裹和标签的对应关系** — 需要说明包裹与标签的匹配规则\n4. **视频拍摄SOP（中文+英文）** — 需要提供拍照反馈的标准操作说明\n\n请补充以上附件后再提交审核。AI 不代填事实、不自动审核。资料补齐后请再提交审核。",
+    "conclusionOneLiner": "异常名称为包裹条码批量异常，需补贴包裹标签上架",
+    "judgmentBasis": "🔍 异常单 EB0126063030831702：包裹条码批量异常（需客户处理）（包裹）[oms_api]\n📋 识别的动作：拍照、撕掉外膜、补贴1张包裹条码于彩盒顶部、操作完成后选3pcs拍照反馈、关闭异常单\n✅ AI 判断场景：【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架（置信度：高）\n💡 AI 理由：异常名称为包裹条码批量异常，需补贴包裹标签上架"
+  },
+  "omsWriteAttempted": false
+}

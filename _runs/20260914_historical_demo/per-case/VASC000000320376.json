@@ -1,0 +1,47 @@
+{
+  "orderNo": "VASC000000320376",
+  "outcome": "l4_direct",
+  "threadId": "om_x100b65b4cca008a8c156463310394f5",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_destroy_before_shelve"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000320376",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "inbound_destroy_before_shelve",
+    "sceneName": "【入库】上架前销毁",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0426070931164183 涉及整箱库存（SKU：SLEU-CL-D220P-118D3-1-32，内含32个单品SKU：SLEU-CL-D220P-118D3-1），其中2个单品包装破损严重需销毁，剩余30个完好单品需拆箱换标后上架至入库单 WI51136500。客户已提供销毁示意图（库内增值需要销毁的图片示意图.png）、拆箱后产品图片（CLD拆箱后的产品图片.png）及标签文件（Order (79).pdf、Order (80).pdf）。\n\n【需求背景】\n整箱库存内部分商品破损，需对破损商品执行销毁、完好商品拆箱换标上架，标准增值无法对同一整箱执行多种不同操作类型。\n\n【操作要求】\n1. 根据异常单 EB0426070931164183 定位整箱货物（SKU：SLEU-CL-D220P-118D3-1-32）；\n2. 拆箱清点，按客户提供的「库内增值需要销毁的图片示意图.png」识别2个破损单品；\n3. 对2个破损单品执行销毁操作，拍照记录销毁过程（包含商品条码特写）并保存至异常单附件；\n4. 为30个完好单品打印并粘贴单品SKU标签（SKU：SLEU-CL-D220P-118D3-1），参考客户提供的标签文件（Order (79).pdf、Order (80).pdf）及「CLD拆箱后的产品图片.png」；\n5. 在系统中打开入库单 WI51136500，扫描30个完好单品的单品SKU条码，按系统提示完成上架操作并记录上架库位；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 销毁记录必须包含破损商品条码清晰照片，作为销毁凭证；\n- 换标时确保单品SKU标签（SLEU-CL-D220P-118D3-1）与商品一一对应，避免混淆；\n- 上架数量必须为30个单品，与入库单 WI51136500 核对一致。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0426070931164183 涉及整箱库存（SKU：SLEU-CL-D220P-118D3-1-32，内含32个单品SKU：SLEU-CL-D220P-118D3-1），其中2个单品包装破损严重需销毁，剩余30个完好单品需拆箱换标后上架至入库单 WI51136500。客户已提供销毁示意图（库内增值需要销毁的图片示意图.png）、拆箱后产品图片（CLD拆箱后的产品图片.png）及标签文件（Order (79).pdf、Order (80).pdf）。\n\n【需求背景】\n整箱库存内部分商品破损，需对破损商品执行销毁、完好商品拆箱换标上架，标准增值无法对同一整箱执行多种不同操作类型。\n\n【操作要求】\n1. 根据异常单 EB0426070931164183 定位整箱货物（SKU：SLEU-CL-D220P-118D3-1-32）；\n2. 拆箱清点，按客户提供的「库内增值需要销毁的图片示意图.png」识别2个破损单品；\n3. 对2个破损单品执行销毁操作，拍照记录销毁过程（包含商品条码特写）并保存至异常单附件；\n4. 为30个完好单品打印并粘贴单品SKU标签（SKU：SLEU-CL-D220P-118D3-1），参考客户提供的标签文件（Order (79).pdf、Order (80).pdf）及「CLD拆箱后的产品图片.png」；\n5. 在系统中打开入库单 WI51136500，扫描30个完好单品的单品SKU条码，按系统提示完成上架操作并记录上架库位；\n6. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 销毁记录必须包含破损商品条码清晰照片，作为销毁凭证；\n- 换标时确保单品SKU标签（SLEU-CL-D220P-118D3-1）与商品一一对应，避免混淆；\n- 上架数量必须为30个单品，与入库单 WI51136500 核对一致。",
+    "conclusionOneLiner": "部分商品破损需销毁，完好商品上架",
+    "judgmentBasis": "🔍 异常单 EB0426070931164183：商品包装异常（商品）[oms_api]\n📋 识别的动作：销毁2个破损单品、拆箱、30个完好单品上架到WI51136500\n✅ AI 判断场景：【入库】上架前销毁（置信度：高）\n💡 AI 理由：部分商品破损需销毁，完好商品上架"
+  },
+  "omsWriteAttempted": false
+}

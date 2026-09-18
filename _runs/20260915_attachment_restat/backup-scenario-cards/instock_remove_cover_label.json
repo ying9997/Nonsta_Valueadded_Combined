@@ -1,0 +1,76 @@
+{
+  "sceneKey": "instock_remove_cover_label",
+  "sceneName": "【库内】清除/覆盖标签",
+  "status": "supported",
+  "category": "instock",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§3.15",
+      "credibility": "authority",
+      "note": "批量从 SOP 知识库章节生成；附件规则待数据统计确认"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "清除标签",
+      "覆盖标签",
+      "UN标签",
+      "多余面单",
+      "错误标签",
+      "黑色标签纸覆盖",
+      "空白标签纸",
+      "撕掉标签"
+    ],
+    "weak": [
+      "外箱标签",
+      "解冻库存",
+      "清除后解冻",
+      "贴包裹标签",
+      "电池标签"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "入库预报",
+      "尺重辨识",
+      "换标上架",
+      "补贴商品条码",
+      "质检",
+      "拍照暂存"
+    ],
+    "soft": [
+      "串仓",
+      "调拨",
+      "自提",
+      "无主货"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】尺重/标签辨识后换标上架的区别：本场景是清除/覆盖已有标签，不涉及辨识尺重或换新标签上架",
+    "和【入库】批量辨识商品后补贴商品条码及包裹条码上架的区别：本场景是清除多余标签，不是补贴缺失的条码",
+    "和【入库】包裹类异常换商品标签上架的区别：本场景是清除/覆盖标签后解冻，不是换新的商品标签",
+    "和【入库】商品质检的区别：本场景仅处理标签问题，不涉及商品质量检查"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：明确SKU编号和数量",
+    "动作：清除或覆盖哪些标签（UN标签/多余面单/错误标签等）",
+    "去向：清除后是否需要解冻库存，使用何种方式（撕掉/黑色标签纸覆盖）"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "auto_generated",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "批量生成，附件规则待数据统计确认"
+  },
+  "sopTemplateHints": [
+    "必须包含SKU编号和数量",
+    "明确清除要求：清除什么标签（UN标签/多余面单/错误标签等）",
+    "说明清除方式：撕掉或使用空白/黑色标签纸覆盖",
+    "如有冻结库存，需说明清除后解冻",
+    "特殊客户备注：元鼎用贴包裹标签动作，Anker用清除标签动作"
+  ],
+  "examples": [],
+  "notes": "batch-generated from SOP §3.15. Status=supported for immediate use. Signals extracted by LLM, pending business validation. omsSceneCode pending_oms_code."
+}

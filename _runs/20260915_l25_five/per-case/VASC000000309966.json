@@ -1,0 +1,85 @@
+{
+  "orderNo": "VASC000000309966",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_package_barcode_batch_relabel"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000309966",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "系统已掌握：EB0126063030831702"
+      },
+      {
+        "field": "目标入库单WI",
+        "present": true,
+        "evidence": "系统已掌握：WI49455996"
+      },
+      {
+        "field": "SKU与入库单对应关系",
+        "present": true,
+        "evidence": "已上传文件：WI49455996-包裹标签.pdf，文件名明确对应入库单WI49455996，包裹标签文件通常包含SKU与包裹的对应关系"
+      },
+      {
+        "field": "处理数量或范围",
+        "present": true,
+        "evidence": "已上传包裹标签PDF文件，该文件应包含所有需要补贴标签的包裹条码及数量信息；客户要求「补贴1张包裹条码于彩盒顶部」，说明是按包裹标签文件中的包裹逐一处理"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "WI49455996-包裹标签.pdf",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "该入库单彩盒上有缠膜，标签无法扫描，且标签贴膜上后续尾程运输易脱落\n1.撕掉外膜 2.补贴1张包裹条码于彩盒顶部 3.操作完成后选3pcs拍照反馈4.关闭异常单",
+    "requirementLength": 80,
+    "sceneKey": "inbound_package_barcode_batch_relabel",
+    "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n入库单 WI49455996 的包裹彩盒外有缠膜导致条码无法扫描，且标签贴在膜上运输易脱落。需撕除外膜后在彩盒顶部补贴新包裹条码，完成后拍照反馈并关闭异常单 EB0126063030831702。\n\n【需求背景】\n包裹外包装缠膜遮挡条码，影响扫描识别和后续物流操作，需去除障碍物并重新贴标。\n\n【操作要求】\n1. 根据异常单 EB0126063030831702 定位入库单 WI49455996 的待处理包裹；\n2. 撕掉彩盒外层缠膜；\n3. 使用标签文件（WI49455996-包裹标签.pdf）打印包裹条码，补贴于彩盒顶部；\n4. 从处理完成的包裹中随机选取 3 件拍照留存；\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 撕膜时注意不要损坏彩盒本体；\n- 新标签需贴在彩盒顶部平整位置，确保可扫描；\n- 拍照需清晰展示贴标位置和条码内容。",
+    "llmError": "",
+    "analysis": "【需求描述】\n入库单 WI49455996 的包裹彩盒外有缠膜导致条码无法扫描，且标签贴在膜上运输易脱落。需撕除外膜后在彩盒顶部补贴新包裹条码，完成后拍照反馈并关闭异常单 EB0126063030831702。\n\n【需求背景】\n包裹外包装缠膜遮挡条码，影响扫描识别和后续物流操作，需去除障碍物并重新贴标。\n\n【操作要求】\n1. 根据异常单 EB0126063030831702 定位入库单 WI49455996 的待处理包裹；\n2. 撕掉彩盒外层缠膜；\n3. 使用标签文件（WI49455996-包裹标签.pdf）打印包裹条码，补贴于彩盒顶部；\n4. 从处理完成的包裹中随机选取 3 件拍照留存；\n5. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 撕膜时注意不要损坏彩盒本体；\n- 新标签需贴在彩盒顶部平整位置，确保可扫描；\n- 拍照需清晰展示贴标位置和条码内容。",
+    "conclusionOneLiner": "异常名称为包裹条码批量异常，需补贴包裹标签",
+    "judgmentBasis": "🔍 异常单 EB0126063030831702：包裹条码批量异常（需客户处理）（包裹）[oms_api]\n📋 识别的动作：拍照、撕掉外膜、补贴包裹条码于彩盒顶部、选3pcs拍照反馈、关闭异常单\n✅ AI 判断场景：【入库】包裹条码批量异常（需客户处理）辨识后补贴包裹标签上架（置信度：高）\n💡 AI 理由：异常名称为包裹条码批量异常，需补贴包裹标签"
+  },
+  "omsWriteAttempted": false
+}

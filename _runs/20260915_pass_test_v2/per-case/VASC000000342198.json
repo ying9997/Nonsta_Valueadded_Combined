@@ -1,0 +1,95 @@
+{
+  "orderNo": "VASC000000342198",
+  "outcome": "l4_direct",
+  "threadId": "",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "l4_direct",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "inbound_batch_identify_relabel_barcode"
+    }
+  ],
+  "simulated": [],
+  "final": {
+    "orderNo": "VASC000000342198",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-requirement",
+      "match-template",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "clarificationPrompts": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "EB0126080531931139 EB0126080531930887"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "WI52072412"
+      },
+      {
+        "field": "商品条码/SKU编码",
+        "present": true,
+        "evidence": "4302121P1：M010000000013922078 和 4302221P1：M010000000013922077"
+      },
+      {
+        "field": "辨识方法/对应关系",
+        "present": true,
+        "evidence": "根据示例图上的标签位置先识别，标签上有T3或B3字样，T3对应TB-NWLJG-T3B 430212110，B3对应B-NWLJG-B3B 430222110，且客户已上传标签文件作为辨识依据"
+      },
+      {
+        "field": "处理数量",
+        "present": true,
+        "evidence": "整箱都是裸货产品，说明是整箱处理，且客户已上传标签文件，数量信息可从附件中获取"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachmentComplete": true,
+    "uploadedAttachments": [
+      "标签文件"
+    ],
+    "uploadedFiles": [
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "Order - 2026-08-26T123416.904.pdf",
+        "label": "标签文件"
+      },
+      {
+        "fileType": "VAS_ATTR_REL_LF",
+        "fileName": "裸货示意图.png",
+        "label": "标签文件"
+      }
+    ],
+    "customerIntent": "对应异常单是包裹条码异常无法选择补贴商品条码处理；加上需辨识对应后再补贴，加快递袋打包，故非标申请\nEB0126080531931139 EB0126080531930887 对应这箱异常包裹整箱都是裸货产品，需根据示例图上的标签位置先识别，标签上有 T3或B3，字样 T3 对应：TB-NWLJG-T3B 430212110 =需加快递袋包材——贴条码 4302121P1：M010000000013922078 B3 对应：B-NWLJG-B3B 430222110 =需加快递袋包材——贴条码 4302221P1：M010000000013922077 贴完后按新单：WI52072412上架处理",
+    "requirementLength": 301,
+    "sceneKey": "inbound_batch_identify_relabel_barcode",
+    "sceneName": "【入库】批量辨识商品后补贴商品条码及包裹条码上架",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "llmText": "【需求描述】\n异常单 EB0126080531931139、EB0126080531930887 对应的包裹为裸货产品，因包裹条码异常无法按标准流程处理。需根据裸货示意图辨识商品类型（标签位置标注 T3 或 B3），为每件商品加快递袋包装后补贴对应的商品条码，最后按新入库单 WI52072412 上架。\n\n【需求背景】\n到仓包裹为裸货且包裹条码异常，需辨识商品类型后加包装并补贴商品条码才能正常上架。\n\n【操作要求】\n1. 根据异常单 EB0126080531931139、EB0126080531930887 定位对应的裸货包裹；\n2. 参照已上传的「裸货示意图.png」，查看每件商品标签位置上的标识：标注 T3 的商品对应 SKU TB-NWLJG-T3B，标注 B3 的商品对应 SKU B-NWLJG-B3B；\n3. 为每件裸货商品加快递袋包装；\n4. 在快递袋上补贴商品条码：T3 商品贴条码 4302121P1（M010000000013922078），B3 商品贴条码 4302221P1（M010000000013922077）；\n5. 扫描补贴后的商品条码，关联到新入库单 WI52072412 进行上架；\n6. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 必须先加快递袋包装，再补贴商品条码（贴在快递袋上）\n- 标签上的 430212110、430222110 是原标识，不是需要补贴的商品条码\n- 严格按照裸货示意图辨识 T3/B3 标识，避免贴错条码",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0126080531931139、EB0126080531930887 对应的包裹为裸货产品，因包裹条码异常无法按标准流程处理。需根据裸货示意图辨识商品类型（标签位置标注 T3 或 B3），为每件商品加快递袋包装后补贴对应的商品条码，最后按新入库单 WI52072412 上架。\n\n【需求背景】\n到仓包裹为裸货且包裹条码异常，需辨识商品类型后加包装并补贴商品条码才能正常上架。\n\n【操作要求】\n1. 根据异常单 EB0126080531931139、EB0126080531930887 定位对应的裸货包裹；\n2. 参照已上传的「裸货示意图.png」，查看每件商品标签位置上的标识：标注 T3 的商品对应 SKU TB-NWLJG-T3B，标注 B3 的商品对应 SKU B-NWLJG-B3B；\n3. 为每件裸货商品加快递袋包装；\n4. 在快递袋上补贴商品条码：T3 商品贴条码 4302121P1（M010000000013922078），B3 商品贴条码 4302221P1（M010000000013922077）；\n5. 扫描补贴后的商品条码，关联到新入库单 WI52072412 进行上架；\n6. 完成后将异常单状态变更为已完成。\n\n【注意事项】\n- 必须先加快递袋包装，再补贴商品条码（贴在快递袋上）\n- 标签上的 430212110、430222110 是原标识，不是需要补贴的商品条码\n- 严格按照裸货示意图辨识 T3/B3 标识，避免贴错条码",
+    "conclusionOneLiner": "整箱裸货需辨识后补贴商品和包裹双码",
+    "judgmentBasis": "🔍 异常单 EB0126080531931139、EB0126080531930887：包裹条码异常(需客户处理)（包裹）[oms_api]\n📋 识别的动作：辨识、根据标签位置辨识T3/B3字样、按客户提供的对应关系匹配SKU、加快递袋包材、补贴商品条码和包裹条码、按新单WI52072412上架\n✅ AI 判断场景：【入库】批量辨识商品后补贴商品条码及包裹条码上架（置信度：高）\n💡 AI 理由：整箱裸货需辨识后补贴商品和包裹双码"
+  },
+  "omsWriteAttempted": false
+}

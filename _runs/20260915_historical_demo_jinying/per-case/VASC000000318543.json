@@ -1,0 +1,55 @@
+{
+  "orderNo": "VASC000000318543",
+  "outcome": "sop_after_rounds",
+  "threadId": "om_x100b65bb454011a0c4ab4ec7afc8060",
+  "rounds": [
+    {
+      "round": 1,
+      "outputPath": "transfer_human",
+      "ruleOutputPath": "transfer_human",
+      "action": "override_scene",
+      "note": "overrideScene=instock_split_sku",
+      "sceneKey": "instock_split_sku"
+    },
+    {
+      "round": 2,
+      "outputPath": "sop_generated",
+      "ruleOutputPath": "sop_generated",
+      "action": "sop",
+      "note": "绿色卡片已发，按钮未点击",
+      "sceneKey": "instock_split_sku"
+    }
+  ],
+  "simulated": [
+    "选择场景：【库内】拆分SKU（来源：OMS 审核员实际选择）"
+  ],
+  "final": {
+    "orderNo": "VASC000000318543",
+    "outputPath": "sop_generated",
+    "ruleOutputPath": "sop_generated",
+    "node": "format-output",
+    "nodesHit": [
+      "validate-input",
+      "context-bind",
+      "check-scene-completeness",
+      "llm-generate-sop",
+      "format-output"
+    ],
+    "failureGate": "",
+    "missing": [],
+    "missingRequirementItems": [],
+    "missingAttachments": [],
+    "missingFields": [],
+    "sceneKey": "instock_split_sku",
+    "sceneName": "【库内】拆分SKU",
+    "decision": "supported",
+    "confidence": "high",
+    "reason": "override_by_auditor",
+    "llmText": "【需求描述】\n异常单 EB0526062730797031 货物因仓库原因导致破损，需按商品状态分开上架：6个完好商品上架至入库单 WI51068760，5个彩盒破损商品加快递袋后上架至入库单 WI51067532。客户已提供4个标签文件（Order (66).pdf、Order (67).pdf、OrderWI51068760 (68).pdf、OrderWI51068760 (69).pdf），需按标签文件为商品补贴对应标签后分别上架。\n\n【需求背景】\n到仓货物因仓库操作导致部分商品彩盒破损，需按商品完好状态拆分至不同入库单分别上架。\n\n【操作要求】\n1. 根据异常单 EB0526062730797031 定位待处理货物，在系统中查看异常单关联的 SKU 信息，核对现场货物 SKU 是否与系统记录一致。\n2. 清点并区分商品状态：6个完好商品、5个彩盒破损商品。若现场清点数量与描述不符（非6+5=11个），暂停操作并拍照记录实际情况，通过系统备注异常。\n3. 检查商品外观：完好商品彩盒无破损，破损商品仅彩盒破损、商品本体完好。\n4. 打开附件中的4个标签文件，根据文件名中的入库单号（OrderWI51068760 (68).pdf、OrderWI51068760 (69).pdf 对应入库单 WI51068760；Order (66).pdf、Order (67).pdf 对应入库单 WI51067532）和标签内容，将标签打印后分别对应贴至相应商品。若标签文件与商品数量对应关系不明确，拍照记录并通过系统备注说明情况。\n5. 为5个破损商品加套快递袋包装，确保商品本体受到保护。\n6. 将6个完好商品（已补贴标签）扫描上架至入库单 WI51068760。\n7. 将5个破损商品（已补贴标签+快递袋包装）扫描上架至入库单 WI51067532。\n8. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 破损商品仅彩盒破损，商品本体需完好才可加快递袋上架；若商品本体破损，需拍照并通过系统备注。\n- 标签文件共4个，需根据文件名中的入库单号判断对应关系，确保标签与目标入库单匹配。\n- 上架前需确认扫描的入库单号与要求一致（完好品→WI51068760，破损品→WI51067532），避免混淆。",
+    "llmError": "",
+    "analysis": "【需求描述】\n异常单 EB0526062730797031 货物因仓库原因导致破损，需按商品状态分开上架：6个完好商品上架至入库单 WI51068760，5个彩盒破损商品加快递袋后上架至入库单 WI51067532。客户已提供4个标签文件（Order (66).pdf、Order (67).pdf、OrderWI51068760 (68).pdf、OrderWI51068760 (69).pdf），需按标签文件为商品补贴对应标签后分别上架。\n\n【需求背景】\n到仓货物因仓库操作导致部分商品彩盒破损，需按商品完好状态拆分至不同入库单分别上架。\n\n【操作要求】\n1. 根据异常单 EB0526062730797031 定位待处理货物，在系统中查看异常单关联的 SKU 信息，核对现场货物 SKU 是否与系统记录一致。\n2. 清点并区分商品状态：6个完好商品、5个彩盒破损商品。若现场清点数量与描述不符（非6+5=11个），暂停操作并拍照记录实际情况，通过系统备注异常。\n3. 检查商品外观：完好商品彩盒无破损，破损商品仅彩盒破损、商品本体完好。\n4. 打开附件中的4个标签文件，根据文件名中的入库单号（OrderWI51068760 (68).pdf、OrderWI51068760 (69).pdf 对应入库单 WI51068760；Order (66).pdf、Order (67).pdf 对应入库单 WI51067532）和标签内容，将标签打印后分别对应贴至相应商品。若标签文件与商品数量对应关系不明确，拍照记录并通过系统备注说明情况。\n5. 为5个破损商品加套快递袋包装，确保商品本体受到保护。\n6. 将6个完好商品（已补贴标签）扫描上架至入库单 WI51068760。\n7. 将5个破损商品（已补贴标签+快递袋包装）扫描上架至入库单 WI51067532。\n8. 操作完成后，将异常单状态变更为已完成。\n\n【注意事项】\n- 破损商品仅彩盒破损，商品本体需完好才可加快递袋上架；若商品本体破损，需拍照并通过系统备注。\n- 标签文件共4个，需根据文件名中的入库单号判断对应关系，确保标签与目标入库单匹配。\n- 上架前需确认扫描的入库单号与要求一致（完好品→WI51068760，破损品→WI51067532），避免混淆。",
+    "conclusionOneLiner": "",
+    "judgmentBasis": "✅ AI 判断场景：【库内】拆分SKU（置信度：高）"
+  },
+  "omsWriteAttempted": false
+}
