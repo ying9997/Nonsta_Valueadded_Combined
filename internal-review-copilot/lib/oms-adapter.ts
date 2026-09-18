@@ -1,3 +1,4 @@
+import { isMaskedCustomerName } from "./customer-display.ts";
 import type { AgentInput, AttachmentStatus, JsonRecord } from "./types.ts";
 
 export const ATTACHMENT_BY_FILE_TYPE: Record<string, string> = {
@@ -16,6 +17,36 @@ export const ATTACHMENT_WHITELIST = [
   "标签文件",
 ] as const;
 
+/** SKU / 产品编码：如 P-BFG-BL-ADAPTOR、A110RH11 */
+const PRODUCT_CODE_IN_NAME = /[A-Za-z][A-Za-z0-9]*[-_][A-Za-z0-9][-_A-Za-z0-9]{2,}/;
+
+export function inferAttachmentLabel(fileName: string, fileType = ""): string {
+  const name = asText(fileName);
+  const type = asText(fileType);
+  if (/对应关系/.test(name)) {
+    return /包裹/.test(name) ? "包裹和标签的对应关系" : "商品和标签的对应关系";
+  }
+  if (/辨识需求提交模板|操作说明|操作流程/.test(name)) return "操作说明附件";
+  if (/操作视频|视频拍摄|\.mp4$/i.test(name)) return "视频拍摄SOP（中文+英文）";
+  if (/标签/.test(name) || (/\.pdf$/i.test(name) && PRODUCT_CODE_IN_NAME.test(name))) return "标签文件";
+  return ATTACHMENT_BY_FILE_TYPE[type] || "";
+}
+
+function fileRecords(raw: unknown): JsonRecord[] {
+  return asArray(raw)
+    .map(asRecord)
+    .filter((file) => asText(file.fileName) || asText(file.fileType) || asText(file.url));
+}
+
+/** Prefer the current atom; if OMS put files on a sibling atom / header, still pick them up. */
+export function collectVaAtomFiles(detail: JsonRecord, atom: JsonRecord): JsonRecord[] {
+  const own = fileRecords(atom.vaAtomFiles);
+  if (own.length) return own;
+  const fromAtoms = asArray(detail.atoms).flatMap((item) => fileRecords(asRecord(item).vaAtomFiles));
+  if (fromAtoms.length) return fromAtoms;
+  return asArray(asRecord(detail.listHeader).vaAtoms).flatMap((item) => fileRecords(asRecord(item).vaAtomFiles));
+}
+
 export function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
 }
@@ -26,6 +57,15 @@ export function asArray(value: unknown): unknown[] {
 
 export function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+export function customerNameFromHeader(header: JsonRecord): string {
+  const customer = asRecord(header.customer);
+  const nested = asText(customer.customerName);
+  const flat = asText(header.customerName);
+  if (!isMaskedCustomerName(nested)) return nested;
+  if (!isMaskedCustomerName(flat)) return flat;
+  return nested || flat;
 }
 
 export function attrMap(atom: JsonRecord): Record<string, string> {
@@ -40,7 +80,7 @@ export function attrMap(atom: JsonRecord): Record<string, string> {
   return out;
 }
 
-export function attachmentStatus(atom: JsonRecord): Record<string, AttachmentStatus> {
+export function attachmentStatusFromFiles(files: JsonRecord[]): Record<string, AttachmentStatus> {
   const status: Record<string, AttachmentStatus> = {
     操作说明附件: "missing",
     商品和标签的对应关系: "missing",
@@ -48,22 +88,38 @@ export function attachmentStatus(atom: JsonRecord): Record<string, AttachmentSta
     "视频拍摄SOP（中文+英文）": "missing",
     标签文件: "missing",
   };
-  for (const file of asArray(atom.vaAtomFiles).map(asRecord)) {
-    const label = ATTACHMENT_BY_FILE_TYPE[asText(file.fileType)];
-    if (label) status[label] = "uploaded";
+  for (const file of files) {
+    const label = inferAttachmentLabel(asText(file.fileName), asText(file.fileType));
+    if (label && label in status) status[label] = "uploaded";
   }
   return status;
 }
 
-export function uploadedFiles(atom: JsonRecord): Array<{ fileType: string; fileName: string; label: string }> {
-  return asArray(atom.vaAtomFiles)
-    .map(asRecord)
-    .map((file) => ({
-      fileType: asText(file.fileType),
-      fileName: asText(file.fileName),
-      label: ATTACHMENT_BY_FILE_TYPE[asText(file.fileType)] || "",
-    }))
+export function attachmentStatus(atom: JsonRecord, detail: JsonRecord = {}): Record<string, AttachmentStatus> {
+  return attachmentStatusFromFiles(collectVaAtomFiles(detail, atom));
+}
+
+export function uploadedFilesFromList(
+  files: JsonRecord[],
+): Array<{ fileType: string; fileName: string; label: string }> {
+  return files
+    .map((file) => {
+      const fileName = asText(file.fileName);
+      const fileType = asText(file.fileType);
+      return {
+        fileType,
+        fileName,
+        label: inferAttachmentLabel(fileName, fileType),
+      };
+    })
     .filter((file) => file.fileType || file.fileName);
+}
+
+export function uploadedFiles(
+  atom: JsonRecord,
+  detail: JsonRecord = {},
+): Array<{ fileType: string; fileName: string; label: string }> {
+  return uploadedFilesFromList(collectVaAtomFiles(detail, atom));
 }
 
 export function collectOrderNos(detail: JsonRecord, attrs: Record<string, string>): { ebs: string[]; wis: string[] } {
@@ -117,8 +173,8 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
   const requirementBackground = attrs.BEOR || attrs["需求背景说明"];
   const customerIntent = [requirementBackground, requirementDescription].filter(Boolean).join("\n");
   const orderNo = asText(detail.orderNo) || asText(header.orderNo);
-  const attachments = attachmentStatus(atom);
-  const files = uploadedFiles(atom);
+  const attachments = attachmentStatus(atom, detail);
+  const files = uploadedFiles(atom, detail);
   const eventFromList = asArray(detail.events)
     .map(asRecord)
     .map((ev) => asText(ev.eventNo) || asText(ev.businessNo))
@@ -146,8 +202,8 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
       businessTypeDesc: asText(header.businessTypeDesc),
       warehouseCode: asText(header.warehouseCode),
       warehouseName: asText(header.warehouseName),
-      customerCode: asText(header.customerCode),
-      customerName: asText(header.customerName),
+      customerCode: asText(header.customerCode) || asText(asRecord(header.customer).customerCode),
+      customerName: customerNameFromHeader(header),
       eventNo: ebs[0] || "",
       businessOrderNo: wis[0] || "",
       attachmentStatus: attachments,
@@ -177,8 +233,8 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
     conversationEvidence: [],
     enrichedContext: {
       orderNo,
-      customerCode: asText(header.customerCode),
-      customerName: asText(header.customerName),
+      customerCode: asText(header.customerCode) || asText(asRecord(header.customer).customerCode),
+      customerName: customerNameFromHeader(header),
       warehouseCode: asText(header.warehouseCode),
       warehouseName: asText(header.warehouseName),
       eventNo: ebs[0] || "",

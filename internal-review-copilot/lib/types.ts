@@ -15,8 +15,41 @@ export type PipelineNode =
   | "check-requirement"
   | "match-template"
   | "check-completeness"
+  | "check-scene-completeness"
+  | "sku-consistency-check"
+  | "t1-sku-relabel-check"
   | "llm-generate-sop"
   | "format-output";
+
+export type SkuMatchStatus = "consistent" | "mismatch" | "partial" | "unknown";
+
+export type T1SkuClaim = "single" | "multi" | "unspecified";
+export type T1SkuVerdict = "skip" | "single_ok" | "single_mismatch_bounce" | "multi_need_mapping";
+
+/** T1 补贴包裹标：按商品码去后缀后数 SKU。单 SKU 不一致会阻断并打回销售客服。 */
+export interface T1SkuRelabelResult {
+  triggered: boolean;
+  targetWis: string[];
+  merchandiseCodes: string[];
+  stems: string[];
+  claim: T1SkuClaim;
+  verdict: T1SkuVerdict;
+  bouncePrompt: string;
+  error?: string;
+}
+
+/** Cross-WI SKU check (H11). Enhancement only — never blocks the pipeline. */
+export interface SkuCheckResult {
+  triggered: boolean;
+  oldWi: string;
+  newWi: string;
+  oldSkus: string[];
+  newSkus: string[];
+  match: SkuMatchStatus;
+  mismatchDetails?: string;
+  source?: "events" | "dws" | "mixed" | "none";
+  error?: string;
+}
 
 export interface AgentInput {
   mode: "internal_review_copilot";
@@ -84,6 +117,8 @@ export interface ContextFacts {
   attachmentStatus: Record<string, AttachmentStatus>;
   providedFields: Record<string, string>;
   boundKeys: string[];
+  /** File names already on the order; L2.5 may treat WI/EB in names as provided. */
+  uploadedFileNames?: string[];
 }
 
 export interface OwnerFacts {
@@ -167,6 +202,8 @@ export interface MatchResult {
     reasoning: string;
     /** Card-facing one-liner; max 30 chars. */
     conclusionOneLiner?: string;
+    /** Topic title summary; max 60 chars. Understand the requirement, do not slice the original. */
+    topicSummary?: string;
     extractedActions: string[];
     alternativeScenes: string[];
     ambiguous: boolean;
@@ -206,6 +243,11 @@ export interface CompletenessResult {
   providedCount: number;
   totalRequired: number;
   sceneKey: string;
+  /** L2.5 LLM: scene-required info missing from customer intent. */
+  missingInfo?: string[];
+  infoChecks?: Array<{ field: string; present: boolean; evidence: string }>;
+  infoCheckSkipped?: boolean;
+  infoCheckError?: string;
 }
 
 export interface MockSop {
@@ -227,6 +269,11 @@ export interface LlmSopDraft {
   fieldsUsed: string[];
   mocked: false;
   model: string;
+  /** 编造单号已替换为 [待补充]，SOP 仍可用。 */
+  degraded?: boolean;
+  degradeReason?: string;
+  extractedWiNumbers?: string[];
+  extractedEbNumbers?: string[];
 }
 
 export type GeneratedSop = MockSop | LlmSopDraft;
@@ -268,6 +315,8 @@ export type CaseStatus =
   | "awaiting_reply"
   | "reply_received"
   | "reassessed"
+  | "needs_clarification"
+  | "needs_attachment"
   | "sop_ready"
   | "sop_editing"
   | "written_back"
@@ -314,6 +363,8 @@ export interface CaseRecord {
   lastSceneReplyText?: string;
   notifyChannel?: "card" | "post";
   feishuMessageId?: string | null;
+  /** Feishu topic id (`omt_…`); @bot events often carry this instead of `om_`. */
+  feishuTopicId?: string | null;
   lastCard?: object | null;
   /** 已完成的 SOP 修订次数；第 4 次点「需修改」转人工。 */
   sopEditCount?: number;
@@ -324,4 +375,6 @@ export interface CaseRecord {
   omsWriteAttempts?: number;
   /** 审核员点「重试写入 OMS」的次数。 */
   omsWriteManualRetries?: number;
+  /** SOP 生成失败 vs 场景不确定 vs pipeline 意外错误 vs 人工 SOP 已填；空表示非这几类。 */
+  failureType?: "llm-generate-sop" | "scene_uncertain" | "unexpected_error" | "oms-write" | "human_sop_filled" | "";
 }

@@ -1,5 +1,6 @@
 import { appendBadcase } from "./badcase-log.ts";
 import { CaseStore } from "./case-store.ts";
+import { getTargetChatId } from "./canary.ts";
 import { envText } from "./env.ts";
 import {
   aiMarker,
@@ -8,12 +9,14 @@ import {
   sendConsultThreadText,
   updateConsultTextMessage,
 } from "./feishu-bot.ts";
-import { buildSopCard, type DemoPersonnel } from "./feishu-card.ts";
+import { buildSceneConfirmCard, buildSopCard, type DemoPersonnel } from "./feishu-card.ts";
 import { asArray, asRecord, asText } from "./oms-adapter.ts";
-import { resolvePersonnelFromDetail } from "./personnel.ts";
-import { runPipeline } from "./run-pipeline.ts";
+import { collectSceneCandidates } from "./parse-scene-reply.ts";
+import { resolvePersonnelFromDetailLive } from "./personnel.ts";
+import { isSopGenerateFailure, runPipeline } from "./run-pipeline.ts";
 import { findScenarioCard } from "./scenario-cards.ts";
 import {
+  looksLikeSceneWrong,
   MAX_SOP_EDITS,
   isEchoOfSop,
   pickLatestEditAfter,
@@ -78,7 +81,14 @@ export async function refreshSopEdits(args: {
   chatId?: string;
   log: (line: string) => void;
 }): Promise<void> {
-  const chatId = args.chatId || envText("FEISHU_TEST_CHAT_ID");
+  let chatId = args.chatId || "";
+  if (!chatId) {
+    try {
+      chatId = getTargetChatId();
+    } catch {
+      return;
+    }
+  }
   if (!chatId) return;
   const byOrder = new Map(args.details.map((detail) => [asText(detail.orderNo), detail]));
   const botOpenId = envText("FEISHU_BOT_OPEN_ID");
@@ -108,6 +118,38 @@ export async function refreshSopEdits(args: {
       if (!editInstruction) continue;
       if (isEchoOfSop(editInstruction, rec.aiGeneratedText)) {
         args.log(`sop_edit_skip_echo ${rec.vascNo}`);
+        continue;
+      }
+      if (looksLikeSceneWrong(editInstruction)) {
+        const detailForScene = byOrder.get(rec.vascNo);
+        if (!detailForScene) {
+          args.log(`sop_edit_scene_wrong_missing_detail ${rec.vascNo}`);
+          continue;
+        }
+        applyDemoRequiredFieldKeys(detailForScene);
+        const preview = await runPipeline(detailForScene, { skipLlm: true, sceneLlm: false });
+        if (!preview) {
+          args.log(`sop_edit_scene_wrong_empty ${rec.vascNo}`);
+          continue;
+        }
+        const people = (await resolvePersonnelFromDetailLive(detailForScene, preview.contextFacts)) || args.personnel;
+        const candidates = collectSceneCandidates(preview.matchResult);
+        const card = buildSceneConfirmCard(preview, people, candidates);
+        const sent = await sendCardMessage(chatId, card, rec.feishuThreadId);
+        args.store.upsert({
+          vascNo: rec.vascNo,
+          status: "awaiting_scene_confirm",
+          confirmedScene: "",
+          confirmedSceneName: "",
+          failureType: "scene_uncertain",
+          lastSopEditInstruction: editInstruction,
+          lastCard: card,
+          feishuMessageId: sent.messageId || rec.feishuMessageId,
+          notifyChannel: "card",
+          matchResult: preview.matchResult || rec.matchResult,
+          sceneCandidateList: candidates,
+        });
+        args.log(`sop_edit_scene_wrong ${rec.vascNo} → awaiting_scene_confirm`);
         continue;
       }
       const detail = byOrder.get(rec.vascNo);
@@ -144,8 +186,14 @@ export async function refreshSopEdits(args: {
           push(progressText(rec.vascNo, editInstruction, previewSopStream(streamed) || "正在生成…"));
         },
       });
-      if (!result || result.outputPath !== "sop_generated") {
-        args.store.upsert({ vascNo: rec.vascNo, status: "transferred", lastSopEditInstruction: editInstruction });
+      if (!result || result.outputPath !== "sop_generated" || isSopGenerateFailure(result)) {
+        args.store.upsert({
+          vascNo: rec.vascNo,
+          status: "transferred",
+          lastSopEditInstruction: editInstruction,
+          failureType: result && isSopGenerateFailure(result) ? "llm-generate-sop" : rec.failureType,
+          llmError: result?.llm?.error || rec.llmError,
+        });
         appendBadcase({
           type: "sop_revise_failed",
           vascNo: rec.vascNo,
@@ -178,7 +226,7 @@ export async function refreshSopEdits(args: {
       }
       const card = buildSopCard(
         result,
-        resolvePersonnelFromDetail(detail, result.contextFacts) || args.personnel,
+        (await resolvePersonnelFromDetailLive(detail, result.contextFacts)) || args.personnel,
         { revised: true, revision: nextCount },
       );
       const sent = await sendCardMessage(chatId, card, rec.feishuThreadId);

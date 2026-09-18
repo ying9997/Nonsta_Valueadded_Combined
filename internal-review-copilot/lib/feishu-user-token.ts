@@ -168,8 +168,8 @@ export function oauthPort(): number {
   }
 }
 
-/** Empty = do not pass scope; Feishu grants all user-identity scopes already enabled on the app. */
-export const USER_SEND_SCOPES = "";
+/** User-identity IM send; must match scopes enabled on 增值咨询, not bot-only scopes. */
+export const USER_SEND_SCOPES = "im:message im:message.send_as_user";
 
 export function buildAuthorizeUrl(appId: string, redirectUri: string, state: string, scope = USER_SEND_SCOPES): string {
   const q = new URLSearchParams({

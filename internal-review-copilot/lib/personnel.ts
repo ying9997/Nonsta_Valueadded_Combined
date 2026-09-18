@@ -2,8 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { copilotDir } from "./env.ts";
 import { asRecord, asText, isAllowedServiceAtom } from "./oms-adapter.ts";
-import type { JsonRecord } from "./types.ts";
+import { customerCodeFromDetail, lookupSalesCs } from "./sales-cs-lookup.ts";
 import { resolveOrderCategory } from "./order-category.ts";
+import type { JsonRecord } from "./types.ts";
 import type { DemoPersonnel } from "./feishu-card.ts";
 
 export interface PersonRef {
@@ -51,7 +52,7 @@ export function loadPersonnelConfig(path?: string): PersonnelFile {
     入库: { 审核员: { name: "耿文文", openId: "ou_fb036b896ab183f3eea939470e47bf66" } },
     库内: { 审核员: { name: "何静", openId: "ou_38892cd1daae40290c0a4994e614900a" } },
     cc: { 负责人: { name: "李颖", openId: "ou_c62fe459a4407900cdef6d340dbeb24c" } },
-    default: { 销售: { name: "金萤", openId: "ou_d09d7409a63201462177f4d8a8b1ac7b" } },
+    default: { 销售: { name: "销售", openId: null } },
   };
   if (!file || !existsSync(file)) return fallback;
   const raw = asRecord(JSON.parse(readFileSync(file, "utf8")));
@@ -97,6 +98,7 @@ export function resolvePersonnelFromDetail(detail?: JsonRecord, facts?: {
   businessTypeDesc?: string;
   businessType?: string;
   vaSource?: string;
+  customerCode?: string;
 }): DemoPersonnel {
   const header = asRecord(detail?.listHeader);
   return resolvePersonnel({
@@ -104,6 +106,34 @@ export function resolvePersonnelFromDetail(detail?: JsonRecord, facts?: {
     businessType: asText(facts?.businessType) || asText(header.businessType),
     vaSource: asText(facts?.vaSource) || asText(header.vaSource),
   });
+}
+
+/** 出卡用：按客户编码查销售/客服，不再写死金萤。查不到则只写姓名或「销售/客服」，openId 为空。 */
+export async function resolvePersonnelFromDetailLive(
+  detail?: JsonRecord,
+  facts?: {
+    businessTypeDesc?: string;
+    businessType?: string;
+    vaSource?: string;
+    customerCode?: string;
+  },
+): Promise<DemoPersonnel> {
+  const base = resolvePersonnelFromDetail(detail, facts);
+  const code = customerCodeFromDetail(detail as Record<string, unknown> | undefined, facts);
+  if (!code) {
+    return { ...base, 销售: { name: "销售", openId: null } };
+  }
+  try {
+    const found = await lookupSalesCs(code);
+    return {
+      ...base,
+      销售: found.销售.name ? found.销售 : { name: "销售", openId: null },
+      客服: found.客服.name ? found.客服 : { name: "客服", openId: null },
+    };
+  } catch (err) {
+    console.warn(`sales/cs lookup failed ${code}: ${err instanceof Error ? err.message : err}`);
+    return { ...base, 销售: { name: "销售", openId: null } };
+  }
 }
 
 export function personnelDirectory(): DemoPersonnel {

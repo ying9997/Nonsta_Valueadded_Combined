@@ -2,7 +2,56 @@ import { envText } from "./env.ts";
 import type { FeishuCard } from "./feishu-card.ts";
 import { loadValidUserToken, type TokenSource } from "./feishu-user-token.ts";
 
-const FEISHU_HOST = "https://open.feishu.cn/open-apis";
+function feishuApiHost(): string {
+  return (envText("FEISHU_HOST") || "https://open.feishu.cn/open-apis").replace(/\/+$/, "");
+}
+
+export class FeishuError extends Error {
+  /** HTTP status from 飞书开放平台, e.g. 400 / 401 / 502. Undefined = 还没拿到 HTTP 码（超时、断网）. */
+  readonly status?: number;
+  /** 飞书业务码 body.code；HTTP 200 但 code≠0 时仍有值. */
+  readonly feishuCode?: number;
+  constructor(message: string, status?: number, feishuCode?: number) {
+    super(message);
+    this.name = "FeishuError";
+    this.status = status;
+    this.feishuCode = feishuCode;
+  }
+}
+
+/**
+ * 要不要对这次飞书失败再打一次。口径与 LLM 相同。
+ *
+ * HTTP 状态码是开放平台回的「这次请求为什么没成」，不是业务「场景选错了」：
+ * - 4xx（400–499）= 我们这边请求有问题，再发同一包几乎还是错。
+ *   场景：401 app_id/secret 错、403 机器人不在群、400 卡片 JSON 不合格、429 发太勤。
+ *   HTTP 200 但 body.code≠0 也按 4xx 处理（chat_id 无效、没权限）。
+ * - 5xx（500–599）= 飞书侧暂时坏了，隔 2 秒再试一次有机会好。
+ *   场景：开放平台 502/503 抖动。
+ * - 没有 status：请求没打到对方（超时、断网）。也只再试 1 次。
+ *
+ * 契约：最多 1 次重试。4xx 不重试，避免凭证错了还空转、限流时越打越限。
+ */
+export function shouldRetryFeishu(err: unknown, alreadyRetried: boolean): boolean {
+  if (alreadyRetried) return false;
+  const status = err instanceof FeishuError ? err.status : undefined;
+  if (status != null && status >= 400 && status < 500) return false;
+  if (status != null && status >= 500) return true;
+  if (err instanceof FeishuError && err.feishuCode != null && err.feishuCode !== 0) return false;
+  return status == null;
+}
+
+export async function withRetry<T>(fn: () => Promise<T>, retries = 1, delayMs = 2000): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (retries <= 0) throw err;
+    if (!shouldRetryFeishu(err, false)) throw err;
+    console.warn(`feishu retry in ${delayMs}ms: ${err instanceof Error ? err.message : err}`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return withRetry(fn, retries - 1, delayMs);
+  }
+}
 /** Internal marker only. Appended to the last body line; never put in the title. */
 const AI_TAG = "💪";
 /** 增值咨询 Bot。卡片发送/更新/事件监听必须用这个 app，禁止综合解决方案。 */
@@ -88,13 +137,19 @@ export async function getConsultTenantToken(): Promise<string> {
     return cachedTenant.value;
   }
   const appSecret = requireEnv("FEISHU_APP_SECRET");
-  const res = await fetch(`${FEISHU_HOST}/auth/v3/tenant_access_token/internal`, {
+  const res = await fetch(`${feishuApiHost()}/auth/v3/tenant_access_token/internal`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
   });
   const data = (await res.json()) as Record<string, unknown>;
-  if (data.code !== 0) throw new Error(`Feishu tenant token error: ${JSON.stringify(data)}`);
+  if (data.code !== 0) {
+    throw new FeishuError(
+      `Feishu tenant token error: ${JSON.stringify(data)}`,
+      res.ok ? 400 : res.status,
+      Number(data.code),
+    );
+  }
   const token = String(data.tenant_access_token ?? "");
   const expire = Number(data.expire ?? 7200);
   cachedTenant = { value: token, expireAt: Date.now() + expire * 1000, appId };
@@ -116,13 +171,19 @@ export async function getToken(): Promise<string> {
 
   const appId = requireEnv("FEISHU_APP_ID");
   const appSecret = requireEnv("FEISHU_APP_SECRET");
-  const res = await fetch(`${FEISHU_HOST}/auth/v3/tenant_access_token/internal`, {
+  const res = await fetch(`${feishuApiHost()}/auth/v3/tenant_access_token/internal`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
   });
   const data = (await res.json()) as Record<string, unknown>;
-  if (data.code !== 0) throw new Error(`Feishu token error: ${JSON.stringify(data)}`);
+  if (data.code !== 0) {
+    throw new FeishuError(
+      `Feishu token error: ${JSON.stringify(data)}`,
+      res.ok ? 400 : res.status,
+      Number(data.code),
+    );
+  }
   const token = String(data.tenant_access_token ?? "");
   const expire = Number(data.expire ?? 7200);
   cachedToken = { value: token, expireAt: Date.now() + expire * 1000, source: "tenant" };
@@ -213,12 +274,72 @@ export async function batchGetOpenIdsByEmails(emails: string[]): Promise<Record<
 export interface ChatMember {
   openId: string;
   name: string;
+  tenantKey: string;
+  memberType: string;
 }
 
-export async function listChatMembers(chatId: string, asConsultBot = false): Promise<ChatMember[]> {
-  const members: ChatMember[] = [];
+export interface ChatMemberPage {
+  members: ChatMember[];
+  truncated: boolean;
+  reportedTotal: number;
+}
+
+export interface FeishuChatMeta {
+  chatId: string;
+  name: string;
+  chatMode: string;
+  external: boolean;
+}
+
+function parseChatMeta(chatId: string, data: Record<string, unknown>): FeishuChatMeta {
+  const d = asRecord(data.data);
+  return {
+    chatId: String(d.chat_id || chatId),
+    name: String(d.name || ""),
+    chatMode: String(d.chat_mode || ""),
+    external: Boolean(d.external),
+  };
+}
+
+export async function getChatMeta(chatId: string, asConsultBot = true): Promise<FeishuChatMeta> {
+  const data = await feishuJson(`/im/v1/chats/${encodeURIComponent(chatId)}`, { method: "GET" }, asConsultBot);
+  return parseChatMeta(chatId, data);
+}
+
+export async function listJoinedChats(asConsultBot = true): Promise<FeishuChatMeta[]> {
+  const out: FeishuChatMeta[] = [];
   let pageToken = "";
   for (let page = 0; page < 20; page++) {
+    const q = new URLSearchParams({ page_size: "100" });
+    if (pageToken) q.set("page_token", pageToken);
+    const data = await feishuJson(`/im/v1/chats?${q}`, { method: "GET" }, asConsultBot);
+    const d = asRecord(data.data);
+    for (const raw of Array.isArray(d.items) ? d.items : []) {
+      const rec = asRecord(raw);
+      const id = String(rec.chat_id || "");
+      if (!id) continue;
+      out.push({
+        chatId: id,
+        name: String(rec.name || ""),
+        chatMode: String(rec.chat_mode || ""),
+        external: Boolean(rec.external),
+      });
+    }
+    pageToken = d.has_more ? String(d.page_token || "") : "";
+    if (!pageToken) break;
+  }
+  return out;
+}
+
+export async function listChatMembersDetailed(
+  chatId: string,
+  asConsultBot = true,
+): Promise<ChatMemberPage> {
+  const members: ChatMember[] = [];
+  let pageToken = "";
+  let reportedTotal = 0;
+  let truncated = false;
+  for (let page = 0; page < 50; page++) {
     const q = new URLSearchParams({ member_id_type: "open_id", page_size: "100" });
     if (pageToken) q.set("page_token", pageToken);
     const data = await feishuJson(
@@ -227,16 +348,66 @@ export async function listChatMembers(chatId: string, asConsultBot = false): Pro
       asConsultBot,
     );
     const d = asRecord(data.data);
+    const total = Number(d.member_total || d.user_count || 0);
+    if (Number.isFinite(total) && total > 0) reportedTotal = total;
     for (const raw of Array.isArray(d.items) ? d.items : []) {
       const rec = asRecord(raw);
       const openId = String(rec.member_id || rec.member_open_id || rec.open_id || "");
       const name = String(rec.name || rec.member_name || rec.user_id || "");
-      if (openId.startsWith("ou_")) members.push({ openId, name });
+      const tenantKey = String(rec.tenant_key || "");
+      const memberType = String(rec.member_type || "user");
+      if (openId.startsWith("ou_")) members.push({ openId, name, tenantKey, memberType });
     }
-    pageToken = d.has_more ? String(d.page_token || "") : "";
-    if (!pageToken) break;
+    const more = Boolean(d.has_more);
+    pageToken = more ? String(d.page_token || "") : "";
+    if (!pageToken) {
+      if (more) truncated = true;
+      break;
+    }
+    if (page === 49 && more) truncated = true;
   }
-  return members;
+  return { members, truncated, reportedTotal: reportedTotal || members.length };
+}
+
+export async function listChatMembers(chatId: string, asConsultBot = false): Promise<ChatMember[]> {
+  return (await listChatMembersDetailed(chatId, asConsultBot)).members;
+}
+
+export async function listChatMessages(
+  chatId: string,
+  opts?: { pageSize?: number; asConsultBot?: boolean },
+): Promise<FeishuMessage[]> {
+  const pageSize = String(Math.min(50, Math.max(1, opts?.pageSize ?? 50)));
+  const asConsultBot = opts?.asConsultBot !== false;
+  const q = new URLSearchParams({
+    container_id_type: "chat",
+    container_id: chatId,
+    sort_type: "ByCreateTimeDesc",
+    page_size: pageSize,
+  });
+  const data = await feishuJson(`/im/v1/messages?${q}`, { method: "GET" }, asConsultBot);
+  const out: FeishuMessage[] = [];
+  pushMessageItems(out, Array.isArray(asRecord(data.data).items) ? (asRecord(data.data).items as unknown[]) : [], {
+    threadId: "",
+    chatId,
+  });
+  return out;
+}
+
+export async function sendPlainTextToChat(chatId: string, text: string): Promise<SendResult> {
+  const data = await feishuJson(
+    `/im/v1/messages?receive_id_type=chat_id`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        receive_id: chatId,
+        msg_type: "text",
+        content: JSON.stringify({ text }),
+      }),
+    },
+    true,
+  );
+  return toSendResult(data);
 }
 
 export async function listChatMemberOpenIds(chatId: string, asConsultBot = true): Promise<string[]> {
@@ -364,7 +535,7 @@ function toSendResult(data: Record<string, unknown>, fallbackThread = ""): SendR
 
 async function feishuJson(path: string, init: RequestInit, asConsultBot = false): Promise<Record<string, unknown>> {
   const token = asConsultBot ? await getConsultTenantToken() : await getToken();
-  const res = await fetch(`${FEISHU_HOST}${path}`, {
+  const res = await fetch(`${feishuApiHost()}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -377,9 +548,18 @@ async function feishuJson(path: string, init: RequestInit, asConsultBot = false)
   try {
     data = JSON.parse(raw) as Record<string, unknown>;
   } catch {
-    throw new Error(`Feishu API ${path} 返回非 JSON（HTTP ${res.status}）：${raw.slice(0, 200)}`);
+    throw new FeishuError(
+      `Feishu API ${path} 返回非 JSON（HTTP ${res.status}）：${raw.slice(0, 200)}`,
+      res.status,
+    );
   }
-  if (data.code !== 0) throw new Error(`Feishu API ${path} error: ${JSON.stringify(data)}`);
+  if (data.code !== 0) {
+    throw new FeishuError(
+      `Feishu API ${path} error: ${JSON.stringify(data)}`,
+      res.ok ? 400 : res.status,
+      Number(data.code),
+    );
+  }
   return data;
 }
 
@@ -487,7 +667,58 @@ export async function updateConsultTextMessage(messageId: string, text: string):
   );
 }
 
+export async function sendPersonalMessage(openId: string, text: string): Promise<SendResult> {
+  if (!openId.trim()) throw new Error("sendPersonalMessage: open_id 为空");
+  return withRetry(() => sendPersonalMessageInner(openId, text));
+}
+
+async function sendPersonalMessageInner(openId: string, text: string): Promise<SendResult> {
+  const data = await feishuJson(
+    `/im/v1/messages?receive_id_type=open_id`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        receive_id: openId,
+        msg_type: "text",
+        content: JSON.stringify({ text }),
+      }),
+    },
+    true,
+  );
+  return toSendResult(data);
+}
+
+export async function sendPersonalCard(openId: string, card: FeishuCard): Promise<SendResult> {
+  if (!openId.trim()) throw new Error("sendPersonalCard: open_id 为空");
+  return withRetry(() => sendPersonalCardInner(openId, card));
+}
+
+async function sendPersonalCardInner(openId: string, card: FeishuCard): Promise<SendResult> {
+  const { open_ids: _omit, ...sendable } = card;
+  const data = await feishuJson(
+    `/im/v1/messages?receive_id_type=open_id`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        receive_id: openId,
+        msg_type: "interactive",
+        content: JSON.stringify(sendable),
+      }),
+    },
+    true,
+  );
+  return toSendResult(data);
+}
+
 export async function sendCardMessage(
+  chatId: string,
+  card: FeishuCard,
+  threadId?: string,
+): Promise<SendResult> {
+  return withRetry(() => sendCardMessageInner(chatId, card, threadId));
+}
+
+async function sendCardMessageInner(
   chatId: string,
   card: FeishuCard,
   threadId?: string,
@@ -541,6 +772,14 @@ export async function sendGroupMessage(
   content: FeishuPostContent | string,
   threadId?: string,
 ): Promise<SendResult> {
+  return withRetry(() => sendGroupMessageInner(chatId, content, threadId));
+}
+
+async function sendGroupMessageInner(
+  chatId: string,
+  content: FeishuPostContent | string,
+  threadId?: string,
+): Promise<SendResult> {
   const post = typeof content === "string" ? buildPost("增值单审核", [content]) : content;
   if (threadId) {
     const rootId = replyTargetId(threadId);
@@ -566,6 +805,10 @@ export async function sendGroupMessage(
 }
 
 export async function createThread(chatId: string, topic: string): Promise<SendResult> {
+  return withRetry(() => createThreadInner(chatId, topic));
+}
+
+async function createThreadInner(chatId: string, topic: string): Promise<SendResult> {
   const post = buildPost(topic, [`已创建审核话题：${topic}`]);
   const data = await feishuJson(
     `/im/v1/messages?receive_id_type=chat_id`,
@@ -582,20 +825,18 @@ export async function createThread(chatId: string, topic: string): Promise<SendR
   return toSendResult(data);
 }
 
+/**
+ * 在话题群开新话题：话题根就是这张卡片。
+ * 不再先发一段「已创建审核话题：{标题}」富文本，再把卡片嵌进回复里。
+ * `topicTitle` 仍由调用方传入（兼容签名）；左侧话题名走卡片 header。
+ */
 export async function sendCardInNewTopic(
   chatId: string,
   topicTitle: string,
   card: FeishuCard,
 ): Promise<SendResult> {
-  const root = await createThread(chatId, topicTitle);
-  const threadId = root.messageId || root.threadId;
-  if (!threadId) return sendCardMessage(chatId, card);
-  const sent = await sendCardMessage(chatId, card, threadId);
-  return {
-    ...sent,
-    threadId,
-    topicId: root.topicId || sent.topicId,
-  };
+  void topicTitle;
+  return withRetry(() => sendCardMessageInner(chatId, card));
 }
 
 function pushMessageItems(out: FeishuMessage[], items: unknown[], fallback: { threadId: string; chatId: string }): void {
@@ -615,9 +856,9 @@ function pushMessageItems(out: FeishuMessage[], items: unknown[], fallback: { th
   }
 }
 
-async function resolveTopicId(id: string): Promise<string> {
+async function resolveTopicId(id: string, asConsultBot = false): Promise<string> {
   if (id.startsWith("omt_")) return id;
-  const data = await feishuJson(`/im/v1/messages/${encodeURIComponent(replyTargetId(id))}`, { method: "GET" });
+  const data = await feishuJson(`/im/v1/messages/${encodeURIComponent(replyTargetId(id))}`, { method: "GET" }, asConsultBot);
   const d = asRecord(data.data);
   const items = Array.isArray(d.items) ? d.items : [d];
   for (const raw of items) {
@@ -628,7 +869,7 @@ async function resolveTopicId(id: string): Promise<string> {
 }
 
 export async function getThreadMessages(chatId: string, threadId: string): Promise<FeishuMessage[]> {
-  const topicId = await resolveTopicId(threadId);
+  const topicId = await resolveTopicId(threadId, true);
   const out: FeishuMessage[] = [];
   let pageToken = "";
   for (let page = 0; page < 10; page++) {
@@ -639,7 +880,7 @@ export async function getThreadMessages(chatId: string, threadId: string): Promi
       sort_type: "ByCreateTimeAsc",
     });
     if (pageToken) q.set("page_token", pageToken);
-    const data = await feishuJson(`/im/v1/messages?${q}`, { method: "GET" });
+    const data = await feishuJson(`/im/v1/messages?${q}`, { method: "GET" }, true);
     const d = asRecord(data.data);
     const items = Array.isArray(d.items) ? d.items : [];
     pushMessageItems(out, items, { threadId: topicId, chatId });

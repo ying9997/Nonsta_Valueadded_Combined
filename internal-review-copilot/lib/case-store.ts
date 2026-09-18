@@ -4,29 +4,56 @@ import type { CaseRecord, CaseStatus } from "./types.ts";
 
 const TERMINAL: CaseStatus[] = ["written_back", "transferred"];
 
+export interface CaseStoreMeta {
+  canaryCount?: number;
+  canaryMode?: "0" | "1";
+  canaryLimitNotified?: boolean;
+  canaryOrderNos?: string[];
+  canaryReplayedOrderNos?: string[];
+  canaryPromoted?: boolean;
+}
+
 export class CaseStore {
   readonly path: string;
   private records: Map<string, CaseRecord>;
+  private meta: CaseStoreMeta = {};
 
   constructor(filePath: string) {
     this.path = resolve(filePath);
     this.records = new Map();
+    this.meta = {};
     this.load();
   }
 
   private load(): void {
     if (!existsSync(this.path)) return;
-    const raw = JSON.parse(readFileSync(this.path, "utf8")) as { cases?: CaseRecord[] } | CaseRecord[];
+    const raw = JSON.parse(readFileSync(this.path, "utf8")) as
+      | { cases?: CaseRecord[]; _meta?: CaseStoreMeta }
+      | CaseRecord[];
     const list = Array.isArray(raw) ? raw : raw.cases || [];
     for (const item of list) {
       if (item?.vascNo) this.records.set(item.vascNo, item);
     }
+    if (!Array.isArray(raw) && raw._meta && typeof raw._meta === "object") {
+      this.meta = { ...raw._meta };
+    }
+  }
+
+  getMeta(): CaseStoreMeta {
+    return { ...this.meta };
+  }
+
+  setMeta(patch: Partial<CaseStoreMeta>): CaseStoreMeta {
+    this.meta = { ...this.meta, ...patch };
+    this.save();
+    return this.getMeta();
   }
 
   save(): void {
     mkdirSync(dirname(this.path), { recursive: true });
     const payload = {
       updatedAt: new Date().toISOString(),
+      _meta: this.meta,
       cases: [...this.records.values()].sort((a, b) => a.vascNo.localeCompare(b.vascNo)),
     };
     writeFileSync(this.path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
@@ -75,6 +102,7 @@ export class CaseStore {
       lastSceneReplyText: patch.lastSceneReplyText !== undefined ? patch.lastSceneReplyText : prev?.lastSceneReplyText,
       notifyChannel: patch.notifyChannel !== undefined ? patch.notifyChannel : prev?.notifyChannel,
       feishuMessageId: patch.feishuMessageId !== undefined ? patch.feishuMessageId : prev?.feishuMessageId,
+      feishuTopicId: patch.feishuTopicId !== undefined ? patch.feishuTopicId : prev?.feishuTopicId ?? null,
       lastCard: patch.lastCard !== undefined ? patch.lastCard : prev?.lastCard,
       sopEditCount: patch.sopEditCount !== undefined ? patch.sopEditCount : prev?.sopEditCount ?? 0,
       sopEditRequestedAt: patch.sopEditRequestedAt !== undefined ? patch.sopEditRequestedAt : prev?.sopEditRequestedAt ?? null,
@@ -83,6 +111,7 @@ export class CaseStore {
       omsWriteAttempts: patch.omsWriteAttempts !== undefined ? patch.omsWriteAttempts : prev?.omsWriteAttempts ?? 0,
       omsWriteManualRetries:
         patch.omsWriteManualRetries !== undefined ? patch.omsWriteManualRetries : prev?.omsWriteManualRetries ?? 0,
+      failureType: patch.failureType !== undefined ? patch.failureType : prev?.failureType,
     };
     this.records.set(next.vascNo, next);
     this.save();
@@ -95,7 +124,13 @@ export class CaseStore {
   }
 
   awaitingReply(): CaseRecord[] {
-    return this.list().filter((item) => item.status === "awaiting_reply" || item.status === "clarification_sent");
+    return this.list().filter(
+      (item) =>
+        item.status === "awaiting_reply" ||
+        item.status === "clarification_sent" ||
+        item.status === "needs_clarification" ||
+        item.status === "needs_attachment",
+    );
   }
 
   replyReceived(): CaseRecord[] {

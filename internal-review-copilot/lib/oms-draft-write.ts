@@ -1,30 +1,77 @@
 import { envText } from "./env.ts";
 import { asArray, asRecord, asText } from "./oms-adapter.ts";
+import { appendAiWriteSnapshot } from "./ai-human-comparison.ts";
 import { assertNotReviewApi, createTomClient, type TomClient } from "./oms-tom-client.ts";
 import { findScenarioCard } from "./scenario-cards.ts";
 import { extractSopSections, sectionOf } from "./sop-sections.ts";
+import { extractWiNos, normalizeWiNos, pickPutawayWiNos, shouldReplaceNweon } from "./wi-numbers.ts";
+
+export { extractWiNos, normalizeWiNos, pickPutawayWiNos, shouldReplaceNweon };
+
+export type WarehouseActionFee = {
+  code: string;
+  qty: number;
+  chargeCode: string;
+  priceListId: number;
+  revenueMode: string;
+  name?: string;
+  chargeName?: string;
+  chargeId?: string | number;
+  dimension?: string;
+  calUnit?: string;
+};
+
+/** OMS 规定没仓库作业不能保存 SOP。随便选两个常用动作即可，不按场景精算。 */
+export const DEFAULT_UNBLOCK_WAREHOUSE_ACTIONS: WarehouseActionFee[] = [
+  {
+    code: "DZ000031",
+    name: "贴商品标签",
+    qty: 1,
+    chargeCode: "1047255",
+    chargeName: "增值-商品标签粘贴/更改/清除",
+    priceListId: 26261,
+    revenueMode: "PRICE_LIST_CALC",
+    dimension: "ORDER",
+    calUnit: "VAS_ATTR_REL_VOIC",
+  },
+  {
+    code: "DZ000025",
+    name: "贴包裹标签",
+    qty: 1,
+    chargeCode: "3000313",
+    chargeName: "增值-包裹标签粘贴/更改/清除",
+    priceListId: 26262,
+    revenueMode: "PRICE_LIST_CALC",
+    dimension: "ORDER",
+    calUnit: "VAS_ATTR_REL_VPC",
+  },
+];
 
 export interface DraftWriteInput {
   orderNo: string;
-  sceneOverviewCode: string;
+  /** Empty = do not pick OMS 场景概述; still write SOP. */
+  sceneOverviewCode?: string;
   /** 只放操作步骤（warehouseSop），不要传带【需求背景】的全文。 */
   sop: string;
-  warehouseAction?: {
-    code: string;
-    qty: number;
-    chargeCode: string;
-    priceListId: number;
-    revenueMode: string;
-    name?: string;
-    chargeName?: string;
-    chargeId?: string | number;
-  };
+  warehouseAction?: WarehouseActionFee;
+  /** 优先于 warehouseAction。不传则用 DEFAULT_UNBLOCK_WAREHOUSE_ACTIONS。 */
+  warehouseActions?: WarehouseActionFee[];
   /** AI 总结的需求描述，追加到 OMS 需求描述字段。 */
   aiRequirementDescription?: string;
   /** AI 总结的需求背景，追加到 OMS 需求背景（BEOR）字段。 */
   aiRequirementBackground?: string;
   /** 兼容旧调用：当作需求描述总结。推荐改用 aiRequirementDescription。 */
   aiSummary?: string;
+  /** LLM 提取的 WI；优先于正则。 */
+  extractedWiNumbers?: string[];
+  /** 真写入成功后写入 AI vs 人工对照表。 */
+  comparisonMeta?: {
+    sceneKey: string;
+    sceneName: string;
+    missingAttachments?: string[];
+    degraded?: boolean;
+    confidence?: string;
+  };
   mutateRequirementAttrs?: boolean;
   dryRun?: boolean;
 }
@@ -36,6 +83,128 @@ export interface DraftWriteResult {
   skipped: string[];
   readBack?: Record<string, string>;
   error?: string;
+  /** True when SOP was (or would be) written without selecting an OMS scene overview. */
+  missingOmsScene?: boolean;
+}
+
+/** 只有待审核才能写草稿。订单状态在 pageQuery 表头，不在 getVasList 原子上。 */
+export const WRITABLE_OMS_STATUS_DESCS = ["待审核"];
+export const WRITABLE_OMS_STATUS_CODES = ["WA"];
+
+export function omsOrderStatusLabel(header: Record<string, unknown>, atom?: Record<string, unknown>): string {
+  return (
+    asText(header.statusDesc) ||
+    asText(atom?.statusDesc) ||
+    asText(atom?.orderStatus) ||
+    asText(header.status) ||
+    asText(atom?.status) ||
+    asText(atom?.atom_status) ||
+    ""
+  );
+}
+
+/**
+ * 审核信息：getVasList atom 上没有 auditRemark/auditInfo。
+ * 已审核通过的单在 pageQuery 表头：isAuditThrough=Y；待审核单该字段为空串。
+ * vasc.isAudit 是产品「是否要审核」开关，待审核单也是 Y，不能当已审标志。
+ */
+export function collectOmsAuditInfo(
+  header: Record<string, unknown>,
+  atom: Record<string, unknown> = {},
+): { field: string; value: string } | null {
+  const through = asText(header.isAuditThrough) || asText(atom.isAuditThrough);
+  if (through) return { field: "isAuditThrough", value: through };
+
+  const named = ["auditInfo", "auditRemark", "auditResult", "auditOpinion", "审核意见", "审核信息", "审核结果"];
+  for (const key of named) {
+    const value = asText(atom[key]) || asText(header[key]);
+    if (value) return { field: key, value };
+  }
+
+  for (const attr of asArray(atom.vaAtomAttrs).map(asRecord)) {
+    const name = asText(attr.attributeName) || asText(attr.attributeKey);
+    if (!/审核意见|审核结果|审核信息/.test(name)) continue;
+    const value = asText(attr.attributeValue);
+    if (value) return { field: name, value };
+  }
+  return null;
+}
+
+export function isWritableOmsStatus(header: Record<string, unknown>, atom?: Record<string, unknown>): boolean {
+  const desc = `${asText(header.statusDesc)} ${asText(atom?.statusDesc)} ${asText(atom?.orderStatus)}`.trim();
+  const code = `${asText(header.status)} ${asText(atom?.status)} ${asText(atom?.atom_status)}`.trim();
+  if (WRITABLE_OMS_STATUS_DESCS.some((item) => desc.includes(item))) return true;
+  if (WRITABLE_OMS_STATUS_CODES.some((item) => code === item || code.split(/\s+/).includes(item))) return true;
+  const blob = `${desc} ${code}`.toLowerCase();
+  return blob.includes("pending_audit") || blob.includes("wait_audit");
+}
+
+function sopLooksAlreadyWritten(existing: string, planned: string): boolean {
+  if (!existing || existing.length <= 20) return false;
+  if (existing.includes("【AI总结】")) return false;
+  if (!planned) return true;
+  const a = existing.replace(/\s+/g, "");
+  const b = planned.replace(/\s+/g, "");
+  if (!b) return true;
+  if (a === b) return false;
+  const probe = b.slice(0, Math.min(40, b.length));
+  if (probe && a.includes(probe)) return false;
+  const existingProbe = a.slice(0, Math.min(40, a.length));
+  if (existingProbe && b.includes(existingProbe)) return false;
+  return true;
+}
+
+export function assessOmsWriteGuard(args: {
+  header: Record<string, unknown>;
+  atom: Record<string, unknown>;
+  plannedSop?: string;
+}): { ok: true } | { ok: false; skipped: "status_not_writable" | "sop_already_filled" | "audit_info_filled"; error: string } {
+  const label = omsOrderStatusLabel(args.header, args.atom) || "未知";
+  if (!isWritableOmsStatus(args.header, args.atom)) {
+    return {
+      ok: false,
+      skipped: "status_not_writable",
+      error: `订单状态为「${label}」，非待审核状态，禁止写入。可能审核员已经手动审核通过。`,
+    };
+  }
+  const audit = collectOmsAuditInfo(args.header, args.atom);
+  if (audit) {
+    return {
+      ok: false,
+      skipped: "audit_info_filled",
+      error: `审核信息字段 ${audit.field} 已有内容（${audit.value}），禁止覆盖审核员操作。`,
+    };
+  }
+  const existingSop = asText(args.atom.sop);
+  const aiWrote =
+    currentRequirementDescription(args.atom).includes("【AI总结】") ||
+    currentRequirementBackground(args.atom).includes("【AI总结】");
+  if (!aiWrote && sopLooksAlreadyWritten(existingSop, asText(args.plannedSop))) {
+    return {
+      ok: false,
+      skipped: "sop_already_filled",
+      error: "OMS 操作 SOP 字段已有内容（非 AI 生成），禁止覆盖审核员手动填写的 SOP。",
+    };
+  }
+  return { ok: true };
+}
+
+export function isOmsWriteGuardReject(result: Pick<DraftWriteResult, "skipped">): boolean {
+  return (
+    result.skipped.includes("status_not_writable") ||
+    result.skipped.includes("sop_already_filled") ||
+    result.skipped.includes("audit_info_filled")
+  );
+}
+
+/** OMS 操作 SOP 已有人工内容：禁止覆盖，也不要在业务群建话题/@审核员。 */
+export function isHumanSopAlreadyFilled(result: {
+  skipped?: string[];
+  error?: string;
+}): boolean {
+  if ((result.skipped || []).includes("sop_already_filled")) return true;
+  const err = result.error || "";
+  return err.includes("非 AI 生成") || err.includes("禁止覆盖审核员手动填写");
 }
 
 export function isOmsWriteEnabled(): boolean {
@@ -56,12 +225,20 @@ export function isOrderOnWriteAllowlist(orderNo: string): boolean {
   return Boolean(orderNo) && allow.includes(orderNo);
 }
 
-export function sceneCodeFromKey(sceneKey: string): string {
-  if (!sceneKey) throw new Error("缺少 sceneKey，无法映射 OMS 场景码");
-  const card = findScenarioCard(sceneKey);
+/** Map sceneKey → OMS dropdown code. Empty code means leave 场景概述 unselected. */
+export function resolveSceneOverviewCode(sceneKey: string): { code: string; missing: boolean } {
+  const key = asText(sceneKey);
+  if (!key || key === "unsupported") return { code: "", missing: true };
+  const card = findScenarioCard(key);
   const code = asText(card?.omsSceneCode);
-  if (!code) throw new Error(`场景 ${sceneKey} 没有 omsSceneCode`);
-  return code;
+  return { code, missing: !code };
+}
+
+export function sceneCodeFromKey(sceneKey: string): string {
+  const { code, missing } = resolveSceneOverviewCode(sceneKey);
+  if (!missing && code) return code;
+  if (!asText(sceneKey) || sceneKey === "unsupported") throw new Error("缺少 sceneKey，无法映射 OMS 场景码");
+  throw new Error(`场景 ${sceneKey} 没有 omsSceneCode`);
 }
 
 function willReallyWrite(input: DraftWriteInput): { dryRun: boolean; error?: string } {
@@ -102,9 +279,16 @@ function isNweonAttr(attr: Record<string, unknown>): boolean {
   return key === "VAS_ATTR_REL_NWEON" || key === "上架入库单号" || name === "上架入库单号";
 }
 
-export function extractWiNos(text: string): string[] {
-  const matches = asText(text).match(/WI\d{8,}/gi) || [];
-  return [...new Set(matches.map((item) => item.toUpperCase()))];
+
+export async function fetchOmsOrderSnapshot(orderNo: string): Promise<{
+  atom: Record<string, unknown>;
+  header: Record<string, unknown>;
+}> {
+  const client = await createTomClient();
+  await client.setOrderReferer(orderNo);
+  const atom = await loadAtom(client, orderNo);
+  const header = await loadOrderHeader(client, orderNo);
+  return { atom, header };
 }
 
 function currentNweon(atom: Record<string, unknown>): string {
@@ -169,7 +353,7 @@ function atomAttrs(
     let value = a.attributeValue;
     if (requirementDescription !== undefined && isRequirementDescriptionAttr(a)) value = requirementDescription;
     else if (requirementBackground !== undefined && isRequirementBackgroundAttr(a)) value = requirementBackground;
-    else if (nweonValue && isNweonAttr(a) && !asText(a.attributeValue)) value = nweonValue;
+    else if (nweonValue && isNweonAttr(a)) value = nweonValue;
     return {
       id: a.id,
       attributeKey: a.attributeKey,
@@ -195,18 +379,37 @@ async function loadAtom(client: TomClient, orderNo: string): Promise<Record<stri
   return atom;
 }
 
-async function writeWarehouseAction(
+async function loadOrderHeader(client: TomClient, orderNo: string): Promise<Record<string, unknown>> {
+  const list = await client.ajaxProcess("oms.VaOrderService_pageQuery", {
+    where: { orderNo },
+    draw: "1",
+    start: "0",
+    length: "5",
+  });
+  const rows = asArray(asRecord(list.info).content || asRecord(list.info).data).map(asRecord);
+  return rows.find((item) => asText(item.orderNo) === orderNo) || rows[0] || {};
+}
+
+function existingWarehouseActionCodes(atom: Record<string, unknown>): Set<string> {
+  const fees = asArray(atom.vaActionFeeDetailVos || atom.vaAtomFeeDetailVos).map(asRecord);
+  return new Set(fees.map((item) => asText(item.warehouseActionCode)).filter(Boolean));
+}
+
+function resolveWarehouseActions(input: DraftWriteInput): WarehouseActionFee[] {
+  if (input.warehouseActions?.length) return input.warehouseActions;
+  if (input.warehouseAction) return [input.warehouseAction];
+  return DEFAULT_UNBLOCK_WAREHOUSE_ACTIONS;
+}
+
+async function writeOneWarehouseAction(
   client: TomClient,
   atom: Record<string, unknown>,
-  input: DraftWriteInput,
+  orderNo: string,
+  wa: WarehouseActionFee,
   dryRun: boolean,
-): Promise<{ written: string[]; skipped: string[]; payload: Record<string, unknown> }> {
-  const wa = input.warehouseAction;
-  if (!wa) {
-    return { written: [], skipped: ["createdVaActionFeeDetail"], payload: {} };
-  }
+): Promise<Record<string, unknown>> {
   const where = {
-    orderNo: input.orderNo,
+    orderNo,
     serviceCode: atom.serviceCode,
     serviceName: atom.serviceName,
     warehouseActionCode: wa.code,
@@ -219,11 +422,13 @@ async function writeWarehouseAction(
     revenueMode: wa.revenueMode,
     priceListId: wa.priceListId,
     isExcludeRevenue: false,
+    ...(wa.dimension ? { dimension: wa.dimension } : {}),
+    ...(wa.calUnit ? { calUnit: wa.calUnit } : {}),
   };
   const cal = await client.ajaxProcess("oms.VaOrderFeeCalService_calOrderActionFee", { where });
   const detail = asArray(asRecord(cal.info).actionFeeDetails).map(asRecord)[0] || {};
   const feeVo = {
-    orderNo: input.orderNo,
+    orderNo,
     serviceCode: atom.serviceCode,
     serviceName: atom.serviceName,
     warehouseActionCode: wa.code,
@@ -246,11 +451,49 @@ async function writeWarehouseAction(
     vaOrderCostVoList: detail.vaOrderCostVoList,
     serviceSequence: atom.serviceSequence || "1",
   };
-  if (dryRun) {
-    return { written: [], skipped: ["createdVaActionFeeDetail"], payload: { vaActionFeeDetailVo: feeVo } };
+  if (!dryRun) {
+    try {
+      await client.ajaxSave("oms.VaOrderService_createdVaActionFeeDetail", { vaActionFeeDetailVo: feeVo });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/02040901587|已经存在|不支持新增重复/.test(msg)) {
+        return { ...feeVo, _duplicate: true };
+      }
+      throw err;
+    }
   }
-  await client.ajaxSave("oms.VaOrderService_createdVaActionFeeDetail", { vaActionFeeDetailVo: feeVo });
-  return { written: ["createdVaActionFeeDetail"], skipped: [], payload: { vaActionFeeDetailVo: feeVo } };
+  return feeVo;
+}
+
+async function writeWarehouseAction(
+  client: TomClient,
+  atom: Record<string, unknown>,
+  input: DraftWriteInput,
+  dryRun: boolean,
+): Promise<{ written: string[]; skipped: string[]; payload: Record<string, unknown> }> {
+  const actions = resolveWarehouseActions(input);
+  const existing = existingWarehouseActionCodes(atom);
+  const pending = actions.filter((wa) => !existing.has(wa.code));
+  if (!pending.length) {
+    return { written: [], skipped: ["createdVaActionFeeDetail"], payload: {} };
+  }
+  const payloads: Record<string, unknown>[] = [];
+  let wrote = false;
+  let skippedDup = false;
+  for (const wa of pending) {
+    const feeVo = await writeOneWarehouseAction(client, atom, input.orderNo, wa, dryRun);
+    payloads.push(feeVo);
+    if (feeVo._duplicate) skippedDup = true;
+    else wrote = true;
+  }
+  if (dryRun) {
+    return { written: [], skipped: ["createdVaActionFeeDetail"], payload: { vaActionFeeDetailVos: payloads } };
+  }
+  return {
+    written: wrote ? ["createdVaActionFeeDetail"] : [],
+    skipped: skippedDup && !wrote ? ["createdVaActionFeeDetail"] : [],
+    payload: { vaActionFeeDetailVos: payloads },
+  };
 }
 
 export async function writeDraft(input: DraftWriteInput): Promise<DraftWriteResult> {
@@ -266,7 +509,25 @@ export async function writeDraft(input: DraftWriteInput): Promise<DraftWriteResu
     const client = await createTomClient();
     await client.setOrderReferer(input.orderNo);
     const atom = await loadAtom(client, input.orderNo);
+    const header = await loadOrderHeader(client, input.orderNo);
     const sop = sopStepsOnly(input.sop);
+    const guard = assessOmsWriteGuard({ header, atom, plannedSop: sop });
+    if (!guard.ok) {
+      skipped.push(guard.skipped);
+      return {
+        success: false,
+        dryRun,
+        written: [],
+        skipped,
+        readBack: {
+          sop: asText(atom.sop),
+          orderStatus: omsOrderStatusLabel(header, atom) || "未知",
+          statusCode: asText(header.status) || asText(atom.status),
+          isAuditThrough: asText(header.isAuditThrough) || asText(atom.isAuditThrough),
+        },
+        error: guard.error,
+      };
+    }
     const currentRd = currentRequirementDescription(atom);
     const currentBg = currentRequirementBackground(atom);
     const aiRd = asText(input.aiRequirementDescription) || asText(input.aiSummary);
@@ -280,11 +541,12 @@ export async function writeDraft(input: DraftWriteInput): Promise<DraftWriteResu
     const willAppendRd = nextRd !== currentRd;
     const willAppendBg = Boolean(aiBg) && nextBg !== currentBg;
     const currentWi = currentNweon(atom);
-    const wiNos = extractWiNos(
-      [sop, aiRd, aiBg, currentRd, currentBg, currentWi].join(" "),
+    const wiNos = pickPutawayWiNos(
+      [sop, aiRd, aiBg, currentRd, currentBg].join("\n"),
+      input.extractedWiNumbers,
     );
-    const plannedNweon = currentWi ? currentWi : wiNos.join(",");
-    const willFillNweon = Boolean(!currentWi && wiNos.length);
+    const willFillNweon = shouldReplaceNweon(currentWi, wiNos);
+    const plannedNweon = willFillNweon ? wiNos.join(",") : currentWi;
 
     if (input.mutateRequirementAttrs && !aiRd && !aiBg) {
       skipped.push("mutateRequirementAttrs_requested_but_ignored_without_aiSummary");
@@ -293,11 +555,16 @@ export async function writeDraft(input: DraftWriteInput): Promise<DraftWriteResu
     written.push(...fee.written);
     skipped.push(...fee.skipped);
 
+    const plannedSceneCode = asText(input.sceneOverviewCode);
+    const missingOmsScene = !plannedSceneCode;
+    const sceneOverviewCode = plannedSceneCode || asText(atom.sceneOverviewCode) || "";
+    if (missingOmsScene) skipped.push("sceneOverviewCode");
+
     const updatePayload = {
       orderNo: input.orderNo,
       atomId: atom.id,
       sop,
-      sceneOverviewCode: input.sceneOverviewCode,
+      sceneOverviewCode,
       serviceCode: atom.serviceCode,
       vaAtomAttrs: atomAttrs(
         atom,
@@ -319,6 +586,7 @@ export async function writeDraft(input: DraftWriteInput): Promise<DraftWriteResu
         dryRun: true,
         written,
         skipped,
+        missingOmsScene,
         readBack: {
           sop: asText(atom.sop),
           sceneOverviewCode: asText(atom.sceneOverviewCode),
@@ -326,7 +594,7 @@ export async function writeDraft(input: DraftWriteInput): Promise<DraftWriteResu
           requirementBackground: currentBg,
           nweon: currentWi,
           plannedSop: sop.slice(0, 200),
-          plannedScene: input.sceneOverviewCode,
+          plannedScene: sceneOverviewCode,
           plannedRequirementDescription: willAppendRd ? nextRd : currentRd,
           plannedRequirementBackground: willAppendBg ? nextBg : currentBg,
           plannedNweon,
@@ -336,7 +604,8 @@ export async function writeDraft(input: DraftWriteInput): Promise<DraftWriteResu
     }
 
     await client.ajaxSave("oms.VaOrderService_updateAtomDetails", updatePayload);
-    written.push("sceneOverviewCode", "sop");
+    if (plannedSceneCode) written.push("sceneOverviewCode");
+    written.push("sop");
     if (willAppendRd) written.push("requirementDescription");
     else skipped.push("requirementDescription");
     if (willAppendBg) written.push("requirementBackground");
@@ -424,7 +693,30 @@ export async function writeDraft(input: DraftWriteInput): Promise<DraftWriteResu
         };
       }
     }
-    return { success: true, dryRun: false, written, skipped, readBack };
+    if (input.comparisonMeta) {
+      try {
+        appendAiWriteSnapshot({
+          vascNo: input.orderNo,
+          ai: {
+            sceneKey: input.comparisonMeta.sceneKey,
+            sceneName: input.comparisonMeta.sceneName,
+            sceneCode: input.sceneOverviewCode,
+            sopText: sop,
+            requirementDesc: aiRd,
+            requirementBackground: aiBg,
+            wiNumbers: wiNos,
+            missingAttachments: input.comparisonMeta.missingAttachments || [],
+            degraded: Boolean(input.comparisonMeta.degraded),
+            confidence: input.comparisonMeta.confidence || "",
+          },
+        });
+      } catch (err) {
+        console.warn(
+          `ai-human-comparison append failed ${input.orderNo}: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+    return { success: true, dryRun: false, written, skipped, readBack, missingOmsScene };
   } catch (err) {
     return {
       success: false,

@@ -1,7 +1,13 @@
+import { formatCustomerLabel, visibleCustomerName } from "./customer-display.ts";
+import { formatSkuCheckAuditorHint } from "./sku-consistency-check.ts";
 import { asText } from "./oms-adapter.ts";
+import { deriveTopicSummary } from "./llm-scene-classifier.ts";
+import { resolveOrderCategory, type SceneCategory } from "./order-category.ts";
 import { collectSceneCandidates } from "./parse-scene-reply.ts";
 import { findScenarioCard, loadScenarioCards } from "./scenario-cards.ts";
-import { composeIdentifiedSummaries, type SopSections } from "./sop-sections.ts";
+import { composeIdentifiedSummaries, isGenericComposedRequirement, sameNormalizedText, type SopSections } from "./sop-sections.ts";
+import { alertUserId } from "./canary.ts";
+import { needsOmsSceneConfirm } from "./missing-oms-scene.ts";
 import type { PipelineResult } from "./run-pipeline.ts";
 import type { SceneCandidate } from "./types.ts";
 
@@ -40,12 +46,6 @@ export type CardAction =
 
 export type DemoPersonnel = Record<string, { name: string; openId: string | null }>;
 
-const DEMO_CUSTOMERS: Record<string, { code: string; name: string }> = {
-  VASC000000315774: { code: "DEMO_CUST001", name: "××科技有限公司（脱敏）" },
-  VASC000000298617: { code: "DEMO_CUST002", name: "××贸易有限公司（脱敏）" },
-  VASC000000326061: { code: "DEMO_CUST003", name: "××供应链有限公司（脱敏）" },
-};
-
 const DESIGNED_SOP: Record<string, string[]> = {
   VASC000000315774: [
     "1. 根据异常单定位待处理的 14 个包裹",
@@ -71,6 +71,27 @@ export function atReviewerWithCc(personnel: DemoPersonnel, action: string): stri
   const owner = personnel["负责人"];
   const cc = owner?.openId || owner?.name ? ` ${atPerson(owner)}` : "";
   return `${reviewer} ${action}${cc}`;
+}
+
+/** 只有「请销售/客服补信息」才 @ 人。不 @ 李颖 / 何静 / 耿文文。 */
+export function atSalesAndCs(personnel: DemoPersonnel, action: string): string {
+  const sales = personnel["销售"];
+  const cs = personnel["客服"];
+  const bits: string[] = [];
+  if (sales?.openId || sales?.name) bits.push(atPerson(sales, "销售"));
+  if (cs?.openId || cs?.name) bits.push(atPerson(cs, "客服"));
+  return bits.length ? `${bits.join(" ")} ${action}` : action;
+}
+
+function atDeveloper(): string {
+  const id = alertUserId();
+  return id ? `<at id=${id}></at>` : "金萤";
+}
+
+function missingOmsSceneNotice(result: PipelineResult): string {
+  const key = result.matchResult?.sceneKey || "";
+  const name = result.matchResult?.scenarioName || sceneNameOf(key) || "未匹配场景";
+  return `${atDeveloper()} 知识库场景「${name}」没有对应的 OMS 场景概述码，SOP 已按「不选场景」写入。请找业务确认该场景该选哪个下拉项。`;
 }
 
 export function zhMatchReason(reason: string): string {
@@ -110,9 +131,9 @@ export function zhConfidence(confidence: string): string {
   return map[confidence.trim().toLowerCase()] || confidence.trim();
 }
 
+/** Keep 【入库】/【库内】/【出库】 so mixed scene buttons stay distinguishable. */
 export function shortSceneName(sceneName: string): string {
   return sceneName
-    .replace(/^【入库】/, "")
     .replace(/^[§\d.]+\s*/, "")
     .replace(/[“”"]/g, "")
     .trim();
@@ -125,11 +146,7 @@ export function sceneNameOf(sceneKey: string): string {
 }
 
 function customerLine(result: PipelineResult): string {
-  const demo = DEMO_CUSTOMERS[result.orderNo];
-  if (demo) return `客户：${demo.code} / ${demo.name}`;
-  const code = result.contextFacts?.customerCode || "";
-  const name = result.contextFacts?.customerName || "未填写";
-  return code ? `客户：${code} / ${name}` : `客户：${name}`;
+  return `客户：${formatCustomerLabel(result.contextFacts?.customerCode, result.contextFacts?.customerName)}`;
 }
 
 function warehouseLine(result: PipelineResult): string {
@@ -176,9 +193,12 @@ function exceptionLine(result: PipelineResult): string {
   return `异常单：${nos.join(", ")}`;
 }
 
-function sceneLine(result: PipelineResult): string {
+function sceneLine(result: PipelineResult, unidentified = false): string {
+  if (unidentified) return "场景识别：未识别到";
+  const decision = String(result.matchResult?.decision || "");
+  if (decision === "unsupported") return "场景识别：未识别到";
   const name = result.matchResult?.scenarioName || result.contextFacts?.sceneName || "";
-  return name ? `场景识别：${shortSceneName(name)}` : "";
+  return name ? `场景识别：${shortSceneName(name)}` : "场景识别：未识别到";
 }
 
 function md(content: string): CardElement {
@@ -287,14 +307,14 @@ function chunkActions(actions: CardAction[], size = 2): CardElement[] {
   return rows;
 }
 
-function factsBlock(result: PipelineResult, extra: string[] = []): string {
+function factsBlock(result: PipelineResult, extra: string[] = [], unidentified = false): string {
   return [
     orderNoLine(result),
     customerLine(result),
     warehouseLine(result),
     exceptionLine(result),
     inboundOrderLine(result),
-    sceneLine(result),
+    sceneLine(result, unidentified),
     ...extra,
   ]
     .filter(Boolean)
@@ -314,8 +334,109 @@ function businessSceneHint(result: PipelineResult): string {
   return "AI 识别到可能的场景但不够确定，请人工确认";
 }
 
-export function demoTopicTitle(outputPath: string, orderNo: string): string {
-  return `${orderNo} 增值单-智能审核请关注`;
+function providedAttachmentsBlock(result: PipelineResult): string {
+  const status = result.contextFacts?.attachmentStatus || result.agentInput?.omsFacts?.attachmentStatus || {};
+  const uploaded = Object.entries(status)
+    .filter(([, v]) => v === "uploaded")
+    .map(([k]) => `${k} ✓`);
+  if (!uploaded.length) return "";
+  return `已提供附件：${uploaded.join("、")}`;
+}
+
+function compactText(raw: string): string {
+  return raw.replace(/\s+/g, " ").trim();
+}
+
+function isStatusBoilerplate(text: string): boolean {
+  return /需求与附件已齐|已生成 SOP|确认不等于/.test(text);
+}
+
+function topicRequirementSummary(result: {
+  failureGate?: string;
+  llm?: { error?: string | null; sop?: { requirementDescription?: string } | null; text?: string } | null;
+  contextFacts?: {
+    providedFields?: Record<string, unknown>;
+    allEventNos?: string[];
+    eventNo?: string;
+    allBusinessOrderNos?: string[];
+    businessOrderNo?: string;
+  } | null;
+  agentInput?: {
+    omsFacts?: { customerRequirementDescription?: string; requirementBackground?: string };
+  };
+  matchResult?: {
+    llmClassification?: { conclusionOneLiner?: string; topicSummary?: string; reasoning?: string } | null;
+  } | null;
+}): string {
+  const llmClass = result.matchResult?.llmClassification;
+  const topicSummary = compactText(
+    deriveTopicSummary(llmClass?.topicSummary, llmClass?.reasoning),
+  ).slice(0, 60);
+  if (topicSummary) return topicSummary;
+  const oneLiner = compactText(asText(result.matchResult?.llmClassification?.conclusionOneLiner)).slice(0, 30);
+  if (oneLiner) return oneLiner;
+
+  const original = compactText(
+    asText(result.agentInput?.omsFacts?.customerRequirementDescription) ||
+      asText(result.contextFacts?.providedFields?.VAS_ATTR_REL_RD) ||
+      asText(result.contextFacts?.providedFields?.["需求描述"]),
+  );
+  if (original) return original.slice(0, 50);
+
+  const identified = composeIdentifiedSummaries({
+    llm: result.llm,
+    aiGeneratedText: result.llm?.text,
+    analysis: "",
+    providedFields: result.contextFacts?.providedFields,
+    originalRequirement: original,
+    allEventNos: result.contextFacts?.allEventNos,
+    eventNo: result.contextFacts?.eventNo,
+    allBusinessOrderNos: result.contextFacts?.allBusinessOrderNos,
+    businessOrderNo: result.contextFacts?.businessOrderNo,
+    customerRequirementDescription: original,
+  });
+  const composed = compactText(identified.requirementDescription);
+  if (composed && !isStatusBoilerplate(composed) && !isGenericComposedRequirement(composed)) return composed.slice(0, 50);
+
+  const failed = result.failureGate === "llm-generate-sop" || Boolean(asText(result.llm?.error));
+  if (failed) return "SOP生成失败，请人工处理";
+  return "待审核";
+}
+
+export function demoTopicTitle(result: {
+  orderNo?: string;
+  failureGate?: string;
+  contextFacts?: {
+    customerCode?: string;
+    customerName?: string;
+    warehouseCode?: string;
+    warehouseName?: string;
+    providedFields?: Record<string, unknown>;
+    allEventNos?: string[];
+    eventNo?: string;
+    allBusinessOrderNos?: string[];
+    businessOrderNo?: string;
+  } | null;
+  agentInput?: {
+    omsFacts?: { customerRequirementDescription?: string; requirementBackground?: string };
+  };
+  matchResult?: {
+    llmClassification?: { conclusionOneLiner?: string; topicSummary?: string; reasoning?: string } | null;
+    scenarioName?: string;
+  } | null;
+  llm?: { error?: string | null; sop?: { requirementDescription?: string } | null; text?: string } | null;
+  analysis?: string;
+}): string {
+  const orderNo = String(result.orderNo || "").trim() || "VASC";
+  const code = String(result.contextFacts?.customerCode || "").trim();
+  const name = visibleCustomerName(result.contextFacts?.customerName);
+  const customer = [code, name].filter(Boolean).join("/") || "客户未填";
+  const warehouse =
+    String(result.contextFacts?.warehouseCode || "").trim() ||
+    String(result.contextFacts?.warehouseName || "").trim() ||
+    "仓库未填";
+  const summary = topicRequirementSummary(result);
+  return `${orderNo} | ${customer} | ${warehouse} | ${summary}`;
 }
 
 function originalRequirementOf(result: PipelineResult): string {
@@ -326,11 +447,35 @@ function originalRequirementOf(result: PipelineResult): string {
   );
 }
 
+function customerOriginalOf(result: PipelineResult): { description: string; background: string } {
+  const description =
+    asText(result.agentInput?.omsFacts?.customerRequirementDescription) ||
+    asText(result.contextFacts?.providedFields?.VAS_ATTR_REL_RD) ||
+    asText(result.contextFacts?.providedFields?.["需求描述"]);
+  const background =
+    asText(result.agentInput?.omsFacts?.requirementBackground) ||
+    asText(result.contextFacts?.providedFields?.BEOR) ||
+    asText(result.contextFacts?.providedFields?.["需求背景说明"]) ||
+    asText(result.contextFacts?.providedFields?.["需求背景"]);
+  return { description, background };
+}
+
+function pickAiDisplay(raw: string, identified: string, customer: string): string {
+  if (raw) {
+    if (customer && sameNormalizedText(raw, customer)) return "";
+    return raw;
+  }
+  if (!identified) return "";
+  if (customer && sameNormalizedText(identified, customer)) return "";
+  return identified;
+}
+
 function identifiedFromResult(result: PipelineResult): SopSections {
-  return composeIdentifiedSummaries({
+  const analysis = asText(result.analysis);
+  const identified = composeIdentifiedSummaries({
     llm: result.llm,
     aiGeneratedText: result.llm?.text,
-    analysis: result.analysis,
+    analysis: isStatusBoilerplate(analysis) ? "" : analysis,
     providedFields: result.contextFacts?.providedFields,
     originalRequirement: originalRequirementOf(result),
     allEventNos: result.contextFacts?.allEventNos,
@@ -339,27 +484,42 @@ function identifiedFromResult(result: PipelineResult): SopSections {
     businessOrderNo: result.contextFacts?.businessOrderNo,
     customerRequirementDescription: asText(result.agentInput?.omsFacts?.customerRequirementDescription),
   });
+  if (isGenericComposedRequirement(identified.requirementDescription)) {
+    identified.requirementDescription = "";
+  }
+  return identified;
 }
 
-function aiSummaryBlocks(result: PipelineResult, forceL1 = false): CardElement[] {
-  const sections = identifiedFromResult(result);
-  const description =
-    sections.requirementDescription ||
-    (forceL1 ? originalRequirementOf(result) || "客户需求描述不够完整，无法提炼。" : "");
-  const background = sections.requirementBackground;
+function requirementDisplayBlocks(
+  result: PipelineResult,
+  options?: { operationSteps?: string },
+): CardElement[] {
+  const customer = customerOriginalOf(result);
+  const identified = identifiedFromResult(result);
+  const aiDesc = pickAiDisplay(identified.requirementDescription, "", customer.description);
+  const aiBg = pickAiDisplay(identified.requirementBackground, "", customer.background);
+  const aiDescShown = aiDesc || (customer.description ? "（与上面客户原文一致）" : "");
+  const aiBgShown = aiBg || (customer.background ? "（与上面客户原文一致）" : "");
+
   const blocks: CardElement[] = [];
-  if (description) {
-    blocks.push(md(`**【AI 总结 - 需求描述】**\n${description}`));
-  }
-  if (background) {
-    blocks.push(md(`**【AI 总结 - 需求背景】**\n${background}`));
+  if (customer.description) blocks.push(md(`**【客户原始 - 需求描述】**\n${customer.description}`));
+  if (customer.background) blocks.push(md(`**【客户原始 - 需求背景】**\n${customer.background}`));
+  const hasCustomer = Boolean(customer.description || customer.background);
+  const hasAi = Boolean(aiDescShown || aiBgShown);
+  if (hasCustomer && hasAi) blocks.push({ tag: "hr" });
+  if (aiDescShown) blocks.push(md(`**【AI 总结 - 需求描述】**\n${aiDescShown}`));
+  if (aiBgShown) blocks.push(md(`**【AI 总结 - 需求背景】**\n${aiBgShown}`));
+  if (options?.operationSteps) {
+    if (blocks.length) blocks.push({ tag: "hr" });
+    blocks.push(md(`**【操作步骤】**\n${options.operationSteps}`));
   }
   return blocks;
 }
 
-function afterFacts(result: PipelineResult, rest: CardElement[], forceL1 = false): CardElement[] {
-  const summaries = aiSummaryBlocks(result, forceL1);
+function afterFacts(result: PipelineResult, rest: CardElement[]): CardElement[] {
+  const summaries = requirementDisplayBlocks(result);
   if (!summaries.length) return rest;
+  if (!rest.length) return summaries;
   return [...summaries, { tag: "hr" }, ...rest];
 }
 
@@ -373,21 +533,20 @@ function sopSections(result: PipelineResult): SopSections {
   };
 }
 
-function sopCardBody(sections: SopSections): CardElement[] {
-  const blocks: CardElement[] = [];
-  if (sections.requirementDescription) {
-    blocks.push(md(`**【AI 总结 - 需求描述】**\n${sections.requirementDescription}`));
-  }
-  if (sections.requirementBackground) {
-    blocks.push(md(`**【AI 总结 - 需求背景】**\n${sections.requirementBackground}`));
-  }
-  if (blocks.length) blocks.push({ tag: "hr" });
-  blocks.push(md(`**【操作步骤】**\n${sections.operationSteps}`));
-  return blocks;
+function sopCardBody(result: PipelineResult): CardElement[] {
+  return requirementDisplayBlocks(result, { operationSteps: sopSections(result).operationSteps });
 }
 
 export function sceneKeyOf(result: PipelineResult): string {
   return result.matchResult?.sceneKey || result.contextFacts?.sceneKey || "";
+}
+
+export function orderCategoryOf(result: PipelineResult): SceneCategory | "" {
+  return resolveOrderCategory({
+    businessTypeDesc: result.contextFacts?.businessTypeDesc,
+    businessType: result.contextFacts?.businessType,
+    vaSource: result.contextFacts?.vaSource,
+  });
 }
 
 export function allSceneCandidates(): SceneCandidate[] {
@@ -396,6 +555,52 @@ export function allSceneCandidates(): SceneCandidate[] {
     sceneKey: card.sceneKey,
     sceneName: shortSceneName(card.sceneName),
   }));
+}
+
+export function sceneCandidatesByCategory(category: SceneCategory | ""): SceneCandidate[] {
+  const cards = loadScenarioCards().filter((card) => {
+    if (!category) return true;
+    const cat = String(card.category || "").toLowerCase();
+    return cat === category || card.sceneKey.startsWith(`${category}_`);
+  });
+  return cards.map((card, i) => ({
+    index: i + 1,
+    sceneKey: card.sceneKey,
+    sceneName: shortSceneName(card.sceneName),
+  }));
+}
+
+function categoryHeading(category: SceneCategory | ""): string {
+  if (category === "instock") return "【库内场景】";
+  if (category === "outbound") return "【出库场景】";
+  return "【入库场景】";
+}
+
+function showAllScenesButton(vascNo: string, label = "以上都不对，查看更多场景"): CardAction {
+  return {
+    tag: "button",
+    text: { tag: "plain_text", content: label.slice(0, 80) },
+    type: "default",
+    name: "show_all_scenes",
+    value: { action: "show_all_scenes", vascNo },
+  };
+}
+
+function degradeNotice(result: PipelineResult): CardElement[] {
+  if (!result.llm?.sop?.degraded) return [];
+  const reason = asText(result.llm.sop.degradeReason) || "AI 编造了不存在的单号";
+  return [
+    md(
+      `⚠ **注意：** AI 生成的 SOP 中有部分单号被替换为 [待补充]，原因：${reason}。\n请审核员补充正确的单号后再确认。`,
+    ),
+    { tag: "hr" },
+  ];
+}
+
+function auditorHintNotice(result: PipelineResult): CardElement[] {
+  const hint = formatSkuCheckAuditorHint(result.skuCheckResult);
+  if (!hint) return [];
+  return [md(`⚠ **请审核人员关注**\n${hint}`), { tag: "hr" }];
 }
 
 function sceneButton(args: {
@@ -417,6 +622,26 @@ function sceneButton(args: {
   };
 }
 
+export function buildOmsWriteCancelledCard(args: {
+  vascNo: string;
+  error: string;
+  personnel: DemoPersonnel;
+}): FeishuCard {
+  const err = args.error || "当前订单不允许写入";
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      title: { tag: "plain_text", content: `⚠ OMS 写入已取消 — ${args.vascNo}` },
+      template: "orange",
+    },
+    elements: [
+      md(`⚠ OMS 写入已取消：${err}`),
+      md("审核员可能已手动完成审核或已填写 SOP，无需 AI 写入。不要再点「确认写入 OMS」。"),
+      md("无需重试。"),
+    ],
+  };
+}
+
 export function buildOmsWriteRetryCard(args: {
   vascNo: string;
   sceneKey: string;
@@ -431,7 +656,7 @@ export function buildOmsWriteRetryCard(args: {
     : `❌ OMS 写入失败：${err}。还可重试 ${args.remainingManual} 次。`;
   const elements: CardElement[] = [
     md(intro),
-    md(atReviewerWithCc(args.personnel, exhausted ? "请联系开发排查" : "请重试写入 OMS")),
+    md(exhausted ? "请联系开发排查。" : "请重试写入 OMS。"),
   ];
   if (!exhausted) {
     elements.push({
@@ -460,69 +685,189 @@ export function buildOmsWriteRetryCard(args: {
   };
 }
 
-export function buildSopCard(
-  result: PipelineResult,
-  personnel: DemoPersonnel,
-  options?: { revised?: boolean; revision?: number },
-): FeishuCard {
-  const sceneKey = sceneKeyOf(result);
-  const revision = options?.revision || 0;
-  const titleSuffix = options?.revised ? (revision > 1 ? `（修订版 ${revision}）` : "（修订版）") : "";
+function skipCompletenessButton(result: PipelineResult): CardAction {
+  return {
+    tag: "button",
+    text: { tag: "plain_text", content: "✅ 信息已齐全，直接生成 SOP" },
+    type: "primary",
+    name: "skip_completeness",
+    value: { action: "skip_completeness", vascNo: result.orderNo, sceneKey: sceneKeyOf(result) },
+  };
+}
+
+function sceneWrongButton(result: PipelineResult): CardAction {
+  return {
+    tag: "button",
+    text: { tag: "plain_text", content: "🔄 场景不对，重新选择" },
+    type: "danger",
+    name: "scene_wrong",
+    value: { action: "scene_wrong", vascNo: result.orderNo, sceneKey: sceneKeyOf(result) },
+  };
+}
+
+export function buildSopGenerateErrorCard(result: PipelineResult, personnel: DemoPersonnel): FeishuCard {
+  const err = asText(result.llm?.error) || "SOP 生成失败";
   return {
     config: { wide_screen_mode: true },
     header: {
-      title: { tag: "plain_text", content: `✅ 增值单 AI 预审 — ${result.orderNo}${titleSuffix}` },
-      template: "green",
+      title: { tag: "plain_text", content: `❌ SOP 生成失败 — ${result.orderNo}` },
+      template: "red",
     },
     elements: [
       md(factsBlock(result)),
       { tag: "hr" },
-      ...sopCardBody(sopSections(result)),
-      { tag: "hr" },
-      md(atReviewerWithCc(personnel, "请确认")),
-      {
-        tag: "action",
-        actions: [
-          {
-            tag: "button",
-            text: { tag: "plain_text", content: "✅ 确认 SOP 正确，写入 OMS 草稿" },
-            type: "primary",
-            name: "sop_write",
-            value: { action: "confirm_sop_write", vascNo: result.orderNo, sceneKey },
-          },
-          {
-            tag: "button",
-            text: { tag: "plain_text", content: "✏️ SOP 需要修改" },
-            type: "default",
-            name: "sop_write",
-            value: { action: "sop_needs_edit", vascNo: result.orderNo },
-          },
-        ],
+      ...auditorHintNotice(result),
+      ...afterFacts(result, [
+        md(`**这不是场景不确定。** SOP 生成失败，请人工撰写 SOP。\n\n原因：${err}`),
+        md("请人工撰写 SOP。"),
+      ]),
+      ...judgmentFooter(result),
+    ],
+  };
+}
+
+export function buildSopCard(
+  result: PipelineResult,
+  personnel: DemoPersonnel,
+  options?: { revised?: boolean; revision?: number; writeError?: string; dryRun?: boolean; missingOmsScene?: boolean },
+): FeishuCard {
+  const titleSuffix = options?.revised
+    ? options.revision && options.revision > 1
+      ? `（修订版 ${options.revision}）`
+      : "（修订版）"
+    : "";
+  const missingOmsScene =
+    options?.missingOmsScene ||
+    needsOmsSceneConfirm({
+      sceneKey: result.matchResult?.sceneKey,
+      decision: result.matchResult?.decision,
+      outputPath: result.outputPath || "sop_generated",
+      riskFlags: result.riskFlags,
+    });
+  const notice = options?.writeError
+    ? `⚠ SOP 已生成，但写入 OMS 失败：${options.writeError}。请审核员在 OMS 页面手工填写，或点下方重试。`
+    : options?.dryRun
+      ? `SOP 已生成。本机未打开 OMS 真写，审核信息还没进 OMS。打开写入开关后才会写入。`
+      : missingOmsScene
+        ? `AI 已将 SOP 写入 OMS（增值单号 ${result.orderNo}），未选择场景概述。`
+        : `AI 已将 SOP 写入 OMS（增值单号 ${result.orderNo}），请审核员在 OMS 页面检查修改。`;
+  const elements: CardElement[] = [
+    md(factsBlock(result)),
+    { tag: "hr" },
+    ...auditorHintNotice(result),
+    ...degradeNotice(result),
+    ...sopCardBody(result),
+    { tag: "hr" },
+    md(notice),
+    ...(missingOmsScene && !options?.writeError ? [md(missingOmsSceneNotice(result))] : []),
+    md("请在 OMS 检查修改。"),
+  ];
+  if (options?.writeError) {
+    elements.push({
+      tag: "action",
+      actions: [
+        {
+          tag: "button",
+          text: { tag: "plain_text", content: "🔄 重试写入 OMS" },
+          type: "primary",
+          name: "sop_write",
+          value: { action: "retry_sop_write", vascNo: result.orderNo, sceneKey: sceneKeyOf(result) },
+        },
+      ],
+    });
+  }
+  elements.push(...judgmentFooter(result));
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      title: {
+        tag: "plain_text",
+        content: options?.writeError
+          ? `⚠ SOP 待写入 OMS — ${result.orderNo}${titleSuffix}`
+          : options?.dryRun
+            ? `✅ SOP 已生成（未写 OMS）— ${result.orderNo}${titleSuffix}`
+            : `✅ AI 已写入 OMS — ${result.orderNo}${titleSuffix}`,
       },
+      template: options?.writeError ? "orange" : "green",
+    },
+    elements,
+  };
+}
+
+export function buildAttachmentPendingCard(result: PipelineResult, personnel: DemoPersonnel): FeishuCard {
+  const attachments = (result.missingAttachments || []).filter(Boolean);
+  const list = attachments.length
+    ? attachments.map((item) => `❌ ${item}（未上传）`).join("\n")
+    : "❌ 场景所需附件未上传";
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      title: { tag: "plain_text", content: `⚠ 附件未提交 — ${result.orderNo}` },
+      template: "orange",
+    },
+    elements: [
+      md(factsBlock(result)),
+      { tag: "hr" },
+      ...auditorHintNotice(result),
+      ...afterFacts(result, [
+        md("SOP 已按现有信息生成并写入 OMS。缺的附件在 SOP 里用 [待补充：附件名] 占位。"),
+        md(list),
+        md(
+          `${atSalesAndCs(personnel, "请联系客户补充以上附件。")}\n可先在 OMS 检查已写入的 SOP。`,
+        ),
+      ]),
       ...judgmentFooter(result),
     ],
   };
 }
 
 export function buildClarificationCard(result: PipelineResult, personnel: DemoPersonnel): FeishuCard {
-  const sales = personnel["销售"];
-  const missing = (result.missing || []).filter(Boolean);
-  const missingBlock = missing.length
-    ? missing.map((item) => `❌ ${item}`).join("\n")
-    : "❌ 操作说明附件（拍照要求/SOP 说明）";
+  const attachmentsOnly =
+    (result.missingAttachments || []).length > 0 &&
+    !(result.missingRequirementItems || []).filter(Boolean).length &&
+    result.outputPath === "sop_generated";
+  if (attachmentsOnly) return buildAttachmentPendingCard(result, personnel);
+  const sceneName = shortSceneName(result.matchResult?.scenarioName || result.contextFacts?.sceneName || "");
+  const card = findScenarioCard(result.matchResult?.sceneKey || "");
+  const missingInfo = (result.missingRequirementItems || []).filter(Boolean);
+  const missingAttachments = (result.missingAttachments || []).filter(Boolean);
+  const missingFields = (result.missingFields || []).filter(
+    (item) => item && !missingAttachments.includes(item) && !missingInfo.includes(item),
+  );
+  const lines: string[] = [];
+  for (const item of missingInfo) {
+    const fieldName = item.replace(/未说明$/, "");
+    const spec = card?.requiredInfoFields?.find((f) => f.field === fieldName);
+    const extra = spec?.description ? `（本场景需要知道${spec.description}）` : "";
+    lines.push(`❓ ${item}${extra}`);
+  }
+  for (const item of missingAttachments) {
+    lines.push(`❌ ${item}（未上传）`);
+  }
+  for (const item of missingFields) {
+    lines.push(`❌ ${item}`);
+  }
+  if (!lines.length) {
+    for (const item of (result.missing || []).filter(Boolean)) lines.push(`❌ ${item}`);
+  }
+  const missingBlock = lines.length ? lines.join("\n") : "❓ 请补充需求描述，说明仓库要做什么";
+  const mention = atSalesAndCs(personnel, "请联系客户补充以上需求。补充后 AI 会重新生成。");
   return {
     config: { wide_screen_mode: true },
     header: {
-      title: { tag: "plain_text", content: `⚠ 增值单 AI 预审 — ${result.orderNo}` },
+      title: { tag: "plain_text", content: `⚠ 需求不清晰 — ${result.orderNo}` },
       template: "orange",
     },
     elements: [
       md(factsBlock(result)),
       { tag: "hr" },
+      ...auditorHintNotice(result),
       ...afterFacts(result, [
-        md("以下材料需要补充："),
+        ...(sceneName ? [md(`场景识别：${sceneName}`)] : []),
+        ...(providedAttachmentsBlock(result) ? [md(providedAttachmentsBlock(result))] : []),
+        md("以下信息需要补充："),
         md(missingBlock),
-        md(`${atPerson(sales, "销售")} 请联系客户补充`),
+        md(mention || "请联系客户补充以上需求。"),
       ]),
       ...judgmentFooter(result),
     ],
@@ -530,8 +875,6 @@ export function buildClarificationCard(result: PipelineResult, personnel: DemoPe
 }
 
 export function buildRequirementClarificationCard(result: PipelineResult, personnel: DemoPersonnel): FeishuCard {
-  const sales = personnel["销售"];
-  const cs = personnel["客服"] || personnel["审核员"];
   const missing = (result.missingRequirementItems || result.missing || []).filter(Boolean);
   const prompts = result.clarificationPrompts || [];
   const missingBlock = missing.length
@@ -545,20 +888,21 @@ export function buildRequirementClarificationCard(result: PipelineResult, person
   return {
     config: { wide_screen_mode: true },
     header: {
-      title: { tag: "plain_text", content: `❓ 增值单 AI 预审 — ${result.orderNo}` },
-      template: "red",
+      title: { tag: "plain_text", content: `⚠ 需求不清晰 — ${result.orderNo}` },
+      template: "orange",
     },
     elements: [
       md(factsBlock(result)),
       { tag: "hr" },
       ...afterFacts(result, [
         md("**客户需求描述不够完整，以下信息需要补充：**"),
+        ...(providedAttachmentsBlock(result) ? [md(providedAttachmentsBlock(result))] : []),
         md(missingBlock),
         { tag: "hr" },
         md(
-          `${atPerson(sales, "销售")} ${atPerson(cs, "客服")} 请联系客户补充以上需求信息。\n补充后 AI 将重新识别场景并生成 SOP。`,
+          `${atSalesAndCs(personnel, "请联系客户补充以上需求信息。")}\n补充后 AI 将重新识别场景并生成 SOP。`,
         ),
-      ], true),
+      ]),
       ...judgmentFooter(result),
     ],
   };
@@ -568,6 +912,11 @@ export function buildAskCard(result: PipelineResult, personnel: DemoPersonnel): 
   if (result.outputPath === "needs_requirement_clarification") {
     return buildRequirementClarificationCard(result, personnel);
   }
+  return buildClarificationCard(result, personnel);
+}
+
+/** Alias: orange L2.5 completeness card. */
+export function buildSceneCompletenessCard(result: PipelineResult, personnel: DemoPersonnel): FeishuCard {
   return buildClarificationCard(result, personnel);
 }
 
@@ -584,10 +933,10 @@ export function buildSceneConfirmCard(
 
   const intro =
     situation === "A"
-      ? ["AI 识别到可能的场景但不够确定：", hint, `${atReviewerWithCc(personnel, "请选择本单属于哪个场景：")}`]
+      ? ["AI 识别到可能的场景但不够确定：", hint, "请选择本单属于哪个场景："]
           .filter(Boolean)
           .join("\n")
-      : ["AI 未能识别到匹配的场景。", `${atReviewerWithCc(personnel, "请选择或人工处理：")}`].join("\n");
+      : "AI 未能识别到匹配的场景。请选择或确认转人工：";
 
   const extra =
     result.orderNo === "VASC000000326061"
@@ -596,7 +945,7 @@ export function buildSceneConfirmCard(
         ? ["需求提到：海运整柜 100%A+ 包裹，扫描外箱条码按新单上架"]
         : [];
 
-  const buttons: CardAction[] = list.map((item, i) =>
+  const recommendButtons: CardAction[] = list.map((item, i) =>
     sceneButton({
       vascNo: result.orderNo,
       sceneKey: item.sceneKey,
@@ -604,14 +953,19 @@ export function buildSceneConfirmCard(
       type: situation === "A" && i === 0 ? "primary" : "default",
     }),
   );
-  buttons.push(
-    sceneButton({
-      vascNo: result.orderNo,
-      sceneKey: "transfer_human",
-      label: "以上都不是，人工处理",
-      type: "danger",
-    }),
-  );
+  const extraActions: CardElement[] = [];
+  extraActions.push({ tag: "action", actions: [showAllScenesButton(result.orderNo)] });
+  extraActions.push({
+    tag: "action",
+    actions: [
+      sceneButton({
+        vascNo: result.orderNo,
+        sceneKey: "transfer_human",
+        label: "确认转人工，不走智能审核",
+        type: "danger",
+      }),
+    ],
+  });
 
   return {
     config: { wide_screen_mode: true },
@@ -620,10 +974,114 @@ export function buildSceneConfirmCard(
       template: "blue",
     },
     elements: [
-      md(factsBlock(result, extra)),
+      md(factsBlock(result, extra, situation === "B")),
       { tag: "hr" },
-      ...afterFacts(result, [md(intro), ...chunkActions(buttons, 2)]),
+      ...afterFacts(result, [md(intro), ...chunkActions(recommendButtons, 2), ...extraActions]),
       ...judgmentFooter(result),
+    ],
+  };
+}
+
+export function buildAllScenesCard(
+  result: PipelineResult,
+  personnel: DemoPersonnel,
+  category?: SceneCategory | "",
+): FeishuCard {
+  const cat = category || orderCategoryOf(result) || "inbound";
+  const scenes = sceneCandidatesByCategory(cat);
+  const buttons = scenes.map((item) =>
+    sceneButton({
+      vascNo: result.orderNo,
+      sceneKey: item.sceneKey,
+      label: shortSceneName(item.sceneName),
+      type: "default",
+    }),
+  );
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      title: { tag: "plain_text", content: `🔄 请选择正确的场景 — ${result.orderNo}` },
+      template: "blue",
+    },
+    elements: [
+      md(factsBlock(result)),
+      { tag: "hr" },
+      md(`请选择正确的场景：\n\n${categoryHeading(cat)}`),
+      ...chunkActions(buttons, 2),
+      {
+        tag: "action",
+        actions: [
+          sceneButton({
+            vascNo: result.orderNo,
+            sceneKey: "transfer_human",
+            label: "以上都没有，确认转人工",
+            type: "danger",
+          }),
+        ],
+      },
+      md("请选择。"),
+    ],
+  };
+}
+
+export function buildSceneSearchSingleCard(args: {
+  vascNo: string;
+  scene: SceneCandidate;
+  personnel: DemoPersonnel;
+}): FeishuCard {
+  const name = shortSceneName(args.scene.sceneName);
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      title: { tag: "plain_text", content: `🔍 找到匹配场景 — ${args.vascNo}` },
+      template: "blue",
+    },
+    elements: [
+      md(`🔍 找到匹配场景：\n**${name}**`),
+      {
+        tag: "action",
+        actions: [
+          sceneButton({
+            vascNo: args.vascNo,
+            sceneKey: args.scene.sceneKey,
+            label: "✅ 确认是这个场景",
+            type: "primary",
+          }),
+          showAllScenesButton(args.vascNo, "❌ 不是，继续找"),
+        ],
+      },
+      md("请确认。"),
+    ],
+  };
+}
+
+export function buildSceneSearchMultiCard(args: {
+  vascNo: string;
+  scenes: SceneCandidate[];
+  personnel: DemoPersonnel;
+}): FeishuCard {
+  const buttons = args.scenes.map((item) =>
+    sceneButton({
+      vascNo: args.vascNo,
+      sceneKey: item.sceneKey,
+      label: shortSceneName(item.sceneName),
+      type: "default",
+    }),
+  );
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      title: { tag: "plain_text", content: `🔍 找到 ${args.scenes.length} 个可能的场景 — ${args.vascNo}` },
+      template: "blue",
+    },
+    elements: [
+      md(`🔍 找到 ${args.scenes.length} 个可能的场景：`),
+      ...chunkActions(buttons, 2),
+      {
+        tag: "action",
+        actions: [showAllScenesButton(args.vascNo, "以上都不是")],
+      },
+      md("请选择。"),
     ],
   };
 }
@@ -666,7 +1124,7 @@ function replaceActionsWithStatus(originalCard: FeishuCard, line: string, templa
 
 export function buildSopActionUpdateCard(args: {
   originalCard: FeishuCard;
-  kind: "sop_written" | "write_failed" | "sop_needs_edit" | "sop_edit_exhausted";
+  kind: "sop_written" | "write_failed" | "write_cancelled" | "sop_needs_edit" | "sop_edit_exhausted";
   confirmedBy: string;
   dryRun?: boolean;
   error?: string;
@@ -677,6 +1135,9 @@ export function buildSopActionUpdateCard(args: {
   if (args.kind === "sop_written") {
     const mode = args.dryRun ? "（dry-run 模式）" : "";
     line = `✅ SOP 已写入 OMS 草稿${mode}（由 ${args.confirmedBy} 确认）。请在 OMS 中人工点击审核通过。`;
+  } else if (args.kind === "write_cancelled") {
+    line = `⚠ OMS 写入已取消：${args.error || "当前订单不允许写入"}`;
+    template = "orange";
   } else if (args.kind === "write_failed") {
     line = `❌ OMS 写入失败：${args.error || "未知错误"}。请手动操作。`;
     template = "red";
@@ -690,6 +1151,76 @@ export function buildSopActionUpdateCard(args: {
   const card = replaceActionsWithStatus(args.originalCard, line, template);
   if (args.operatorOpenId) card.open_ids = [args.operatorOpenId];
   return card;
+}
+
+export function buildCanaryPromoteCard(args: { count: number; orderNos?: string[] }): FeishuCard {
+  const nos = (args.orderNos || []).filter(Boolean);
+  const list = nos.length ? nos.map((no) => `- ${no}`).join("\n") : "（见测试群刚发出的卡片）";
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      title: { tag: "plain_text", content: `金丝雀 ${args.count} 单已跑完` },
+      template: "orange",
+    },
+    elements: [
+      md(
+        [
+          formatCanaryDoneCopy(args.count),
+          "",
+          "**测试群里的单：**",
+          list,
+          "",
+          "有问题就不要点，自己先修。",
+        ].join("\n"),
+      ),
+      {
+        tag: "action",
+        actions: [
+          {
+            tag: "button",
+            text: { tag: "plain_text", content: "✅ 没问题，切到正式群" },
+            type: "primary",
+            name: "canary_promote",
+            value: { action: "canary_promote", count: String(args.count) },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function formatCanaryDoneCopy(count: number): string {
+  return `请先看测试群。没问题就点下面按钮：这 ${count} 单会再发到正式群，之后新单也进正式群。`;
+}
+
+export function buildCanaryPromotedUpdateCard(args: {
+  sent: number;
+  skipped: number;
+  failed: number;
+  already?: boolean;
+}): FeishuCard {
+  if (args.already) {
+    return {
+      config: { wide_screen_mode: true },
+      header: {
+        title: { tag: "plain_text", content: "已经切到正式群" },
+        template: "green",
+      },
+      elements: [md("已经切过了，不用再点。新单会在下一轮轮询进正式群（最多约 10 分钟）。")],
+    };
+  }
+  const bits = [`已切到正式群。补发成功 ${args.sent} 单`];
+  if (args.skipped) bits.push(`跳过 ${args.skipped} 单（没有存下卡片）`);
+  if (args.failed) bits.push(`失败 ${args.failed} 单，看 poll.log 的 canary_replay_error`);
+  bits.push("新单会在下一轮轮询进正式群（最多约 10 分钟）。");
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      title: { tag: "plain_text", content: "已切到正式群" },
+      template: "green",
+    },
+    elements: [md(bits.join("。"))],
+  };
 }
 
 export function parseCardActionValue(raw: unknown): Record<string, string> {

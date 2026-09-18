@@ -18,6 +18,56 @@ const DEFAULT_COOKIE = resolve(projectDir(), "../AI_EXPERT/TOM/共享认证/play
 
 export const FORBIDDEN_REVIEW_API = "vaOrderReview";
 
+let consecutiveFailures = 0;
+let circuitOpenUntil = 0;
+const CIRCUIT_THRESHOLD = 3;
+const CIRCUIT_COOLDOWN_MS = 5 * 60 * 1000;
+
+export function resetOmsCircuitForTests(): void {
+  consecutiveFailures = 0;
+  circuitOpenUntil = 0;
+}
+
+export function omsCircuitOpen(): boolean {
+  return Date.now() < circuitOpenUntil;
+}
+
+export function recordOmsCircuitFailureForTests(): void {
+  noteOmsFailure();
+}
+
+function assertCircuitClosed(): void {
+  if (Date.now() < circuitOpenUntil) {
+    throw new Error(`OMS 断路器开启中，${Math.ceil((circuitOpenUntil - Date.now()) / 1000)}s 后重试`);
+  }
+}
+
+function noteOmsSuccess(): void {
+  consecutiveFailures = 0;
+}
+
+function noteOmsFailure(): void {
+  consecutiveFailures++;
+  if (consecutiveFailures >= CIRCUIT_THRESHOLD) {
+    circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+    console.error(`OMS 连续失败 ${consecutiveFailures} 次，断路器开启 5 分钟`);
+  }
+}
+
+async function withOmsCircuit<T>(fn: () => Promise<T>): Promise<T> {
+  assertCircuitClosed();
+  try {
+    const result = await fn();
+    noteOmsSuccess();
+    return result;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("OMS 断路器开启中")) throw err;
+    noteOmsFailure();
+    throw err;
+  }
+}
+
 export interface TomClient {
   ajaxProcess(api: string, params?: Record<string, unknown>): Promise<Record<string, unknown>>;
   ajaxSave(api: string, params: Record<string, unknown>): Promise<Record<string, unknown>>;
@@ -196,6 +246,7 @@ function extractCsrf(html: string): string {
 }
 
 export async function createTomClient(): Promise<TomClient> {
+  return withOmsCircuit(async () => {
   const cookiePath = defaultTomCookiePath();
   let cookie = loadCookieHeader(cookiePath);
   let csrf = "";
@@ -256,32 +307,44 @@ export async function createTomClient(): Promise<TomClient> {
   return {
     cookiePath,
     async setOrderReferer(orderNo: string) {
-      await ensureSession(`${OMS_HOST}/VasOrder/detail/isFill/Y/orderNo/${orderNo}/isView/N`);
+      return withOmsCircuit(() =>
+        ensureSession(`${OMS_HOST}/VasOrder/detail/isFill/Y/orderNo/${orderNo}/isView/N`),
+      );
     },
     async ajaxProcess(api: string, params: Record<string, unknown> = {}) {
-      return postJson(AJAX_PROCESS, api, params);
+      return withOmsCircuit(() => postJson(AJAX_PROCESS, api, params));
     },
     async ajaxUnusualEvent(api: string, params: Record<string, unknown> = {}) {
-      await ensureSession(UNUSUAL_INDEX);
-      return postJson(UNUSUAL_AJAX, api, params);
-    },
-    async getPage(path: string, retried = false): Promise<string> {
-      const url = path.startsWith("http") ? path : `${OMS_HOST}${path.startsWith("/") ? path : `/${path}`}`;
-      const page = await omsFetch(url, { cookie, referer: url });
-      if (isOmsAuthExpired(page)) {
-        renewOnce(retried, "跳转 IAM / 登录超时");
-        return this.getPage(path, true);
-      }
-      if (page.status >= 400) throw new Error(`OMS 页面 HTTP ${page.status}: ${url}`);
-      return page.text;
-    },
-    async ajaxSave(api: string, params: Record<string, unknown>) {
-      return postJson(AJAX_SAVE, api, {
-        form: JSON.stringify(params),
-        jsondata: "true",
+      return withOmsCircuit(async () => {
+        await ensureSession(UNUSUAL_INDEX);
+        return postJson(UNUSUAL_AJAX, api, params);
       });
     },
+    async getPage(path: string, retried = false): Promise<string> {
+      return withOmsCircuit(async () => {
+        const url = path.startsWith("http") ? path : `${OMS_HOST}${path.startsWith("/") ? path : `/${path}`}`;
+        const page = await omsFetch(url, { cookie, referer: url });
+        if (isOmsAuthExpired(page)) {
+          renewOnce(retried, "跳转 IAM / 登录超时");
+          const again = await omsFetch(url, { cookie, referer: url });
+          if (isOmsAuthExpired(again)) throw new Error("Cookie 失效：auto_login 后续期仍跳转 IAM / 登录超时，请手动登录");
+          if (again.status >= 400) throw new Error(`OMS 页面 HTTP ${again.status}: ${url}`);
+          return again.text;
+        }
+        if (page.status >= 400) throw new Error(`OMS 页面 HTTP ${page.status}: ${url}`);
+        return page.text;
+      });
+    },
+    async ajaxSave(api: string, params: Record<string, unknown>) {
+      return withOmsCircuit(() =>
+        postJson(AJAX_SAVE, api, {
+          form: JSON.stringify(params),
+          jsondata: "true",
+        }),
+      );
+    },
   };
+  });
 }
 
 let tomClientPromise: Promise<TomClient> | null = null;
