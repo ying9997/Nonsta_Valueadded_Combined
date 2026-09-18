@@ -37,12 +37,15 @@ function fieldProvided(context: ContextFacts, key: string): boolean {
 }
 
 /**
- * Scene-specific field/attachment check after match-template auto-runs a
- * card with status=supported. Reads requiredFieldKeys from the scenario card.
+ * Scene-specific field/attachment check (rules only).
+ *
+ * Pipeline no longer calls this directly — L2.5 `check-scene-completeness`
+ * reuses it for attachments. Kept for smoke/eval scripts.
+ *
  * Empty requiredFieldKeys → applicable and complete (pass-through).
  */
 export function checkCompleteness(context: ContextFacts, matchResult: MatchResult): CompletenessResult {
-  if (!matchResult.supported || !matchResult.sceneKey) {
+  if (!matchResult.sceneKey) {
     return {
       applicable: false,
       complete: false,

@@ -1,16 +1,19 @@
 import type { ContextFacts, RequirementCheck } from "./types.ts";
 
 /**
- * Pre-match routability check — not a full SOP completeness validator.
+ * L1 pre-match fallback — only blocks blank / tiny intent.
  *
- * Authority: workspace/knowledge/sop/非标增值服务SOP模板及填写示例.md
- * Mapping: internal-review-copilot/knowledge/requirement-completeness.md
+ * Three-slot regexes are still extracted for trace, but they no longer
+ * decide `complete`. Scene-level completeness is L2.5
+ * (`check-scene-completeness.ts`).
  *
- * Full SOP columns (scene overview, customer, documents, SKU, background,
- * purpose, scope, steps, key outputs, exceptions, attachments) are checked
- * later by scenario card + check-completeness + llm-generate-sop.
- * These three slots are only the minimum needed to enter match-template.
+ * Authority for full SOP columns:
+ * workspace/knowledge/sop/非标增值服务SOP模板及填写示例.md
  */
+
+export const MIN_REQUIREMENT_LENGTH = 5;
+/** 短于此时长且无 WI/EB，按「需求完全不清晰」拦住。 */
+export const UNINTELLIGIBLE_LENGTH = 20;
 
 /** SOP: 业务单据 / 商品SKU / 商品 / 包裹 / 箱 / 库位 / 附件上下文 */
 const OBJECT_RE =
@@ -24,16 +27,8 @@ const ACTION_RE =
 const PURPOSE_OR_DESTINATION_RE =
   /(因|因为|导致|为了|目的|背景|需要你们|需要仓库|不上架|上架|入库单|新单|原单|暂存|放一边|先放|拦截|销毁|退回|转不良|转良|转人工|关联|WI\d{6,}|EB\d{6,})/i;
 
-const MISSING_OBJECT = "操作对象不清";
-const MISSING_ACTION = "操作动作不清";
-const MISSING_PURPOSE_OR_DESTINATION = "需求背景/操作目的/处理去向不清";
-
-const PROMPTS: Record<string, string> = {
-  [MISSING_OBJECT]: "需求里看不出要处理的业务单据、SKU、商品、包裹、箱、库位或附件上下文，请补充处理对象。",
-  [MISSING_ACTION]: "需求里看不出要做什么操作，请补充处理动作。",
-  [MISSING_PURPOSE_OR_DESTINATION]:
-    "需求里看不出需求背景、操作目的或处理后的去向，请补充为什么做、做到什么结果、或处理后去哪里。",
-};
+const MISSING_BLANK = "需求描述为空或过短";
+const BLANK_PROMPT = "请填写增值需求描述，说明需要仓库做什么操作。";
 
 function hasBoundObject(context: ContextFacts): boolean {
   return Boolean(
@@ -53,36 +48,38 @@ function hasBoundPurposeOrDestination(context: ContextFacts): boolean {
 }
 
 /**
- * Pre-match routability: can we understand the job enough to route?
- *
- * Quantity, scope, materials, tools, attachments, key outputs, exceptions,
- * and label/SKU mapping are never hard missing items here.
- * If the text is only “帮我处理一下”, emit 操作对象不清 / 操作动作不清 —
- * never “数量或范围” or “对象对应关系”.
+ * L1: pass any non-empty intent through to match-template.
+ * Quantity / mapping / attachments are never hard-missing here.
  */
 export function checkRequirement(customerIntent: string, context: ContextFacts): RequirementCheck {
   const normalized = customerIntent.replace(/\s+/g, " ").trim();
-  const missing: string[] = [];
 
   const objectExec = OBJECT_RE.exec(normalized);
-  const objectBoundBypass = hasBoundObject(context);
-  const objectOk = Boolean(objectExec) || objectBoundBypass;
-
   const actionExec = ACTION_RE.exec(normalized);
-  const actionOk = Boolean(actionExec);
-
   const purposeExec = PURPOSE_OR_DESTINATION_RE.exec(normalized);
+  const objectBoundBypass = hasBoundObject(context);
   const purposeBoundBypass = hasBoundPurposeOrDestination(context);
-  const purposeOrDestinationOk = Boolean(purposeExec) || purposeBoundBypass;
 
-  if (!objectOk) missing.push(MISSING_OBJECT);
-  if (!actionOk) missing.push(MISSING_ACTION);
-  if (!purposeOrDestinationOk) missing.push(MISSING_PURPOSE_OR_DESTINATION);
+  const hasDocNo =
+    /WI\d{8,}|EB\d{6,}/i.test(normalized) || objectBoundBypass || purposeBoundBypass;
+  if (normalized.length < MIN_REQUIREMENT_LENGTH || (normalized.length < UNINTELLIGIBLE_LENGTH && !hasDocNo)) {
+    return {
+      complete: false,
+      missingRequirementItems: [MISSING_BLANK],
+      clarificationPrompts: [BLANK_PROMPT],
+      normalizedRequirement: normalized,
+      objectMatch: objectExec?.[0] ?? null,
+      objectBoundBypass,
+      actionMatch: actionExec?.[0] ?? null,
+      purposeMatch: purposeExec?.[0] ?? null,
+      purposeBoundBypass,
+    };
+  }
 
   return {
-    complete: missing.length === 0,
-    missingRequirementItems: missing,
-    clarificationPrompts: missing.map((item) => PROMPTS[item] || `请补充${item}。`),
+    complete: true,
+    missingRequirementItems: [],
+    clarificationPrompts: [],
     normalizedRequirement: normalized,
     objectMatch: objectExec?.[0] ?? null,
     objectBoundBypass,
