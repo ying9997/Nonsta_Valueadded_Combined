@@ -20,10 +20,13 @@ function latestContext(enrichedContext: Record<string, unknown>, key: string): R
 }
 
 const CATCHALL_ATOMS = ["库内其他服务需求", "库内其他服务需求（库内异常处理）"];
-const CATCHALL_CODES = ["OSF6V1603", "OSF6V1841"];
+const CATCHALL_CODES = ["OSF6V1603", "OSF6V1646", "OSF6V1841"];
 const INBOUND_CATCHALL_ATOMS = ["入库其他服务需求"];
 const INBOUND_CATCHALL_CODES = ["OW01V1602"];
 const INBOUND_VASC_CODES = ["VASC202411192246131"];
+const OUTBOUND_CATCHALL_ATOMS = ["出库其他服务需求"];
+const OUTBOUND_CATCHALL_CODES = ["OSF8V1601"];
+const OUTBOUND_VASC_CODES = ["VASC202411192253186"];
 
 const NAMED_SERVICE_CODES = ["OSF6V1648", "OSF6V1660", "OSF6V1644", "OSF6V1646", "OSF6V1647"];
 const NAMED_SERVICE_NAMES = ["代采购包材物料", "审计盘点", "DG商品销毁", "货权转移（换标模式）", "货权转移（改数模式）"];
@@ -34,8 +37,15 @@ function isInboundCatchall(serviceAtom: string, vascCode: string): boolean {
   return INBOUND_CATCHALL_ATOMS.some((name) => serviceAtom.includes(name));
 }
 
+function isOutboundCatchall(serviceAtom: string, vascCode: string): boolean {
+  if (OUTBOUND_CATCHALL_CODES.includes(serviceAtom)) return true;
+  if (OUTBOUND_VASC_CODES.includes(vascCode)) return true;
+  return OUTBOUND_CATCHALL_ATOMS.some((name) => serviceAtom.includes(name));
+}
+
 function isCatchallAtom(serviceAtom: string, vascCode: string): boolean {
   if (isInboundCatchall(serviceAtom, vascCode)) return true;
+  if (isOutboundCatchall(serviceAtom, vascCode)) return true;
   if (CATCHALL_CODES.includes(serviceAtom) || CATCHALL_CODES.includes(vascCode)) return true;
   return CATCHALL_ATOMS.some((name) => serviceAtom.includes(name) || vascCode.includes(name));
 }

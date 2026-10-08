@@ -76,6 +76,49 @@ export const ACTION_SCENE_MAP: ActionSceneMapping[] = [
     candidateScenes: ["inbound_third_party_merchandise_barcode"],
     excludeScenes: ["inbound_label_identify", "inbound_package_barcode_batch_relabel"],
   },
+  {
+    action: "指定位置贴标",
+    regex: /指定位置.{0,16}贴|贴.{0,12}快递面单|指定位置贴/,
+    candidateScenes: ["outbound_specified_position_label"],
+  },
+  {
+    action: "暂存重装箱",
+    regex: /暂存.{0,12}重新装箱|重新装箱|按.{0,12}装箱思路/,
+    candidateScenes: ["outbound_repack_self_pickup"],
+  },
+  {
+    action: "特殊打托",
+    regex: /特殊打托|gaylord|盖洛德/i,
+    candidateScenes: ["outbound_special_palletizing"],
+    excludeScenes: ["outbound_plastic_repallet"],
+  },
+  {
+    action: "塑料托盘打托",
+    regex: /塑料托盘|重新打托/,
+    candidateScenes: ["outbound_plastic_repallet"],
+    excludeScenes: ["outbound_special_palletizing"],
+  },
+  {
+    action: "出库拦截",
+    regex: /拦截.{0,16}出库|出库.{0,16}拦截|已下架.{0,12}拦截/,
+    candidateScenes: ["outbound_standard_intercept"],
+  },
+  {
+    action: "交货拍照",
+    regex: /交货时拍照|交货拍照|开箱拍照/,
+    candidateScenes: ["outbound_delivery_photo"],
+  },
+  {
+    action: "出库换商品标",
+    regex: /覆盖.{0,8}EAN|补贴.{0,8}EAN/,
+    candidateScenes: ["outbound_relabel_sku"],
+  },
+  {
+    action: "货权转移换标",
+    regex: /货权转移（?换标模式）?|下架出库单号|上架入库单号|库存转移协议/,
+    candidateScenes: ["instock_ownership_transfer_relabel"],
+    excludeScenes: ["instock_product_kitting"],
+  },
 ];
 
 export interface NormalizedQuery {
@@ -191,6 +234,13 @@ function excludeReasons(card: ScenarioCard, query: NormalizedQuery, context: Con
     !/库内|在库|货权转移|审计盘点|库存冻结|库存解冻/.test(query.text)
   ) {
     reasons.push("instock_without_instock_context");
+  } else if (
+    card.category === "outbound" &&
+    !/出库|自提|打托|暂存单|面单|WO\d{6,}|gaylord|盖洛德|塑料托盘|重新装箱|交货拍照|开箱拍照/i.test(
+      query.text,
+    )
+  ) {
+    reasons.push("outbound_without_outbound_context");
   }
 
   if (key === "inbound_label_identify" || key === "inbound_photo_hold") {
@@ -231,6 +281,15 @@ function structuralBonus(card: ScenarioCard, query: NormalizedQuery): { bonus: n
   }
   if (card.sceneKey === "inbound_photo_hold" && query.hasPhotoHold) {
     return { bonus: BONUS_STRUCTURAL, signal: "structural:photo+hold+later_decision" };
+  }
+  if (card.sceneKey === "outbound_specified_position_label" && /指定位置|快递面单/.test(query.text)) {
+    return { bonus: BONUS_STRUCTURAL, signal: "structural:specified-position-label" };
+  }
+  if (card.sceneKey === "outbound_repack_self_pickup" && /重新装箱|暂存/.test(query.text)) {
+    return { bonus: BONUS_STRUCTURAL, signal: "structural:repack" };
+  }
+  if (card.sceneKey === "outbound_special_palletizing" && /打托|gaylord|盖洛德/i.test(query.text)) {
+    return { bonus: BONUS_STRUCTURAL, signal: "structural:palletizing" };
   }
   return { bonus: 0, signal: "" };
 }
@@ -526,8 +585,9 @@ export function matchTemplate(normalizedRequirement: string, context: ContextFac
   };
 }
 
-function pickLlmCandidateCards(ruleBaseline: MatchResult): ScenarioCard[] {
+function pickLlmCandidateCards(ruleBaseline: MatchResult, context?: ContextFacts): ScenarioCard[] {
   const cards = loadScenarioCards();
+  const cat = context ? resolveOrderCategory(context) : "";
   const byKey = new Map(cards.map((card) => [card.sceneKey, card]));
   const ranked = [...(ruleBaseline.candidates || [])].sort((a, b) => b.score - a.score);
   const picked: ScenarioCard[] = [];
@@ -535,6 +595,7 @@ function pickLlmCandidateCards(ruleBaseline: MatchResult): ScenarioCard[] {
   const push = (sceneKey: string) => {
     const card = byKey.get(sceneKey);
     if (!card || seen.has(card.sceneKey) || picked.length >= LLM_CANDIDATE_LIMIT) return;
+    if (cat && card.category && card.category !== cat && !card.sceneKey.startsWith(`${cat}_`)) return;
     seen.add(card.sceneKey);
     picked.push(card);
   };
@@ -579,13 +640,16 @@ export async function matchTemplateWithLlm(
   const query = normalizeQuery(normalizedRequirement);
   const prefilter = rulePrefilterCandidates(query, contextFacts);
   const ruleBaseline = matchTemplate(normalizedRequirement, contextFacts);
-  const llmCards = pickLlmCandidateCards(ruleBaseline);
+  const llmCards = pickLlmCandidateCards(ruleBaseline, contextFacts);
   const candidateScenes = llmCards.map((card) => card.sceneKey);
   const cat = resolveOrderCategory(contextFacts);
   const classifyOpts = {
     candidateCards: llmCards,
     ragEnabled: version !== 1 && (matchOpts?.ragEnabled ?? isRagEnabled()),
-    ragCategory: (cat === "instock" ? "instock" : "inbound") as "inbound" | "instock",
+    ragCategory: (cat === "instock" ? "instock" : cat === "outbound" ? "outbound" : "inbound") as
+      | "inbound"
+      | "instock"
+      | "outbound",
     excludeCaseIds: contextFacts.orderNo ? [contextFacts.orderNo] : [],
   };
 
@@ -609,7 +673,7 @@ export async function matchTemplateWithLlm(
     toolCallHistory = v3.toolCallHistory;
     totalToolRounds = v3.totalToolRounds;
   } else {
-    exceptionInfos = await lookupExceptions(contextFacts.allEventNos || []);
+    exceptionInfos = cat === "outbound" ? [] : await lookupExceptions(contextFacts.allEventNos || []);
     classify = await classifyScene(
       normalizedRequirement,
       contextFacts,

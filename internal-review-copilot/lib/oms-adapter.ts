@@ -1,4 +1,5 @@
 import { isMaskedCustomerName } from "./customer-display.ts";
+import { resolveOrderCategory } from "./order-category.ts";
 import type { AgentInput, AttachmentStatus, JsonRecord } from "./types.ts";
 
 export const ATTACHMENT_BY_FILE_TYPE: Record<string, string> = {
@@ -80,6 +81,65 @@ export function attrMap(atom: JsonRecord): Record<string, string> {
   return out;
 }
 
+function attrValue(attr: JsonRecord): string {
+  return asText(attr.attributeValueOriginal) || asText(attr.attributeValue) || asText(attr.attributeValueName);
+}
+
+function attrLabel(attr: JsonRecord): string {
+  return asText(attr.attributeName) || asText(attr.attributeKeyOriginal) || asText(attr.attributeKey);
+}
+
+export function isRequirementDescriptionAttr(attr: JsonRecord): boolean {
+  const key = asText(attr.attributeKeyOriginal) || asText(attr.attributeKey);
+  const name = asText(attr.attributeName);
+  return key === "VAS_ATTR_REL_RD" || key === "需求描述" || name === "需求描述";
+}
+
+export function isRequirementBackgroundAttr(attr: JsonRecord): boolean {
+  const key = asText(attr.attributeKeyOriginal) || asText(attr.attributeKey);
+  const name = asText(attr.attributeName);
+  return key === "BEOR" || key === "需求背景说明" || name === "需求背景说明";
+}
+
+/** 看审核页有没有这个格子；没填也算有。 */
+export function auditFieldPresence(atom: JsonRecord): {
+  hasRequirementDescription: boolean;
+  hasRequirementBackground: boolean;
+} {
+  const attrs = asArray(atom.vaAtomAttrs).map(asRecord);
+  return {
+    hasRequirementDescription: attrs.some(isRequirementDescriptionAttr),
+    hasRequirementBackground: attrs.some(isRequirementBackgroundAttr),
+  };
+}
+
+export function filledAuditFieldLines(atom: JsonRecord): string[] {
+  const lines: string[] = [];
+  for (const attr of asArray(atom.vaAtomAttrs).map(asRecord)) {
+    const value = attrValue(attr);
+    const label = attrLabel(attr);
+    if (!label || !value) continue;
+    lines.push(`${label}：${value}`);
+  }
+  return lines;
+}
+
+export function exceptionHintLines(detail: JsonRecord): string[] {
+  const lines: string[] = [];
+  for (const ev of asArray(detail.events).map(asRecord)) {
+    const no = (asText(ev.eventNo) || asText(ev.businessNo) || asText(ev.ebNo)).toUpperCase();
+    if (!/^EB/i.test(no)) continue;
+    const name = asText(ev.eventName) || asText(ev.exceptionName);
+    lines.push(name ? `异常单 ${no}（${name}）` : `异常单 ${no}`);
+  }
+  return [...new Set(lines)];
+}
+
+/** 无需求描述格子时：已填格子 + 异常单，拼给模型写 SOP。 */
+export function stitchIntentFromAuditFields(atom: JsonRecord, detail: JsonRecord): string {
+  return [...filledAuditFieldLines(atom), ...exceptionHintLines(detail)].join("\n");
+}
+
 export function attachmentStatusFromFiles(files: JsonRecord[]): Record<string, AttachmentStatus> {
   const status: Record<string, AttachmentStatus> = {
     操作说明附件: "missing",
@@ -122,7 +182,10 @@ export function uploadedFiles(
   return uploadedFilesFromList(collectVaAtomFiles(detail, atom));
 }
 
-export function collectOrderNos(detail: JsonRecord, attrs: Record<string, string>): { ebs: string[]; wis: string[] } {
+export function collectOrderNos(
+  detail: JsonRecord,
+  attrs: Record<string, string>,
+): { ebs: string[]; wis: string[]; wos: string[] } {
   const header = asRecord(detail.listHeader);
   const businessOrder = asRecord(header.businessOrder);
   const textParts = [
@@ -139,16 +202,73 @@ export function collectOrderNos(detail: JsonRecord, attrs: Record<string, string
   return {
     ebs: [...new Set(blob.match(/EB\d{6,}/g) || [])],
     wis: [...new Set(blob.match(/WI\d{6,}/g) || [])],
+    wos: [...new Set(blob.match(/WO\d{6,}/g) || [])],
   };
 }
 
-export const ALLOWED_SERVICE_CODES = new Set(["OW01V1602", "OSF6V1603", "OSF6V1841"]);
+function textFromAny(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
+function pushKnownFact(lines: string[], label: string, value: unknown): void {
+  const text = textFromAny(value);
+  if (!text) return;
+  lines.push(`${label}：${text}`);
+}
+
+function quantityLikeAttr(label: string): boolean {
+  return /数量|件数|箱数|包裹数|单品数|处理范围|范围|SKU|商品|条码/.test(label);
+}
+
+export function collectKnownFactLines(detail: JsonRecord, atom: JsonRecord, attrs: Record<string, string>): string[] {
+  const lines: string[] = [];
+  const header = asRecord(detail.listHeader);
+  const businessOrder = asRecord(header.businessOrder);
+  pushKnownFact(lines, "业务单号", businessOrder.businessNo);
+  pushKnownFact(lines, "订单商品数量", header.orderMerchandiseQty);
+  pushKnownFact(lines, "新入库单号", header.newInboundOrderNo);
+  pushKnownFact(lines, "原单客户单号", header.customerOrderNo);
+  pushKnownFact(lines, "原子下单数量", atom.orderCount);
+  pushKnownFact(lines, "原子处理数量", atom.handleCount);
+
+  for (const [label, value] of Object.entries(attrs)) {
+    if (!quantityLikeAttr(label)) continue;
+    pushKnownFact(lines, label, value);
+  }
+
+  const goods = asArray(header.vaOrderGoods || detail.vaOrderGoods).map(asRecord);
+  for (const item of goods.slice(0, 8)) {
+    const parts = [
+      textFromAny(item.merchandiseCode || item.merchandiseSerno || item.productCode || item.sku),
+      textFromAny(item.quantity || item.qty || item.goodsQty || item.merchandiseQty || item.orderQty),
+    ].filter(Boolean);
+    if (parts.length) lines.push(`商品明细：${parts.join(" / ")}`);
+  }
+
+  return [...new Set(lines)].slice(0, 20);
+}
+
+export const ALLOWED_SERVICE_CODES = new Set([
+  "OW01V1602",
+  "OW01V1654",
+  "OSF6V1603",
+  "OSF6V1646",
+  "OSF6V1841",
+  "OSF8V1601",
+]);
 
 export function isAllowedServiceAtom(atom: JsonRecord): boolean {
   const code = asText(atom.serviceCode);
   const name = asText(atom.serviceName);
   if (ALLOWED_SERVICE_CODES.has(code)) return true;
-  return name.includes("入库其他服务需求") || name.includes("库内其他服务需求");
+  return (
+    name.includes("入库其他服务需求") ||
+    name.includes("库内其他服务需求") ||
+    name.includes("出库其他服务需求")
+  );
 }
 
 export function pickAllowedAtom(detail: JsonRecord): JsonRecord | null {
@@ -169,9 +289,14 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
   const header = asRecord(detail.listHeader);
   const vasc = asRecord(header.vasc);
   const nos = collectOrderNos(detail, attrs);
-  const requirementDescription = attrs.VAS_ATTR_REL_RD || attrs["需求描述"];
-  const requirementBackground = attrs.BEOR || attrs["需求背景说明"];
-  const customerIntent = [requirementBackground, requirementDescription].filter(Boolean).join("\n");
+  const knownFactLines = collectKnownFactLines(detail, atom, attrs);
+  const presence = auditFieldPresence(atom);
+  const requirementDescription = attrs.VAS_ATTR_REL_RD || attrs["需求描述"] || "";
+  const requirementBackground = attrs.BEOR || attrs["需求背景说明"] || "";
+  const classicIntent = [requirementBackground, requirementDescription].filter(Boolean).join("\n");
+  const customerIntent = presence.hasRequirementDescription
+    ? classicIntent
+    : stitchIntentFromAuditFields(atom, detail);
   const orderNo = asText(detail.orderNo) || asText(header.orderNo);
   const attachments = attachmentStatus(atom, detail);
   const files = uploadedFiles(atom, detail);
@@ -181,6 +306,14 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
     .filter((no) => /^EB/i.test(no));
   const ebs = [...new Set([...nos.ebs, ...eventFromList])];
   const wis = nos.wis;
+  const wos = nos.wos;
+  const cat = resolveOrderCategory({
+    businessTypeDesc: asText(header.businessTypeDesc),
+    businessType: asText(header.businessType),
+    vaSource: asText(header.vaSource),
+  });
+  const businessNos =
+    cat === "outbound" ? [...new Set([...wos, ...wis])] : [...new Set([...wis, ...wos])];
 
   const input: AgentInput = {
     mode: "internal_review_copilot",
@@ -200,20 +333,27 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
       vaSource: asText(header.vaSource),
       businessType: asText(header.businessType),
       businessTypeDesc: asText(header.businessTypeDesc),
-      warehouseCode: asText(header.warehouseCode),
-      warehouseName: asText(header.warehouseName),
+      warehouseCode: asText(header.warehouseCode) || asText(asRecord(header.warehouse).warehouseCode),
+      warehouseName: asText(header.warehouseName) || asText(asRecord(header.warehouse).warehouseName),
       customerCode: asText(header.customerCode) || asText(asRecord(header.customer).customerCode),
       customerName: customerNameFromHeader(header),
       eventNo: ebs[0] || "",
-      businessOrderNo: wis[0] || "",
+      businessOrderNo: businessNos[0] || "",
       attachmentStatus: attachments,
     },
     providedFields: {
       BEOR: requirementBackground,
       VAS_ATTR_REL_RD: requirementDescription,
-      VAS_ATTR_REL_NWEON: attrs.VAS_ATTR_REL_NWEON || attrs["上架入库单号"],
-      NSVASTN: attrs.NSVASTN || attrs["非标增值来源单号"],
+      VAS_ATTR_REL_NWEON: attrs.VAS_ATTR_REL_NWEON || attrs["上架入库单号"] || "",
+      NSVASTN: attrs.NSVASTN || attrs["非标增值来源单号"] || "",
+      ...Object.fromEntries(
+        asArray(atom.vaAtomAttrs)
+          .map(asRecord)
+          .map((attr) => [attrLabel(attr), attrValue(attr)] as const)
+          .filter(([label, value]) => label && value),
+      ),
     },
+    auditFields: presence,
     omsFacts: {
       customerRequirementDescription: requirementDescription,
       requirementBackground,
@@ -223,6 +363,7 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
       },
       attachmentStatus: attachments,
       uploadedFiles: files,
+      knownFactLines,
     },
     responsiblePeople: {
       submittedBy: asText(header.createdby) || asText(header.submitter),
@@ -235,12 +376,13 @@ export function buildAgentInput(detail: JsonRecord): { input: AgentInput; atom: 
       orderNo,
       customerCode: asText(header.customerCode) || asText(asRecord(header.customer).customerCode),
       customerName: customerNameFromHeader(header),
-      warehouseCode: asText(header.warehouseCode),
-      warehouseName: asText(header.warehouseName),
+      warehouseCode: asText(header.warehouseCode) || asText(asRecord(header.warehouse).warehouseCode),
+      warehouseName: asText(header.warehouseName) || asText(asRecord(header.warehouse).warehouseName),
       eventNo: ebs[0] || "",
-      businessOrderNo: wis[0] || "",
+      businessOrderNo: businessNos[0] || "",
       allEventNos: ebs,
-      allBusinessOrderNos: wis,
+      allBusinessOrderNos: businessNos,
+      knownFactLines,
       vaSource: asText(header.vaSource),
       businessType: asText(header.businessType),
       businessTypeDesc: asText(header.businessTypeDesc),

@@ -33,7 +33,14 @@ function resolveCookiePath() {
 }
 const AJAX_OMS = "https://cnomstom.winit.com.cn/VasOrder/ajaxProcess";
 const LIST_PAGE = "https://cnomstom.winit.com.cn/VasOrder/index";
-const ALLOWED_SERVICE_CODES = new Set(["OW01V1602", "OSF6V1603", "OSF6V1841"]);
+const ALLOWED_SERVICE_CODES = new Set([
+  "OW01V1602",
+  "OW01V1654",
+  "OSF6V1603",
+  "OSF6V1646",
+  "OSF6V1841",
+  "OSF8V1601",
+]);
 
 function arg(name, fallback = "") {
   const key = `--${name}`;
@@ -173,7 +180,7 @@ async function getEventOrders(session, orderNo, serviceCode, serviceSequence = "
 function isAllowedAtom(atom) {
   const code = String(atom.serviceCode || "");
   const name = String(atom.serviceName || "");
-  return ALLOWED_SERVICE_CODES.has(code) || name.includes("入库其他服务需求") || name.includes("库内其他服务需求");
+  return ALLOWED_SERVICE_CODES.has(code) || name.includes("入库其他服务需求") || name.includes("库内其他服务需求") || name.includes("出库其他服务需求");
 }
 
 function isTargetHeader(row, targetDate, statusDescNeedle, anyDate) {

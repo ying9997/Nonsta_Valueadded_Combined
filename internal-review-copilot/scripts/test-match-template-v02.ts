@@ -136,7 +136,75 @@ function main(): void {
   );
   if (!orderTypePass) failed += 1;
 
-  console.log(`summary-with-order-type failed=${failed} total=${raw.cases.length + 1}`);
+  const crossWarehouseTransfer = matchTemplate(
+    "包裹串仓异常调拨：EB0126100800001 发错仓库，需从 DE 仓调拨到 DEBR2 目的仓库，并按 WI50000001 上架。",
+    {
+      ...inboundOrderContext,
+      eventNo: "EB0126100800001",
+      businessOrderNo: "WI50000001",
+      allEventNos: ["EB0126100800001"],
+      allBusinessOrderNos: ["WI50000001"],
+      serviceAtom: "OW01V1654",
+    },
+  );
+  const crossWarehouseTransferPass =
+    crossWarehouseTransfer.decision === "supported" &&
+    crossWarehouseTransfer.sceneKey === "inbound_parcel_cross_warehouse_transfer";
+  console.log(
+    JSON.stringify(
+      {
+        id: "smoke-ow01v1654-cross-warehouse-transfer",
+        serviceAtom: "OW01V1654",
+        actual_decision: crossWarehouseTransfer.decision,
+        actual_sceneKey: crossWarehouseTransfer.sceneKey,
+        actual_topK: crossWarehouseTransfer.topK.map((candidate) => ({
+          sceneKey: candidate.sceneKey,
+          score: candidate.score,
+        })),
+        pass: crossWarehouseTransferPass,
+        note: "OW01V1654 串仓文本应命中已有包裹串仓异常调拨卡",
+      },
+      null,
+      2,
+    ),
+  );
+  if (!crossWarehouseTransferPass) failed += 1;
+
+  const ownershipTransferRelabel = matchTemplate(
+    "货权转移（换标模式）：增值单品数量 50，下架出库单号 WO12329778184，上架入库单号 WI53210075，附件含库存转移协议、库存转移表、打印单品条码。",
+    {
+      ...emptyContext(),
+      businessType: "INHOUSE",
+      businessTypeDesc: "库内订单",
+      businessOrderNo: "IH000000124041",
+      warehouseCode: "UKGF",
+      serviceAtom: "OSF6V1646",
+    },
+  );
+  const ownershipTransferRelabelPass =
+    ownershipTransferRelabel.decision === "supported" &&
+    ownershipTransferRelabel.sceneKey === "instock_ownership_transfer_relabel";
+  console.log(
+    JSON.stringify(
+      {
+        id: "smoke-osf6v1646-ownership-transfer-relabel",
+        serviceAtom: "OSF6V1646",
+        actual_decision: ownershipTransferRelabel.decision,
+        actual_sceneKey: ownershipTransferRelabel.sceneKey,
+        actual_topK: ownershipTransferRelabel.topK.map((candidate) => ({
+          sceneKey: candidate.sceneKey,
+          score: candidate.score,
+        })),
+        pass: ownershipTransferRelabelPass,
+        note: "OSF6V1646 货权转移换标文本应命中已有库内货权转移（换标模式）卡",
+      },
+      null,
+      2,
+    ),
+  );
+  if (!ownershipTransferRelabelPass) failed += 1;
+
+  console.log(`summary-with-order-type failed=${failed} total=${raw.cases.length + 3}`);
   if (failed) process.exit(1);
 }
 
