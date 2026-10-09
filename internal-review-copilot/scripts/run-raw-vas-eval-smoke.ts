@@ -186,8 +186,11 @@ async function runOne(detail: ReturnType<typeof asRecord>): Promise<DryRunResult
   nodesHit.push("check-requirement");
   const requirement = checkRequirement(built.input.customerIntent, contextFacts);
   if (!requirement.complete) {
+    const outputPath = requirement.insufficientAuditFacts
+      ? "transfer_human"
+      : "needs_requirement_clarification";
     const formatted = formatOutput({
-      outputPath: "needs_requirement_clarification",
+      outputPath,
       node: "check-requirement",
       contextFacts,
       ownerFacts,
@@ -195,7 +198,7 @@ async function runOne(detail: ReturnType<typeof asRecord>): Promise<DryRunResult
     });
     return {
       orderNo,
-      outputPath: "needs_requirement_clarification",
+      outputPath,
       node: "check-requirement",
       nodesHit,
       failureGate: "check-requirement",

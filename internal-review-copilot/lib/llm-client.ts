@@ -1,9 +1,21 @@
 import { envText } from "./env.ts";
 
+/** SOP/对话 LLM 失败原因码（对人短文案 + 日志；与业务「场景不清」分开）。 */
+export type LlmFailureReason =
+  | "llm_auth_or_model_denied"
+  | "llm_rate_limit"
+  | "llm_upstream_5xx"
+  | "llm_timeout"
+  | "llm_empty"
+  | "llm_bad_output"
+  | "llm_other";
+
 export interface LlmConfig {
   apiKey: string;
   baseURL: string;
   model: string;
+  /** 主模型失败且可降级时，按顺序尝试（来自 LITELLM_MODEL_FALLBACKS）。 */
+  fallbackModels: string[];
   timeoutMs: number;
 }
 
@@ -62,31 +74,116 @@ export type ToolExecutor = (
 export class LlmError extends Error {
   /** HTTP status from LiteLLM/OpenAI-compatible API, e.g. 400 / 401 / 502. Undefined = 还没拿到 HTTP 码（超时、断网）. */
   readonly status?: number;
-  constructor(message: string, status?: number) {
+  readonly reason: LlmFailureReason;
+  /** 出错时正在用的模型名（主模型或某个 fallback）。 */
+  readonly model?: string;
+  constructor(
+    message: string,
+    status?: number,
+    reason?: LlmFailureReason,
+    model?: string,
+  ) {
     super(message);
     this.name = "LlmError";
     this.status = status;
+    this.reason = reason ?? classifyLlmFailure(message, status);
+    this.model = model;
   }
 }
 
+/** 从 API 错误正文 / 状态码归类（供降级决策与对人短文案）。 */
+export function classifyLlmFailure(message: string, status?: number): LlmFailureReason {
+  const msg = message || "";
+  const low = msg.toLowerCase();
+  if (
+    /调用超时|timeout|aborterror|timed out|econnreset|enotfound|fetch failed/i.test(msg) ||
+    /timeout/i.test(low)
+  ) {
+    return "llm_timeout";
+  }
+  if (status === 429 || /rate.?limit|too many requests|quota/i.test(low)) {
+    return "llm_rate_limit";
+  }
+  if (status != null && status >= 500) return "llm_upstream_5xx";
+  if (/^LLM 返回空内容/.test(msg)) return "llm_empty";
+  if (
+    status === 401 ||
+    status === 403 ||
+    /not allowed|access to .+ models is not allowed|invalid_api_key|incorrect api key|unauthorized|forbidden|permission.?denied|model_not_found|does not exist|do not have access|model group/i.test(
+      low,
+    ) ||
+    (status === 400 &&
+      /anthropicexception|invalid_request_error|access to anthropic|received model group/i.test(low))
+  ) {
+    return "llm_auth_or_model_denied";
+  }
+  if (status != null && status >= 400 && status < 500) {
+    if (/model|anthropic|allowed|not found|permission/i.test(low)) {
+      return "llm_auth_or_model_denied";
+    }
+    return "llm_other";
+  }
+  return "llm_other";
+}
+
+/** 这些原因码：同模型重试耗尽后，可换 LITELLM_MODEL_FALLBACKS 里的下一个模型。 */
+export function shouldTryNextModel(reason: LlmFailureReason): boolean {
+  return (
+    reason === "llm_auth_or_model_denied" ||
+    reason === "llm_upstream_5xx" ||
+    reason === "llm_timeout" ||
+    reason === "llm_rate_limit"
+  );
+}
+
+const REASON_LABEL: Record<LlmFailureReason, string> = {
+  llm_auth_or_model_denied: "模型通道不可用（权限/模型组）",
+  llm_rate_limit: "模型限流",
+  llm_upstream_5xx: "模型服务暂时异常",
+  llm_timeout: "模型调用超时",
+  llm_empty: "模型返回空内容",
+  llm_bad_output: "模型输出无法解析",
+  llm_other: "模型调用失败",
+};
+
+/** 飞书卡/对外短文案：不塞整段 LiteLLM JSON。 */
+export function formatLlmErrorForUser(err: LlmError | { reason: LlmFailureReason; message?: string }): string {
+  const reason = err.reason;
+  const label = REASON_LABEL[reason] || REASON_LABEL.llm_other;
+  return `AI 写 SOP 失败（${label}），请人工撰写。原因码：${reason}`;
+}
+
 /**
- * 要不要对这次 LLM 失败再打一次。
+ * 要不要对这次 LLM 失败再打一次（同一模型）。
  *
- * HTTP 状态码是网关/模型服务回的「这次请求为什么没成」：
- * - 4xx（400–499）= 我们这边请求有问题，再发同一包几乎还是错。
- *   场景：401 Key 无效、403 没权限、404 模型名写错、429 额度/限流（重试也容易继续被限）。
- * - 5xx（500–599）= 对方服务暂时坏了，隔 2 秒再试一次有机会好。
- *   场景：LiteLLM 502/503 过载、上游模型短暂挂了。
- * - 没有 status：请求没打到对方（超时、DNS、连接被拒）。也只再试 1 次。
- *
- * 契约：最多 1 次重试。4xx 不重试，避免把错误请求打爆网关、也避免 Key 错了还空转 2 秒。
+ * - 4xx：同模型不重试（权限/模型名错了再打也没用）；换模型由 shouldTryNextModel 决定。
+ * - 5xx / 无 status（超时等）：同模型最多再试 1 次。
+ * - 429：同模型再试 1 次（短退避）。
  */
 function shouldRetryLlm(err: LlmError, alreadyRetried: boolean): boolean {
   if (alreadyRetried) return false;
+  if (err.reason === "llm_empty") return false;
+  if (err.reason === "llm_rate_limit") return true;
   if (err.status != null && err.status >= 400 && err.status < 500) return false;
   if (err.status != null && err.status >= 500) return true;
-  if (/^LLM 返回空内容/.test(err.message)) return false;
   return err.status == null;
+}
+
+/** 解析 `a,b,c`；去掉空项与与主模型重复的项。 */
+export function parseFallbackModels(raw: string, primary: string): string[] {
+  const seen = new Set<string>([primary.trim()].filter(Boolean));
+  const out: string[] = [];
+  for (const part of raw.split(/[,;\s]+/)) {
+    const m = part.trim();
+    if (!m || seen.has(m)) continue;
+    seen.add(m);
+    out.push(m);
+  }
+  return out;
+}
+
+export function resolveModelChain(config: LlmConfig): string[] {
+  return [config.model, ...(config.fallbackModels || [])].filter(Boolean);
 }
 
 export function resolveLlmConfig(): LlmConfig {
@@ -94,6 +191,8 @@ export function resolveLlmConfig(): LlmConfig {
   if (!apiKey) {
     throw new LlmError(
       "缺少 LITELLM_API_KEY（或 OPENAI_API_KEY），无法调用真实 LLM。",
+      undefined,
+      "llm_other",
     );
   }
   const rawBase = (
@@ -107,8 +206,12 @@ export function resolveLlmConfig(): LlmConfig {
     envText("OPENAI_MODEL") ||
     envText("OPENAI_MODEL_EP") ||
     "claude-sonnet-4-5";
+  const fallbackModels = parseFallbackModels(
+    envText("LITELLM_MODEL_FALLBACKS") || "claude-sonnet-4-6,claude-haiku-4-5",
+    model,
+  );
   const timeoutMs = Number(envText("LITELLM_TIMEOUT_MS") || "45000") || 45_000;
-  return { apiKey, baseURL, model, timeoutMs };
+  return { apiKey, baseURL, model, fallbackModels, timeoutMs };
 }
 
 export function fillTemplate(template: string, vars: Record<string, string>): string {
@@ -201,8 +304,9 @@ export function extractFirstJsonObject(text: string): string | null {
   return null;
 }
 
-export async function callChat(
+async function callChatOnce(
   config: LlmConfig,
+  model: string,
   messages: ChatMessage[],
   options: {
     jsonMode?: boolean;
@@ -210,11 +314,11 @@ export async function callChat(
     temperature?: number;
     onDelta?: (chunk: string) => void;
     _isRetry?: boolean;
-  } = {},
+  },
 ): Promise<string> {
   const url = `${config.baseURL}/chat/completions`;
   const body: Record<string, unknown> = {
-    model: config.model,
+    model,
     messages,
     temperature: options.temperature ?? 0.2,
     max_tokens: options.maxTokens ?? 1600,
@@ -236,34 +340,98 @@ export async function callChat(
     });
     if (options.onDelta && response.ok && response.body) {
       const content = await readChatSse(response, options.onDelta);
-      if (!content) throw new LlmError("LLM 返回空内容。");
+      if (!content) throw new LlmError("LLM 返回空内容。", undefined, "llm_empty", model);
       return content;
     }
     const raw = await response.text();
     if (!response.ok) {
-      throw new LlmError(`LLM API error ${response.status}: ${raw.slice(0, 400)}`, response.status);
+      throw new LlmError(
+        `LLM API error ${response.status}: ${raw.slice(0, 400)}`,
+        response.status,
+        undefined,
+        model,
+      );
     }
     const data = JSON.parse(raw) as { choices?: Array<{ message?: { content?: string } }> };
     const content = data.choices?.[0]?.message?.content?.trim() || "";
-    if (!content) throw new LlmError("LLM 返回空内容。");
+    if (!content) throw new LlmError("LLM 返回空内容。", undefined, "llm_empty", model);
     return content;
   } catch (err) {
     const llmErr =
       err instanceof LlmError
         ? err
         : err instanceof Error && err.name === "AbortError"
-          ? new LlmError(`LLM 调用超时（${config.timeoutMs}ms）。`)
-          : new LlmError(err instanceof Error ? err.message : String(err));
+          ? new LlmError(
+              `LLM 调用超时（${config.timeoutMs}ms）。`,
+              undefined,
+              "llm_timeout",
+              model,
+            )
+          : new LlmError(
+              err instanceof Error ? err.message : String(err),
+              undefined,
+              undefined,
+              model,
+            );
     const retryable = shouldRetryLlm(llmErr, Boolean(options._isRetry));
     if (retryable) {
-      console.warn(`LLM ${llmErr.status ?? "error"}, retrying in 2s...`);
+      console.warn(
+        `LLM model=${model} reason=${llmErr.reason} status=${llmErr.status ?? "error"}, retrying in 2s...`,
+      );
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      return callChat(config, messages, { ...options, _isRetry: true });
+      return callChatOnce(config, model, messages, { ...options, _isRetry: true });
     }
     throw llmErr;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * 主模型 →（可降级原因）fallback 列表。同模型最多重试 1 次；换模型每个再试一轮。
+ */
+export async function callChat(
+  config: LlmConfig,
+  messages: ChatMessage[],
+  options: {
+    jsonMode?: boolean;
+    maxTokens?: number;
+    temperature?: number;
+    onDelta?: (chunk: string) => void;
+    _isRetry?: boolean;
+  } = {},
+): Promise<string> {
+  const chain = resolveModelChain(config);
+  let lastErr: LlmError | undefined;
+  for (let i = 0; i < chain.length; i++) {
+    const model = chain[i];
+    try {
+      const content = await callChatOnce(config, model, messages, {
+        ...options,
+        _isRetry: false,
+      });
+      if (i > 0) {
+        console.warn(
+          `llm_fallback used=${model} from=${chain[0]} reason=${lastErr?.reason || "unknown"}`,
+        );
+      }
+      return content;
+    } catch (err) {
+      lastErr =
+        err instanceof LlmError
+          ? err
+          : new LlmError(err instanceof Error ? err.message : String(err), undefined, undefined, model);
+      const hasNext = i < chain.length - 1;
+      if (hasNext && shouldTryNextModel(lastErr.reason)) {
+        console.warn(
+          `LLM model=${model} failed reason=${lastErr.reason}; trying fallback ${chain[i + 1]}`,
+        );
+        continue;
+      }
+      throw lastErr;
+    }
+  }
+  throw lastErr || new LlmError("LLM 调用失败。", undefined, "llm_other");
 }
 
 async function readChatSse(response: Response, onDelta: (chunk: string) => void): Promise<string> {
@@ -298,8 +466,9 @@ async function readChatSse(response: Response, onDelta: (chunk: string) => void)
   return full.trim();
 }
 
-async function postChatCompletion(
+async function postChatCompletionOnce(
   config: LlmConfig,
+  model: string,
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const url = `${config.baseURL}/chat/completions`;
@@ -312,23 +481,72 @@ async function postChatCompletion(
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.apiKey}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, model }),
       signal: controller.signal,
     });
     const raw = await response.text();
     if (!response.ok) {
-      throw new LlmError(`LLM API error ${response.status}: ${raw.slice(0, 400)}`, response.status);
+      throw new LlmError(
+        `LLM API error ${response.status}: ${raw.slice(0, 400)}`,
+        response.status,
+        undefined,
+        model,
+      );
     }
     return JSON.parse(raw) as Record<string, unknown>;
   } catch (err) {
     if (err instanceof LlmError) throw err;
     if (err instanceof Error && err.name === "AbortError") {
-      throw new LlmError(`LLM 调用超时（${config.timeoutMs}ms）。`);
+      throw new LlmError(
+        `LLM 调用超时（${config.timeoutMs}ms）。`,
+        undefined,
+        "llm_timeout",
+        model,
+      );
     }
-    throw new LlmError(err instanceof Error ? err.message : String(err));
+    throw new LlmError(
+      err instanceof Error ? err.message : String(err),
+      undefined,
+      undefined,
+      model,
+    );
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function postChatCompletion(
+  config: LlmConfig,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const chain = resolveModelChain(config);
+  let lastErr: LlmError | undefined;
+  for (let i = 0; i < chain.length; i++) {
+    const model = chain[i];
+    try {
+      const data = await postChatCompletionOnce(config, model, body);
+      if (i > 0) {
+        console.warn(
+          `llm_fallback used=${model} from=${chain[0]} reason=${lastErr?.reason || "unknown"}`,
+        );
+      }
+      return data;
+    } catch (err) {
+      lastErr =
+        err instanceof LlmError
+          ? err
+          : new LlmError(err instanceof Error ? err.message : String(err), undefined, undefined, model);
+      const hasNext = i < chain.length - 1;
+      if (hasNext && shouldTryNextModel(lastErr.reason)) {
+        console.warn(
+          `LLM model=${model} failed reason=${lastErr.reason}; trying fallback ${chain[i + 1]}`,
+        );
+        continue;
+      }
+      throw lastErr;
+    }
+  }
+  throw lastErr || new LlmError("LLM 调用失败。", undefined, "llm_other");
 }
 
 function parseToolCallMessage(data: Record<string, unknown>): ChatCompletionWithTools {

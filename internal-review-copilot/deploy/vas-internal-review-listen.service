@@ -1,0 +1,18 @@
+[Unit]
+Description=VAS Internal Review · listen-card-actions (vas-internal-review)
+Documentation=file:///workspace/projects/value-service/vas-internal-review/README.md
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=/workspace/projects/value-service/vas-internal-review
+EnvironmentFile=-/home/winit/.secrets/vas-internal-review.env
+Environment=IRC_ENV_FILE=/home/winit/.secrets/vas-internal-review.env
+ExecStart=/workspace/projects/value-service/vas-internal-review/run-listen.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/workspace/projects/value-service/vas-internal-review/logs/listen.log
+StandardError=append:/workspace/projects/value-service/vas-internal-review/logs/listen.log
+
+[Install]
+WantedBy=default.target

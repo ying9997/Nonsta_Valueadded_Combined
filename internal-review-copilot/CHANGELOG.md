@@ -1,5 +1,12 @@
 # CHANGELOG · vas-internal-review
 
+### 8 · 2026-10-09 · fix · P1-001 416175 L2 场景识别回归
+
+- 文件: `lib/match-template.ts`, `scripts/test-match-template-v02.ts`
+- 验证: `npx tsx scripts/test-match-template-v02.ts` PASS；`npx tsx scripts/test-g2-pipeline.ts` PASS；`npx tsx scripts/test-reply-closure.ts` PASS
+- 部署: 本机修复，未同步 40，未写 OMS/TOM，未触发线上重评
+- 说明: `VASC000000416175` 的“异常单货物打开外包装拍实物图片后复原包装”进入 `instock_exception_rephoto`（【库内】异常重新拍照）L2 场景识别回归，避免被 `instock_product_kitting`（【库内】商品组合）的 L2.5 必填项追问掩盖。
+
 ### 7 · 2026-10-08 · feat · 轮询白名单接入串仓调拨与货权转移换标
 
 - 文件: `lib/oms-adapter.ts`, `scripts/pull_ow01v1602_review_orders.mjs`, `scripts/test-oms-adapter.ts`, `scripts/test-match-template-v02.ts`, `lib/match-template.ts`, `knowledge/scenario-cards/instock_ownership_transfer_relabel.json`, `../experts/value-add/nonstandard-sop-guide/nodes/validate-input.ts`

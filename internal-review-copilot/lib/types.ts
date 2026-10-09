@@ -78,12 +78,18 @@ export interface AgentInput {
     businessTypeDesc?: string;
   };
   providedFields: Record<string, string>;
+  /** 审核页格子是否存在（空值也算存在）。缺省按「有需求描述格子」处理。 */
+  auditFields?: {
+    hasRequirementDescription: boolean;
+    hasRequirementBackground: boolean;
+  };
   omsFacts: {
     customerRequirementDescription: string;
     requirementBackground: string;
     fieldValues: Record<string, string>;
     attachmentStatus: Record<string, AttachmentStatus>;
     uploadedFiles: Array<{ fileType: string; fileName: string; label: string }>;
+    knownFactLines?: string[];
   };
   responsiblePeople: {
     submittedBy: string;
@@ -119,6 +125,12 @@ export interface ContextFacts {
   boundKeys: string[];
   /** File names already on the order; L2.5 may treat WI/EB in names as provided. */
   uploadedFileNames?: string[];
+  /** OMS/page facts that can answer L2.5 required-info questions without asking the customer again. */
+  knownFactLines?: string[];
+  /** false = 审核页没有「需求描述」格子（不是空着没填）。 */
+  hasRequirementDescriptionField?: boolean;
+  /** false = 审核页没有「需求背景说明」格子。 */
+  hasRequirementBackgroundField?: boolean;
 }
 
 export interface OwnerFacts {
@@ -138,6 +150,10 @@ export interface RequirementCheck {
   actionMatch?: string | null;
   purposeMatch?: string | null;
   purposeBoundBypass?: boolean;
+  /** 无需求描述格子且已填信息不够：转人工，不发「请补需求描述」橙卡。 */
+  insufficientAuditFacts?: boolean;
+  /** 无需求描述格子，已用其它格子/异常单放行。 */
+  skipBlankBecauseNoRdField?: boolean;
 }
 
 export type MatchDecision = "supported" | "unsupported" | "ambiguous";
@@ -274,6 +290,7 @@ export interface LlmSopDraft {
   degradeReason?: string;
   extractedWiNumbers?: string[];
   extractedEbNumbers?: string[];
+  extractedWoNumbers?: string[];
 }
 
 export type GeneratedSop = MockSop | LlmSopDraft;

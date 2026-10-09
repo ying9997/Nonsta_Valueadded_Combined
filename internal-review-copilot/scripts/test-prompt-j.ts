@@ -115,12 +115,13 @@ const llmCfg: LlmConfig = {
   apiKey: "test",
   baseURL: `http://127.0.0.1:${llmPort}/v1`,
   model: "dummy",
+  fallbackModels: [],
   timeoutMs: 5000,
 };
 const llmOut = await callChat(llmCfg, [{ role: "user", content: "hi" }], { jsonMode: true });
 assert(llmOut.includes("ok"), "LLM 502 then success");
 assert(hits === 2, "LLM retried once after 502");
-assert(logs.some((line) => /LLM 502, retrying in 2s/.test(line)), "LLM retry log");
+assert(logs.some((line) => /retrying in 2s/.test(line)), "LLM retry log");
 await closeServer(llmServer);
 
 hits = 0;
@@ -132,7 +133,13 @@ const bad4xx = createServer((_req, res) => {
 const p4 = await listen(bad4xx);
 try {
   await callChat(
-    { apiKey: "test", baseURL: `http://127.0.0.1:${p4}/v1`, model: "dummy", timeoutMs: 3000 },
+    {
+      apiKey: "test",
+      baseURL: `http://127.0.0.1:${p4}/v1`,
+      model: "dummy",
+      fallbackModels: [],
+      timeoutMs: 3000,
+    },
     [{ role: "user", content: "hi" }],
   );
   throw new Error("4xx should throw");

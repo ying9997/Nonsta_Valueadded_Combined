@@ -7,11 +7,15 @@ import {
   callChat,
   extractFirstJsonObject,
   fillTemplate,
+  formatLlmErrorForUser,
+  LlmError,
   parseJsonishObject,
   resolveLlmConfig,
   type LlmConfig,
 } from "./llm-client.ts";
 import { pickPutawayWiNos } from "./wi-numbers.ts";
+import { extractWoNos, normalizeWoNos } from "./wo-numbers.ts";
+import { resolveOrderCategory } from "./order-category.ts";
 import { projectDir } from "./env.ts";
 import { sameNormalizedText } from "./sop-sections.ts";
 import { formatT1SkuPrompt } from "./t1-sku-relabel-check.ts";
@@ -102,7 +106,7 @@ function factBlob(args: GenerateTextArgs): string {
         .filter(([, status]) => status === "missing")
         .map(([name]) => name),
       异常单: ctx.allEventNos,
-      入库单: ctx.allBusinessOrderNos,
+      [resolveOrderCategory(ctx) === "outbound" ? "出库单" : "入库单"]: ctx.allBusinessOrderNos,
       outputPath: args.outputPath,
       规则缺失项: args.missing,
       澄清提示: args.clarificationPrompts,
@@ -185,7 +189,7 @@ function allowedTokens(args: GenerateTextArgs): string[] {
 
 function looksInvented(text: string, args: GenerateTextArgs): string[] {
   const allowed = new Set(allowedTokens(args).map((item) => item.toUpperCase()));
-  const hits = text.match(/\b(?:VASC|WI|EB)[A-Z0-9]+\b/g) || [];
+  const hits = text.match(/\b(?:VASC|WI|EB|WO)[A-Z0-9]+\b/g) || [];
   return [...new Set(hits.filter((token) => !allowed.has(token.toUpperCase())))];
 }
 
@@ -211,7 +215,7 @@ function validOrderNos(args: GenerateTextArgs): string[] {
     input.omsFacts.requirementBackground,
     input.omsFacts.customerRequirementDescription,
   ];
-  const hits = blobs.flatMap((value) => asText(value).match(/\b(?:VASC|WI|EB)[A-Z0-9]+\b/gi) || []);
+  const hits = blobs.flatMap((value) => asText(value).match(/\b(?:VASC|WI|EB|WO)[A-Z0-9]+\b/gi) || []);
   return [...new Set(hits)];
 }
 
@@ -292,7 +296,12 @@ async function reflectSop(
 
 async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, options: SopGenOptions = {}): Promise<LlmSopDraft> {
   const template = readPrompt("sop-generate.md");
-  const kbPath = resolve(projectDir(), "workspace/knowledge/sop/2.1-inbound-relabel-shelving.md");
+  const cat = resolveOrderCategory(args.contextFacts);
+  const kbRel =
+    cat === "outbound"
+      ? "workspace/knowledge/sop/4-outbound-other-service.md"
+      : "workspace/knowledge/sop/2.1-inbound-relabel-shelving.md";
+  const kbPath = resolve(projectDir(), kbRel);
   const kb = existsSync(kbPath) ? readFileSync(kbPath, "utf8") : "";
   const input = args.agentInput;
   const ctx = args.contextFacts;
@@ -306,12 +315,15 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
     warehouseCode: ctx.warehouseCode,
     warehouseName: ctx.warehouseName,
   };
+  const defaultInbound = !unmatchedScene(match) && cat !== "outbound";
   let filled = fillTemplate(template, {
     customerIntent: input.customerIntent,
-    scenarioId: unmatchedScene(match) ? "unmatched_oms_scene" : match?.scenarioId || "inbound_label_identify",
+    scenarioId: unmatchedScene(match)
+      ? "unmatched_oms_scene"
+      : match?.scenarioId || (defaultInbound ? "inbound_label_identify" : "unmatched_oms_scene"),
     scenarioName: unmatchedScene(match)
       ? "未匹配 OMS 场景概述（不选下拉）"
-      : match?.scenarioName || "【入库】尺重/标签辨识后换标上架",
+      : match?.scenarioName || (defaultInbound ? "【入库】尺重/标签辨识后换标上架" : "未匹配 OMS 场景概述（不选下拉）"),
     providedFields: JSON.stringify(provided, null, 2),
     vascNo: ctx.orderNo,
     warehouse: [ctx.warehouseName, ctx.warehouseCode].filter(Boolean).join(" / "),
@@ -351,6 +363,34 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
       "## 场景未匹配 OMS 下拉",
       "当前没有可用的 OMS 场景概述。不要套用「尺重/标签辨识后换标上架」模板。",
       "只按客户需求原文和已绑定单据写仓库操作步骤。OMS 场景概述保持不选。",
+      "",
+    ].join("\n");
+  }
+  if (input.auditFields?.hasRequirementDescription === false) {
+    filled += [
+      "",
+      "## 审核页无「需求描述」格子",
+      "本单审核信息没有需求描述字段，不要要求补充需求描述。",
+      "根据已填格子（如目的仓库）和异常单写仓库操作步骤。",
+      "requirementDescription 可写一句从格子/异常单归纳的理解；OMS 不会写入该栏。",
+      "",
+    ].join("\n");
+  }
+  if (input.auditFields?.hasRequirementBackground === false) {
+    filled += [
+      "",
+      "## 审核页无「需求背景说明」格子",
+      "没有需求背景说明字段。requirementBackground 可留空或写一句归纳。OMS 不会写入该栏。",
+      "",
+    ].join("\n");
+  }
+  if (cat === "outbound") {
+    filled += [
+      "",
+      "## 出库约束",
+      "这是出库非标增值。禁止套用入库「尺重/标签辨识后换标上架」或任何上架模板。",
+      "主单号是出库单 WO。不要写新入库单 WI、不要写上架。",
+      "extractedWoNumbers 填全部出库单 WO；extractedWiNumbers / extractedEbNumbers 出库单通常空数组。",
       "",
     ].join("\n");
   }
@@ -399,6 +439,7 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
       reason?: string;
       extractedWiNumbers?: unknown;
       extractedEbNumbers?: unknown;
+      extractedWoNumbers?: unknown;
     };
   };
 
@@ -505,6 +546,22 @@ async function generateSopOnce(config: LlmConfig, args: GenerateTextArgs, option
       parsed.extractedWiNumbers,
     ),
     extractedEbNumbers: stringIdList(parsed.extractedEbNumbers, /^EB\d{6,}$/),
+    extractedWoNumbers: [
+      ...new Set([
+        ...extractWoNos(
+          [
+            input.omsFacts.customerRequirementDescription,
+            input.omsFacts.requirementBackground,
+            desc,
+            warehouseSop,
+            sopText,
+            ctx.businessOrderNo,
+            ...(ctx.allBusinessOrderNos || []),
+          ].join("\n"),
+        ),
+        ...normalizeWoNos(parsed.extractedWoNumbers),
+      ]),
+    ],
   };
 }
 
@@ -579,6 +636,14 @@ export async function generateLlmTextSafe(args: GenerateTextArgs): Promise<LlmGe
   try {
     return await generateLlmText(args);
   } catch (err) {
+    if (err instanceof LlmError) {
+      return {
+        text: "",
+        model: err.model || "",
+        mocked: false,
+        error: formatLlmErrorForUser(err),
+      };
+    }
     const message = err instanceof Error ? err.message : String(err);
     return {
       text: "",

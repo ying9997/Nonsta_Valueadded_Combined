@@ -1,6 +1,10 @@
-# internal-review-copilot
+# internal-review-copilot（40 正式名：vas-internal-review）
 
-内部审核 Copilot 的本地验证与灰度准备目录。
+内部审核 Copilot 的本地真源。40 常驻按**方案 A（产品工作台模式）**落在：
+
+`/workspace/projects/value-service/vas-internal-review/`
+
+落位与阶段门禁见 [`_workflow/20260923_vas_internal_review_40_layout/README.md`](_workflow/20260923_vas_internal_review_40_layout/README.md)。规则见 [`AGENTS.md`](AGENTS.md)；改动记录见 [`CHANGELOG.md`](CHANGELOG.md)。
 
 本目录只放内部审核链路相关脚本、测试说明和后续 Bot 灰度适配代码。不要把这些文件放进 `experts/value-add/nonstandard-sop-guide/`，后者是线上外部客服 Expert 包。
 
@@ -10,7 +14,7 @@
 | --- | --- |
 | `scripts/` | OMS 待审核单拉取、Agent 输入转换、本地 dry-run |
 | `knowledge/` | 内部口径映射（权威原文仍在 `workspace/knowledge/sop/`，此处不复制模板） |
-| `knowledge/scenario-cards/` | 场景卡 JSON。已有 6 张人工卡不覆盖；其余由 `scripts/build-scene-cards-batch.ts` 从 SOP 知识库批量生成（`status=supported`，附件规则 `auto_generated`）。`loadScenarioCards()` 加载目录下 JSON，**排除** `retired_dedicated_atom`（独立标准/免审原子，不走场景概述）。例外：`instock_ownership_transfer` 已按 OMS 概述码 `【In-warehouse】Transfer of ownership of goods` 接回，给「库内其他服务需求」用，不是独立原子货权转移 |
+| `knowledge/scenario-cards/` | 场景卡 JSON。已有 6 张人工卡不覆盖；其余由 `scripts/build-scene-cards-batch.ts` 从 SOP 知识库批量生成（入库 §2 / 库内 §3）。出库另有 7 张手写卡（`outbound_*.json`，T5 第 1 刀）。`loadScenarioCards()` 加载目录下 JSON，**排除** `retired_dedicated_atom`（独立标准/免审原子，不走场景概述）。例外：`instock_ownership_transfer` 已按 OMS 概述码 `【In-warehouse】Transfer of ownership of goods` 接回，给「库内其他服务需求」用，不是独立原子货权转移 |
 | `knowledge/scenario-evidence/` | OMS 场景概述码–名表。由 `../scripts/oms/pull_scene_overview_code_map.py` 从入库+库内+出库三张详情下拉合并生成 |
 | `eval/` | 人工评测清单、match-template v0.2 smoke cases（不是金标） |
 | `bot/` | 后续飞书 Bot 只读建议模式适配 |
@@ -59,6 +63,18 @@ npx tsx internal-review-copilot/scripts/test-t1-sku-relabel-check.ts
 npx tsx internal-review-copilot/scripts/test-t1-sku-relabel-check.ts --live
 ```
 
+## 出库其他服务（T5，本机白名单已开）
+
+出库订单会绑 **WO**（`lib/wo-numbers.ts` + `collectOrderNos`），出库场景卡 7 张（指定位置贴标 / 暂存重装箱 / 特殊打托 / 塑料托盘 / 换商品标 / 拦截 / 交货拍照）。出库单跳过入库 SKU / T1 / 异常单闸，SOP 用 `workspace/knowledge/sop/4-outbound-other-service.md`，禁止套入库 §2.1。对不上这 7 张卡时：**OMS 场景概述空着，SOP 照写，不转人工、不瞎选下拉。** 出库单不得套入库卡。
+
+**本机轮询白名单已加 `OSF8V1601`。** 现网 40 白名单未改。常驻轮询还没开（开了会扫到出库单并可能写草稿）。本机测卡和 WO：
+
+```powershell
+npx tsx internal-review-copilot/scripts/test-outbound-wo-and-cards.ts
+```
+
+5 张待审核真单只读报告：`_runs/20260922_osf8v1601_local_readonly/readonly-report.md`。不上 40、不点审核通过。
+
 ## 本地 dry-run 链路
 
 内部审核代码只放在本目录。线上 Expert 包仅做兼容引用（当前只引用 `validate-input`）。
@@ -70,8 +86,8 @@ validate-input → context-bind → check-requirement(L1 极简兜底) → match
 | 节点 | 位置 | 规则 |
 | --- | --- | --- |
 | `validate-input` | 兼容引用 Expert 包 | 基础入参 / 兜底原子校验 |
-| `context-bind` | `lib/context-bind.ts` | 绑定 OMS 已有 EB/WI/仓/附件，已有事实不再追问 |
-| `check-requirement` | `lib/check-requirement.ts` | L1 极简兜底：只拦空白/过短需求。三要素正则仍提取给 trace，**不阻断** |
+| `context-bind` | `lib/context-bind.ts` | 绑定 OMS 已有 EB/WI/WO/仓/附件，已有事实不再追问 |
+| `check-requirement` | `lib/check-requirement.ts` | L1：有「需求描述」格子且空/过短 → 橙卡补描述；**没有这个格子**则用已填格子+异常单写 SOP，不拦。格子没有且几乎无信息 → 转人工 |
 | `match-template` | `lib/match-template.ts` | **v0.2**：Load Scenario Cards → deterministic score → merge → rank → select。只自动放行 `status=supported` 且 `decision=supported`。A/B 可进 topK。当前是关键词/结构打分，**不是**真向量 RAG |
 | `check-scene-completeness` | `lib/check-scene-completeness.ts` | L2.5：场景卡 `requiredInfoFields` 用 LLM 做语义完整性；已上传附件、单据仓库/EB/WI/文件名会进 prompt，允许从正文和单据信息推断。附件仍走规则（复用 `check-completeness.ts`） |
 | `sku-consistency-check` | `lib/sku-consistency-check.ts` | H11：拦截/换标且有新旧 WI 时比对 SKU；不一致在飞书卡提示审核员，不写进仓库 SOP。查不到不阻断 |
@@ -157,6 +173,19 @@ npx tsx internal-review-copilot/scripts/test-feishu-bot.ts
 - SOP 生成必须产出 AI 总结的 `requirementDescription` / `requirementBackground`，不得复制客户原文
 - AI vs 人工对照：真写入成功后追加 `eval/ai-human-comparison.jsonl`。定时补终态：`npx tsx internal-review-copilot/scripts/sync-audit-diff.ts --force`。周报：`npx tsx internal-review-copilot/scripts/analyze-ai-human-diff.ts`
 
+## 质量看板（本机）
+
+页面标题是「内部智能审核助手 · 质量看板」。以后挂到 40 的路径名是 `vas-internal-review-dashboard`。现在只在本机看，还没部署。
+
+看的是审核结果质量（场景认不认对、步骤改了多少），不是飞书发卡或进程是否在跑。只拿已审完的单算认对率。步骤分四档，不把「改过」一律当失败。需求几乎都会改，所以先展示、不当红灯。某个场景已审完少于 3 张，只列表、不参与排名。
+
+打开：双击 `internal-review-copilot/dashboard/打开质量看板.bat`，浏览器进 `http://127.0.0.1:8765/`。也可以直接双击 `dashboard/index.html`。数据优先用条数更多的对照文件（本机 eval 只有 2 条时，用 40 拉回来的 26 条快照）。换数据后重跑：
+
+```powershell
+node internal-review-copilot/dashboard/build-data.mjs
+node internal-review-copilot/dashboard/check-logic.mjs
+```
+
 ## 飞书卡片出口
 
 主路径只发两种卡片：需求不清晰（橙）、已写入 OMS（绿）。附件缺时 SOP 仍写入，另发橙色「附件未提交」。
@@ -167,6 +196,8 @@ npx tsx internal-review-copilot/scripts/test-feishu-bot.ts
 | 附件未提交（SOP 已写） | `buildAttachmentPendingCard` | 橙色 ⚠ | SOP 用 `[待补充：附件名]` |
 | L4 SOP 已写入 | `buildSopCard` | 绿色 ✅ | 无确认按钮，请在 OMS 检查修改。缺 OMS 码时 @ 金萤找业务确认，仍不 @ 李颖/何静/耿文文 |
 | SOP 生成失败 | `buildSopGenerateErrorCard` | 红色 ❌ | 请人工撰写 |
+
+人回复后重评：把话题补充并进需求描述再跑 pipeline。若仍缺信息，回到 `needs_clarification` 并再发追问卡（**不会**停在死胡同 `reassessed`）。只认「上一张追问卡之后」的新回复，避免旧帖循环触发。`instock_photo_video`：入库调查调监控不向客户追问水印/时间戳（与库内主动拍摄区分）。自测：`npx tsx internal-review-copilot/scripts/test-reassess-loop.ts`。
 
 不再发蓝色选场景卡，也不再等人点「确认写入 OMS」。审核员直接在 OMS 改。
 
@@ -218,7 +249,7 @@ npx tsx internal-review-copilot/scripts/test-oms-draft-write.ts --order VASC0000
 match-template v0.2 决策（详见 `lib/match-template.ts`）：
 
 - 不能仅凭 `OW01V1602` / 「入库其他服务需求」命中任一场景。
-- **订单类型过滤**：优先读增值单 `listHeader.businessTypeDesc`（入库订单 / 库内订单 / 出库订单），没有描述再用 `businessType`（`INBOUND` / `INHOUSE` / `OUTBOUND`）。有类型时，只给同类场景卡打分；没有类型时，正文没有「库内 / 在库 / 货权转移…」则库内卡不参与。不要靠正文猜订单类型，也不要只看 `vaSource`（异常单仍可能是入库订单）。
+- **订单类型过滤**：优先读增值单 `listHeader.businessTypeDesc`（入库订单 / 库内订单 / 出库订单），没有描述再用 `businessType`（`INBOUND` / `INHOUSE` / `OUTBOUND`）。有类型时，只给同类场景卡打分；没有类型时，正文没有「库内 / 在库 / 货权转移…」则库内卡不参与，正文没有「出库 / 自提 / 打托 / WO…」则出库卡不参与。不要靠正文猜订单类型，也不要只看 `vaSource`（异常单仍可能是入库订单）。
 - 「拦截不上架 / 先放一边 / 暂存不上架」不命中 F-001，也不命中 B（除非同时有明确拍照要求）。
 - Top1 高且 Top1−Top2 差距明显 → `decision=supported`；仅 F-001 会把旧字段 `supported=true` 并进入附件门。
 - 无候选达阈值 → `unsupported`；Top1/Top2 接近（含 F-001 vs A）→ `ambiguous`，`supported=false`，转人工。
@@ -237,34 +268,41 @@ npx tsx internal-review-copilot/scripts/run-cards-rag-abcd.ts --out _runs/202609
 
 ## 40 常驻（172.16.3.40）
 
-目录：`~/.agents/services/internal-review-copilot/`。tmux：`irc-poll`（每 10 分钟轮询）+ `irc-listen`（卡片按钮）。正式群 `FEISHU_TEST_CHAT_ID`。Cookie 沿用 `/home/winit/AI_EXPERT/TOM/共享认证/`。cron 每 10 分钟无头续期（`python3 auto_login.py`）。
+**现网（方案 A，P4 已切流，2026-09-24）：**
+
+| 项 | 值 |
+| --- | --- |
+| 目录 | `/workspace/projects/value-service/vas-internal-review/` |
+| 守护 | `vas-internal-review-poll.service` + `vas-internal-review-listen.service`（enabled） |
+| 入口 | `run-poll.sh` / `run-listen.sh` |
+| 密钥 | `~/.secrets/vas-internal-review.env`（勿进仓） |
+| 备份 | `/home/winit/agent-governance/canonical/backups/vas-internal-review/` |
+| 旧目录归档 | `/srv/gateway/_archive/internal-review-copilot-legacy-20260924.tar.zst` |
 
 ```bash
-ssh winit@172.16.3.40 "tmux ls"
-ssh winit@172.16.3.40 "tail -50 ~/.agents/services/internal-review-copilot/logs/poll.log"
-ssh winit@172.16.3.40 -t "tmux attach -t irc-poll"   # Ctrl+B D 退出，不杀进程
+ssh winit@172.16.3.40 "systemctl --user status vas-internal-review-poll vas-internal-review-listen"
+ssh winit@172.16.3.40 "tail -50 /workspace/projects/value-service/vas-internal-review/logs/poll.log"
 ssh winit@172.16.3.40 "python3 /home/winit/AI_EXPERT/TOM/共享认证/auto_login.py"
-# Cookie 刷新后下一轮自动读；登录超时也会自动续一次
 ```
 
-`validate-input.ts` 在 40 上放在 `~/.agents/services/experts/value-add/nonstandard-sop-guide/nodes/`（pipeline 相对引用）。不要改 40 上其它 systemd / 现有 Bot。
+`validate-input.ts` 经软链 `/workspace/projects/value-service/experts` → `~/.agents/services/experts/...`。不要改 40 上其它 systemd / 现有 Bot。
 
-上 40 用三层防线（金丝雀 → 熔断 → `MAX_PER_HOUR` 放量），操作见 [`docs/canary-deploy-guide.md`](docs/canary-deploy-guide.md)。金丝雀那几单先只发测试群；你点「没问题，切到正式群」后，会在正式群再发一遍（不用改 `.env`、不用重启）。未点名「可以部署 40」前不要上。
+上 40 用三层防线（金丝雀 → 熔断 → `MAX_PER_HOUR` 放量），操作见 [`docs/canary-deploy-guide.md`](docs/canary-deploy-guide.md)。
 
 **覆盖 40 现网代码必须走固定脚本（先 snapshot，再解包）：**
 
 ```bash
-# 本机把 patch.tgz 拷到 40 后：
-ssh winit@172.16.3.40 "bash ~/.agents/services/internal-review-copilot/scripts/40-deploy.sh /tmp/irc-patch.tgz"
-# 回滚到最近一次 snapshot：
-ssh winit@172.16.3.40 "bash ~/.agents/services/internal-review-copilot/scripts/40-rollback.sh"
+ssh winit@172.16.3.40 "bash /workspace/projects/value-service/vas-internal-review/scripts/40-deploy.sh /tmp/irc-patch.tgz"
+ssh winit@172.16.3.40 "bash /workspace/projects/value-service/vas-internal-review/scripts/40-rollback.sh"
 ```
 
-禁止只备份 `.env` 就 `tar -xzf`。snapshot 不含密钥和现网 `live_poll`。备份目录：`~/.agents/backups/internal-review-copilot/`。
+禁止只备份 `.env` 就 `tar -xzf`。snapshot 不含密钥和现网 `live_poll`。
 
-当前 40（2026-09-18）：`OMS_WRITE_ENABLED=1`（生成 SOP 才写入待审核单，不点审核通过）；新话题进 **【增值】异常沟通** `oc_6566160ccb2def51937469fe8144efdb`，**话题根直接发卡片**（不再外套「已创建审核话题」摘要）；轮询拉**全部待审核**（不限下单日）；**只有缺信息/补附件才 @ 销售客服**，绿卡不 @ 李颖/何静/耿文文。人工 SOP 已填只私聊金萤。`MAX_PER_POLL=2`、`MAX_PER_HOUR=10`。
+当前 40：`OMS_WRITE_ENABLED=1`（生成 SOP 才写入待审核单，不点审核通过）；新话题进 **【增值】异常沟通**；轮询拉**全部待审核**；**只有缺信息/补附件才 @ 销售客服**。`MAX_PER_POLL=2`、`MAX_PER_HOUR=10`。
 
 Cookie 每 10 分钟由 cron 无头续期：`cd /home/winit/AI_EXPERT/TOM/共享认证 && python3 auto_login.py`。登录超时也会在 poll 里自动续一次。
+
+落位全过程见 [`_workflow/20260923_vas_internal_review_40_layout/README.md`](_workflow/20260923_vas_internal_review_40_layout/README.md)。
 
 ## 依赖关系
 

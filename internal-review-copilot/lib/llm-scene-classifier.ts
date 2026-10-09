@@ -41,6 +41,13 @@ export const SCENE_KEY_TO_OMS_NAME: Record<string, string> = {
   inbound_third_party_merchandise_barcode: "【入库】关联第三方商品条码上架",
   inbound_label_identify: "【入库】尺重/标签辨识后换标上架",
   inbound_package_exception_relabel_shelving: "【入库】包裹类异常换商品标签上架",
+  outbound_specified_position_label: "【出库】指定位置贴商品/包裹标签/快递面单",
+  outbound_repack_self_pickup: "【出库】暂存单重新装箱",
+  outbound_special_palletizing: "【出库】特殊打托需求",
+  outbound_plastic_repallet: "【出库】重新打托（塑料托盘）",
+  outbound_relabel_sku: "【出库】补贴/更换商品标签",
+  outbound_standard_intercept: "【出库】标准出库单拦截",
+  outbound_delivery_photo: "【出库】交货时拍照",
 };
 
 export interface ClassifySceneOptions {
@@ -48,7 +55,7 @@ export interface ClassifySceneOptions {
   candidateCards?: ScenarioCard[];
   /** Default true. Set false for A/B run without few-shot. */
   ragEnabled?: boolean;
-  ragCategory?: "inbound" | "instock";
+  ragCategory?: "inbound" | "instock" | "outbound";
   excludeCaseIds?: string[];
 }
 
@@ -156,7 +163,7 @@ function buildSystemPromptV1(cards: ScenarioCard[]): string {
   const mode = listCards.length <= 16 ? "full" : "compact";
   const list = buildSceneListPrompt(listCards, mode);
   const hasF001 = listCards.some((c) => c.sceneKey === "inbound_label_identify");
-  return `你是万邑通入库/库内增值审核场景分类器。
+  return `你是万邑通入库/库内/出库增值审核场景分类器。
 
 ## 任务
 根据客户需求描述和已知上下文，判断这条增值单属于哪个场景。

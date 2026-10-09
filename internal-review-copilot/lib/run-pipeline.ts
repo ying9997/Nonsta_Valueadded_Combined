@@ -8,6 +8,9 @@ import { generateLlmTextSafe } from "./generate-text.ts";
 import { resolveLlmConfig } from "./llm-client.ts";
 import { matchTemplate, matchTemplateWithLlm } from "./match-template.ts";
 import { asArray, asRecord, asText, buildAgentInput } from "./oms-adapter.ts";
+import { isOutboundOrder } from "./order-category.ts";
+import { applyOutboundUnmatchedLeaveEmpty } from "./missing-oms-scene.ts";
+import { enrichPackageInfoKnownFacts, type PackageInfoFactsDeps } from "./package-info-facts.ts";
 import { findScenarioCard } from "./scenario-cards.ts";
 import { checkSkuConsistencySafe } from "./sku-consistency-check.ts";
 import { checkT1SkuRelabelSafe, type T1SkuRelabelDeps } from "./t1-sku-relabel-check.ts";
@@ -90,6 +93,8 @@ export interface RunPipelineOptions {
   onDelta?: (chunk: string) => void;
   /** T1 商品码校验可注入（单测 mock DWS）。 */
   t1SkuRelabelDeps?: T1SkuRelabelDeps;
+  /** Read-only OMS package facts for inbound WI quantity context. Fail-closed when absent or unresolved. */
+  packageInfoFactsDeps?: PackageInfoFactsDeps;
 }
 
 function missingList(result: Pick<PipelineResult, "missingRequirementItems" | "missingAttachments" | "missingFields">): string[] {
@@ -276,6 +281,7 @@ export async function runPipeline(
   }
 
   nodesHit.push("context-bind");
+  await enrichPackageInfoKnownFacts(built.input, options.packageInfoFactsDeps);
   const { contextFacts, ownerFacts } = bindContext(built.input);
   const riskFlags = checkDocuments(detail, contextFacts);
 
@@ -284,6 +290,27 @@ export async function runPipeline(
   if (!overrideKey) {
     nodesHit.push("check-requirement");
     if (!requirement.complete) {
+      if (requirement.insufficientAuditFacts) {
+        const base: PipelineResult = {
+          orderNo,
+          outputPath: "transfer_human",
+          ruleOutputPath: "transfer_human",
+          node: "check-requirement",
+          nodesHit,
+          failureGate: "check-requirement",
+          missingRequirementItems: requirement.missingRequirementItems,
+          missingAttachments: [],
+          missingFields: [],
+          missing: requirement.missingRequirementItems,
+          clarificationPrompts: [],
+          requirementCheck: requirement,
+          contextFacts,
+          ownerFacts,
+          agentInput: built.input,
+          riskFlags: [...riskFlags, "no_rd_field_insufficient_facts"],
+        };
+        return attachLlm(base, options);
+      }
       const base: PipelineResult = {
         orderNo,
         outputPath: "needs_requirement_clarification",
@@ -405,6 +432,7 @@ export async function runPipeline(
   }
   }
   matchResult = takeTopScene(matchResult);
+  matchResult = applyOutboundUnmatchedLeaveEmpty(matchResult, contextFacts);
   if (!hasUsableScene(matchResult)) {
     nodesHit.push("llm-generate-sop");
     nodesHit.push("format-output");
@@ -425,7 +453,11 @@ export async function runPipeline(
       contextFacts,
       ownerFacts,
       agentInput: built.input,
-      riskFlags: [...riskFlags, "unmatched_scene_sop"],
+      riskFlags: [
+        ...riskFlags,
+        "unmatched_scene_sop",
+        ...(isOutboundOrder(contextFacts) ? ["outbound_unmatched_leave_empty"] : []),
+      ],
     };
     return attachLlm(base, options);
   }
@@ -498,8 +530,8 @@ export async function runPipeline(
     const missingInfo = sceneCompleteness.missingInfo;
     const base: PipelineResult = {
       orderNo,
-      outputPath: "needs_requirement_clarification",
-      ruleOutputPath: "needs_requirement_clarification",
+      outputPath: "needs_field_clarification",
+      ruleOutputPath: "needs_field_clarification",
       node: "check-scene-completeness",
       nodesHit,
       failureGate: "check-completeness",
