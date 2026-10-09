@@ -1,0 +1,3461 @@
+schema_version: 1.0.0
+name: cs_Bot_Client_v2p_link
+id: 7687981752618582066
+description: "万邑联客服上下文管理\n-----------\nVAS指引+Query：触发句开场，增值问句进指引，其它走线上Query。覆盖本画布，不要覆盖现网v2p。"
+mode: chatflow
+icon: plugin_icon/chatflow-icon.png
+nodes:
+    - id: "100001"
+      type: start
+      title: 开始
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Start-v2.jpg
+      description: "工作流的起始节点，用于设定启动工作流需要的信息"
+      position:
+        x: 1696.577201797063
+        y: 839.5683411101003
+      parameters:
+        node_outputs:
+            _conversation_id:
+                type: string
+                value: null
+            _customer_code:
+                type: string
+                value: null
+            _customer_name:
+                type: string
+                value: null
+            _user_id:
+                type: string
+                value: null
+            _username:
+                type: string
+                value: null
+            CONVERSATION_NAME:
+                type: string
+                value: null
+                default_value: Default
+                description: 本次请求绑定的会话，会自动写入消息、会从该会话读对话历史。
+            USER_INPUT:
+                type: string
+                value: null
+    - id: "900001"
+      type: end
+      title: 结束
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-End-v2.jpg
+      description: "工作流的最终节点，用于返回工作流运行后的结果信息"
+      position:
+        x: 7484.472633288505
+        y: 688.3636976847532
+      parameters:
+        terminatePlan: returnVariables
+    - id: "173348"
+      type: plugin
+      title: 验证是否绑定用户信息check_is_binddata_input
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: "验证是否时绑定上下文参数的输入 返回true/false"
+      position:
+        x: 3245.7629245297694
+        y: 745.4368480712848
+      parameters:
+        apiParam:
+            - name: apiID
+              input:
+                type: string
+                value: "7475648361526722611"
+            - name: apiName
+              input:
+                type: string
+                value: "check_is_binddata_input"
+            - name: pluginID
+              input:
+                type: string
+                value: "7473322438084935720"
+            - name: pluginName
+              input:
+                type: string
+                value: "cobra_agent_http"
+            - name: pluginVersion
+              input:
+                type: string
+                value: "0"
+            - name: tips
+              input:
+                type: string
+                value: ""
+            - name: outDocLink
+              input:
+                type: string
+                value: ""
+        inputDefs:
+            - description: 输入
+              input: {}
+              name: input
+              required: true
+              type: string
+        node_inputs:
+            - name: input
+              input:
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+        node_outputs:
+            is_data_bind_input:
+                type: boolean
+                required: true
+                value: null
+                description: 是否时绑定数据的请求
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 180000
+    - id: "155319"
+      type: condition
+      title: 选择器_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 3660.0585561956746
+        y: 732.4368480712848
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: is_data_bind_input
+                                ref_node: "173348"
+                      operator: 1
+                      right:
+                        input:
+                            type: boolean
+                            value: true
+                logic: 2
+    - id: "192159"
+      type: plugin
+      title: 绑定用户信息和会话参数解析input_param_parse
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: "用于实现通过api接口调用传递用户的业务变量，如获取userid username conversation_id,\n解析的数据格式如下：\n\n{\n    \"user_input\": \"query_money\", //用户真实输入\n    \"custom_variables\": { //透传的上下文变量\n        \"user_id\": \"123\",\n        \"username\": \"1233\",\n        \"conversation_id\": \"conversationId\"\n    }\n}"
+      position:
+        x: 4107.687824075778
+        y: 641.981363360692
+      parameters:
+        apiParam:
+            - name: apiID
+              input:
+                type: string
+                value: "7474903031818223642"
+            - name: apiName
+              input:
+                type: string
+                value: "input_param_parse"
+            - name: pluginID
+              input:
+                type: string
+                value: "7473322438084935720"
+            - name: pluginName
+              input:
+                type: string
+                value: "cobra_agent_http"
+            - name: pluginVersion
+              input:
+                type: string
+                value: "0"
+            - name: tips
+              input:
+                type: string
+                value: ""
+            - name: outDocLink
+              input:
+                type: string
+                value: ""
+        inputDefs:
+            - description: api接口输入数据
+              input: {}
+              name: input
+              required: true
+              type: string
+        node_inputs:
+            - name: input
+              input:
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+        node_outputs:
+            conversation_id:
+                type: string
+                value: null
+                description: 会话id
+            customer_code:
+                type: string
+                required: true
+                value: null
+                description: 客户编码
+            customer_name:
+                type: string
+                required: true
+                value: null
+                description: 客户名称
+            user_id:
+                type: string
+                value: null
+                description: userid
+            username:
+                type: string
+                value: null
+                description: username
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 180000
+    - id: "188998"
+      type: insert_record
+      title: 新增数据
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-database-insert.jpg
+      description: "向表添加新数据记录，用户输入数据内容后插入数据库"
+      position:
+        x: 5855.751023052891
+        y: 440.4187750107602
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        insertParam:
+            fieldInfo:
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419969"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: user_id
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419970"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: username
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419971"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: conversation_id
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643073"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: customer_code
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643074"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: customer_name
+                            ref_node: "192159"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1828764627969"
+                  - name: fieldValue
+                    input:
+                        type: boolean
+                        value: false
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "116274"
+      type: select_record
+      title: 查询数据
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icaon-database-select.jpg
+      description: "从表获取数据，用户可定义查询条件、选择列等，输出符合条件的数据"
+      position:
+        x: 4207.051867047722
+        y: 1007.0516804021556
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        selectParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "is_deleted"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: boolean
+                            value: false
+                logic: AND
+            fieldList:
+                - fieldID: 101
+                  isDistinct: false
+                - fieldID: 1.78233441997e+12
+                  isDistinct: false
+                - fieldID: 1.782334419971e+12
+                  isDistinct: false
+                - fieldID: 1.782334419969e+12
+                  isDistinct: false
+                - fieldID: 103
+                  isDistinct: false
+                - fieldID: 1.784112643073e+12
+                  isDistinct: false
+                - fieldID: 1.784112643074e+12
+                  isDistinct: false
+            limit: 1
+            orderByList:
+                - fieldID: 103
+                  isAsc: false
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "128112"
+      type: code
+      title: 代码
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 4616.315842268764
+        y: 1028.5516804021554
+      parameters:
+        code: "import asyncio\nfrom collections import namedtuple\nasync def main(args: Args) -> Output:\n    # 声明一个命名元组类型\n    User = namedtuple('User', ['conversation_id', 'user_id', 'username'])\n    # 模拟从数据库或其他地方获取数据\n    params = args.params\n    input_data = params['input'][0]\n\n    # get A/B value\n    lt = input_data[\"customer_code\"][-1]\n\n    \n    # 假设输入数据是一个包含三个元素的列表，分别表示 conversation_id、user_id 和 username\n    ret = {\n        \"conversation_id\": input_data[\"conversation_id\"],\n        \"user_id\": input_data[\"user_id\"],\n        \"username\":input_data[\"username\"],\n        \"customer_code\":input_data[\"customer_code\"],\n        \"customer_name\":input_data[\"customer_name\"],\n        \"lt\":lt,\n    }\n    return ret"
+        language: 3
+        node_inputs:
+            - name: input
+              input:
+                value:
+                    path: outputList
+                    ref_node: "116274"
+        node_outputs:
+            conversation_id:
+                type: string
+                value: null
+            customer_code:
+                type: string
+                value: null
+            customer_name:
+                type: string
+                value: null
+            errorBody:
+                type: object
+                properties:
+                    errorCode:
+                        type: string
+                        value: null
+                    errorMessage:
+                        type: string
+                        value: null
+                value: null
+            isSuccess:
+                type: boolean
+                value: null
+            lt:
+                type: string
+                value: null
+            user_id:
+                type: string
+                value: null
+            username:
+                type: string
+                value: null
+        settingOnError:
+            dataOnErr: |-
+                {
+                    "user_id": "",
+                    "username": "",
+                    "conversation_id": "",
+                    "customer_name": "",
+                    "customer_code": "",
+                    "lt": ""
+                }
+            processType: 2
+            retryTimes: 0
+            switch: true
+            timeoutMs: 60000
+    - id: "179021"
+      type: assign_variable
+      title: 变量赋值
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/Variable.jpg
+      description: "用于给支持写入的变量赋值，包括应用变量、用户变量"
+      position:
+        x: 5086.041285022536
+        y: 1028.5516804021554
+      parameters:
+        node_inputs:
+            - name: _user_id
+              input:
+                value:
+                    path: user_id
+                    ref_node: "128112"
+            - name: _username
+              input:
+                value:
+                    path: username
+                    ref_node: "128112"
+            - name: _conversation_id
+              input:
+                value:
+                    path: conversation_id
+                    ref_node: "128112"
+            - name: _customer_name
+              input:
+                value:
+                    path: customer_name
+                    ref_node: "128112"
+            - name: _customer_code
+              input:
+                value:
+                    path: customer_code
+                    ref_node: "128112"
+        node_outputs:
+            isSuccess:
+                type: boolean
+                value: null
+        variableTypeMap:
+            _conversation_id: global_variable_user
+            _customer_code: global_variable_user
+            _customer_name: global_variable_user
+            _user_id: global_variable_user
+            _username: global_variable_user
+    - id: "137744"
+      type: condition
+      title: A/B
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 5588.346066430312
+        y: 938.9200708433707
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: username
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "winit-api"
+                    - left:
+                        input:
+                            value:
+                                path: customer_code
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "14132129"
+                    - left:
+                        input:
+                            value:
+                                path: customer_code
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "1000019"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: username
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "winit-api"
+                    - left:
+                        input:
+                            type: list
+                            items:
+                                type: string
+                                value: null
+                            value:
+                                path: customer_code
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "14132129"
+                    - left:
+                        input:
+                            type: list
+                            items:
+                                type: string
+                                value: null
+                            value:
+                                path: customer_code
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "1000019"
+                logic: 1
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: lt
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "5"
+                    - left:
+                        input:
+                            value:
+                                path: lt
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "6"
+                    - left:
+                        input:
+                            value:
+                                path: lt
+                                ref_node: "128112"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "7"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: lt
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "5"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: lt
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "6"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: lt
+                                ref_node: "117213"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: "7"
+                logic: 1
+    - id: "1157371"
+      type: select_record
+      title: 查询数据_确认用户是否存在老的会话
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icaon-database-select.jpg
+      description: "从表获取数据，用户可定义查询条件、选择列等，输出符合条件的数据"
+      position:
+        x: 4529.005668388486
+        y: 483.37443134229744
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        selectParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "is_deleted"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: boolean
+                            value: false
+                logic: AND
+            fieldList:
+                - fieldID: 101
+                  isDistinct: false
+                - fieldID: 1.78233441997e+12
+                  isDistinct: false
+                - fieldID: 1.782334419971e+12
+                  isDistinct: false
+                - fieldID: 1.782334419969e+12
+                  isDistinct: false
+                - fieldID: 103
+                  isDistinct: false
+                - fieldID: 1.784112643073e+12
+                  isDistinct: false
+                - fieldID: 1.784112643074e+12
+                  isDistinct: false
+            limit: 1
+            orderByList:
+                - fieldID: 103
+                  isAsc: false
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "129954"
+      type: update_record
+      title: 更新数据（更新为已删除）
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-database-update.jpg
+      description: "修改表中已存在的数据记录，用户指定更新条件和内容来更新数据"
+      position:
+        x: 5508.319879541398
+        y: 629.3628779783064
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+        updateParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "is_deleted"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: boolean
+                            value: false
+                logic: AND
+            fieldInfo:
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1828764627969"
+                  - name: fieldValue
+                    input:
+                        type: boolean
+                        value: true
+    - id: "130127"
+      type: condition
+      title: 选择器
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 5133.363523279255
+        y: 483.37443134229744
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: outputList
+                                ref_node: "1157371"
+                      operator: 6
+                      right:
+                        input:
+                            type: integer
+                            value: 0
+                logic: 1
+    - id: "1810893"
+      type: code
+      title: 代码_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 4633.114632560158
+        y: 837.7408668985544
+      parameters:
+        code: "import asyncio\nfrom collections import namedtuple\nasync def main(args: Args) -> Output:\n    # 声明一个命名元组类型\n    User = namedtuple('User', ['conversation_id', 'user_id', 'username'])\n    # 模拟从数据库或其他地方获取数据\n    params = args.params\n    input_data = params['input'][0]\n\n    # get A/B value\n    lt = input_data[\"customer_code\"][-1]\n\n    \n    # 假设输入数据是一个包含三个元素的列表，分别表示 conversation_id、user_id 和 username\n    ret = {\n        \"conversation_id\": input_data[\"conversation_id\"],\n        \"user_id\": input_data[\"user_id\"],\n        \"username\":input_data[\"username\"],\n        \"customer_code\":input_data[\"customer_code\"],\n        \"customer_name\":input_data[\"customer_name\"],\n        \"lt\":lt,\n    }\n    return ret"
+        language: 3
+        node_inputs:
+            - name: input
+              input:
+                value:
+                    path: outputList
+                    ref_node: "1157371"
+        node_outputs:
+            conversation_id:
+                type: string
+                value: null
+            customer_code:
+                type: string
+                value: null
+            customer_name:
+                type: string
+                value: null
+            errorBody:
+                type: object
+                properties:
+                    errorCode:
+                        type: string
+                        value: null
+                    errorMessage:
+                        type: string
+                        value: null
+                value: null
+            isSuccess:
+                type: boolean
+                value: null
+            lt:
+                type: string
+                value: null
+            user_id:
+                type: string
+                value: null
+            username:
+                type: string
+                value: null
+        settingOnError:
+            dataOnErr: |-
+                {
+                    "user_id": "",
+                    "username": "",
+                    "conversation_id": "",
+                    "customer_name": "",
+                    "customer_code": "",
+                    "lt": ""
+                }
+            processType: 2
+            retryTimes: 0
+            switch: true
+            timeoutMs: 60000
+    - id: "1610047"
+      type: assign_variable
+      title: 变量赋值_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/Variable.jpg
+      description: "用于给支持写入的变量赋值，包括应用变量、用户变量"
+      position:
+        x: 5045.713492137636
+        y: 855.4387954728427
+      parameters:
+        node_inputs:
+            - name: _user_id
+              input:
+                value:
+                    path: user_id
+                    ref_node: "1810893"
+            - name: _username
+              input:
+                value:
+                    path: username
+                    ref_node: "1810893"
+            - name: _conversation_id
+              input:
+                value:
+                    path: conversation_id
+                    ref_node: "1810893"
+            - name: _customer_name
+              input:
+                value:
+                    path: customer_name
+                    ref_node: "1810893"
+            - name: _customer_code
+              input:
+                value:
+                    path: customer_code
+                    ref_node: "1810893"
+        node_outputs:
+            isSuccess:
+                type: boolean
+                value: null
+        variableTypeMap:
+            _conversation_id: global_variable_user
+            _customer_code: global_variable_user
+            _customer_name: global_variable_user
+            _user_id: global_variable_user
+            _username: global_variable_user
+    - id: "147540"
+      type: code
+      title: should_bind_logic
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "编写代码，处理输入变量来生成返回值"
+      version: v2
+      position:
+        x: 2337.6891602214096
+        y: 1052.5516804021556
+      parameters:
+        code: |-
+            async function main({ params }: Args): Promise<Output> {
+                const requiredKeys = [
+                    "_user_id",
+                    "_username",
+                    "_conversation_id",
+                    "_customer_code",
+                    //"_customer_name",
+                ];
+
+                const isMissing = (value: unknown): boolean => {
+                    return value === undefined
+                        || value === null
+                        || (typeof value === "string" && value.trim() === "");
+                };
+
+                const missingKeys = requiredKeys.filter(
+                    (key) => isMissing(params?.[key])
+                );
+
+                const needBind = missingKeys.length > 0;
+
+                return {
+                    // true：需要绑定，false：不需要绑定
+                    need_bind: needBind,
+
+                    // 便于排查缺少了哪些变量
+                    missing_keys: missingKeys,
+                };
+            }
+        language: 5
+        node_inputs:
+            - name: _conversation_id
+              input:
+                value:
+                    path: _conversation_id
+                    ref_node: "100001"
+            - name: _customer_code
+              input:
+                value:
+                    path: _customer_code
+                    ref_node: "100001"
+            - name: _customer_name
+              input:
+                value:
+                    path: _customer_name
+                    ref_node: "100001"
+            - name: _user_id
+              input:
+                value:
+                    path: _user_id
+                    ref_node: "100001"
+            - name: _username
+              input:
+                value:
+                    path: _username
+                    ref_node: "100001"
+        node_outputs:
+            missing_keys:
+                type: list
+                items:
+                    type: string
+                    value: null
+                value: null
+            need_bind:
+                type: boolean
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "154635"
+      type: condition
+      title: 选择器_2
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 3106.8452979572944
+        y: 1255.7484913551773
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: need_bind
+                                ref_node: "147540"
+                      operator: 1
+                      right:
+                        input:
+                            type: boolean
+                            value: true
+                logic: 2
+    - id: "122400"
+      type: assign_variable
+      title: 透传上下文直接赋值
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/Variable.jpg
+      description: "用于给支持写入的变量赋值，包括应用变量、用户变量"
+      position:
+        x: 4839.58263884749
+        y: 1373.4711549625806
+      parameters:
+        node_inputs:
+            - name: _user_id
+              input:
+                value:
+                    path: _user_id
+                    ref_node: "100001"
+            - name: _username
+              input:
+                value:
+                    path: _username
+                    ref_node: "100001"
+            - name: _conversation_id
+              input:
+                value:
+                    path: _conversation_id
+                    ref_node: "100001"
+            - name: _customer_name
+              input:
+                value:
+                    path: _customer_name
+                    ref_node: "100001"
+            - name: _customer_code
+              input:
+                value:
+                    path: _customer_code
+                    ref_node: "100001"
+        node_outputs:
+            isSuccess:
+                type: boolean
+                value: null
+        variableTypeMap:
+            _conversation_id: global_variable_user
+            _customer_code: global_variable_user
+            _customer_name: global_variable_user
+            _user_id: global_variable_user
+            _username: global_variable_user
+    - id: "195486"
+      type: select_record
+      title: 查询数据_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icaon-database-select.jpg
+      description: "从表获取数据，用户可定义查询条件、选择列等，输出符合条件的数据"
+      position:
+        x: 3579.1347812058784
+        y: 1717.2993367546997
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    properties:
+                        conversation_id:
+                            type: string
+                            value: null
+                        customer_code:
+                            type: string
+                            value: null
+                        customer_name:
+                            type: string
+                            value: null
+                        user_id:
+                            type: string
+                            value: null
+                        username:
+                            type: string
+                            value: null
+                        uuid:
+                            type: string
+                            value: null
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        selectParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "conversation_id"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            value:
+                                path: _conversation_id
+                                ref_node: "100001"
+                logic: AND
+            fieldList:
+                - fieldID: 1.782334419969e+12
+                  isDistinct: false
+                - fieldID: 1.78233441997e+12
+                  isDistinct: false
+                - fieldID: 1.784112643073e+12
+                  isDistinct: false
+                - fieldID: 1.784112643074e+12
+                  isDistinct: false
+                - fieldID: 1.782334419971e+12
+                  isDistinct: false
+            limit: 100
+            orderByList: []
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "1265078"
+      type: condition
+      title: 选择器_3
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 4707.845454777602
+        y: 1884.3343653808386
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: outputList.uuid
+                                ref_node: "195486"
+                      operator: 4
+                      right:
+                        input:
+                            type: integer
+                            value: 0
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: outputList.username
+                                ref_node: "195486"
+                      operator: 2
+                      right:
+                        input:
+                            value:
+                                path: _username
+                                ref_node: "100001"
+                    - left:
+                        input:
+                            type: string
+                            value:
+                                path: outputList.conversation_id
+                                ref_node: "195486"
+                      operator: 1
+                      right:
+                        input:
+                            type: string
+                            value:
+                                path: outputList.conversation_id
+                                ref_node: "195486"
+                logic: 2
+    - id: "1850571"
+      type: insert_record
+      title: 新增数据_1
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-database-insert.jpg
+      description: "向表添加新数据记录，用户输入数据内容后插入数据库"
+      position:
+        x: 5199.58263884749
+        y: 2198.8605641346667
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        insertParam:
+            fieldInfo:
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419969"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _user_id
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419970"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _username
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419971"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _conversation_id
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643073"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _customer_code
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643074"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _customer_name
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1828764627969"
+                  - name: fieldValue
+                    input:
+                        type: boolean
+                        value: false
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+    - id: "1688464"
+      type: update_record
+      title: 更新数据用户最新的用户名
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-database-update.jpg
+      description: "修改表中已存在的数据记录，用户指定更新条件和内容来更新数据"
+      position:
+        x: 5598.214825203977
+        y: 1766.799384862062
+      parameters:
+        databaseInfoList:
+            - databaseInfoID: "7475651461901205516"
+        node_outputs:
+            outputList:
+                type: list
+                items:
+                    type: object
+                    value: null
+                value: null
+            rowNum:
+                type: integer
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 60000
+        updateParam:
+            condition:
+                conditionList:
+                    - - name: left
+                        input:
+                            type: string
+                            value: "uuid"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: sys_uuid
+                                source: global_variable_system
+                    - - name: left
+                        input:
+                            type: string
+                            value: "conversation_id"
+                      - name: operation
+                        input:
+                            type: string
+                            value: "EQUAL"
+                      - name: right
+                        input:
+                            type: string
+                            value:
+                                path: outputList.conversation_id
+                                ref_node: "195486"
+                logic: AND
+            fieldInfo:
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419969"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _user_id
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419970"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _username
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643073"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _customer_code
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1782334419971"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _conversation_id
+                            ref_node: "100001"
+                - - name: fieldID
+                    input:
+                        type: string
+                        value: "1784112643074"
+                  - name: fieldValue
+                    input:
+                        value:
+                            path: _customer_name
+                            ref_node: "100001"
+    - id: "161227"
+      type: condition
+      title: 选择器_4
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "连接多个下游分支，若设定的条件成立则仅运行对应的分支，若均不成立则只运行“否则”分支"
+      position:
+        x: 4628.83468320931
+        y: 2222.8685591142294
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: outputList
+                                ref_node: "195486"
+                      operator: 6
+                      right:
+                        input:
+                            type: integer
+                            value: 0
+                logic: 2
+    - id: "196023"
+      type: subflow
+      title: cs_Default_Query_v4_staging_F
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Workflow-v2.jpg
+      description: "（图片识别 - 灰度）\n处理海外仓客服对话，返回正确的答案\nv2支持了同时命中多个不同的业务分类\nv2p改为节点内置中途输出，而不是节点最后输出\nv3支持在未匹配到答案的时候，尝试从知识库中召回最接近的问题，并表达重现\nv4支持在过程中通过qa-gen的配置召回专家智能体，为solution提供上文，同时在中间过程输出思考和查询过程"
+      position:
+        x: 6728.662524330636
+        y: 1252.9045826318131
+      parameters:
+        inputDefs:
+            - input: {}
+              name: USER_INPUT
+              required: false
+              type: string
+            - defaultValue: Default
+              description: 本次请求绑定的会话，会自动写入消息、会从该会话读对话历史。
+              input: {}
+              name: CONVERSATION_NAME
+              required: false
+              type: string
+            - input: {}
+              name: _user_id
+              required: false
+              type: string
+            - input: {}
+              name: _username
+              required: false
+              type: string
+            - input: {}
+              name: _conversation_id
+              required: false
+              type: string
+            - input: {}
+              name: _customer_code
+              required: false
+              type: string
+            - input: {}
+              name: _customer_name
+              required: false
+              type: string
+        node_inputs:
+            - name: CONVERSATION_NAME
+              input:
+                value:
+                    path: CONVERSATION_NAME
+                    ref_node: "100001"
+            - name: USER_INPUT
+              input:
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+        settingOnError: {}
+        spaceId: "7417755373999767571"
+        type: 0
+        workflowId: "7681286672969678888"
+        workflowVersion: v0.0.4
+    - id: "117213"
+      type: code
+      title: 代码_2
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "【临时】待优化"
+      version: v2
+      position:
+        x: 5136.3132337452225
+        y: 1189.0114176823681
+      parameters:
+        code: |-
+            async function main({ params }: Args): Promise<Output> {
+              const username = String(params.username ?? "").trim();
+              const customer_code = String(params.customer_code ?? "").trim();
+              const lt = customer_code ? customer_code.slice(-1) : "";
+
+              return {
+                username,
+                customer_code,
+                lt,
+              };
+            }
+        language: 5
+        node_inputs:
+            - name: username
+              input:
+                value:
+                    path: _username
+                    ref_node: "100001"
+            - name: customer_code
+              input:
+                value:
+                    path: _customer_code
+                    ref_node: "100001"
+        node_outputs:
+            customer_code:
+                type: string
+                value: null
+            lt:
+                type: string
+                value: null
+            username:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "220001"
+      type: code
+      title: vas_guide_router
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "触发句→greeting；增值问句→guide；其它→Query；DOM→page_tool"
+      version: v2
+      position:
+        x: 6124.0302076578955
+        y: 1126.453315490075
+      parameters:
+        code: |
+            /** 扣子粘贴用（JavaScript）。强制唤起 → greeting；读页回传 → page_tool 清单卡；其它 → guide。 */
+
+            const BACKEND_RENDER = "renderA2UI";
+            const CATALOG_ID = "ai-chatbot-builtin";
+            const A2UI_VERSION = "v0.9";
+            const LINK_TRIGGERS = new Set(["链路测试", "TEST_LINK"]);
+            const MAX_LINES = 30;
+            const MAX_CHARS = 1400;
+            const EVENT_NO_RE = /EB\d{6,}/i;
+
+            function asText(value) {
+              if (typeof value === "string") return value.trim();
+              if (value == null) return "";
+              if (typeof value === "number" || typeof value === "boolean") return String(value);
+              return "";
+            }
+
+            function compactChat(text) {
+              return asText(text).replace(/\s+/g, "").replace(/[？?！!。．.、，,]/g, "");
+            }
+
+            function extractEventNo(text) {
+              const hit = asText(text).match(EVENT_NO_RE);
+              return hit ? hit[0].toUpperCase() : "";
+            }
+
+            function isForcedExceptionAsk(text) {
+              const t = compactChat(text);
+              if (!t) return false;
+              return t.indexOf("我的异常单") >= 0 && EVENT_NO_RE.test(t) && t.indexOf("应该提交哪个增值产品") >= 0;
+            }
+
+            function isGreetingAsk(text) {
+              const raw = asText(text);
+              if (LINK_TRIGGERS.has(raw) || LINK_TRIGGERS.has(compactChat(raw))) return true;
+              return isForcedExceptionAsk(raw);
+            }
+
+            function isVasFlagOn(params) {
+              const t = asText(params._vas_guide_active || params.vas_guide_active).toLowerCase();
+              return t === "1" || t === "true" || t === "yes" || t === "on";
+            }
+
+            function isGeneralAsk(text) {
+              const t = compactChat(text);
+              if (!t) return false;
+              if (t === "你好" || t === "您好" || t === "在吗" || t === "在么" || t === "嗨" || t === "hi" || t === "hello" || t === "早上好") {
+                return true;
+              }
+              if (t.indexOf("退出") >= 0 || t.indexOf("转人工") >= 0 || t.indexOf("普通客服") >= 0 || t.indexOf("不问增值") >= 0) {
+                return true;
+              }
+              if (t.indexOf("运费") >= 0 || t.indexOf("物流轨迹") >= 0 || t.indexOf("快递到哪") >= 0 || t.indexOf("包裹到哪") >= 0) {
+                return true;
+              }
+              if (t.indexOf("改密码") >= 0 || t.indexOf("登录不了") >= 0) return true;
+              return false;
+            }
+
+            function isVasIntent(text) {
+              const t = compactChat(text);
+              if (!t) return false;
+              if (/WI\d{6,}/i.test(t) || EVENT_NO_RE.test(t)) return true;
+              const keys = [
+                "上架",
+                "换标",
+                "辨识",
+                "拍照",
+                "销毁",
+                "自提",
+                "增值",
+                "异常单",
+                "入库单",
+                "贴标",
+                "补贴",
+                "包裹",
+                "商品条码",
+                "轻加工",
+                "换包装",
+                "暂存",
+                "货权",
+                "盘点",
+                "换商品标签",
+                "条码异常",
+              ];
+              for (var i = 0; i < keys.length; i++) {
+                if (t.indexOf(keys[i]) >= 0) return true;
+              }
+              return false;
+            }
+
+            function unwrapParams(args) {
+              if (!args || typeof args !== "object") return {};
+              const nested = args.params;
+              if (nested && typeof nested === "object" && !Array.isArray(nested)) return nested;
+              return args;
+            }
+
+            function parseJson(value) {
+              if (value == null) return null;
+              if (typeof value === "object") return value;
+              const text = asText(value);
+              if (!text) return null;
+              try {
+                return JSON.parse(text);
+              } catch (e) {
+                return null;
+              }
+            }
+
+            function looksLikeDehydratedDom(value) {
+              const text = typeof value === "string" ? value : value == null ? "" : JSON.stringify(value);
+              if (!text || text.length < 20) return false;
+              return /dehydrated|interactiveElements|browserState|updateTree|page-agent|axTree/i.test(text);
+            }
+
+            function identity(params, userInput) {
+              return {
+                user_input: asText(userInput),
+                conversation_id: asText(params._conversation_id || params.conversation_id),
+                user_id: asText(params._user_id || params.user_id),
+                username: asText(params._username || params.username),
+                customer_code: asText(params._customer_code || params.customer_code),
+                sidecar_intact: true,
+              };
+            }
+
+            function buildGreeting(eventNo) {
+              const no = eventNo || "（测试会话）";
+              return (
+                "收到您的异常单 " +
+                no +
+                "。\n\n请用您自己的话描述一下：您希望仓库怎么处理这批货物？\n例如：「帮我辨识后换标上架到新入库单WI12345678」「帮我拍照确认状态」「这批货不要了，销毁处理」\n\n描述越详细，我越能帮您快速选对服务、填好表单。"
+              );
+            }
+
+            function unwrapDomRoot(raw) {
+              const cur = parseJson(raw);
+              if (!cur || typeof cur !== "object" || Array.isArray(cur)) return null;
+              const nested = cur.dehydrated_dom ?? cur.dehydratedDom ?? cur.data ?? cur.result;
+              if (nested && typeof nested === "object" && !Array.isArray(nested)) return nested;
+              return cur;
+            }
+
+            function pickIndex(el, fallback) {
+              const keys = ["index", "idx", "highlightIndex", "dom_id", "domId", "backendNodeId", "id"];
+              for (var i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                if (el[key] != null && el[key] !== "") return String(el[key]);
+              }
+              return String(fallback);
+            }
+
+            function pickText(el) {
+              const keys = ["text", "name", "label", "content", "description", "title", "value"];
+              for (var i = 0; i < keys.length; i++) {
+                const v = el[keys[i]];
+                if (typeof v === "string" && v.trim()) return v.trim();
+              }
+              return "";
+            }
+
+            function extraFields(el) {
+              const skip = {
+                index: 1,
+                idx: 1,
+                highlightIndex: 1,
+                dom_id: 1,
+                domId: 1,
+                backendNodeId: 1,
+                id: 1,
+                text: 1,
+                name: 1,
+                label: 1,
+                content: 1,
+                description: 1,
+                title: 1,
+                value: 1,
+              };
+              const bits = [];
+              const keys = Object.keys(el);
+              for (var i = 0; i < keys.length; i++) {
+                const k = keys[i];
+                const v = el[k];
+                if (skip[k] || v == null || typeof v === "object") continue;
+                bits.push(k + "=" + v);
+                if (bits.length >= 3) break;
+              }
+              return bits.length ? "  | " + bits.join(" ") : "";
+            }
+
+            function findElementArray(root) {
+              const found = [];
+              const visit = (obj) => {
+                const keys = Object.keys(obj);
+                for (var i = 0; i < keys.length; i++) {
+                  const k = keys[i];
+                  const v = obj[k];
+                  if (!Array.isArray(v) || v.length === 0) continue;
+                  const first = v[0];
+                  if (!first || typeof first !== "object" || Array.isArray(first)) continue;
+                  if (
+                    "index" in first ||
+                    "idx" in first ||
+                    "highlightIndex" in first ||
+                    "dom_id" in first ||
+                    "domId" in first ||
+                    "text" in first ||
+                    "name" in first
+                  ) {
+                    found.push({ key: k, items: v });
+                  }
+                }
+                for (var j = 0; j < keys.length; j++) {
+                  const v2 = obj[keys[j]];
+                  if (v2 && typeof v2 === "object" && !Array.isArray(v2)) visit(v2);
+                }
+              };
+              visit(root);
+              const preferred = found.find((row) => /interactive/i.test(row.key));
+              return preferred || found[0] || null;
+            }
+
+            function buildListBody(raw) {
+              const root = unwrapDomRoot(raw);
+              const topKeys = root ? Object.keys(root).join(", ") : "(无法 parse JSON)";
+              const lines = ["顶层字段: " + topKeys];
+              if (!root) {
+                lines.push(asText(raw).slice(0, 400));
+                return lines.join("\n").slice(0, MAX_CHARS);
+              }
+              const arr = findElementArray(root);
+              if (!arr) {
+                if (typeof root.interactiveElements === "string" && root.interactiveElements.trim()) {
+                  lines.push("interactiveElements 是字符串（不是数组）：");
+                  lines.push(root.interactiveElements.slice(0, 800));
+                  return lines.join("\n").slice(0, MAX_CHARS);
+                }
+                lines.push("没找到可点元素数组。下面是 JSON 前 600 字，用来对字段名：");
+                lines.push(JSON.stringify(root).slice(0, 600));
+                return lines.join("\n").slice(0, MAX_CHARS);
+              }
+              lines.unshift("共 " + arr.items.length + " 条（字段名: " + arr.key + "）");
+              const shown = arr.items.slice(0, MAX_LINES);
+              for (var i = 0; i < shown.length; i++) {
+                const item = shown[i];
+                if (!item || typeof item !== "object") {
+                  lines.push("#" + i + "  " + String(item));
+                  continue;
+                }
+                lines.push("#" + pickIndex(item, i) + "  " + pickText(item) + extraFields(item));
+              }
+              if (arr.items.length > MAX_LINES) {
+                lines.push("…还有 " + (arr.items.length - MAX_LINES) + " 条未列出");
+              }
+              const blob = JSON.stringify(root);
+              const hits = ["原单上架", "入库其他服务需求"].filter((word) => blob.indexOf(word) >= 0);
+              if (hits.length) lines.push("文案命中: " + hits.join("、"));
+              else lines.push("文案命中: 本页 JSON 里还没有「原单上架 / 入库其他服务需求」");
+              return lines.join("\n").slice(0, MAX_CHARS);
+            }
+
+            function listCardArguments(raw) {
+              const body = buildListBody(raw);
+              return JSON.stringify({
+                commands: [
+                  { version: A2UI_VERSION, createSurface: { surfaceId: "page-list", catalogId: CATALOG_ID } },
+                  {
+                    version: A2UI_VERSION,
+                    updateComponents: {
+                      surfaceId: "page-list",
+                      components: [
+                        { id: "root", component: "Card", title: "读页清单（先不点页）", children: ["body"] },
+                        { id: "body", component: "Text", text: body },
+                      ],
+                    },
+                  },
+                ],
+              });
+            }
+
+            async function main(args) {
+              const params = unwrapParams(args);
+              const userInput = params.user_input ?? params.USER_INPUT ?? "";
+              const dehydratedDom = params.dehydrated_dom ?? params.dehydratedDom ?? "";
+              const chatText = asText(userInput);
+              const base = identity(params, chatText);
+              const sessionOn = isVasFlagOn(params);
+
+              if (isGreetingAsk(chatText)) {
+                const eventNo = extractEventNo(chatText);
+                return Object.assign({}, base, {
+                  route: "greeting",
+                  event_no: eventNo,
+                  greeting_text: buildGreeting(eventNo),
+                  vas_session: "1",
+                  should_send: false,
+                  function_name: "",
+                  arguments: "",
+                  skip_reason: "",
+                  turn_kind: "greeting",
+                });
+              }
+
+              const domRaw = looksLikeDehydratedDom(dehydratedDom)
+                ? dehydratedDom
+                : looksLikeDehydratedDom(userInput)
+                  ? userInput
+                  : null;
+              if (domRaw != null) {
+                return Object.assign({}, base, {
+                  route: "page_tool",
+                  event_no: extractEventNo(chatText),
+                  greeting_text: "",
+                  vas_session: sessionOn ? "1" : "0",
+                  should_send: true,
+                  function_name: BACKEND_RENDER,
+                  arguments: listCardArguments(domRaw),
+                  skip_reason: "",
+                  turn_kind: "page_list",
+                });
+              }
+
+              if (isGeneralAsk(chatText)) {
+                return Object.assign({}, base, {
+                  route: "query",
+                  event_no: extractEventNo(chatText),
+                  greeting_text: "",
+                  vas_session: "0",
+                  should_send: false,
+                  function_name: "",
+                  arguments: "",
+                  skip_reason: "普通客服 Query",
+                  turn_kind: "query",
+                });
+              }
+
+              if (isVasIntent(chatText) || sessionOn) {
+                return Object.assign({}, base, {
+                  route: "guide",
+                  event_no: extractEventNo(chatText),
+                  greeting_text: "",
+                  vas_session: "1",
+                  should_send: false,
+                  function_name: "",
+                  arguments: "",
+                  skip_reason: "进 VAS 指引 LLM",
+                  turn_kind: "guide",
+                });
+              }
+
+              return Object.assign({}, base, {
+                route: "query",
+                event_no: extractEventNo(chatText),
+                greeting_text: "",
+                vas_session: "0",
+                should_send: false,
+                function_name: "",
+                arguments: "",
+                skip_reason: "普通客服 Query",
+                turn_kind: "query",
+              });
+            }
+        language: 5
+        node_inputs:
+            - name: user_input
+              input:
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+            - name: dehydrated_dom
+              input:
+                value:
+                    path: USER_INPUT
+                    ref_node: "100001"
+            - name: _conversation_id
+              input:
+                type: string
+                value:
+                    path: _conversation_id
+                    source: global_variable_user
+            - name: _user_id
+              input:
+                type: string
+                value:
+                    path: _user_id
+                    source: global_variable_user
+            - name: _username
+              input:
+                type: string
+                value:
+                    path: _username
+                    source: global_variable_user
+            - name: _customer_code
+              input:
+                type: string
+                value:
+                    path: _customer_code
+                    source: global_variable_user
+            - name: _vas_guide_active
+              input:
+                type: string
+                value:
+                    path: _vas_guide_active
+                    source: global_variable_user
+        node_outputs:
+            arguments:
+                type: string
+                value: null
+            conversation_id:
+                type: string
+                value: null
+            customer_code:
+                type: string
+                value: null
+            event_no:
+                type: string
+                value: null
+            function_name:
+                type: string
+                value: null
+            greeting_text:
+                type: string
+                value: null
+            route:
+                type: string
+                value: null
+            should_send:
+                type: boolean
+                value: null
+            sidecar_intact:
+                type: boolean
+                value: null
+            skip_reason:
+                type: string
+                value: null
+            turn_kind:
+                type: string
+                value: null
+            user_id:
+                type: string
+                value: null
+            user_input:
+                type: string
+                value: null
+            username:
+                type: string
+                value: null
+            vas_session:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "220002"
+      type: condition
+      title: route_switch
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Condition-v2.jpg
+      description: "greeting开场 / guide LLM / page_tool插件 / 否则Query"
+      position:
+        x: 6234.916878785376
+        y: 758.5364367046986
+      parameters:
+        branches:
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: route
+                                ref_node: "220001"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: greeting
+                logic: 2
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: route
+                                ref_node: "220001"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: guide
+                logic: 2
+            - condition:
+                conditions:
+                    - left:
+                        input:
+                            value:
+                                path: route
+                                ref_node: "220001"
+                      operator: 7
+                      right:
+                        input:
+                            type: string
+                            value: page_tool
+                logic: 2
+    - id: "171037"
+      type: plugin
+      title: tool_call_send
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Plugin-v2.jpg
+      description: "函数调用"
+      position:
+        x: 6719.043209312686
+        y: 826.9200708433707
+      parameters:
+        apiParam:
+            - name: apiID
+              input:
+                type: string
+                value: "7687994974495064102"
+            - name: apiName
+              input:
+                type: string
+                value: "tool_call_send"
+            - name: pluginID
+              input:
+                type: string
+                value: "7687994974494916646"
+            - name: pluginName
+              input:
+                type: string
+                value: "cobra_agent_http_gray"
+            - name: pluginVersion
+              input:
+                type: string
+                value: "0"
+            - name: tips
+              input:
+                type: string
+                value: ""
+            - name: outDocLink
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: arguments
+              input:
+                value:
+                    path: arguments
+                    ref_node: "220001"
+            - name: conversation_id
+              input:
+                type: string
+                value:
+                    path: _conversation_id
+                    source: global_variable_user
+            - name: function_name
+              input:
+                value:
+                    path: function_name
+                    ref_node: "220001"
+            - name: user_id
+              input:
+                type: string
+                value:
+                    path: _user_id
+                    source: global_variable_user
+            - name: username
+              input:
+                type: string
+                value:
+                    path: _username
+                    source: global_variable_user
+        node_outputs:
+            code:
+                type: string
+                required: true
+                value: null
+                description: 0表示请求成功 1表示请求失败
+            data:
+                type: string
+                required: true
+                value: null
+                description: 当出现错误时候，返回错误码对应的说明信息，请求正常，则返回业务数据json对象，具体看接口的返回参数定义
+            msg:
+                type: string
+                required: true
+                value: null
+                description: '当出现错误时候，会返回错误码，正常不返回 '
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            timeoutMs: 180000
+    - id: "230050"
+      type: assign_variable
+      title: assign_vas_session
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/Variable.jpg
+      description: "记住是否在增值指引会话中，供下一轮路由"
+      position:
+        x: 6180
+        y: 940
+      parameters:
+        node_inputs:
+            - name: _vas_guide_active
+              input:
+                type: string
+                value:
+                    path: vas_session
+                    ref_node: "220001"
+        node_outputs:
+            isSuccess:
+                type: boolean
+                value: null
+        variableTypeMap:
+            _vas_guide_active: global_variable_user
+    - id: "230001"
+      type: text
+      title: scene_kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "VAS 指引知识库，注入 LLM 系统提示"
+      position:
+        x: 6720
+        y: 1650
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: |-
+                    # VAS 指引 · 场景知识库（精编）
+
+                    由 `scripts/build-vas-guide-kb-scenes.ts` 从 `internal-review-copilot/knowledge/scenario-cards` 生成。
+                    筛选：`status !== retired_dedicated_atom` 且有 `requiredInfoFields`。不要手改本文件，改场景卡后重跑脚本。
+
+                    共 32 张。贴进 Coze Text 节点，变量名 `scene_kb`。
+
+                    匹配时看客户描述中的关键动作词 + 处理对象。优先强信号；命中排除信号则不要选该场景。
+
+                    ### 场景: 尺重/标签辨识后换标上架 (key: inbound_label_identify)
+                    类别: 入库
+                    识别信号:
+                      强信号: 尺重、辨识、换标、更换标签、绿标、露出的SKU、SKU对应、对应的商品条码、商品条码与包裹条码不对应、混SKU、换商品标签
+                      弱信号: 贴标、补贴、贴条码、商品标签、包裹标签、SKU标签、上架、新单、新入库单
+                    排除信号: 拦截不上架、先放在一边、暂存不上架、直接扫描上架、第三方箱唛已关联、称重拍照且无换标、指定商品拍照暂存、库内拍摄照片/视频、返回照片后再
+                    必填信息:
+                      1. 异常单号: 需要处理的异常单编号，用于定位待处理货物（例: EB0126050529243448 / EB0326080832091342 / EB0126073031771815）
+                      2. 新入库单号: 换标后需要上架到的目标入库单号（例: WI50259337 / WI51678423 / WI49168085）
+                      3. 商品条码对应关系: 实物条码/标签与新SKU商品条码的映射关系，用于辨识后换标（例: 0643491732601 → N6Z084BL0M/N6Z084BL1L/N6Z084BL0L / 2127902163343622 → M010000000012699046 / 6975820906631 → M010000000011392253）
+                      4. 处理数量: 需要处理的包裹/箱数或件数（例: 254件商品 / 63件货物 / 163个A类包裹）
+                      5. 辨识方法: 如何识别实物对应哪个SKU的具体方法，如看内标签、测量尺寸重量、扫描二维码、查看箱序等（例: 根据实际衣服内标签更换商品条码 / 根据操作说明附件内的【辨识方法】表格进行测量包裹的尺寸和重量 / 辨识外箱上的箱序，外箱上都粘贴了装箱单标签）
+                    可选信息:
+                      1. 包裹条码对应关系: 是否需要更换/补贴新的包裹条码标签，以及新旧包裹条码的对应关系（例: 包裹对应关系见附件 / 箱序1补贴B0400000001441165842这个Winit包裹条码标签 / 补贴新入库单外箱标）
+                      2. 包装要求: 是否需要额外包装，如气泡袋等（例: 贴6977512610758商品标签+气泡袋上架 / 贴0199284482531商品标签+气泡袋上架）
+                      3. 非标原因说明: 为什么无法走标准流程，需要非标处理的具体原因（例: 客户下了多个入库单，标准无法一起操作 / 异常登记数量只有1个，仓库无法操作上架 / 仓库登记异常备注数量是33件，实际仓库线下反馈过来是63件，数量有差异）
+                      4. 时效要求: 是否需要在特定时间节点处理，如到仓前拦截、运输中状态等（例: 走winit头程入库的，还在运输中状态，后续到仓后，先不要上架 / 做上架前拦截）
+                      5. 参考附件: 提供的辅助文件，如对应关系表格、标签PDF、辨识方法说明等（例: 包裹对应关系见附件 / 附件是新包裹标签以及商品标签 / 根据操作说明附件内的【辨识方法】表格）
+
+                    ### 场景: 包裹类异常换商品标签上架 (key: inbound_package_exception_relabel_shelving)
+                    类别: 入库
+                    识别信号:
+                      强信号: 包裹类异常、包裹条码正常、商品条码异常、换商品标签
+                      弱信号: 补贴包裹标签、补贴商品标签、商品标签、上架、新入库单、关闭异常单
+                    排除信号: 拦截不上架、先放在一边、暂存不上架、直接扫描上架、尺重辨识、绿标、指定商品拍照暂存、称重拍照、库内拍摄照片/视频
+                    必填信息:
+                      1. 处理范围: 需要明确处理的包裹数量、箱数或整单处理（例: 3个SKU需要补贴商品条码 / 35个包裹全部重新补贴商品条码 / 50件货物）
+                      2. 新入库单号: 需要上架到的新预报单/入库单号（例: 上架到预报单：WI51519902 / 新单上WI50387161 / 原单WI51095972上架）
+                      3. 商品标签数量: 需要补贴的商品标签数量，可能按SKU分别说明（例: 单品数量：30 / A110RH11==82 / 138PCS全部重新贴商品标签）
+                    可选信息:
+                      1. 包裹标签处理: 是否需要补贴或更换包裹标签（例: 补贴完商品条码后根据新单补贴新单的包裹条码 / 更换新的包裹条码上架货物 / 需要补贴包裹标签以及商品标签）
+                      2. SKU对应关系: 多SKU时需要明确每个SKU的数量和对应关系，或说明是否随机贴（例: US1-BKZWJ-B-E15005001830=M010000000011384530=单品数量：30 / EB0126073131782987=A110RH11==82 / 包裹标签和商品标签随机贴就好。没有对应关系）
+                      3. SKU识别方式: 如何区分不同SKU（如通过尺寸、SN码等）（例: 箱子测面有尺寸信息，仓库可以看尺寸信息区分SKU / 对应size:W1500*D500*H1830(mm) / 原包裹上有贴sn码，没有任何的winit标签）
+                      4. 原单号: 原入库单号或预报单号（例: 原单WI49615681 / 原单WI51095972上架 / WI48841022单剩下没有登记异常的35个包裹）
+                      5. 标签覆盖说明: 是否需要覆盖原有错误标签（例: 实物贴的标签是错误的，需要商品标签要覆盖新的 / WI50566982这个的包裹标签覆盖到这里 / 包裹条码被涂改导致难以分辨）
+
+                    ### 场景: 指定商品拍照暂存 (key: inbound_photo_hold)
+                    类别: 入库
+                    识别信号:
+                      强信号: 指定商品、拍照暂存、数字标识、暂存区、客户确认后再处理、客户确认后、返回照片后、拍正、三张实物照片
+                      弱信号: 拍照、拍摄、暂存、回传照片、拍照核实、随机抽
+                    排除信号: 换标后上架、拦截不上架且无拍照要求、先放在一边且无拍照要求、库内拍摄照片/视频、库存验证拍照、称重拍照、暂存一词单独出现、直接扫描上架
+                    必填信息:
+                      1. 拍照对象范围: 需明确拍照的包裹/箱子数量，或具体的异常单号、入库单号（例: 一共43件a+包裹 / 总5个托（68件） / EB0326062430682713等6个异常单）
+                      2. 拍照内容要求: 需说明拍摄什么内容（外箱/商品条码/实物/标签/破损处等）及拍摄角度（例: 拍正，后，侧面 三张实物照片 / 外箱整体外观状态进行拍照 / 拍清晰每一件产品外盒上的SN条码标签）
+                      3. 是否需要拆包/开箱: 明确是否需要拆外箱、拆商品包装、拆彩盒等（例: 随机抽1件商品拆包装 / 需要开箱这个包裹 / 拆包查看拍照）
+                      4. 拍照目的/背景: 说明为什么要拍照，用于什么判断（辨识/确认状态/查看破损/核对标签等）（例: 照片用来查看退件状态，作为（销毁/上架）方案的依据 / 目的是要确认箱内的单品上粘贴的透明计划标签是否有粘贴错 / 需要确认包裹里面每条耳机的状态是否可售）
+                    可选信息:
+                      1. 数字标识要求: 是否需要对每个包裹做数字标识（1、2、3...）并在照片中体现（例: 每箱先做数字标识（1、2、3、4....） / 外箱整体外观状态进行拍照，并附带数字标识回传文件（要求照片中要拍摄到数字） / 数字标识用于匹配照片与产品，防止混淆）
+                      2. 照片回传格式/命名: 照片文件的命名规则、文件夹组织方式（例: 用箱号WB01926070304891、WB01926070304890分别命名两个文件夹 / 回传对应箱子内单品标签照片）
+                      3. 抽样方式: 是全部拍照还是随机抽样拍照（例: 随机抽1件商品拆包装 / 随机抽取1pcs拍照 / 需要24个所有盒子的照片）
+                      4. 拍照后处理动作: 拍照完成后的下一步操作（暂存/等待确认/直接上架等）（例: 返回照片后再进行辨识处理 / 待韶音确认后按照不良品上架 / 确认sku后再补贴箱唛上架）
+                      5. 特殊拍照注意事项: 针对特定商品类型的特殊拍照要求或禁止事项（例: 尤其是带标签的这一面必须能够拍到清晰的条码 / 褶皱破损面朝上 / 彩盒褶皱比较明显，或者彩盒有破损的耳机单独拍照回传）
+
+                    ### 场景: “包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架 (key: inbound_package_barcode_batch_relabel)
+                    类别: 入库
+                    识别信号:
+                      强信号: 包裹条码批量异常、包裹条码异常、批量异常、补贴包裹标签、补贴万邑通包裹标签、辨识后补贴包裹标签、辨识、包裹标都无法识别、整单包裹标、需客户处理
+                      弱信号: 补贴包裹条码、换包裹标签、包裹标签上架、确认SKU、异常的包裹、异常包裹、无法识别、上架、关闭异常
+                    排除信号: 尺重、绿标、混SKU、商品条码与包裹条码不对应、包裹条码正常、商品条码异常、换商品标签、关联第三方商品条码、指定商品拍照暂存、拦截不上架、辨识后换标、第三方条码、拍照暂存、仅写上架未写批量包裹异常
+                    必填信息:
+                      1. 异常单号: 需要处理的异常单编号（EB开头）（例: EB0126070731088220 / EB0326072231524525 / EB0126070431047891）
+                      2. 目标入库单WI: 补贴标签后需要上架的新入库单号（WI开头），可能是单个或多个（例: WI51348575 / WI50382906 / WI50470175）
+                      3. SKU与入库单对应关系: 明确每个SKU（M010开头或其他编码）对应哪个入库单WI。单 SKU（商品码去后缀后相同）不追问；多个 SKU 必填，且须同时提供辨识方法（例: WI51348575 下单sku：M010000000012342929=2082925774116870 / M010000000006918075=SHP11E-USSSS=108pcs=9箱 / WI50748482 下单sku: M010000000012166666 ==2081114506664454）
+                      4. 处理数量或范围: 需要补贴标签的箱数、件数或包裹条码数量（例: 264箱 / 共9箱 / 108pcs=9箱）
+                    可选信息:
+                      1. 包裹标签文件: 需要补贴的包裹条码标签文件（附件），通常按SKU或箱号范围命名（例: 附件名字为『WI50470175_ID 2889_SHP11E-USSSS-1-9』的包裹条码标签檔案 / 附件名字为M010000000009139917的包裹条码标签）
+                      2. 辨识依据: 多个 SKU 时必填：如何辨识正确的SKU以便贴对应标签，如通过外箱标签、产品条码、SOP文档等。单 SKU 不要求（例: 需要通过外箱標籤去辨识正确的sku / 辨识外箱上的SKU编码，如是SHP11E-USSSS这个SKU / 需要通过PDF的SOP去辨识正确的sku）
+                      3. 第三方编码关联: 第三方包裹条码（GLSH开头）或产品编码与系统SKU的对应关系（例: GLSH10A261400240-1 / 441227341830 WI51058417 M010000000012342990 =X004VWEFGT / 第三方产品编码：9B073516E6）
+                      4. 是否需要更换产品标签: 明确是否只补贴包裹标签，还是同时需要更换产品条码/SN条码（例: 包裹里的SN条码都导入正确，不需要更换SN条条码，只需要补贴第三方包裹条码标签 / 产品标签不用贴，仓库帮忙按新单补贴新单的包裹标签操作上架 / 不需要更换彩盒商品编码+SN条条码，只需要补贴包裹条码标签）
+                      5. 上架优先级: 多个入库单时，是否有特定的上架顺序要求（例: 入库单需优先上架 M010000000009139919）
+                      6. 异常原因说明: 包裹条码异常的具体原因，如工厂漏贴、重复粘贴、错误粘贴等（例: 箱唛重复粘贴，工厂端应该粘贴GLSH10A261400240-1的第三方包裹条码标签，但未正确粘贴 / 工廠漏貼包裹標 / 包裹外箱的包裹条码标签错误粘贴）
+                      7. 标准流程不适用原因: 为什么无法通过标准增值服务处理，需要非标操作（例: 按标准只能填写一个入库单无法操作上架，只能通过非标处理 / 系统提示：(第三方)包裹条码【GLSH10A261400240-1）】状態=已上架/草稿/已終止,不允许提交增值! / 发起标准增值服务无法正确对应到每箱去提供到正确的对应关系）
+
+                    ### 场景: 关联第三方商品条码上架 (key: inbound_third_party_merchandise_barcode)
+                    类别: 入库
+                    识别信号:
+                      强信号: 关联第三方商品条码、第三方商品条码、已关联第三方、第三方箱唛已关联、维护好第三方、重新扫描上架、直接扫描上架
+                      弱信号: 第三方条码、第三方编码、关联第三方、扫描上架、原入库单、关闭异常
+                    排除信号: 【库内】关联第三方条码上架、库内其他服务需求且无入库异常上下文、包裹条码批量异常、补贴万邑通包裹标签、尺重辨识换标、指定商品拍照暂存、换商品标签上架且包裹条码正常、第三方包裹条码、补贴包裹标签、仅写关联未写上架、无主货找回暂存
+                    必填信息:
+                      1. 异常单号: 需要处理的异常单EB号，可能是单个或多个（例: EB0126062330655515 EB0126062330655506... / EB0126050929351127 EB0126050929351124... / EB0126061630421929、EB0126061630421830）
+                      2. 目标入库单: 货物需要上架到的入库单WI号，可能是原单或新单（例: WI51619020 / WI49776727 / WI50500865）
+                      3. 扫描对象: 仓库需要扫描的条码类型，如第三方商品条码、SN码、外箱条码等（例: 扫描实物上的单品条码 / 直接扫描SN上架 / 扫描外箱条码直接按新单上架）
+                      4. 第三方条码维护状态: 说明第三方条码/箱唛是否已在系统中维护关联完成（例: 已经维护好第三方外箱标，跟维护好第三方商品条码了 / 目前客户已关联了第三方编码 / 客户已经导入了单品条码绑定好了）
+                    可选信息:
+                      1. 原单/新单说明: 明确是原单上架还是新单上架，以及原因（例: 原单WI49973282，现在要新单上 / 原单已经整单上架完成，无法原单处理 / 可直接原单扫描上架即可）
+                      2. 对应关系文件: 当需要按特定对应关系处理时，提供的对应关系说明或附件（例: 请按照附件'sn码对应新包裹'关系进行对应贴标签 / 包裹对应关系请查看附件 / 原单和新单箱唛对应关系参考附件）
+                      3. 标签处理说明: 是否需要补贴标签、换标签或无需换标签（例: 无需补贴商品标签 / 无需换标签 / 需要将无主货的异常单货物，关联到这个入库单去上架）
+                      4. 异常原因背景: 说明为什么会产生这个异常，如客户漏导入条码、系统未及时上传等（例: 因客户到仓前未有关联第三方编码 / 因系统未及时上传单品码绑定信息 / 此前因错误绑定到了M010000000009092753这个sku）
+                      5. 特殊识别标志: 货物上的特殊标识，用于定位货物（例: 原包裹上有贴sn码，没有任何的winit标签 / 条码是直接印在外箱上的，如附件截图位置 / 提供的识别标志寻找货物）
+
+                    ### 场景: 指定单品/库位商品更换标签上架【换标前后SKU不一样】 (key: instock_relabel_change_sku)
+                    类别: 库内
+                    识别信号:
+                      强信号: 库内、指定单品、指定库位、换标前后SKU不一样、新SKU、原SKU做盘亏、补贴新SKU标签
+                      弱信号: 下架、补贴标签、重新上架、解冻库存、已上架商品、L007盘亏
+                    排除信号: 入库预报、到货、尺重辨识、批量辨识、海运整柜、串仓、入库单异常、包裹条码异常、质检、暂存
+                    必填信息:
+                      1. 原SKU信息: 需要换标的原商品SKU编码，用于定位需要处理的货物（例: M010000000006759987 / M010000000009097953*14和M010000000009098251*12 / M010000000010223170）
+                      2. 新SKU信息: 换标后的新商品SKU编码，用于补贴新标签和上架（例: M010000000006527332 / M010000000008884692*8 / X000ZUKLO3）
+                      3. 新入库单号: 换标后按新入库单上架的单号，用于重新验货上架（例: WI50591314 / WI49141262 / WI50126795）
+                      4. 处理数量: 需要换标的商品数量，可以是件数、箱数或包裹数（例: 共26件货物 / 113箱 / 295件）
+                      5. 下架单号/定位方式: 用于定位需要换标货物的下架单号、库位或入库单号（例: WO11625775083 / WO11478906606 / 库位在VNA-11-31-D-02）
+                      6. 标签类型/尺寸: 需要补贴的标签类型（商品标签/FNSKU/包裹标签）及尺寸要求（例: 使用70*50mm标签 / 使用60*40mm标签 / FNSKU条码为X001BPDKVR）
+                    可选信息:
+                      1. 旧标签清除要求: 是否需要清除原有标签及清除方式，如覆盖、撕除等（例: 清除产品包装上面的全部标签信息 / 覆盖原先的条码 / 可以直接粘贴合理的不透明标签做覆盖）
+                      2. 货物辨识方法: 当无法通过单号定位时，提供的实物特征辨识方法（例: M010000000006915612=C40556400C1-10KG（米桶）产品尺寸是40x34.5x18 / 产品中间有孔的对应sku：V2.JZZZ37.H / 黑色盒子上有一张供货商小标签）
+                      3. 包装处理要求: 对商品包装的特殊处理要求，如开箱、原箱装回、去除缠绕膜等（例: 需要仓库开箱将里面的小商品更换FNSKU / 换好FNSKU标签后需要原箱装回 / 去掉缠绕膜并且补贴商品标签）
+                      4. 标签贴法/位置要求: 标签粘贴的具体位置或方式要求（例: 不要把透明计划二维码覆盖了 / 包裹条码随机对应SKU贴即可 / 5个面都需要操作）
+                      5. 第三方条码处理: 涉及第三方商品条码或单品条码的解绑、绑定操作（例: 需解绑第三方商品条码 / 考虑换标的是什么标签，外部标签是否有关联到第三方商品条码 / 因为客户贴的商品条码是另外一个客户账号下的商品条码）
+                      6. 拍照要求: 需要拍摄换标前后的照片作为凭证（例: 请拍摄1张换标前+1张换标后的小商品照片 / 请拍摄1张换标前+1张换标后的照片）
+                      7. 数量核实要求: 在换标过程中需要核实实际数量是否与预期一致（例: 换标的同时请核实数量 / 如果数量不对，请跟我们反馈下）
+
+                    ### 场景: 拍摄照片/视频 (key: instock_photo_video)
+                    类别: 库内
+                    识别信号:
+                      强信号: 拍照、拍摄、照片、视频、库内拍照、提供照片、拍摄角度、照片用途
+                      弱信号: 平台申诉、库存核实、拍摄位置、背景要求、时间戳、定位信息、监控视频、调取监控、入库监控
+                    排除信号: 换标、补贴标签、辨识、质检、调拨、自提、暂存、下架后、重新上架、入库单
+                    必填信息:
+                      1. 拍摄对象范围: 明确指定需要拍摄的SKU、包裹号、批次号、库位或下架单号（例: M010000000009280851等20个SKU / SKU:M010000000009280289 批次：ID20260417 / 包裹号：B0400000001387420372等6个包裹）
+                      2. 拍摄内容要求: 具体说明需要拍摄的内容，如外箱、内件、标签、彩卡、货架全景等（例: 拍外箱标签（ASN标签/电池标签/运输标签） / 拆封露出产品配套彩卡，彩卡画面定格停留不少于3秒 / 开箱拍照，请着重拍一下箱内纸托和商品的完整外观照片）
+                      3. 照片/视频用途: 说明拍摄素材的使用目的，如平台申诉、店铺二审、库存核实、资质审核等（例: Temu店铺解封申诉 / TikTok店铺二审 / SHEIN店铺相关申诉及资料提交）
+                      4. 水印/时间戳要求: 是否需要在照片/视频上显示时间、地点、定位、经纬度等水印信息。仅适用于库内主动拍摄；入库调查调监控不要追问此项（监控自带时间轴）（例: 每张照片上必须要带有时间、地点或定位的水印信息 / 全程视频需自带时间、地点水印，水印清晰不可遮挡产品主体 / 在视频里添加具体拍摄日期及具体时间，具体地理位置信息，以及经纬度）
+                    可选信息:
+                      1. 拍摄角度/位置: 指定拍摄的具体角度、位置、镜头运动方式（例: 手持拆开后的产品向后拉远镜头，完整展示后方整片货架 / 从仓库门口到找到具体产品的一镜到底视频 / 镜头从仓库货架取出本品，现场拆封）
+                      2. 数量要求: 明确需要拍摄的照片/视频数量，或每箱抽样数量（例: 图片拍摄要求（共4张） / 每箱抽10个产品出来拍到正反两面 / 需要拍两张照片）
+                      3. 文件格式/质量要求: 指定照片/视频的格式、清晰度、文件大小等技术要求（例: 图片jpg格式，高清或4K，5M以下 / 视频清晰度选择4k高清，控制在拍摄100M以下 / 不能糊，不要用AI处理，会被检测到）
+                      4. 辅助道具要求: 是否需要A4纸展示店铺信息、SKU编码等辅助信息（例: 一个人手持A4纸打印出来的店铺名称和Shop Code / A4纸的内容要有4项1.shop name,2.shop code,3.ID,4.SKU编码 / A4纸张不遗漏且内容完整展示）
+                      5. 特殊操作要求: 拍摄过程中需要执行的特殊操作，如测量尺寸、装箱测试等（例: 测量每一款纸箱撑开后的长，宽，高 / 用BBLBOX-N09型号箱子测试是否能装得下 / 拆开查看是漏液导致还是瓶子破损导致的问题）
+                      6. 监控视频调取: 需要调取特定时间段、特定区域的入库/卸货监控录像（调查丢件等）。此类需求不要追问水印/时间戳（例: 申请调取2026年7月30日-8月3日期间，Linden仓库卸货区域监控录像 / 提供提货时的监控视频，能够清晰看出托盘状态 / 查看该入库单入库监控视频，判断是否丢件）
+
+                    ### 场景: 海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架 (key: inbound_aplus_direct_shelve)
+                    类别: 入库
+                    识别信号:
+                      强信号: 100%A+、A+包直接上架、无箱单直接上架、海运整柜
+                      弱信号: 直接上架、新单上架、无箱单
+                    排除信号: 换标、辨识、补贴包裹标签、拍照暂存、批量异常、商品条码异常
+                    必填信息:
+                      1. 新入库单号: 需要明确按哪个新单进行上架操作（例: 新单：WI51329944 / 新单：WI51041701； WI51213902 / 新单：WI51392614）
+                      2. 扫描对象: 明确扫描外箱条码/二维码还是商品条码进行上架（例: 扫描外箱条码直接按新单上架 / 扫描外箱二维码直接按新单上架 / 直接扫描商品条码上架）
+                      3. 原异常单号: 需要关闭的异常单号，用于追溯和关闭异常（例: VASC000000324204 / VASC000000319572 / EB0126070431029060）
+                    可选信息:
+                      1. 异常原因说明: 说明是多货异常、标签贴错还是其他异常情况（例: 异常多货 / 对应SKU标签贴错了 / 扫描包裹条码有异常，但是扫描商品条码是可以识别的）
+                      2. 处理数量: 涉及的包裹或箱数，部分单会明确说明（例: 数量1个 / 共有1200个包裹）
+                      3. 特殊操作说明: 是否需要打开外箱、覆盖标签等特殊处理（例: 麻烦覆盖住原标签，补贴新标签 / 麻烦打开外箱直接按新预报单上架）
+                      4. SKU信息: 涉及的具体SKU编码，标签贴错等场景需要（例: 实际是这个SKU：M010000000008905018 / 对应sku是M010000000010527886）
+
+                    ### 场景: 批量辨识商品后补贴商品条码及包裹条码上架 (key: inbound_batch_identify_relabel_barcode)
+                    类别: 入库
+                    识别信号:
+                      强信号: 批量辨识、补贴商品条码、补贴包裹条码、辨识后补贴、提供对应关系、辨识结果对应关系、补贴新的包裹标签
+                      弱信号: 辨识商品、辨识方法、辨识结果、开箱辨识、回传辨识结果
+                    排除信号: 尺重、换标、整柜、串仓、调拨、自提、仅拍照、无主货、预报不符、下架后
+                    必填信息:
+                      1. 异常单号: 需要处理的异常单号，可能是单个或多个（例: EB0126060730201747 / EB0326082832570646等13个异常单 / EB0126080531931139 EB0126080531930887）
+                      2. 新入库单号: 辨识后需要上架到的新入库单号（例: WI49129442 / WI52072412 / WI51456187）
+                      3. 商品条码/SKU编码: 辨识后确认的商品条码或SKU编码信息（例: M010000000008217667 / M010000000012343656 / 4302121P1:M010000000013922078）
+                      4. 辨识方法/对应关系: 如何辨识商品的方法说明,包括外箱标记、标签位置、示例图等（例: 标签上有T3或B3字样,T3对应TB-NWLJG-T3B / 通过外箱标记的A、B去辨识,圆圈白色A纸箱产品为M010000000012591892 / 4403111P3对应纸箱5k）
+                      5. 处理数量: 需要处理的包裹/商品数量（例: 2款SKU各一件 / 16psc里面有2款sku / 80个包裹,一箱16件,预计是1280）
+                    可选信息:
+                      1. 包裹条码: 新单的包裹条码信息（例: B0400000001397157914 / B0400000001444620666 / B0400000001408012267）
+                      2. 标签贴法说明: 标签粘贴的具体要求,如随机贴或按对应关系贴（例: 整单只有1款sku,包裹无须对应关系贴。随机贴就可以了 / 按照这个方式辨识后对应补贴winit包裹标签 / 按实物标签对应）
+                      3. 包装处理要求: 是否需要更换包装、加快递袋等（例: 找合适的快递袋装袋 / 需加快递袋包材 / 对应异常单是包裹条码异常无法选择补贴商品条码处理;加上需辨识对应后再补贴,加快递袋打包）
+                      4. 质检要求: 是否需要检查良品/不良品（例: 请仓库实物是否是良品,良品就直接上架,不良品登记异常再重新处理新单上架）
+                      5. 原单号: 原入库单号信息（例: 原单WI50320537整单未验货 / 原入库单[WI50216828] / 库单WI49349885移仓进来的）
+                      6. 单品条码处理: 涉及单品条码的扫描或补传（例: 仓库重新扫描实物上的SN码上架 / 对应的SN码已在系统操作补传 / 根据实物上的单品条码识别）
+
+                    ### 场景: 收集SN码 (key: inbound_collect_sn)
+                    类别: 入库
+                    识别信号:
+                      强信号: SN码、采集SN、收集SN、无法识别的SN、SN码表、导入系统绑定、采集条码
+                      弱信号: 发货仓出库、无法提供、采集后、绑定后重新上架、导入系统
+                    排除信号: 尺重、换标、质检、拍照、自提、串仓、辨识、包裹条码、商品条码、换商品标签
+                    必填信息:
+                      1. 采集数量/范围: 需要明确采集多少件商品的SN码，或者涉及多少箱/包裹（例: 257件 / 368件库存 / 46箱货物）
+                      2. SN码位置/采集方式: 说明SN码在哪里（外箱箱唛、彩盒外侧、商品本体等），如何采集（例: SN数据在外箱的箱唛上有，可直接采集箱唛上的 / SN在彩盒外侧 / 扫描SN）
+                      3. 采集后处理动作: 采集完SN码后需要做什么：导入系统绑定、返回给客户、做成表格反馈等（例: 采集后导入系统绑定后重新上架 / 采集后将数据返回国内 / 做成表格反馈）
+                      4. 采集原因/背景: 为什么需要采集SN码：发货仓无法提供、包装破损需更换、异常单无法识别等（例: 发货仓出库无法提供完整的SN码表 / 外包装破损，需采购客制包材过来更换上架 / 包裹条码异常需核实箱内sku）
+                      5. 关联单号: 涉及的入库单号、异常单号等具体单据编号（例: WI49136073入库单 / 异常单EB0126070931145721 / 异常单EB0126070331023315）
+                    可选信息:
+                      1. 是否需要拍照: 明确说明采集过程中是否需要拍照留存（例: 不需要拍照 / sn示例如附件）
+                      2. SN码与包裹条码对应关系: 是否需要记录每个包裹条码对应的SN码清单（例: 告知每个WB条码，对应的箱内69码是哪个，做成表格反馈）
+                      3. 后续增值操作: 采集SN后是否还有其他增值服务需求（如更换包装、补贴标签等）（例: 等纸箱采购到仓后，再做库内增值更换客制纸箱 / 先提供SN再添加包材补贴标签上架 / 客户建海外验入库单同时导入第三方单品条码，仓库根据新单补贴包裹条码）
+
+                    ### 场景: 上架前销毁 (key: inbound_destroy_before_shelve)
+                    类别: 入库
+                    识别信号:
+                      强信号: 销毁、上架前销毁、部分销毁、全部销毁、剩余货物上架、标注销毁的包裹
+                      弱信号: 部分货物、剩余货物、做销毁处理、增值-销毁
+                    排除信号: 换标、补贴标签、尺重、辨识、质检、自提、拍照、开箱、换商品标签
+                    必填信息:
+                      1. 销毁对象范围: 明确指定需要销毁的货物范围，可以是SKU、包裹号、数量或整单（例: 独立包装螺丝一件 / 4件受潮变形的 / 50箱左右的不良品）
+                      2. 销毁原因: 说明为什么需要销毁，如货物质量问题、混装错误、查验风险等（例: 受潮变形不能再进行售卖 / 不良品 / 并非我司货物）
+                      3. 剩余货物处理方式: 明确销毁后剩余货物是否需要上架及上架到哪个入库单（例: 剩下1款SKU贴有ZBJ-PJ-038 - M010000000009976451全部扫描上到原单：WI48784296 / 正常的2件上架到入库单WI49068271 / 其余已关联，麻烦扫描上架在WI49288565）
+                    可选信息:
+                      1. 识别方式: 如何识别需要销毁的货物，是否需要拆箱检查（例: 外包装就可以看得出来；不需要拆箱 / 附件上传螺丝产品图，指定这1件进行销毁 / 根据历史拍照增值VASC000000270000 的图片编号以及文件里面整理出的图片编号对应的动作指令）
+                      2. 关联包裹/容器号: 涉及的具体包裹号、容器号或LPN号（例: 对应包裹：B0400000001390465167 / 包裹B0400000001396007328 / 整单A+包裹）
+                      3. 补贴标签要求: 销毁部分货物后，剩余货物是否需要补贴或更换标签（例: 补贴包裹标签，用新标签覆盖原标签，包裹标签已经上传附件pdf）
+                      4. 时效要求: 是否有特殊的时间要求或紧急程度说明（例: 订单预计5.29到港，需提前确认以上需求是否能操作及预估费用的）
+
+                    ### 场景: 组合后上架 (key: inbound_kit_then_shelve)
+                    类别: 入库
+                    识别信号:
+                      强信号: 组合后上架、组包后上架、打包为一个单品、装到彩盒、散件分成、组套、商品组合拆分费
+                      弱信号: 配件、打包、包装、气泡袋、彩盒、组包
+                    排除信号: 换标、补贴条码、辨识、串仓、调拨、自提、仅更换包装、仅贴标签、直接上架全部商品、不涉及组合
+                    必填信息:
+                      1. 组合数量: 需要明确组合/组装的商品件数或套数（例: 共计150件成品 / 共计104件 / 100件商品）
+                      2. 组合规则: 说明几个配件/商品组合成几个单品，或者组合的具体方式（例: 以4件作为1PCS售卖 / 按照12pcs/托加上卡板套组托操作 / 每8个放一起用黄色气泡袋包好）
+                    可选信息:
+                      1. 包材类型: 组合时使用的包装材料，如彩盒、气泡袋、快递袋、纸箱、卡板套等（例: 装到彩盒里 / 用黄色气泡袋包好 / 用快递袋打包）
+                      2. 剩余商品处理: 不参与组合的商品如何处理（例: 另外3个配件需销毁 / 10个完好的黄色袋子直接扫描上架 / 订单其余商品直接上架，不需要组套服务）
+                      3. 标签贴法: 组合后的标签如何加贴（例: 贴上产品标M010000000003195237 / 箱唛和产品标签要加贴在托盘缠膜上 / 产品外箱不要加贴任何标签）
+                      4. 目标入库单: 组合后上架到哪个入库单（例: 上架到WI49567863 / 上架到新的入库单：WI51559688 / 上架到原单）
+                      5. 源异常单号: 涉及的异常单或入库单号（例: 异常单EB0126052229699991 / 异常单EB0126042329011731 / WI50447882、WI50447763、WI50447735这三个入库单）
+
+                    ### 场景: 包裹串仓异常调拨 (key: inbound_parcel_cross_warehouse_transfer)
+                    类别: 入库
+                    识别信号:
+                      强信号: 串仓、调拨、送错仓库、目的仓库、摆渡车、库间调拨、转至、仓间调
+                      弱信号: 更换入库单、新入库单、原单终止、距离较远、贴面单、暂存等快递、转到DG仓、转回DG仓、DG仓、DG品、转到、转回
+                    排除信号: 换标、补贴商品条码、质检、拍照、下架、关联第三方条码、辨识、尺重、无主货、SKU不符
+                    必填信息:
+                      1. 异常包裹编号: 需要明确哪些包裹/箱子发错仓库了，可以是EB单号、箱唛编号或入库单号（例: EB0126062430696495 / EB0126070230983595 / 箱唛编号：B0400000001428392495）
+                      2. 目的仓库: 需要明确包裹应该转到哪个仓库，必须提供仓库代码（例: USWC2仓 / DEBR2仓 / DE Warehouse）
+                      3. 目标入库单号: 包裹在目的仓库应该上架到哪个入库单（例: WI50892274 / WI49687657 / 按照失败做上架）
+                      4. 当前所在仓库: 包裹实际发到了哪个错误的仓库（例: 货物运抵USWC仓库 / 整单发到了DE仓 / USKY3串去USWC）
+                    可选信息:
+                      1. 是否需要更换标签: 是否需要更换包裹标签、单品条码等，特别是单品化管理的SKU（例: 贴包裹便签 / 补贴winit包裹标签 / 需要更换包裹条码以及单品条码）
+                      2. 特殊货物属性: 货物是否有特殊属性，如DG品、小件、退货等（例: 3箱小件货品 / 货物实际是DG品 / 原出库单派送失败退回）
+                      3. 处理范围说明: 明确是整单处理还是部分箱子处理（例: 整单发到了DE仓 / 124箱，其中包含3箱小件 / 这3箱小件不上架直接贴包裹便签调拨）
+                      4. 商品清单: 涉及的具体SKU和数量信息（例: HRL-004：12件 20pcs：200件）
+
+                    ### 场景: 清除标签 (key: inbound_remove_label)
+                    类别: 入库
+                    识别信号:
+                      强信号: 清除标签、覆盖标签、UN标签、电池标签、热风机、DG类标签、空运标签、提示标签覆盖
+                      弱信号: 外箱标签、包裹标签粘贴、商品标签粘贴、黑色标签覆盖、白色标签纸、标签吹掉
+                    排除信号: 换标上架、补贴商品条码、补贴包裹条码、辨识后、串仓、质检、拍照、暂存、调拨、自提
+                    必填信息:
+                      1. 标签类型: 需要清除/覆盖的标签类型，如电池标签、UN标签、商品条码、包裹条码等（例: 外箱贴有电池标签 / UN标签 / 商品条码标签）
+                      2. 处理范围: 需要处理的箱数、件数或入库单号（例: 24箱包裹 / 68箱 / 一共234箱）
+                      3. 包装等级: 包裹的包装等级，如A+包裹、A包裹等（例: A+包裹 / A包裹 / 24箱包裹等级都为A+包裹）
+                      4. 清除方式: 使用热风机清除还是标签覆盖（例: 申请移除 / 申请覆盖 / 使用空白标签清除/覆盖）
+                    可选信息:
+                      1. 标签位置: 需要清除/覆盖标签的具体位置或数量（例: 外箱上的7处UPC码需要用标签覆盖 / 4处产品描述X1覆盖改成V3 / 保留WI50035957的包裹条码标签）
+                      2. 新标签要求: 覆盖时使用的新标签类型或内容（例: 用【外箱中性标签_40002002.0023_UPC】覆盖 / 标签文件【30x22mm标签-V3】 / FNSKU标签需要自动生成进行更换）
+                      3. 操作时机: 是否需要在上架前操作、是否加急等（例: 需要加急上架 / 上架之前清除/覆盖商品条码 / 已覆盖完成上架，补收费用）
+                      4. 特殊操作要求: 需要拍照确认、注意事项等（例: 先操作1pcs反馈照片，再确认后续操作 / 换标后请拍摄1张换标后的小商品照片给我们看下 / 注意标签尺寸，仓库如果没有完全匹配的标签文件，可以适当进行剪裁）
+                      5. SKU信息: 涉及的具体SKU编号（例: M010000000007927212，10件 / M010000000010395389=72箱 / T2080111-F,T2353111-F,T2080111-F0三个sku一共214箱）
+
+                    ### 场景: 补贴透明标签 (key: inbound_transparent_label)
+                    类别: 入库
+                    识别信号:
+                      强信号: 透明标签、透明计划标签、透明计划二维码、热敏纸打印、5*2.5cm、按顺序贴、单品级别、不能重复贴
+                      弱信号: 补贴标签、整柜、商品条码旁边、同一平面、贴好后上架
+                    排除信号: 尺重、辨识、换标、包裹条码、串仓、自提、质检、拍照、暂存、下架
+                    必填信息:
+                      1. 补贴数量: 需要补贴透明计划二维码标签的具体数量（件数/箱数）（例: 120件 / 330件 / 整柜1222个）
+                      2. 标签类型: 明确是透明计划二维码标签（例: 透明计划二维码标签 / 透明标签）
+                      3. 粘贴规则-不可重复: 强调标签不能重复粘贴，每个标签都是唯一的（例: 不可重复贴 / 只要不粘贴重复就好 / 一箱贴一个，不可重复贴）
+                      4. 粘贴顺序要求: 需要按照二维码标签顺序依次粘贴（例: 需按照二维码标签顺序贴 / 一箱贴一个）
+                      5. 入库单号/商品信息: 指定需要处理的入库单号（WI开头）或商品编码（例: WI49948415 / 商品：M010000000010712079 / WI49943197）
+                    可选信息:
+                      1. 标签材质规格: 透明计划二维码需使用热敏纸打印，标签尺寸5*2.5cm（例: 透明计划二维码需使用热敏纸打印 / 标签纸的尺寸使用5*2.5cm）
+                      2. 粘贴位置要求: 二维码要贴在商品条码标签旁边，并在同一平面（例: 二维码要贴在商品条码标签旁边，并在同一平面 / 不指定标签粘贴的位置）
+                      3. 标签对应关系: 商品条码标签要对应透明计划二维码，不要弄混（例: 商品条码标签要对应透明计划二维码。二维码要贴在商品条码标签旁边，并在同一平面；不要弄混！）
+                      4. 到货时间提醒: 货物预计到仓时间，提醒仓库关注（例: 货物预计在7.9送到仓库来，麻烦关注 / 货物在7.3送到仓库来，麻烦关注 / 货物在6.26送到仓库来，麻烦关注）
+                      5. 标签文件: 提供PDF格式的标签文件作为附件（例: 附件是PDF）
+
+                    ### 场景: 拆包/拆箱上架 (key: inbound_unpack_shelve)
+                    类别: 入库
+                    识别信号:
+                      强信号: 拆包、拆箱、拆中箱、拆外箱、包中包、拆箱箱数、拆除纸箱、拆开包装
+                      弱信号: 上架前、箱型、中箱、外箱、大箱、纸箱垃圾
+                    排除信号: 换标、补贴条码、辨识、质检、拍照、自提、尺重、标签异常、无主货、SKU不符
+                    必填信息:
+                      1. 拆箱层级: 需要明确拆到什么程度：拆外箱保留内包、拆中箱、拆到单品、拆除彩盒/外膜等（例: 拆开2个中性的包装盒 / 拆除外箱和中箱 / 需要拆除中箱，上架中箱内的单一产品）
+                      2. 拆箱数量: 需要知道具体拆多少个箱子/盒子/包装（例: 2个中性的盒子 / 中箱总数量20个 / 共计要拆除彩盒包装有275盒）
+                      3. 拆后处理方式: 拆箱后如何处理内部商品：原单上架、补贴新标签、按单品上架、扫描内部条码等（例: 拆开后20个单品按新单：WI50181090 补贴包裹标签操作上架 / 将内部M010000000010469021，20件，上架到WI49481070 / 补贴1张包裹条码于彩盒顶部）
+                    可选信息:
+                      1. 包装层级关系: 说明包中包的具体结构，如大箱-中箱-单品的层级关系（例: 包中包场景，需明确拆哪个包 / 大箱内还有中箱 / 外箱没有包裹条码，里面的产品每个SKU都用袋子单独装起来了）
+                      2. 拆箱原因: 说明为什么需要拆箱：标签无法扫描、包装破损、出库需按单品出、工厂合并打包等（例: 彩盒上有缠膜，标签无法扫描 / 快件破损，原包裹规格6个装，包裹破损丢失1个产品 / 被工厂合并打包了）
+                      3. 拆后垃圾处理: 拆除的包装材料如何处理：销毁、压平收集等（例: 如果有盒子的都销毁掉外面的盒子 / 拆除另外一边的地脚找一个和柜子底面积差不多的托盘放上去）
+                      4. 操作后拍照反馈: 要求操作完成后拍照确认（例: 操作完成后选3pcs拍照反馈 / 对应重新打托前拍个照片返回的）
+                      5. 异常单处理: 涉及异常单时需要关闭异常或变更状态（例: 将异常单状态变更为仓库已完成，关闭异常单 / 上架完成后关闭异常 / 关闭异常单）
+
+                    ### 场景: 商品拆箱加/减配件 (key: instock_add_remove_accessories)
+                    类别: 库内
+                    识别信号:
+                      强信号: 拆箱、加配件、减配件、还原包装、在库SKU、封箱
+                      弱信号: 下架、上架原库位、工时费、销毁费
+                    排除信号: 入库预报、到货、换标、补贴标签、质检、串仓、辨识、拍照、自提、调拨
+                    必填信息:
+                      1. 处理数量: 需要明确处理多少件/套产品（例: 总1028件产品需要返工处理 / P010018508BUK 47个 P010018408BUK 77个 / 50套错误的产品）
+                      2. 加减配件操作说明: 需要说明具体加什么配件、减什么配件、如何操作（例: 拆开包裹，取出里面的充电器，并弃置该充电器；将USB线（SKU：P060044701）放进包裹中 / 把其中错误的2个零件替换掉 / 更替产品介绍标签）
+                      3. 原SKU信息: 需要明确原来的SKU或M码（例: P010018508BUK 47个 P010018408BUK 77个 / X004XH2041对应M码：M010000000011757224 / M010000000009973294（100件））
+                      4. 新SKU信息: 操作完成后按什么SKU上架（例: P010018508BUK 对应导出 P010018508B 条形码 / 更换为新产品标签：X0054Z3TB9 / 按新SKU：M010000000011875957 上架）
+                      5. 配件来源: 需要说明加的配件从哪里来（仓库已有、客户寄送等）（例: 正确的零件已经在USKY3仓库了【商品编码：YBD832-PJ001 对应M码：M010000000010678378】 / 物料标签纸M010000000010703445-70X （1件，注意：开箱后里面是136张标签纸，只需要用100张） / 工具以及新的螺丝已经寄到仓库）
+                      6. 减配件处理方式: 拆下来的配件如何处理（销毁、上架、退回等）（例: 换下来的错误零件直接弃置 / 操作完成后A齿轮可销毁 / 拆下来的配件如要贴标上架则按贴标0.35USD/件收取）
+                    可选信息:
+                      1. 操作SOP文档: 提供详细的操作步骤文档或视频（例: 更换配件可以看提供excel表格，里面有详细步骤，也可以看上传的视频 / 按照附件SOP操作 / 操作sop见附件）
+                      2. 标签更换要求: 是否需要更换产品标签、标签格式、贴法等（例: 换标操作：系统导出对应新SKU的产品标签并换标 / 标签已上传，标签格式60*40mm / 补贴两张标签）
+                      3. 外箱标签要求: 是否需要更换外箱标签、箱唛（例: 外箱标签需要将50套产品全部更换好配件和标签后给我装箱的数量和尺寸、重量；我再提供外箱标签 / 附件有上传新单箱唛PDF，麻烦新单上加）
+                      4. 操作时间要求: 是否有操作时效要求（例: 返工计划7个工作日内完成）
+                      5. 场地/工具需求: 是否需要仓库提供场地、桌子等辅助资源（例: 需要仓库提供3张桌子，以及（200平）场地，返工使用工具包自备）
+                      6. 剩余物料处理: 操作后剩余的物料如何处理（例: 标签纸M010000000010703445-70X 剩下（36张）1件，与更替产品介绍标签的货物M010000000011875957（100件），新单上架 / 标签纸M010000000010703445-70X 剩下（10张）1件）
+
+                    ### 场景: A+包裹更换标签上架 (key: instock_aplus_parcel_relabel_shelve)
+                    类别: 库内
+                    识别信号:
+                      强信号: A+包裹、更换标签、B040、补贴商品标签
+                      弱信号: 标签异常、条码更换、入库单、包裹条码、新入库单、箱产品、按箱产品、重新装箱、整箱出库、误下为A包裹
+                    排除信号: 尺重、辨识、串仓、调拨、自提、质检、拍照、暂存、下架、无主货、错装
+                    必填信息:
+                      1. 新入库单号: 需要上架到的目标入库单号（WI开头）（例: WI50817546 / WI52192112 / WI49560098）
+                      2. 原单据号: 原退货单号、原入库单号或异常单号，用于定位需要处理的包裹（例: RT16000300942691CN / WI51878253 / EB0126042429047371）
+                      3. 处理范围: 需要处理的包裹数量或SKU信息（例: 4个sku / 8个包裹都是同个sku / 里面有产品CLY206数量1,CLY141数量3）
+                    可选信息:
+                      1. 是否需要补贴商品标签: 明确是否需要在更换A+包裹标签后补贴商品条码标签（例: 单品条码重新补贴上架 / 补贴A+包裹条码标签 / 需重新补贴A+包裹条码）
+                      2. 标签对应关系: 当有多个SKU时，如何对应粘贴标签（例: 参考实物上的M码对应粘贴即可）
+                      3. 拆箱/重新装箱要求: 是否需要拆箱分别上架或重新装箱（例: 拆箱上架到新入库单号 / 需要重新装箱到5号箱，空出部分需要装填气泡填充物）
+                      4. 异常原因说明: 为什么需要更换标签的背景原因（例: 下单误下为A包裹，实际是需要整箱出库的 / A+包裹条码错误贴成A包裹条码 / 库内丢失了2pcs）
+                      5. 关闭异常单要求: 完成后是否需要关闭相关异常单（例: 上架完成后关闭异常单EB0126042429047371）
+
+                    ### 场景: 商品外观辨识+贴标上架 (key: instock_appearance_identify_label)
+                    类别: 库内
+                    识别信号:
+                      强信号: 外观辨识、条码辨识、开箱辨识、辨识方法、辨识结果、库内商品、确认商品身份、辨识后贴标
+                      弱信号: 示例图片、实物照片、型号特征、颜色尺寸、吊牌标签、比对、左边、右边、分别贴、漏气、不漏气、加快递袋、错装、按实际SKU
+                    排除信号: 入库预报、到货、收货、串仓、调拨、整柜、尺重、无主货、第三方条码、换入库单
+                    必填信息:
+                      1. 辨识对象范围: 需要明确辨识哪些商品，通过SKU/商品条码/包裹码/入库单号等方式指定（例: M010000000005116232 单品化管理，共计27个 / M010000000010461098，M010000000010461100 / 入库单：WI49579205 包裹码：B0400000001405265238...）
+                      2. 辨识方法/依据: 如何识别商品身份，包括外观特征、条码位置、标签信息、示例图片等（例: 正确商品为：1个插口，错误商品为2个插口 如示例图片 / M010000000010461098该sku的货物彩盒背面写着Blue字样 / 通过外箱是否有商品条码辨识包裹为A包还是A+包）
+                      3. 辨识后处理动作: 辨识完成后对不同结果的商品如何处理（换标/上架/盘亏/弃置等）（例: 1个插口正确商品正常返仓上架，2个插口错误商品数量盘亏并更换产品标签 / sku信息正确则上架回原sku，sku错误则更换标签后上架 / 如是B07PYNHJSW，粘贴M010000000006335546的A+包裹条码标签返架）
+                      4. 新入库单号: 辨识后商品需要上架到的目标入库单号（例: 入库单：WI49853198 上架 / 上架到新入库单：WI49359694 / 新入库仓内上架单：WI50004608）
+                      5. SKU对应关系: 辨识结果与正确SKU/商品条码的对应关系（例: 更换产品标签为：TX1-4602863AB-9+3PIN-1 M010000000005116220 / 左侧大孔对应sku：D2.QCLMZQ46.H-LH - M010000000006719869 / M010000000006335546对应的正确FNSKU条码应为B07PYNHJSW）
+                    可选信息:
+                      1. 是否开箱: 是否需要拆开外箱或包裹进行辨识（例: 拆箱拍产品实物照 / 需打开B0400000001420000672、B0400000001420000685、B0400000001420000690三只A包 / 找包裹并拆包辨识）
+                      2. 拍照要求: 是否需要拍摄实物照片及具体拍照要求（例: 每款商品至少拍摄 1 张实物照片 / 拍外箱标签+箱内产品实物照：两款SKU产品每箱都要拍这两种照片 / 每箱拍一张照片，证明混装即可）
+                      3. 异常处理方式: 辨识过程中发现异常如何处理（例: 不一致的场景下直接登记库内异常商品错装 / 辨识到错装的仓库就登记错装异常，客户根据异常单处理 / 若发现存在屏幕破损、脱落等影响产品正常销售的情况，则将破损商品替换）
+                      4. 包装加固要求: 辨识后是否需要对商品进行特殊包装处理（例: 将其中完好的产品使用气泡膜等软性填充物把屏幕顶部填充满，防止屏幕受到伤害）
+                      5. 辨识结果反馈要求: 需要反馈哪些辨识结果信息（例: 反馈正确和错误商品数量 / 登记具体的商品明细（每个SKU分别是什么均有多少件）反馈到异常群 / 增值完成需反馈辨识结果和数量）
+                      6. 下架单号: 如需先下架再辨识，提供的下架出库单号（例: 下架出库单号（单号：WO12168077473） / 出库下架单：WO11454159870 / 出库下架单：WO11454918423）
+
+                    ### 场景: 异常重新拍照 (key: instock_exception_rephoto)
+                    类别: 库内
+                    识别信号:
+                      强信号: 重新拍照、原拍照问题、拍照不满足要求、按新要求重新拍摄、照片命名、拍照后返回上架
+                      弱信号: 库内、异常编号、提交客户确认、下架拍照、原库位
+                    排除信号: 入库、换标、补贴标签、辨识、质检、调拨、暂存、自提、预报、串仓
+                    必填信息:
+                      1. 异常编号: 需要明确指出哪个异常单需要重新拍照（例: EB0126061030292623 / EB0526061630461313 / EB0526062530720477）
+                      2. 拍照对象范围: 需要说明拍照的具体对象和数量，如随机一件、每箱一个、全部产品等（例: 随机拆开一件单品 / 每箱拆开一个单品 / 拿1套）
+                      3. 拍照具体要求: 需要明确拍照的角度、部位、细节等具体要求（例: 看下产品的颜色 / 包的6面图 / 吉他正反面局部图细节）
+                    可选信息:
+                      1. 拆包程度: 说明需要拆到什么程度，如只拆外包装、拆开彩盒等（例: 只拆外面的快递包装袋 / 拆开彩盒）
+                      2. 辨识要求: 是否需要扫码辨识或通过照片辨识SKU（例: 要扫码辨识，然后反馈异常单号分别对应的照片和SKU及数量 / 需要开箱拍照辨识 / 辨识下货物）
+                      3. 后续处理: 拍照后是否需要更换包装、重新贴标等额外操作（例: 更换包装，重新贴标入库）
+
+                    ### 场景: 异常商品转不良品上架 (key: instock_exception_to_defective_shelve)
+                    类别: 库内
+                    识别信号:
+                      强信号: 不良品上架、转不良品、盘亏L007、解冻、无箱单预报单、不需要贴商品标签、只收取出库处理费
+                      弱信号: 异常商品、下架更换、新入库单、整单上架、良品检查后发现问题
+                    排除信号: 换标、补贴条码、拍照、质检、自提、串仓、辨识、SKU不符、关联第三方条码、更换SKU
+                    必填信息:
+                      1. 异常单号: 需要处理的异常单号（EB开头），可能是单个或多个（例: EB1226051929553915 / EB0526061130339645 / EB0126060129969286等9个异常单）
+                      2. 新入库单号: 用于不良品上架的新入库单号（WI开头），必须是无箱单预报单（例: WI49974000 / WI50511367 / WI50271247）
+                      3. 异常原因: 导致需要转不良品的具体原因，如破损、条码缺失/无法扫描等（例: 产品破损严重外箱无法扫描SN码 / 货物有部分有破损 / 无商品条码）
+                    可选信息:
+                      1. 涉及SKU: 异常商品的具体SKU编号（例: M010000000005125352 / M010000000005169112 / M010000000009282066）
+                      2. 特殊处理要求: 除标准流程外的额外操作要求，如补贴标签、加快递袋等（例: 需按对应关系补贴商品标签 / 破损商品加快递袋后上架 / 补贴原商品条码）
+                      3. 异常数量: 涉及的异常商品具体件数（例: 16pcs产品破损 / 有4件不良品）
+                      4. 关联出库单: 如果是因出库拣选发现异常，会提到原出库单号（例: 订单WO11365273924拣选时发现）
+
+                    ### 场景: 良品/不良品检测 (key: instock_good_defective_inspection)
+                    类别: 库内
+                    识别信号:
+                      强信号: 检测、质量检测、发霉检查、损坏检查、判定标准、解冻
+                      弱信号: 良品、不良品、下架、冻结、暂存区、物理隔离、实物照片、返回原库位
+                    排除信号: 换标、补贴条码、辨识、串仓、自提、预报、上架到不良品、上架不良品、转不良品、入库单号、新到货、收货、质检报告
+                    必填信息:
+                      1. 检测SKU及数量: 需要检测的SKU代码和对应数量或下架单号（例: M010000000007778989*180 / M010000000010479650 库存数量：1206pcs / T2353G11改制为T2353V11）
+                      2. 检测/改制操作步骤: 具体的检测或改制流程，包括拆箱、检查、更换配件、重新封装等详细步骤（例: 1、拆外箱,用刀片划开外纸箱工字型透明胶带；2、拿5张贴纸,对外纸箱编号 / 1、开箱将外箱里面的彩盒倒出，注意彩盒需倒在干净的纸皮上 / 1、拆箱将物料取出保留复用、将基站外PE袋拆开）
+                      3. 判定标准或改制目标: 良品/不良品的判定标准，或改制后的目标SKU/状态（例: T2353G11改制为T2353V11 / T2081G11需库内改制成T2081B11发货 / A1681H12改制为T2353V11）
+                    可选信息:
+                      1. 客户到仓操作: 是否需要客户方人员到仓进行专业检测或操作（例: anker安排专业人员来检测 / anker预计今天、下周2、周三安排5位工作人员到仓做检测处理 / anker需要对商品进行检测（anker安排一位专业人员到仓做检测））
+                      2. 场地及设备需求: 需要仓库提供的操作场地面积、工具、设备等（例: 需要仓库配合提供操作场地60平 / 真空机需仓库操作 / 需要winit协助提供一个临时办公桌）
+                      3. 仓库人员协助: 是否需要仓库安排人员协助操作（例: 把货物下架、拉运和检测完成拉回上架的 / 另外安排一位winit员工协助拿货拆箱）
+                      4. 操作时间要求: 预计到仓时间、操作时长、完成时间等（例: 需求时间：最早是5月份的最后一周 / 预计到仓时间7.23号，预计一天可以完成检测 / anker预计今天、下周2、周三安排5位工作人员到仓做检测处理）
+                      5. 配件/物料提供方: 改制所需的新配件、标签等由谁提供（例: 配件、标签客户会提供 / 用最近新到的这个标签 / 将打印好的SKU贴纸（T2353V11）覆盖在原本的彩盒和外箱上）
+                      6. SN码核对要求: 是否需要核对产品SN码与包装SN码一致性（例: 需核对彩盒上的SN码与扫地机盒上的SN码是否一致 / 检查墨盒标签和彩盒标签SN码相同 / 注意墨盒从哪个彩盒拿出来,就要放回原彩盒,并核对墨盒SN码与彩盒SN码相同）
+                      7. 编号标记要求: 是否需要对外箱或产品进行编号标记以便追溯（例: 拿5张贴纸,对外纸箱编号(123...),一式五份写相同编号,分别贴在纸箱和套装彩盒上 / 拿7张贴纸,与套装编号相同,贴在单支彩盒白色标示位置）
+
+                    ### 场景: 良品转不良品上架 (key: instock_good_to_defective_shelve)
+                    类别: 库内
+                    识别信号:
+                      强信号: 良品转不良品、库存属性改成不良品、单品包装破损异常、库内待复核的非丢失类异常、复核时确认为不良品、不良品存储、上架到不良品、上架不良品
+                      弱信号: 退货单、更换新入库单、非标增值上架、A+包裹、无法直接选择更新上架
+                    排除信号: 尺重辨识、批量辨识商品、海运整柜、串仓调拨、自提、质检、换标、补贴标签、无主货、SKU不符
+                    必填信息:
+                      1. 目标入库单号: 需要明确商品要上架到哪个不良品入库单/预报单（例: 入库单号WI51908492 / 入库单WI50591614 / 新入库单WI51427083）
+                      2. 处理对象标识: 需要明确是哪些商品/箱码/SKU需要转不良品，可以是箱码、异常单号、SKU编码等（例: EB0526081332214735 / M010000000008453352 / 61pcs T520QJ20（M010000000011878557））
+                      3. 转换原因/背景: 说明为什么要从良品转不良品，如库内破损、误操作上架、质量异常、包装问题等（例: 库内破损异常 / 误操作将库存上架为良品库存，实际产品都判定为不良品 / 库内单品质量异常）
+                    可选信息:
+                      1. 是否需要补贴标签: 部分情况需要补贴商品条码、包裹标签或SN标签后再上架（例: 需要补贴商品条码上架到不良品 / 补贴包裹标签，标签见附件 / 需要更换一个外箱，采集SN上架到不良品库位）
+                      2. 原入库单信息: 当涉及重新上架时，需要说明原来是从哪个入库单上架的（例: 原单WI50048193 / WI50591614这个入库单上架的61pcs / 然后仓库重新用原入库单WI50351073上架）
+                      3. 后续处理要求: 转不良品后的进一步操作，如盘亏处理、退回国内、防止混放等（例: 不良品做盘亏L007处理 / 后续需要退回国内 / 为防止同款产品亚马逊移除订单入库后与原库存混放）
+                      4. 数量信息: 需要转不良品的具体数量（例: 61pcs / 共计2pcs / 10个箱码）
+                      5. 是否需要换标: 少数情况需要更换SKU标签（例: 原sku9345750988194需要换标成9345750052864）
+
+                    ### 场景: 辨识拍照后销毁 (key: instock_identify_photo_then_destroy)
+                    类别: 库内
+                    识别信号:
+                      强信号: 销毁、辨识后销毁、拍照后销毁、辨识拍照销毁、找出后销毁
+                      弱信号: 找出库内、辨识、拍照、根据客户要求、L007盘亏
+                    排除信号: 换标、补贴标签、重新上架、入库、调拨、质检、暂存、自提、下架
+                    必填信息:
+                      1. 处理范围: 需要明确处理的商品SKU/包裹号和数量（例: 库内库存39件 / 12件 / 10个产品）
+                      2. 辨识标准: 判断商品好坏的具体标准，如检查发霉、变形、包装颜色、彩卡尺码等（例: 检测产品包装是否发霉 / 辨识彩卡，彩卡如附件示例图 / 橙色包装的销毁，蓝色包装的上架）
+                      3. 销毁条件: 明确哪些情况下需要销毁，哪些情况可以保留上架（例: 如果眼镜和软盒都发霉，做销毁处理 / 如果彩卡上是其他任何尺码，直接弃置销毁 / 橙色包装的销毁）
+                      4. 辨识结果反馈要求: 需要反馈各类情况的数量统计（例: 增值完成需反馈辨识结果和数量 / 只需要告诉我以下类型的数量有多少 / 需要拍照反馈橙色包装有多少）
+                    可选信息:
+                      1. 拍照要求: 是否需要拍照以及拍照的具体要求（例: 全程不需要拍照 / 需要拍照反馈橙色包装有多少 / 整体拍一张照片即可）
+                      2. 良品处理方式: 辨识后良品的具体处理方式，如换包装、贴标、关联入库单等（例: 重新用你们的包材贴标上架 / 用我们库内的1号纸盒装，然后贴原产品标签：TCA5354-L02 / 上架到WI49471112这个入库单）
+                      3. 分层辨识逻辑: 需要分多层检查的情况，如外包装、内包装、产品本体的分别判断（例: 查看发霉的产品包装，请确认黑色软盒里的眼镜和黑色软盒是否发霉 / 硬包装盒发霉，软包装是没有发霉的，硬包装丢掉 / 眼镜硬盒和软盒都发霉 但是眼镜没有发霉 这种情况下也做销毁处理）
+
+                    ### 场景: 库存冻结/解冻 (key: instock_inventory_freeze_unfreeze)
+                    类别: 库内
+                    识别信号:
+                      强信号: 库存冻结、库存解冻、冻结库存、解冻库存、指定S码冻结、指定S码解冻、StorageFrozen
+                      弱信号: 冻结原因、冻结操作、解冻操作、库存操作、TOM系统
+                    排除信号: 入库预报、换标、辨识、质检、拍照、下架、调拨、自提、条码
+                    必填信息:
+                      1. SKU编码: 需要冻结或解冻的SKU编码，可能是M码或其他编码（例: M010000000010306532 / M010000000007778991 / M010000000005070263）
+                      2. 操作类型: 明确是冻结还是解冻操作（例: 冻结 / 解冻 / 指定单品解结）
+                      3. 数量: 需要冻结或解冻的具体数量（例: 2pcs / 973pcs / 120pcs）
+                      4. 冻结/解冻原因: 说明为什么要进行冻结或解冻操作的背景原因（例: 客户反馈WI50505305、WI50505278这两单入库的货物有问题 / 因批次异常 / 疑似商品可能有漏液等情况）
+                    可选信息:
+                      1. 指定单品条码/S码: 是否需要按指定的单品条码或S码进行冻结/解冻（例: S500089000547639616 / S500090000547639615 / 附件表内的500条单品条码）
+                      2. 批次信息: 针对入库批次管理的SKU，需要指定批次号进行冻结/解冻（例: ID20260706 / ED20270511 / ED20270512）
+                      3. 入库单号: 指定某个入库单下的库存进行冻结/解冻（例: WI50505305 / WI50505278 / WI52044633）
+                      4. 库位信息: 指定具体的库位进行冻结/解冻（例: V-14-28-D-01 / V-11-51-D-01 / V-15-23-D-01）
+                      5. 仓库: 明确在哪个仓库进行操作（例: DEBR2 Warehouse / 美国周一时间）
+                      6. 商品等级: 指定冻结/解冻的商品等级（良品/次品等）（例: 良品 / 5.29到仓的WI50016757 WI49680338是良品，其余库存需要隔离）
+
+                    ### 场景: 商品尺重测量辨识 (key: instock_measure_identify_dims_weight)
+                    类别: 库内
+                    识别信号:
+                      强信号: 尺重测量、测量尺寸重量、拆除外包装、保留原箱、测量原箱、拍照回传尺寸、系统登记、长×宽×高
+                      弱信号: 退货单、拆箱、补贴RM标签、清除外包装、测量、拍照
+                    排除信号: 换标上架、补贴商品条码、包裹条码、串仓、质检、无主货、入库单、自提、暂存、调拨
+                    必填信息:
+                      1. 测量对象标识: 需要明确测量哪些货物，可以是SKU、异常单号、托盘、退货单号等（例: M010000000006796398、M010000000005276475等SKU / 异常单号：EB0526052929906385 / 这4托货物）
+                      2. 测量内容要求: 需要说明测量尺寸还是重量，或者两者都要（例: 测量尺寸重量 / 称下单品的重量 / 测量托盘尺寸以及重量）
+                      3. 包装处理方式: 需要说明是否拆包装、保留什么包装、测量什么状态下的尺寸（例: 拆除外包装（保留原箱） / 若是快递袋撕掉快递袋再测量彩盒 / 拆开快递袋）
+                    可选信息:
+                      1. 照片回传要求: 是否需要拍照，以及照片需要拍摄的具体内容（例: 拍照回传尺寸照片 / 需要显示外箱的SKU编码 / 提供测量图片）
+                      2. 后续处理动作: 测量完成后需要做什么操作，如补贴标签、重新打包、数据反馈等（例: 补贴RM标签 / 测量后再补贴M码标签到彩盒上再上架 / 需要找纸箱重新打包）
+                      3. 抽样方式: 如果不是全部测量，需要说明如何抽样（例: 仓库随机拣选）
+                      4. 业务背景说明: 说明为什么需要测量，测量数据的用途（例: 历史库存的SKU尺寸，都是以前的物流包装尺寸，现需要重新测量彩盒包装 / 对应测量图片后续要在其他仓库做申述用 / 现在需要确认货物具体情况安排调拨）
+
+                    ### 场景: 非标收费 (key: instock_nonstandard_charge)
+                    类别: 库内
+                    识别信号:
+                      强信号: 非标收费、IT改数、补收费用、无库存、改数费用、无法提交库内非标增值
+                      弱信号: 补收、费用、库内订单、增值产品
+                    排除信号: 换标、辨识、条码、拍照、质检、入库、预报、到货、暂存
+                    必填信息:
+                      1. 非标服务类型: 需要明确具体的非标服务内容，如IT改数、商品编码更新、批次修改、条码关系调整等（例: IT改数服务 / 商品编码需要更新 / 修改失效日期）
+                      2. 操作对象标识: 需要明确操作的SKU、出库单号、入库单号或账号等具体标识（例: 11304010760 / 出库单 RRF-X004TE5Y5Z * 11 / WI51464228）
+                      3. 业务背景/原因: 说明为什么需要做这个非标操作，帮助理解需求合理性（例: 因客户内部核算要求，需要分俩个主体清算 / 客户的API推单有问题，API信息流没有推完整 / 需要将SKU统一归类）
+                    可选信息:
+                      1. 操作数量/范围: 涉及的SKU数量、出库单数量或具体件数（例: 出库单 RRF-X004TE5Y5Z * 11 / 2-12行sku / sku清单见增值文件）
+                      2. 后续操作要求: 完成非标操作后需要进行的下一步动作（例: 完成商品条码重新绑定后，并按照新提交的入库单上架到新SKU上 / 客户可以重新推新单 / 待出库单操作完成后，一加会再同步上架到TK库存的入库单号）
+                      3. 时效要求: 是否需要加急处理或指定完成时间（例: 需要帮忙加急今天下架完成 / 需尽快提供报价 / 本周日刷）
+                      4. 关联账号/主体信息: 涉及多账号或多主体时需要说明账号关系（例: 申请账号组 14081998——IWT TECHNOLOGIES INC. 20270893——巴別魚技術(香港)有限公司 / 同客户，不同万邑通主体，不同国家）
+
+                    ### 场景: 商品组合 (key: instock_product_kitting)
+                    类别: 库内
+                    识别信号:
+                      强信号: 组合、主产品、配件、组合方式、组合SOP、组合后、打托、山姆产品
+                      弱信号: 下架、封箱、新SKU、入库单、包装、拆包装
+                    排除信号: 换标、辨识、串仓、自提、质检、无主货、异常、预报、不符、关联第三方条码
+                    必填信息:
+                      1. 主产品SKU及数量: 需要组合的主产品SKU和具体数量（例: HFPF231904*10 / GD52004106W01*8 / 40004001.0005开箱）
+                      2. 配件SKU及数量: 需要放入主产品的配件SKU和数量（例: HW32723001-1W01*8 / 42999001.0008放1pcs到箱内 / M010000000013539452 -20件）
+                      3. 组合方式说明: 具体的组合操作步骤，如是否拆包装、如何封箱、如何固定等（例: 打开纸箱，将A产品放入后进行封箱，开口处打一条胶带，横着打两条 / 两个产品用胶带缠绕两圈加固，然后再用纸箱包装 / 直接原包装不需要拆封，装入纸箱封箱打包）
+                      4. 组合后SKU: 组合完成后上架的SKU，可能是新SKU或保持原SKU（例: 新sku：M010000000010411825 / sku还是HFPF231904 / 新SKU:AI00474361001）
+                      5. 下架单号: 主产品和配件的下架单号（例: 下架单号：WO12196257768 / 下架单：WO11617466582 / 出库下架单：WO12145181608）
+                      6. 上架单号: 组合后产品的入库上架单号（例: 上架单号：WI52053035 / 入库单号为：WI50739877 / 入库单：WI50130123）
+                      7. 组合数量: 最终需要组合完成的套数或件数（例: 组装为5套 / 库内组装山姆产品240pcs / 一共组装216pcs）
+                    可选信息:
+                      1. 标签处理要求: 组合后是否需要覆盖原标签、贴新标签的位置等（例: 入库上架不需要覆盖任何外箱原有标签，箱产品标签贴到打托好的膜外 / 需覆盖外箱原有的UPC标签和SKU标签 / 贴标HFPF231904上架）
+                      2. 打托要求: 组合后是否需要打托及打托规格（例: 按照12pcs/托打托上架 / 一个托盘为一个箱产品 / 等卡板套到仓之后再打托上架）
+                      3. 操作时效要求: 是否有特定的完成时间要求（例: 这批货要周五之前备好 / 麻烦仓库先组装50pcs上架，后续在完成全部组装）
+                      4. 操作顺序说明: 是否需要分步骤操作或等待某些物料到位（例: 麻烦仓库先进行组装产品，等卡板套到仓之后再打托上架 / 6/30号卡板套上架之后我们会创建商品下架单同步给仓库打托）
+                      5. 单品码信息: 需要处理的具体单品码列表（例: S500038000553995437 S500039000553995436...以上10个单品码）
+
+                    ### 场景: 库内加固 (key: instock_reinforce)
+                    类别: 库内
+                    识别信号:
+                      强信号: 加固、库内加固、加固包装、加固处理、包装加固、加固操作
+                      弱信号: 库内、包装、操作、处理、仓库、封好、封箱、胶带、重新封、外箱破损、套个快递袋、套快递袋
+                    排除信号: 换标、辨识、质检、自提、拍照、暂存、标签、商品、入库、条码
+                    必填信息:
+                      1. 加固对象范围: 需要明确加固的商品范围，是整箱、单品还是特定异常单内的商品（例: 这个异常单内的产品是个整箱类型的库存（SKU：SLEU-CL-D220P-118D3-1-32） / EB0526080732081841 EB0526080732081817 外箱破损货物 / M010000000008989478 *557）
+                      2. 加固方式: 具体的加固操作方法，如胶带封箱、套袋、换箱、热敏纸包装等（例: 用胶带将外层大箱子封好 / 套个快递袋 / 把原刀套头套好，热敏纸包好刀头，重新包装）
+                      3. 破损原因或背景: 说明为什么需要加固，如外箱破损、包装破损、库内导致破损等（例: 整箱库存内部商品破损所产生的异常 / 外箱破损货物 / 仓库反馈产品库内包装破损）
+                      4. 加固后处理方式: 加固完成后的操作，如补贴标签、上架入库单、上架不良品等（例: 封好后需要补贴商品条码（M010000000013713330）补贴完后再将这一箱产品上架入库单：WI51234994 / 外部补贴SKU条码后上架不良品，入库单号WI51908492 / 贴商品标签）
+                    可选信息:
+                      1. 验收标准: 加固后的质量要求或验收标准（例: 保证内部得商品不会掉出 / 包装加固后请拍照同步）
+                      2. 特殊说明: 不适用标准流程的特殊情况说明（例: 标准增值内没有给产品封箱后上架得增值类型 / 因直接套袋子或者直接套纸箱都有破损的风险，目前客户有待发的订单着急发货）
+                      3. 商品类型特征: 商品的特殊属性，如整箱类型、刀具等需要特别处理的商品（例: 这个异常单内的产品SKU是个整箱类型的SKU / 这个产品仓库反馈包装破损，因直接套袋子或者直接套纸箱都有破损的风险）
+
+                    ### 场景: 更换客制包装 (key: instock_replace_custom_packaging)
+                    类别: 库内
+                    识别信号:
+                      强信号: 客制包装、客制纸箱、更换包装、包材SKU、补贴原包裹条码、客制包装打包费
+                      弱信号: 下架单、上架至新入库单、不同SKU对应正确包裹条码、使用客户指定包材
+                    排除信号: 尺重辨识、标签辨识、换商品标签、质检、拍照暂存、自提、串仓、调拨、无主货、预报SKU不符
+                    必填信息:
+                      1. 处理数量: 需要明确更换包装的商品数量（件数/pcs）（例: 8件商品条码 / 33件商品条码 / 130pcs电池包）
+                      2. 原商品条码/SKU: 需要更换包装的原商品条码或SKU信息（例: M010000000009098251 / CS4QL-L3 / 810150547054）
+                      3. 客制包材SKU: 用于更换的客制化包装材料的SKU编号（例: M010000000009949322 / 8461-A015004003-001 / UK-UNBOX）
+                      4. 新入库单号: 更换包装后重新上架的入库单号（WI格式）（例: WI50557621 / WI51301861 / WI52124641）
+                      5. 新商品条码: 更换包装后需要粘贴的新商品条码/标签（例: M010000000006714709 / M010000000009481668 / 原商品条码XM6203528和XM6203527）
+                    可选信息:
+                      1. 特殊操作要求: 更换包装过程中的特殊操作细节或注意事项（例: 请保证主机、遥控器、双话筒包裹在原有的塑料膜内，内里HDMI线、网线排布整齐 / 换包材过程需要提供完整操作视频 / 1箱1件A+包上架）
+                      2. 原入库单号: 商品原来所在的入库单号（例: 原单WI49413876）
+                      3. 下架单号: 用于下架操作的单号（例: 下架单：xxx）
+                      4. 单品码清单: 需要处理的具体单品条码列表（例: S506360000552259609 S506361000552259608 S506362000552259607...）
+                      5. 包装比例: 客制包材与商品的装箱比例关系（例: 1箱1件A+包上架 / 用UN箱装好电池包）
+
+                    ### 场景: 指定位置贴标 (key: instock_specified_position_label)
+                    类别: 库内
+                    识别信号:
+                      强信号: 指定位置、指定库位、贴至指定库位、库位号、库位标签
+                      弱信号: 贴标、标签类型、商品标签、特殊标签、标签规格
+                    排除信号: 换标、更换标签、辨识、质检、拍照、下架、上架前、入库单、预报、异常
+                    必填信息:
+                      1. SKU编号: 需要贴标的商品SKU编号（M01开头的物料编号）（例: M010000000010703448（4件） / M010000000011875957（6件） / M010000000008149618）
+                      2. 处理数量: 需要贴标的商品数量，可以是具体件数或整批库存（例: 4件 / 6件 / 20件）
+                      3. 标签来源或内容: 新标签的来源（物料SKU、附件SOP、图片）或标签内容说明（例: 物料标签纸M010000000010703445-70X（1件） / 按照附件SOP操作，更替产品介绍标签 / 换成提供图片的标签）
+                      4. 贴标位置或方式: 标签贴在哪里、如何贴、是否覆盖原标签等具体操作说明（例: 把新的标签覆盖原来的upc码 / 看下如图示例位置，在两边补贴贴纸封好 / 箱唛需按对应颜色关系粘贴）
+                      5. 关联单号: 涉及的出库单号、入库单号或异常单号（例: 入库上架新单：WI50353745 出库下架单：WO11526888758 / WO11340729120 / EB0526062530740871 EB0526062530740874）
+                    可选信息:
+                      1. 对应关系规则: 当涉及多个SKU或多个标签时，需要说明一对一的对应关系（例: box1-10的sku是M010000000008149618 描述是灰色 贴 FBA15LNP1BVNU000006 至FBA15LNP1BVNU000015的FBA箱唛（灰色） / box11-15的sku是M010000000008186570描述是蓝色 贴 FBA15LNP1BVNU000001至FBA15LNP1BVNU000005的FBA箱唛（蓝色））
+                      2. 标签物料数量不确定: 当标签物料库存被使用过，需要操作后清点剩余数量（例: 因为这个箱产品的库存原先有被使用过，所以不确定里面还有多少件，请按实际数量帮忙操作 / 请帮忙清点标签纸M010000000010703445-70X剩余数量，1个标签为一张，4个标签为一大张）
+                      3. 新SKU编号: 贴标后需要按新的SKU编号上架（例: 按新SKU：M010000000010703448 上架）
+                      4. 标签规格说明: 标签的物理规格或包装说明（例: 注意：开箱后里面是10张标签纸,标签纸是一样的无区分 / 1个标签为一张，4个标签为一大张）
+
+                    ### 场景: 拆分SKU (key: instock_split_sku)
+                    类别: 库内
+                    识别信号:
+                      强信号: 拆分SKU、拆分后SKU、原SKU、新SKU、拆分商品、重新装箱、补贴新SKU标签
+                      弱信号: 下架、新入库单、标签文件、WINIT纸箱、上架、L007盘亏
+                    排除信号: 尺重、辨识、串仓、自提、质检、无主货、换标、包裹条码、商品条码、第三方条码
+                    必填信息:
+                      1. 原SKU信息: 需要拆分的原SKU编码及数量（例: 拆分75件MH1818-2+8-0.5mm-1-HBY / 拆分810件MH1818-2+8-0.5mm-1-HBY / 拆分150件MH1818-2+8-0.5mm-1-HBY）
+                      2. 拆分规则: 每个原SKU拆分成哪些新SKU及各自数量（例: 每个MH1818-2+8-0.5mm-1-HBY拆分成1个860014820250和1个MH1796-0.5mm-HBY / 1件199284868908-4pcs pack-----拆分成4件199284868908上架 / 每箱含 3 台带彩盒的机器 + 1 个展示架）
+                      3. 新SKU标签要求: 拆分后的新SKU是否需要贴标签、贴什么标签、贴在哪个位置（例: 860014820250需要粘贴亚马逊SKU标签（标签是亚马逊SKU标签和透明计划标签合并标签，每个产品粘贴的标签不一样，要在产品最小面粘贴） / 2153654772570118需要粘贴TKSKU标签（要在产品最小面粘粘贴） / 可以直接扫描产品包装上的UPC码上架，无需贴SKU标签）
+                      4. 下架单号: 原SKU从哪个下架单下架（例: 仓内下架单：WO12167537101 / 仓内下架单：WO12222421384 / 下架单号：WO12132426726）
+                      5. 上架单号: 拆分后的新SKU上架到哪个入库单（例: 仓内上架单：WI51714906 / 仓内上架单：WI52269573 / 仓内上架单号：WI51450966）
+                    可选信息:
+                      1. 重新打包要求: 拆分后是否需要重新打包、使用什么包材、如何打包（例: 使用仓库现有合适外箱，将拆出的 3 台带彩盒的机器重新分别打包（每箱 1 台，共 3 箱） / 用仓库核实的外箱单pcs打包 / 把库内的sku拆开原包装，加到另外一个sku原包装里面，不需要额外用到我们的纸箱）
+                      2. 产品摆放要求: 拆分后的配件如何摆放到新包装中（例: 同类型的配件一般叠在一起放着，比如弯板和弯板叠在一起，如果没有同类型的可以在原箱找个合适的位置放进去 / 详细可以参考附件操作说明里面的图片）
+                      3. 拆分操作指引: 详细的拆分操作步骤或参考文档（例: 详细参考附件操作说明 / 参考操作指引做库内拆分成不同SKU处理 / 按附件示例方法拆分商品）
+                      4. 拍照回传要求: 是否需要拍照回传拆分后的产品（例: 同时拆出来的配件产品拍个大合照回传的）
+                      5. 异常单处理: 如果涉及异常单，需要关闭异常（例: 处理完成将异常单关闭 / 申请关闭异常 / 将异常EB0526062730797031的货物目前核实有6个完好的以及5个彩盒破损的）
+                      6. 原SKU库存处理: 原SKU下架后如何处理库存（如盘亏）（例: 原SKU做L007盘亏）
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: ""
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                required: true
+                value: null
+    - id: "230002"
+      type: text
+      title: flow_context_kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "VAS 指引知识库，注入 LLM 系统提示"
+      position:
+        x: 6980
+        y: 1650
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: |-
+                    # 入库流程语境 · 流程复原推理背景
+
+                    本文件为 `value-add-product-recommendation` 提供推理背景。增值服务处理的是**入库正常流程在某阶段被阻断**的异常 case，推荐 VASC 的本质是选出能**恢复流程继续走完**的增值服务。
+
+                    ---
+
+                    ## Section 1：通用入库阶段（与 PSC 无关）
+
+                    所有入库单在海外仓侧都经过以下核心阶段：
+
+                    | 阶段编号 | 阶段名称 | 正常完成的标志 | PSC 决定是否存在 |
+                    |---|---|---|---|
+                    | S1 | 卸货到仓 | 包裹/托盘按预约码到仓，系统记录 `PEWC`→`EWC` | 所有 PSC |
+                    | S2 | 验货核对 | 开箱点数、SKU 与箱单核对通过 | 仅 OW01031/032 海外验；OW01011 在国内仓已完成；OW01021/022 由客户在发货前完成 |
+                    | S3 | 上架入库 | 货物按 SKU 分区上架，状态变 `SHD` | 所有 PSC |
+
+                    **正常流程目标**：货物经过 S1（→S2）→S3，最终完成上架存储，等待后续出库。
+
+                    ---
+
+                    ## Section 2：异常类型与阻断阶段
+
+                    ### 2.1 条码类异常 → 阻断 S3（上架）
+
+                    货物无法上架，仓库将其移至**异常暂存区**，等待客户下发增值指令。
+
+                    | 条码异常场景 | 阻断原因 | 适用 PSC |
+                    |---|---|---|
+                    | 包裹条码缺失/破损/状态异常/冲突 | 扫描枪无法识别，系统无法匹配入库单 | 全部 |
+                    | 商品/SKU 条码无法识别（无条码、不完整、未录入） | 无法完成商品级验收 | 全部 |
+                    | 商品条码无法扫描（磨损，人工可读） | 仓库直接补打，属**操作类异常**，不需客户增值 | 全部 |
+
+                    **结论**：条码类异常阻断上架阶段，VASC 的目的是「补/换/贴条码，使货物可重新上架」。
+
+                    ---
+
+                    ### 2.2 数量差异异常 → 阻断 S2 或 S3（PSC 影响责任与路径，见 Section 3）
+
+                    | 数量异常场景 | 阻断原因 |
+                    |---|---|
+                    | 到货数量与入库单不符 | 无法完成验收确认，或已上架但数量有疑议 |
+                    | 货物混仓（送到错误仓库） | 当前仓无对应入库单，无法上架 |
+
+                    ---
+
+                    ### 2.3 包装/质量异常 → 阻断 S3（上架）
+
+                    仓库将货物移至暂存区，等待客户指令。
+
+                    | 包装质量异常场景 | 常见处理方向 |
+                    |---|---|
+                    | 外包装破损/受潮/未封口 | 包装加固增值 或 销毁增值 |
+                    | 商品裸装（无外包装） | 冻结上架；客户选择裸货标签或出库加包装 |
+                    | 商品质量明显异常（碎裂等） | 销毁增值 |
+
+                    **结论**：包装质量异常阻断上架阶段，VASC 的目的是「修复或处置货物，使其可上架或安全处置」。
+
+                    ---
+
+                    ### 2.4 尺重异常
+
+                    - 实物尺重与系统不符 → 仓库复测后修改系统，**操作类**，无需客户增值。
+                    - SKU 出库超重拦截 → 需申请「库内随机检查商品体积重量」增值服务复测。
+
+                    ---
+
+                    ## Section 3：PSC 差异矩阵
+
+                    PSC 系列决定了**验货发生在哪里**，进而影响**数量差异异常的责任归属**和推荐路径。
+
+                    ### 三条 PSC 轨道
+
+                    | PSC 系列 | 轨道标识 | 验货阶段 | 验货位置 | 对应阶段 |
+                    |---|---|---|---|---|
+                    | `OW01011*` 标准头程 | `standard_firstleg` | 发货前 | Winit 国内仓 | S2 在国内已完成 |
+                    | `OW01021*` / `OW01022*` 客户自验 | `self_inspection` | 发货前 | 客户自行完成（PDA/API/Excel） | S2 由客户完成 |
+                    | `OW01031*` / `OW01032*` 海外验 | `overseas_inspection` | 到仓后 | Winit 海外仓开箱 | S2 是海外仓正常工序 |
+
+                    ### 数量差异异常的 PSC 差异
+
+                    | 维度 | `standard_firstleg` OW01011 | `self_inspection` OW01021/022 | `overseas_inspection` OW01031/032 |
+                    |---|---|---|---|
+                    | 验货责任方 | Winit（国内仓已验） | 客户（已自验发货） | Winit（海外仓正在验） |
+                    | 数量差异的第一反应 | 优先核实 Winit 责任，可能无需增值 | 客户已确认数量，差异由客户负责，通常需申请库内盘点增值 | 验货结果即为事实，差异在验货过程中已记录，直接驱动增值或上架 |
+                    | 推荐路径 | **先转 `inbound-exception-check` 核实**；如核实后确需增值，再推荐 | 推荐「库内盘点」类 VASC | 视验货结论推荐对应 VASC |
+                    | 是否直接给 VASC | 慎重；建议先核实责任 | 是 | 是 |
+
+                    ### 条码/包装异常的 PSC 差异
+
+                    | PSC 轨道 | 条码类异常 | 包装质量异常 |
+                    |---|---|---|
+                    | `standard_firstleg` | VASC 贴标/换标 | VASC 包装加固/销毁 |
+                    | `self_inspection` | 同上 | 同上 |
+                    | `overseas_inspection` | 同上（在海外验过程中发现）| 同上 |
+
+                    > 条码类和包装质量异常的推荐路径在三条 PSC 轨道上一致。差异仅影响数量差异异常。
+
+                    ---
+
+                    ## Section 4：流程复原目标速查
+
+                    | 客户意图 | 流程复原目标 | 对应阶段 |
+                    |---|---|---|
+                    | 原单上架 | 修复异常后，使原入库单的货物完成 S3 上架 | S3 恢复 |
+                    | 新单上架 | 原单无法继续操作，重新创建入库单并上架 | S1→S3 重走 |
+                    | 销毁 | 货物无上架价值，通过增值服务安全销毁处置 | S3 替代路径 |
+                    | 自提 | 客户自行取走货物，不走正常上架流程 | S3 替代路径 |
+                    | 拍照/测量/质检 | 对货物做存证或检验，辅助后续决策 | S2/S3 辅助 |
+                    | 补/换条码 | 修复条码异常，使货物满足上架扫描要求 | S3 前置修复 |
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: ""
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                required: true
+                value: null
+    - id: "230003"
+      type: text
+      title: inference_rules_kb
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-StrConcat-v2.jpg
+      description: "VAS 指引知识库，注入 LLM 系统提示"
+      position:
+        x: 7240
+        y: 1650
+      parameters:
+        concatParams:
+            - name: concatResult
+              input:
+                type: string
+                value: |-
+                    # VAS 指引 · 推断规则（客户侧精简）
+
+                    由 `vas/engine/prompts/kb-inference-rules.md` 与 `kb-decision-system-prompt.md` 合并精简。已去掉产品编码。贴进 Coze Text 节点，变量名 `inference_rules_kb`。
+
+                    ## 使用原则
+
+                    - 从客户描述中主动推断处理方式，帮客户选，不列选项让客户自己选。
+                    - 不编造客户没说过的单号、数量、附件。
+                    - 不报价、不承诺审核结果、不描述仓库内部操作。
+                    - 标准「入库商品拍照」已失效：客户要拍照时，引导到「非标拍照或提供视频 / 指定商品拍照暂存 / 库内拍摄照片视频」等场景卡路径，不要推荐已失效的标准拍照产品。
+                    - 「库内商品拍照」实际不支持，不要当标准产品推荐。
+                    - 客户意图不清、或多方案冲突时：追问或转人工，不要直接给唯一方案。
+
+                    ## 推断规则
+
+                    | 规则ID | 关键词 | 推断处理方式 | 后续动作 | 附加条件 |
+                    |--------|--------|--------------|----------|----------|
+                    | IR-B0102E23-001 | 拍照、确认状态、看看有没有问题 | 先拍照 | 入库非标拍照或提供视频；按场景卡追问拍摄要求 | 不要推荐已失效的标准入库商品拍照 |
+                    | IR-B0102E23-002 | 换包装、换纸箱、换箱子 | 原单上架 | 若客户未提新建入库单，按原单上架 / 标准换包装理解 | 客户未提新单 |
+                    | IR-B0102E23-003 | 新建入库单、重新创建、换一个入库单 | 新单上架 | 必须追问新的上架入库单号 | 新单需同仓（有仓信息时才核） |
+                    | IR-B0102E23-004 | 销毁、不要了、报废 | 销毁 | 上架前销毁类路径 | 危化/DG 见下方免审命名服务 |
+                    | IR-B0102E23-005 | 取回、自提、拿走 | 自提 | 上架前自提 | — |
+                    | IR-B0102E23-006 | 空 / 无稳定线索 | 无法推断 | 追问：您希望怎么处理这批货？ | 不得直接给唯一方案 |
+                    | IR-B03E03-001 | 订单外商品、计划外商品、多货 | 先看描述是否已明确实物归属和去向 | 描述已明确则推断；模糊才追问「条码对不对、走原单还是新单」 | 意图不清时不直接推荐 |
+                    | IR-B03E03-002 | 新单、重新下单、下新入库单、换新单上架 | 新单上架 | 追问新入库单号 | — |
+                    | IR-B03E03-003 | 销毁、不要、报废 | 销毁 | 上架前销毁 | — |
+                    | IR-B03E03-004 | 自提、取回、拿走 | 自提 | 上架前自提 | — |
+
+                    ## 客户侧分流（route_category）
+
+                    - 客户描述命中**标准增值**（轻加工、换纸箱/加固、标准贴标、原单直接上架等，且不需要非标特批）→ `route_category="standard"`。告诉客户回页面选对应标准产品，不必生成非标需求描述。
+                    - 命中**命名非标免审**（A 类：货权转移、审计盘点、代采购包材、DG 商品销毁；场景卡里同类命名服务一并视为免审）→ `route_category="nonstandard_exempt"`。告知选对应命名产品即可，仍按场景卡检查必填信息。
+                    - 命中**有模板的非标场景**（B 类：场景知识库里带必填信息的换标/拍照暂存/批量补贴等）→ `route_category="nonstandard_special"`。信息齐全后生成需求描述和需求背景说明。
+                    - **无法匹配 / 无模板 / 查快递运单等超出范围** → `route_category="transfer_human"`，phase="transfer_human"。
+
+                    ## 禁止事项
+
+                    - 禁止把关键词命中当成可以越过场景卡必填检查的依据。
+                    - 禁止在多方案且客户意图不清时直接输出唯一推荐。
+                    - 禁止输出未在对话中出现的字段值。
+                    - 禁止向客户展示内部规则编号或产品编码。
+            - name: arrayItemConcatChar
+              input:
+                type: string
+                value: ""
+        method: concat
+        node_outputs:
+            output:
+                type: string
+                required: true
+                value: null
+    - id: "230010"
+      type: llm
+      title: vas_guide_llm
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-LLM-v2.jpg
+      description: "VAS 指引：识别场景、追问、生成需求描述。JSON Mode"
+      version: "3"
+      position:
+        x: 7500
+        y: 1650
+      parameters:
+        fcParamVar:
+            knowledgeFCParam: {}
+        llmParam:
+            - name: generationDiversity
+              input:
+                type: string
+                value: balance
+            - name: apiMode
+              input:
+                type: integer
+                value: "0"
+            - name: frequencyPenalty
+              input:
+                type: float
+                value: "0"
+            - name: maxTokens
+              input:
+                type: integer
+                value: "4096"
+            - name: spCurrentTime
+              input:
+                type: boolean
+                value: false
+            - name: spAntiLeak
+              input:
+                type: boolean
+                value: false
+            - name: thinkingType
+              input:
+                type: string
+                value: disabled
+            - name: responseFormat
+              input:
+                type: integer
+                value: "2"
+            - name: modelName
+              input:
+                type: string
+                value: 豆包·2.0·pro
+            - name: modelType
+              input:
+                type: integer
+                value: "1772700462"
+            - name: parameters
+              input:
+                type: object
+                properties:
+                    max_completion_tokens:
+                        type: integer
+                        value: "0"
+                    reasoning_effort:
+                        type: string
+                        value: minimal
+                value: null
+            - name: prompt
+              input:
+                type: string
+                value: '{{user_input}}'
+            - name: enableChatHistory
+              input:
+                type: boolean
+                value: true
+            - name: chatHistoryRound
+              input:
+                type: integer
+                value: "10"
+            - name: systemPrompt
+              input:
+                type: string
+                value: |-
+                    ## Section 1: 角色定义
+
+                    你是万邑联增值下单指引助手。客户从异常单进入增值产品信息页面时，你帮客户：
+                    1. 理解客户的处理需求
+                    2. 识别对应的增值场景
+                    3. 检查信息是否齐全，缺什么就追问什么
+                    4. 信息齐全后生成「需求描述」和「需求背景说明」，供客户一键填入表单
+
+                    你的对话风格：
+                    - 简洁、专业、一步到位。不要列一堆选项让客户自己选，帮客户选。
+                    - 一次最多追问 **1 个问题**（实在缺两样才问 2 个），不要一口气抛一堆。
+                    - 不报价、不承诺审核结果、不描述仓库内部操作流程。
+                    - 不要输出 AI 内部推理过程。
+                    - 不要对客户说出产品编码、内部规则编号。客户侧只讲场景名和要填的字段。
+
+                    当前会话异常单号（开场已告知客户，不必再问）：{{event_no}}
+
+                    硬规则（优先级高于后面场景卡的必填列表）：
+                    1. 客户说「辨识后换标 / 帮我辨识」= 辨识方法已有。禁止再问如何辨识、看内标还是尺重、看箱序。
+                    2. 客户说「对应关系见附件」= 商品条码/SKU 对应关系已有。禁止再要映射明细。
+                    3. 同时具备：异常单号（开场已有）+ 新入库单号 + 箱数或件数 + 上面第 1、2 条 → phase 必须是 "generate"，route_category 必须是 "nonstandard_special"，matched_scene 用 inbound_label_identify。
+                    4. 客户明确说「轻加工 / 换纸箱 / 包装加固」且没有提非标特批、换标、拍照暂存 → phase 必须是 "generate"，route_category 必须是 "standard"。不要追问具体工序，customer_message 告诉客户回页面选择对应标准产品即可。requirement_description 可空。
+                    5. 客户已给出「上架到入库单 WI…」= 去向已有。不要再问「是什么异常」。客户若已回答异常类型，立刻进入生成，或只再问 1 个最缺字段。
+                    6. 处理数量未说 → 默认「该异常单全部货物」，不要追问箱数/件数。
+                    7. 商品标签数量未说，但已有处理数量或「整单」→ 视为相同，不要再问标签数。
+                    8. 客户说「你可以查信息 / 你去查 / 系统里有 / 异常单上有」→ **停止追问**，用已有信息 phase="generate"；缺的字段写成「以异常单/系统登记为准」。
+
+                    查运费、查快递、打招呼等普通客服问题由上游路由走 Query，你这边一般不会收到。若仍收到明显无关问题：phase="transfer_human"，告诉客户输入「退出」可回普通客服。
+
+                    ---
+
+                    ## Section 2: 对话状态机
+
+                    你根据对话历史判断当前处于哪个阶段：
+
+                    阶段 A — 收集需求：
+                      客户刚描述了需求（或回答了你的追问）。
+                      你要做：识别场景 → 检查信息齐全性 → 决定追问还是生成。
+
+                    阶段 B — 信息齐全，生成输出：
+                      所有必填信息已收集到。
+                      你要做：生成「需求描述」和「需求背景说明」，给客户确认。
+
+                    阶段 C — 客户确认或修改：
+                      客户说「可以」「没问题」→ 输出最终版本。
+                      客户要求修改 → 调整后重新输出。
+
+                    在每个阶段，你的 JSON 输出的 phase 字段不同：
+                      - 阶段 A 且信息不齐全 → phase="clarify"
+                      - 阶段 A/B 信息齐全 → phase="generate"
+                      - 场景无法识别或超出范围 → phase="transfer_human"
+
+                    ---
+
+                    ## Section 3: 场景识别规则
+
+                    根据客户描述，识别以下场景之一。如果客户描述模糊，从描述中主动推断（参考推断规则），不要列选项让客户选。
+
+                    匹配时看客户描述中的关键动作词 + 处理对象。对照下面「场景知识库」中的场景信号。优先强信号；命中排除信号则不要选该场景。
+
+                    客户明确要做标准增值（如轻加工、换纸箱加固、标准贴标）且不需要非标特批时：不必硬套下面非标场景，phase="generate"，route_category="standard"，matched_scene 可空，customer_message 告诉客户回页面选择对应标准产品即可。
+
+                    {{scene_kb}}
+
+                    ### 流程语境（只作推理背景，不要对客户念阶段编号或内部编码）
+
+                    {{flow_context_kb}}
+
+                    ### 推断与分流规则
+
+                    {{inference_rules_kb}}
+
+                    ---
+
+                    ## Section 4: 信息齐全性检查
+
+                    识别到场景后，对照该场景的「必填信息」列表逐条检查：
+
+                    检查规则：
+                    - 客户原文直接写了 → 有
+                    - 可以从上下文推断出 → 有（例如：「整单处理」= 处理范围已知）
+                    - 异常单号在开场话术中已有 → 有，不必再问
+                    - 仓库信息在页面上下文中已有 → 有，不必再问
+                    - 「对应关系见附件 / 标签文件已附」→ 商品条码对应关系、SKU 对应关系视为已提供，不要再问映射表
+                    - 「辨识后换标 / 按尺重辨识 / 帮我辨识」→ 辨识方法视为已提供。**禁止**再问「怎么辨识、看内标还是尺重、看箱序吗」
+                    - 已同时具备：异常单号（开场已有）+ 新入库单号 + 数量/箱数 + 对应关系（含「见附件」）+ 辨识换标动作 → **必须** phase="generate"，不要再追问
+                    - 客户说「你可以查信息 / 你去查 / 系统里有」→ 视为授权用已给信息生成，缺项写「以异常单/系统登记为准」
+                    - 客户确实没提到、也无法从上面规则推断 → 缺失；**整轮只问 1 个最关键的缺口**
+
+                    宁可判为「有」也不要过度追问。追问太多客户会觉得 AI 不好用。追问时用一两句人话，不要列 bullet 选项让客户自己挑。
+
+                    ---
+
+                    ## Section 5: 输出生成
+
+                    当所有必填信息齐全时，生成两段文本：
+
+                    1.「需求描述」— 用结构化的专业语言把客户的需求梳理清楚。包含：
+                       - 处理对象（异常单号、SKU、数量）
+                       - 处理动作（辨识换标/拍照/销毁/…）
+                       - 去向（上架到哪个入库单 / 销毁 / 自提）
+                       - 附件说明（如有）
+                       格式：简洁段落，不超过 300 字。
+
+                    2.「需求背景说明」— 解释为什么需要这个增值服务。包含：
+                       - 异常原因
+                       - 为什么不能走标准流程
+                       格式：1-2 句话。
+
+                    route_category="standard" 时：不要编造非标需求描述；customer_message 引导客户回页面选标准产品。requirement_description / requirement_background 可空。
+
+                    同时给出分流判断 route_category：
+                    - "standard" — 可以走标准增值，建议客户返回选择标准产品
+                    - "nonstandard_exempt" — 非标免审（命名服务），选对应产品即可
+                    - "nonstandard_special" — 非标特批（其他服务需求），需要填写需求描述
+                    - "transfer_human" — 无法处理，建议转人工
+
+                    ---
+
+                    ## Section 6: JSON 输出格式
+
+                    每次回复必须输出以下 JSON（严格遵守，不要有多余字段）：
+
+                    {
+                      "phase": "clarify | generate | transfer_human",
+                      "matched_scene": "场景key（如 inbound_label_identify），未识别时空字符串",
+                      "matched_scene_name": "场景中文名",
+                      "missing_info": ["缺失字段1", "缺失字段2"],
+                      "clarification_message": "给客户的追问（phase=clarify时）",
+                      "requirement_description": "生成的需求描述（phase=generate时）",
+                      "requirement_background": "生成的需求背景说明（phase=generate时）",
+                      "route_category": "standard | nonstandard_exempt | nonstandard_special | transfer_human",
+                      "customer_message": "给客户看的完整回复（这是实际展示给客户的文本）"
+                    }
+
+                    customer_message 是客户看到的回复。其他字段是给下游代码节点用的。
+                    不要输出 Markdown 代码围栏，不要在 JSON 外再写人话。
+
+                    再次强调：客户已说「辨识后换标」+「对应关系见附件」+ 新入库单号 + 箱数时，不要因为场景卡里有「辨识方法」就 phase="clarify"。必须 generate。
+                    客户只说「帮我做一下轻加工」时，不要追问工序细节，phase="generate"，route_category="standard"。
+            - name: stableSystemPrompt
+              input:
+                type: string
+                value: ""
+            - name: canContinue
+              input:
+                type: boolean
+                value: false
+            - name: loopPromptVersion
+              input:
+                type: string
+                value: ""
+            - name: loopPromptName
+              input:
+                type: string
+                value: ""
+            - name: loopPromptId
+              input:
+                type: string
+                value: ""
+        node_inputs:
+            - name: user_input
+              input:
+                type: string
+                value:
+                    path: user_input
+                    ref_node: "220001"
+            - name: event_no
+              input:
+                type: string
+                value:
+                    path: event_no
+                    ref_node: "220001"
+            - name: scene_kb
+              input:
+                type: string
+                value:
+                    path: output
+                    ref_node: "230001"
+            - name: flow_context_kb
+              input:
+                type: string
+                value:
+                    path: output
+                    ref_node: "230002"
+            - name: inference_rules_kb
+              input:
+                type: string
+                value:
+                    path: output
+                    ref_node: "230003"
+        node_outputs:
+            output:
+                type: string
+                value: null
+            reasoning_content:
+                type: string
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 180000
+    - id: "230020"
+      type: code
+      title: vas_output_format
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Code-v2.jpg
+      description: "解析指引 JSON，抽出客户可见回复。V1 不调工具"
+      version: v2
+      position:
+        x: 7760
+        y: 1650
+      parameters:
+        code: |
+            /** 扣子粘贴用（JavaScript）。解析 VAS 指引 LLM 的 JSON，抽出客户可见回复。V1 不调工具。 */
+
+            function asText(value) {
+              if (typeof value === "string") return value.trim();
+              if (value == null) return "";
+              if (typeof value === "number" || typeof value === "boolean") return String(value);
+              return "";
+            }
+
+            function unwrapParams(args) {
+              if (!args || typeof args !== "object") return {};
+              const nested = args.params;
+              if (nested && typeof nested === "object" && !Array.isArray(nested)) return nested;
+              return args;
+            }
+
+            function parseJson(value) {
+              if (value == null) return null;
+              if (typeof value === "object" && !Array.isArray(value)) return value;
+              var text = asText(value);
+              if (!text) return null;
+              var fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+              if (fenced && fenced[1]) text = fenced[1].trim();
+              var start = text.indexOf("{");
+              var end = text.lastIndexOf("}");
+              if (start >= 0 && end > start) text = text.slice(start, end + 1);
+              try {
+                var parsed = JSON.parse(text);
+                if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+                return null;
+              } catch (e) {
+                return null;
+              }
+            }
+
+            async function main(args) {
+              var params = unwrapParams(args);
+              var llmOutput = parseJson(params.llm_output || params.LLM_OUTPUT || params.output || "");
+              var customerMessage = asText(llmOutput && llmOutput.customer_message);
+
+              if (!llmOutput || !customerMessage) {
+                return {
+                  customer_reply: "抱歉，我暂时无法处理您的请求，请联系人工客服。",
+                  should_send_tool: false,
+                  function_name: "",
+                  arguments: "",
+                };
+              }
+
+              var reply = customerMessage;
+              if (asText(llmOutput.phase) === "generate" && asText(llmOutput.requirement_description)) {
+                reply += "\n\n---\n";
+                reply += "【需求描述】（请复制到表单「需求描述」字段）\n" + asText(llmOutput.requirement_description);
+                if (asText(llmOutput.requirement_background)) {
+                  reply += "\n\n【需求背景说明】（请复制到表单「需求背景说明」字段）\n" + asText(llmOutput.requirement_background);
+                }
+                reply += "\n---\n\n如需修改请直接告诉我，确认无误后请复制到表单提交。";
+              }
+
+              return {
+                customer_reply: reply,
+                should_send_tool: false,
+                function_name: "",
+                arguments: "",
+              };
+            }
+        language: 5
+        node_inputs:
+            - name: llm_output
+              input:
+                type: string
+                value:
+                    path: output
+                    ref_node: "230010"
+        node_outputs:
+            arguments:
+                type: string
+                value: null
+            customer_reply:
+                type: string
+                value: null
+            function_name:
+                type: string
+                value: null
+            should_send_tool:
+                type: boolean
+                value: null
+        settingOnError:
+            processType: 1
+            retryTimes: 0
+            switch: false
+            timeoutMs: 60000
+    - id: "230030"
+      type: output
+      title: 输出_greeting
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Output-v2.jpg
+      description: "节点从“消息”更名为“输出”，支持中间过程的消息输出，支持流式和非流式两种方式"
+      position:
+        x: 6720
+        y: 400
+      parameters:
+        callTransferVoice: true
+        chatHistoryWriting: historyWrite
+        content:
+            type: string
+            value:
+                content: '{{greeting_text}}'
+                type: literal
+        node_inputs:
+            - name: greeting_text
+              input:
+                type: string
+                value:
+                    path: greeting_text
+                    ref_node: "220001"
+        streamingOutput: true
+    - id: "230040"
+      type: output
+      title: 输出_guide
+      icon: https://lf3-static.bytednsdoc.com/obj/eden-cn/dvsmryvd_avi_dvsm/ljhwZthlaukjlkulzlp/icon/icon-Output-v2.jpg
+      description: "节点从“消息”更名为“输出”，支持中间过程的消息输出，支持流式和非流式两种方式"
+      position:
+        x: 8020
+        y: 1650
+      parameters:
+        callTransferVoice: true
+        chatHistoryWriting: historyWrite
+        content:
+            type: string
+            value:
+                content: '{{customer_reply}}'
+                type: literal
+        node_inputs:
+            - name: customer_reply
+              input:
+                type: string
+                value:
+                    path: customer_reply
+                    ref_node: "230020"
+        streamingOutput: true
+edges:
+    - source_node: "100001"
+      target_node: "147540"
+    - source_node: "188998"
+      target_node: "900001"
+    - source_node: "196023"
+      target_node: "900001"
+    - source_node: "171037"
+      target_node: "900001"
+    - source_node: "154635"
+      target_node: "173348"
+      source_port: "true"
+    - source_node: "173348"
+      target_node: "155319"
+    - source_node: "155319"
+      target_node: "192159"
+      source_port: "true"
+    - source_node: "155319"
+      target_node: "116274"
+      source_port: "false"
+    - source_node: "192159"
+      target_node: "1157371"
+    - source_node: "129954"
+      target_node: "188998"
+    - source_node: "130127"
+      target_node: "188998"
+      source_port: "true"
+    - source_node: "116274"
+      target_node: "128112"
+    - source_node: "128112"
+      target_node: "179021"
+    - source_node: "179021"
+      target_node: "137744"
+    - source_node: "117213"
+      target_node: "137744"
+    - source_node: "137744"
+      target_node: "220001"
+      source_port: "true"
+    - source_node: "137744"
+      target_node: "220001"
+      source_port: true_1
+    - source_node: "137744"
+      target_node: "220001"
+      source_port: "false"
+    - source_node: "1157371"
+      target_node: "1810893"
+    - source_node: "130127"
+      target_node: "129954"
+      source_port: "false"
+    - source_node: "1610047"
+      target_node: "130127"
+    - source_node: "1810893"
+      target_node: "1610047"
+    - source_node: "147540"
+      target_node: "154635"
+    - source_node: "154635"
+      target_node: "195486"
+      source_port: "false"
+    - source_node: "1688464"
+      target_node: "122400"
+    - source_node: "1265078"
+      target_node: "122400"
+      source_port: "false"
+    - source_node: "1850571"
+      target_node: "122400"
+    - source_node: "122400"
+      target_node: "117213"
+    - source_node: "195486"
+      target_node: "161227"
+    - source_node: "161227"
+      target_node: "1265078"
+      source_port: "false"
+    - source_node: "1265078"
+      target_node: "1688464"
+      source_port: "true"
+    - source_node: "161227"
+      target_node: "1850571"
+      source_port: "true"
+    - source_node: "220002"
+      target_node: "196023"
+      source_port: "false"
+    - source_node: "230001"
+      target_node: "230002"
+    - source_node: "230002"
+      target_node: "230003"
+    - source_node: "230003"
+      target_node: "230010"
+    - source_node: "230010"
+      target_node: "230020"
+    - source_node: "230020"
+      target_node: "230040"
+    - source_node: "230040"
+      target_node: "900001"
+    - source_node: "230030"
+      target_node: "900001"
+    - source_node: "220001"
+      target_node: "230050"
+    - source_node: "230050"
+      target_node: "220002"
+    - source_node: "220002"
+      target_node: "230030"
+      source_port: "true"
+    - source_node: "220002"
+      target_node: "230001"
+      source_port: true_1
+    - source_node: "220002"
+      target_node: "171037"
+      source_port: true_2
