@@ -2,6 +2,7 @@ import { formatCustomerLabel, visibleCustomerName } from "./customer-display.ts"
 import { formatSkuCheckAuditorHint } from "./sku-consistency-check.ts";
 import { asText } from "./oms-adapter.ts";
 import { deriveTopicSummary } from "./llm-scene-classifier.ts";
+import { classifyLlmFailure, formatLlmErrorForUser } from "./llm-client.ts";
 import { resolveOrderCategory, type SceneCategory } from "./order-category.ts";
 import { collectSceneCandidates } from "./parse-scene-reply.ts";
 import { findScenarioCard, loadScenarioCards } from "./scenario-cards.ts";
@@ -92,6 +93,18 @@ function missingOmsSceneNotice(result: PipelineResult): string {
   const key = result.matchResult?.sceneKey || "";
   const name = result.matchResult?.scenarioName || sceneNameOf(key) || "未匹配场景";
   return `${atDeveloper()} 知识库场景「${name}」没有对应的 OMS 场景概述码，SOP 已按「不选场景」写入。请找业务确认该场景该选哪个下拉项。`;
+}
+
+function escalateMissingOmsScene(result: PipelineResult): boolean {
+  return needsOmsSceneConfirm({
+    sceneKey: result.matchResult?.sceneKey,
+    decision: result.matchResult?.decision,
+    outputPath: result.outputPath || "sop_generated",
+    riskFlags: result.riskFlags,
+    businessTypeDesc: result.contextFacts?.businessTypeDesc,
+    businessType: result.contextFacts?.businessType,
+    vaSource: result.contextFacts?.vaSource,
+  });
 }
 
 export function zhMatchReason(reason: string): string {
@@ -706,7 +719,18 @@ function sceneWrongButton(result: PipelineResult): CardAction {
 }
 
 export function buildSopGenerateErrorCard(result: PipelineResult, personnel: DemoPersonnel): FeishuCard {
-  const err = asText(result.llm?.error) || "SOP 生成失败";
+  const raw = asText(result.llm?.error) || "SOP 生成失败";
+  // 长 LiteLLM JSON 压成原因码短句；业务侧短错误（如编造单号）原样展示
+  let err = raw;
+  if (!/原因码：llm_/.test(raw)) {
+    if (/LLM API error|litellm\.|AnthropicException|Access to Anthropic/i.test(raw)) {
+      const m = raw.match(/LLM API error\s+(\d+)/i);
+      const status = m ? Number(m[1]) : undefined;
+      err = formatLlmErrorForUser({ reason: classifyLlmFailure(raw, status) });
+    } else if (raw.length > 220) {
+      err = `${raw.slice(0, 200)}…`;
+    }
+  }
   return {
     config: { wide_screen_mode: true },
     header: {
@@ -718,7 +742,7 @@ export function buildSopGenerateErrorCard(result: PipelineResult, personnel: Dem
       { tag: "hr" },
       ...auditorHintNotice(result),
       ...afterFacts(result, [
-        md(`**这不是场景不确定。** SOP 生成失败，请人工撰写 SOP。\n\n原因：${err}`),
+        md(`**这不是场景不确定。** SOP 生成失败，请人工撰写 SOP。\n\n${err}`),
         md("请人工撰写 SOP。"),
       ]),
       ...judgmentFooter(result),
@@ -736,14 +760,8 @@ export function buildSopCard(
       ? `（修订版 ${options.revision}）`
       : "（修订版）"
     : "";
-  const missingOmsScene =
-    options?.missingOmsScene ||
-    needsOmsSceneConfirm({
-      sceneKey: result.matchResult?.sceneKey,
-      decision: result.matchResult?.decision,
-      outputPath: result.outputPath || "sop_generated",
-      riskFlags: result.riskFlags,
-    });
+  const escalateMissing = escalateMissingOmsScene(result);
+  const missingOmsScene = options?.missingOmsScene || escalateMissing;
   const notice = options?.writeError
     ? `⚠ SOP 已生成，但写入 OMS 失败：${options.writeError}。请审核员在 OMS 页面手工填写，或点下方重试。`
     : options?.dryRun
@@ -759,7 +777,7 @@ export function buildSopCard(
     ...sopCardBody(result),
     { tag: "hr" },
     md(notice),
-    ...(missingOmsScene && !options?.writeError ? [md(missingOmsSceneNotice(result))] : []),
+    ...(escalateMissing && !options?.writeError ? [md(missingOmsSceneNotice(result))] : []),
     md("请在 OMS 检查修改。"),
   ];
   if (options?.writeError) {
@@ -821,6 +839,14 @@ export function buildAttachmentPendingCard(result: PipelineResult, personnel: De
   };
 }
 
+function isSceneCompletenessClarification(result: PipelineResult): boolean {
+  return (
+    result.outputPath === "needs_field_clarification" ||
+    result.failureGate === "check-completeness" ||
+    result.node === "check-scene-completeness"
+  );
+}
+
 export function buildClarificationCard(result: PipelineResult, personnel: DemoPersonnel): FeishuCard {
   const attachmentsOnly =
     (result.missingAttachments || []).length > 0 &&
@@ -851,11 +877,15 @@ export function buildClarificationCard(result: PipelineResult, personnel: DemoPe
     for (const item of (result.missing || []).filter(Boolean)) lines.push(`❌ ${item}`);
   }
   const missingBlock = lines.length ? lines.join("\n") : "❓ 请补充需求描述，说明仓库要做什么";
-  const mention = atSalesAndCs(personnel, "请联系客户补充以上需求。补充后 AI 会重新生成。");
+  const isFieldClarification = isSceneCompletenessClarification(result);
+  const mention = atSalesAndCs(
+    personnel,
+    isFieldClarification ? "请联系客户补充以上资料。补充后 AI 会重新生成。" : "请联系客户补充以上需求。补充后 AI 会重新生成。",
+  );
   return {
     config: { wide_screen_mode: true },
     header: {
-      title: { tag: "plain_text", content: `⚠ 需求不清晰 — ${result.orderNo}` },
+      title: { tag: "plain_text", content: `⚠ ${isFieldClarification ? "资料待补充" : "需求不清晰"} — ${result.orderNo}` },
       template: "orange",
     },
     elements: [
@@ -865,9 +895,9 @@ export function buildClarificationCard(result: PipelineResult, personnel: DemoPe
       ...afterFacts(result, [
         ...(sceneName ? [md(`场景识别：${sceneName}`)] : []),
         ...(providedAttachmentsBlock(result) ? [md(providedAttachmentsBlock(result))] : []),
-        md("以下信息需要补充："),
+        md(isFieldClarification ? "以下场景资料需要补充：" : "以下信息需要补充："),
         md(missingBlock),
-        md(mention || "请联系客户补充以上需求。"),
+        md(mention || (isFieldClarification ? "请联系客户补充以上资料。" : "请联系客户补充以上需求。")),
       ]),
       ...judgmentFooter(result),
     ],
@@ -909,7 +939,7 @@ export function buildRequirementClarificationCard(result: PipelineResult, person
 }
 
 export function buildAskCard(result: PipelineResult, personnel: DemoPersonnel): FeishuCard {
-  if (result.outputPath === "needs_requirement_clarification") {
+  if (result.outputPath === "needs_requirement_clarification" && !isSceneCompletenessClarification(result)) {
     return buildRequirementClarificationCard(result, personnel);
   }
   return buildClarificationCard(result, personnel);

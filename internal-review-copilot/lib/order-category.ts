@@ -20,3 +20,11 @@ export function resolveOrderCategory(input: {
   if (code === "INBOUND") return "inbound";
   return "";
 }
+
+export function isOutboundOrder(input: {
+  businessTypeDesc?: string;
+  businessType?: string;
+  vaSource?: string;
+}): boolean {
+  return resolveOrderCategory(input) === "outbound";
+}

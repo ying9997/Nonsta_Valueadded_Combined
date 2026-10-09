@@ -136,6 +136,44 @@ function main(): void {
   );
   if (!orderTypePass) failed += 1;
 
+  const rephoto416175 = matchTemplate(
+    "EB0526092333330471异常单里的货物，需要拣选其中一个单品，打开外包装拍里面的实物图片，拍完后复原包装",
+    {
+      ...emptyContext(),
+      orderNo: "VASC000000416175",
+      customerCode: "11103701",
+      customerName: "香港順信達科技有限公司",
+      warehouseCode: "DEBR2",
+      warehouseName: "DEBR2 Warehouse",
+      eventNo: "EB0526092333330471",
+      allEventNos: ["EB0526092333330471"],
+      businessType: "INHOUSE",
+      businessTypeDesc: "库内订单",
+      serviceAtom: "OSF6V1603",
+    },
+  );
+  const rephoto416175Pass =
+    rephoto416175.decision === "supported" &&
+    rephoto416175.sceneKey === "instock_exception_rephoto";
+  console.log(
+    JSON.stringify(
+      {
+        id: "regression-vasc416175-instock-exception-rephoto",
+        actual_decision: rephoto416175.decision,
+        actual_sceneKey: rephoto416175.sceneKey,
+        actual_topK: rephoto416175.topK.map((candidate) => ({
+          sceneKey: candidate.sceneKey,
+          score: candidate.score,
+        })),
+        pass: rephoto416175Pass,
+        note: "VASC000000416175 是 L2 场景识别回归：异常单货物打开外包装拍实物图片后复原包装，应命中【库内】异常重新拍照，不能落到商品组合 L2.5 必填项。",
+      },
+      null,
+      2,
+    ),
+  );
+  if (!rephoto416175Pass) failed += 1;
+
   const crossWarehouseTransfer = matchTemplate(
     "包裹串仓异常调拨：EB0126100800001 发错仓库，需从 DE 仓调拨到 DEBR2 目的仓库，并按 WI50000001 上架。",
     {
@@ -204,7 +242,7 @@ function main(): void {
   );
   if (!ownershipTransferRelabelPass) failed += 1;
 
-  console.log(`summary-with-order-type failed=${failed} total=${raw.cases.length + 3}`);
+  console.log(`summary-with-order-type failed=${failed} total=${raw.cases.length + 4}`);
   if (failed) process.exit(1);
 }
 

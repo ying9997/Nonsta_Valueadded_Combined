@@ -1,0 +1,73 @@
+{
+  "sceneKey": "outbound_specified_position_label",
+  "sceneName": "【出库】指定位置贴商品/包裹标签/快递面单",
+  "status": "supported",
+  "category": "outbound",
+  "omsSceneCode": "20250407013",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§4.5 / §4.6 / §4.8 / §4.11",
+      "credibility": "authority",
+      "note": "知识库标题重复四次，合并为一张卡。近 1 月 OSF8V1601 最高频（23 张）。"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "指定位置贴",
+      "指定位置贴商品",
+      "指定位置贴包裹标签",
+      "快递面单",
+      "覆盖UN3480",
+      "覆盖UN3481",
+      "操作指引粘贴"
+    ],
+    "weak": [
+      "贴标位置",
+      "打印附件二维码",
+      "空白标签覆盖",
+      "打包明细"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "上架",
+      "辨识后",
+      "入库单",
+      "重新装箱",
+      "打托",
+      "拦截出库"
+    ],
+    "soft": [
+      "暂存",
+      "拍照回传",
+      "货权转移"
+    ]
+  },
+  "boundaryRules": [
+    "和【出库】补贴/更换商品标签的区别是：本场景强调指定位置或覆盖 UN/面单，不是整单换 EAN 商品标",
+    "和【入库】尺重/标签辨识后换标上架的区别是：本场景是出库贴标，不上架",
+    "和【库内】指定位置贴标的区别是：本场景对象是出库单 WO，不是库位号",
+    "只有自提单才可以补贴快递面单；贴标数量看出库打包明细"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：出库单 WO + 贴哪种标（商品/包裹/快递面单）",
+    "动作：在指定位置贴标或覆盖",
+    "去向：贴完继续出库"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "出库第一刀：附件闸先咨询，不硬拦。贴面单时常有操作指引/标签文件。"
+  },
+  "sopTemplateHints": [
+    "写明出库单 WO",
+    "写明贴标类型和位置（含是否覆盖 UN3480/UN3481）",
+    "数量以打包明细为准，不要编造张数",
+    "自提单才可贴快递面单"
+  ],
+  "examples": [],
+  "notes": "T5 第1刀手写。OMS 20250407013。知识库 §4.5/4.6/4.8/4.11 去重合并。"
+}

@@ -55,6 +55,9 @@ export function bindContext(input: AgentInput): { contextFacts: ContextFacts; ow
       uploadedFileNames: (input.omsFacts?.uploadedFiles || [])
         .map((file) => file.fileName)
         .filter(Boolean),
+      knownFactLines: (input.enrichedContext.knownFactLines as string[] | undefined) || [],
+      hasRequirementDescriptionField: input.auditFields?.hasRequirementDescription,
+      hasRequirementBackgroundField: input.auditFields?.hasRequirementBackground,
     },
     ownerFacts: {
       submittedBy: input.responsiblePeople.submittedBy,

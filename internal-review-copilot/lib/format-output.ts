@@ -72,6 +72,9 @@ function messageDraft(
     return `增值单 ${orderNo} 已识别为「${scene}」，但仍缺信息/附件：${missing.join("、")}。请补齐后再审。`;
   }
   if (path === "transfer_human") {
+    if (missing.length) {
+      return `增值单 ${orderNo} ${missing.join("、")}。请转人工核对，不要让销售去补不存在的需求描述格子。`;
+    }
     return `增值单 ${orderNo} 需求描述已完整，但当前模板库只自动支持 F-001，请转人工审核，并记为后续模板候选。`;
   }
   if (path === "sop_generated") {

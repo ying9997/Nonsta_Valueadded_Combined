@@ -1,5 +1,5 @@
 import { envText } from "./env.ts";
-import { asArray, asRecord, asText } from "./oms-adapter.ts";
+import { asArray, asRecord, asText, isRequirementBackgroundAttr, isRequirementDescriptionAttr } from "./oms-adapter.ts";
 import { appendAiWriteSnapshot } from "./ai-human-comparison.ts";
 import { assertNotReviewApi, createTomClient, type TomClient } from "./oms-tom-client.ts";
 import { findScenarioCard } from "./scenario-cards.ts";
@@ -251,21 +251,9 @@ function willReallyWrite(input: DraftWriteInput): { dryRun: boolean; error?: str
   return { dryRun: false };
 }
 
-function isRequirementDescriptionAttr(attr: Record<string, unknown>): boolean {
-  const key = asText(attr.attributeKeyOriginal) || asText(attr.attributeKey);
-  const name = asText(attr.attributeName);
-  return key === "VAS_ATTR_REL_RD" || key === "需求描述" || name === "需求描述";
-}
-
 function currentRequirementDescription(atom: Record<string, unknown>): string {
   const hit = asArray(atom.vaAtomAttrs).map(asRecord).find(isRequirementDescriptionAttr);
   return hit ? asText(hit.attributeValue) : "";
-}
-
-function isRequirementBackgroundAttr(attr: Record<string, unknown>): boolean {
-  const key = asText(attr.attributeKeyOriginal) || asText(attr.attributeKey);
-  const name = asText(attr.attributeName);
-  return key === "BEOR" || key === "需求背景说明" || name === "需求背景说明";
 }
 
 function currentRequirementBackground(atom: Record<string, unknown>): string {
@@ -538,8 +526,12 @@ export async function writeDraft(input: DraftWriteInput): Promise<DraftWriteResu
         ? stripAiSummary(currentRd)
         : currentRd;
     const nextBg = aiBg ? appendAiSummary(currentBg, aiBg) : currentBg;
-    const willAppendRd = nextRd !== currentRd;
-    const willAppendBg = Boolean(aiBg) && nextBg !== currentBg;
+    const willAppendRd =
+      asArray(atom.vaAtomAttrs).map(asRecord).some(isRequirementDescriptionAttr) && nextRd !== currentRd;
+    const willAppendBg =
+      asArray(atom.vaAtomAttrs).map(asRecord).some(isRequirementBackgroundAttr) &&
+      Boolean(aiBg) &&
+      nextBg !== currentBg;
     const currentWi = currentNweon(atom);
     const wiNos = pickPutawayWiNos(
       [sop, aiRd, aiBg, currentRd, currentBg].join("\n"),

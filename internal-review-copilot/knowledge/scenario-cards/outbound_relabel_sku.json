@@ -1,0 +1,67 @@
+{
+  "sceneKey": "outbound_relabel_sku",
+  "sceneName": "【出库】补贴/更换商品标签",
+  "status": "supported",
+  "category": "outbound",
+  "omsSceneCode": "20250516",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§4.12 / §4.13",
+      "credibility": "authority",
+      "note": "知识库写了两遍。近 1 月 1 张，但是评估建议的高频能力。"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "补贴/更换商品标签",
+      "覆盖旧的EAN",
+      "补贴新EAN",
+      "覆盖EAN条形码",
+      "拆箱补贴商品标签"
+    ],
+    "weak": [
+      "商品标签对应关系",
+      "外箱补贴包裹箱唛",
+      "部分拆箱贴标"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "上架",
+      "辨识后",
+      "入库单",
+      "指定位置贴快递面单",
+      "gaylord"
+    ],
+    "soft": [
+      "仅贴托盘运输标签",
+      "交货拍照"
+    ]
+  },
+  "boundaryRules": [
+    "和【出库】指定位置贴标的区别是：本场景是换/补商品 EAN 或箱唛，不是指定位置贴面单/覆盖 UN",
+    "和【入库】包裹类异常换商品标签上架的区别是：本场景出库，不上架、不关异常单",
+    "不要覆盖 EAN 注意事项和条码下方网址，除非客户明确要求"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：出库单 WO + 哪些 SKU 换/补商品标",
+    "动作：覆盖旧 EAN 或拆箱补贴商品标，必要时再贴箱唛",
+    "去向：继续出库"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "出库第一刀：附件闸先咨询。历史上常有对应关系表和标签文件。"
+  },
+  "sopTemplateHints": [
+    "写明出库单 WO 和件数",
+    "按附件对应关系覆盖旧 EAN / 补贴新标",
+    "拆箱贴商品标的 SKU 要分开写",
+    "注意不要盖住须知和网址"
+  ],
+  "examples": [],
+  "notes": "T5 第1刀手写。OMS 20250516。"
+}

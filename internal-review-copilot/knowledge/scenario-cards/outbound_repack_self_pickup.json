@@ -1,0 +1,67 @@
+{
+  "sceneKey": "outbound_repack_self_pickup",
+  "sceneName": "【出库】暂存单重新装箱",
+  "status": "supported",
+  "category": "outbound",
+  "omsSceneCode": "[Outbound] Repackaging by self-pickup order",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§4.3 / §4.9",
+      "credibility": "authority",
+      "note": "知识库写了两遍。近 1 月 11 张。"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "暂存单重新装箱",
+      "重新装箱",
+      "装箱思路",
+      "从暂存区取出",
+      "暂存包裹"
+    ],
+    "weak": [
+      "新出库单",
+      "贴新出库单标签",
+      "自提重新装箱"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "上架",
+      "辨识后",
+      "入库单",
+      "指定位置贴",
+      "交货时拍照"
+    ],
+    "soft": [
+      "仅打托不装箱",
+      "拦截后转暂存"
+    ]
+  },
+  "boundaryRules": [
+    "和【出库】特殊打托的区别是：本场景核心是重新装箱贴新出库标，不是 gaylord/塑料托盘打托",
+    "和【出库】标准出库单拦截的区别是：拦截是停出库；本场景是暂存货按新单再装",
+    "改数后可能有包材费/打托费重复收费需退费"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：暂存包裹 + 新出库单 WO",
+    "动作：按客户装箱要求重新装箱并贴新标",
+    "去向：继续出库"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "出库第一刀：附件闸先咨询。"
+  },
+  "sopTemplateHints": [
+    "写明暂存来源和新出库单 WO",
+    "按客户装箱思路重装",
+    "贴新出库单标签后继续出库",
+    "提醒改数后退重复包材/打托费"
+  ],
+  "examples": [],
+  "notes": "T5 第1刀手写。OMS 码为英文主键 [Outbound] Repackaging by self-pickup order。"
+}

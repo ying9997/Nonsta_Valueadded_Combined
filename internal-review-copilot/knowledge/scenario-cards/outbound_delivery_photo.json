@@ -1,0 +1,67 @@
+{
+  "sceneKey": "outbound_delivery_photo",
+  "sceneName": "【出库】交货时拍照",
+  "status": "supported",
+  "category": "outbound",
+  "omsSceneCode": "20250819",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§4.14",
+      "credibility": "authority",
+      "note": "交货时拍照。开箱拍照 OMS 20260806001 近 1 月 1 张，信号并入本卡，不单开。"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "交货时拍照",
+      "交货拍照",
+      "开箱拍照",
+      "抽箱拍照",
+      "外箱标签拍照"
+    ],
+    "weak": [
+      "拍商品标签清晰可见",
+      "开箱给内部的商品拍照",
+      "每出库单抽"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "上架",
+      "拍照暂存",
+      "入库单",
+      "辨识后",
+      "重新装箱"
+    ],
+    "soft": [
+      "指定位置贴",
+      "打托"
+    ]
+  },
+  "boundaryRules": [
+    "和【入库】指定商品拍照暂存的区别是：本场景是出库交货/开箱取证，不是拦截暂存等客户确认",
+    "和【出库】指定位置贴标的区别是：本场景只拍照，不贴标",
+    "OMS 开箱拍照 20260806001 若后续单量上来再拆卡"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：出库单 WO + 抽几箱/几件",
+    "动作：拍外箱标 + 开箱拍商品标",
+    "去向：照片回传后继续交货/出库"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "出库第一刀：附件闸先咨询。"
+  },
+  "sopTemplateHints": [
+    "写明出库单 WO",
+    "每个出库单抽箱数量、外箱拍几张、开箱拍几件",
+    "要求标签清晰可见",
+    "不要写成入库拍照暂存"
+  ],
+  "examples": [],
+  "notes": "T5 第1刀手写。主码 20250819；开箱拍照并入。"
+}

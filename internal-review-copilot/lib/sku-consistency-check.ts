@@ -7,6 +7,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { envNumber, envText } from "./env.ts";
 import { asArray, asRecord, asText } from "./oms-adapter.ts";
+import { isOutboundOrder } from "./order-category.ts";
 import { getOrCreateTomClient, type TomClient } from "./oms-tom-client.ts";
 import type { AgentInput, ContextFacts, JsonRecord, MatchResult, SkuCheckResult, SkuMatchStatus } from "./types.ts";
 
@@ -140,6 +141,7 @@ export function shouldCheckSkuConsistency(
   matchResult?: MatchResult,
   contextFacts?: ContextFacts,
 ): boolean {
+  if (isOutboundOrder(input.pageContext || {}) || isOutboundOrder(contextFacts || {})) return false;
   const scenes = sceneBlob(input, matchResult, contextFacts);
   const sceneHit =
     TARGET_SCENE_FRAGMENTS.some((frag) => scenes.includes(frag)) ||

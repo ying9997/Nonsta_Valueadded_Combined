@@ -12,6 +12,43 @@ import { findScenarioCard, type RequirementInfoField, type ScenarioCard } from "
 import { applyT1RequiredInfo, t1RequiredInfoMode } from "./t1-sku-relabel-check.ts";
 import type { AttachmentStatus, CompletenessResult, ContextFacts, MatchResult, T1SkuRelabelResult } from "./types.ts";
 
+/** 入库调查调监控：看监控判丢件，不是库内主动拍摄宣传/申诉视频。 */
+export function isInboundMonitorVideoIntent(text: string): boolean {
+  const t = String(text || "");
+  if (!/监控/.test(t)) return false;
+  return /(入库|卸货|签收|丢件|少了|少\d|调取监控|查看.{0,12}监控|查.{0,8}监控)/.test(t);
+}
+
+/** 指定库位清点/库存核实拍照视频：审核口径不要求额外水印/时间戳。 */
+export function isWarehouseLocationStocktakePhotoIntent(text: string): boolean {
+  const t = String(text || "");
+  if (!/(拍照|拍摄|照片|视频)/.test(t)) return false;
+  if (/(水印|时间戳|定位|经纬度|申诉|二审|平台|Temu|TikTok|SHEIN|Shop\s*Code|shop\s*code)/i.test(t)) {
+    return false;
+  }
+  const hasWarehouseLocation = /库位|货架|储位|M\d{6,}/i.test(t);
+  const hasStocktake = /清点|盘点|库存|实物数量|数量并反馈|反馈.{0,8}数量/.test(t);
+  return hasWarehouseLocation && hasStocktake;
+}
+
+/** 库内拍摄卡上，这些非主动申诉拍摄 intent 不要向客户追问的字段。 */
+const PHOTO_VIDEO_WAIVE_FIELDS = new Set(["水印/时间戳要求"]);
+
+export function requiredInfoForIntent(
+  card: ScenarioCard | undefined,
+  customerIntent: string,
+  sceneKey: string,
+): RequirementInfoField[] {
+  let required = (card?.requiredInfoFields || []).filter((item) => item.required && String(item.field || "").trim());
+  if (
+    sceneKey === "instock_photo_video" &&
+    (isInboundMonitorVideoIntent(customerIntent) || isWarehouseLocationStocktakePhotoIntent(customerIntent))
+  ) {
+    required = required.filter((item) => !PHOTO_VIDEO_WAIVE_FIELDS.has(item.field));
+  }
+  return required;
+}
+
 export interface SceneInfoCheck {
   field: string;
   present: boolean;
@@ -52,6 +89,64 @@ function requiredInfoOf(card: ScenarioCard | undefined): RequirementInfoField[] 
 
 function stripMissingSuffix(text: string): string {
   return text.replace(/未说明$/, "").replace(/未上传$/, "").trim();
+}
+
+function isQuantityField(field: string): boolean {
+  return /处理数量|处理范围|数量或范围|商品标签数量|包裹数量|箱数|件数/.test(field);
+}
+
+function isInboundOrderField(field: string): boolean {
+  return /入库单|上架单|目标.*WI|新.*WI|目标入库单WI/.test(field);
+}
+
+export function knownFactsEvidenceForField(field: string, context: ContextFacts): string {
+  const facts = (context.knownFactLines || []).filter(Boolean);
+  if (isQuantityField(field)) {
+    const evidence = facts.find((fact) =>
+      /(?:包裹数量|单品数量|商品数量|订单商品数量|商品明细|每包SKU数量).*[1-9]\d*/.test(fact),
+    );
+    if (evidence) return evidence;
+  }
+
+  if (isInboundOrderField(field)) {
+    const nos = [
+      context.businessOrderNo,
+      ...(context.allBusinessOrderNos || []),
+      context.providedFields?.VAS_ATTR_REL_NWEON,
+      context.providedFields?.["上架入库单号"],
+    ].filter(Boolean);
+    const evidence = [...new Set(nos)].find((no) => /^WI\d{6,}$/i.test(no));
+    if (evidence) return evidence;
+  }
+
+  return "";
+}
+
+function applyKnownFactEvidence(
+  missingInfo: string[],
+  checks: SceneInfoCheck[],
+  requiredInfo: RequirementInfoField[],
+  context: ContextFacts,
+): { missing: string[]; checks: SceneInfoCheck[] } {
+  const byField = new Set(requiredInfo.map((item) => item.field));
+  const normalizedMissing = new Set(missingInfo.map(stripMissingSuffix));
+  const nextChecks = checks.map((check) => {
+    const evidence = knownFactsEvidenceForField(check.field, context);
+    if (!evidence) return check;
+    return { ...check, present: true, evidence: check.evidence || `OMS字段：${evidence}` };
+  });
+
+  for (const item of requiredInfo) {
+    const evidence = knownFactsEvidenceForField(item.field, context);
+    if (evidence) normalizedMissing.delete(item.field);
+  }
+
+  return {
+    missing: [...normalizedMissing]
+      .filter((field) => !byField.size || byField.has(field) || [...byField].some((known) => field.includes(known)))
+      .map((field) => (field.endsWith("未说明") ? field : `${field}未说明`)),
+    checks: nextChecks,
+  };
 }
 
 export function parseInfoLlmResponse(
@@ -127,7 +222,7 @@ export function formatKnownOrderFacts(context: ContextFacts): string {
   }
   const ebs = [...new Set([context.eventNo, ...(context.allEventNos || [])].filter(Boolean))];
   if (ebs.length) lines.push(`- 异常单号：${ebs.join("、")}`);
-  const wis = [
+  const businessNos = [
     ...new Set(
       [
         context.businessOrderNo,
@@ -137,7 +232,14 @@ export function formatKnownOrderFacts(context: ContextFacts): string {
       ].filter(Boolean),
     ),
   ];
-  if (wis.length) lines.push(`- 单据上的入库单/上架单：${wis.join("、")}`);
+  if (businessNos.length) {
+    const isOutbound = /OUTBOUND|出库/.test(`${context.businessType || ""} ${context.businessTypeDesc || ""} ${context.vaSource || ""}`);
+    const label = isOutbound ? "出库单/业务单" : "入库单/上架单/Winit订单号";
+    lines.push(`- 单据上的${label}：${businessNos.join("、")}`);
+  }
+  for (const fact of context.knownFactLines || []) {
+    if (fact) lines.push(`- OMS字段：${fact}`);
+  }
   const fileNames = (context.uploadedFileNames || []).filter(Boolean);
   if (fileNames.length) lines.push(`- 已上传文件名：${fileNames.join("、")}`);
   if (!lines.length) return "";
@@ -175,10 +277,13 @@ ${knownFacts}
 - 客户原文直接写了 → 有
 - 客户没直接写，但可以从上下文或单据信息推断出 → 有（如：写了「整单处理」就等于说明了处理范围）
 - WI 开头的单号（含「Winit订单号」「入库单号」「上架单」）= 新入库单号 / 目标入库单号
+- WO 开头的单号（含「出库单」「业务单」）= 出库作业单号 / 处理对象
 - 单据页已有仓库 = 当前所在仓库；异常单列表或正文里的 EB = 异常单号
+- OMS字段、商品明细、附件文件名里已有的 SKU、商品条码、数量、件数、箱数、处理范围，可以作为对应字段已提供的证据
 - 按外观/漏气与否/左边右边/错装按实际SKU 区分 = 辨识方法；贴哪个 SKU 或上到哪个库位 = SKU对应关系
 - 文件名里带 WI / EB 可作对应线索
 - 补贴 WINIT 包裹标签的场景，标签由系统生成后下载上传，不需要客户提供标签文件。只有「关联第三方商品条码上架」等需要客户自己的条码时，才要求客户上传标签文件。
+- 【重要】入库调查/调取监控视频（查看入库监控、卸货签收、判断丢件等）≠ 库内主动拍摄照片/视频。监控画面自带时间轴，不要要求客户提供水印/时间戳；也不要把「库内拍摄」那套申诉水印要求套到监控调取上。
 - 客户确实没提到，单据和附件里也不太可能有 → 缺失
 宁可判为「有」也不要过度追问。审核员看到追问太多会觉得 AI 不好用。
 
@@ -272,7 +377,7 @@ export async function checkSceneCompleteness(
   const attachment = checkCompleteness(contextFacts, matchResult);
   const card = findScenarioCard(matchResult.sceneKey);
   const requiredInfo = applyT1RequiredInfo(
-    requiredInfoOf(card),
+    requiredInfoForIntent(card, customerIntent, matchResult.sceneKey),
     card?.optionalInfoFields || [],
     t1RequiredInfoMode(options.t1SkuRelabel),
   );
@@ -299,8 +404,9 @@ export async function checkSceneCompleteness(
       contextFacts.attachmentStatus,
       contextFacts,
     );
-    missingInfo = judged.missing;
-    infoChecks = judged.checks;
+    const withKnownFacts = applyKnownFactEvidence(judged.missing, judged.checks, requiredInfo, contextFacts);
+    missingInfo = withKnownFacts.missing;
+    infoChecks = withKnownFacts.checks;
     infoCheckError = judged.error;
   }
 

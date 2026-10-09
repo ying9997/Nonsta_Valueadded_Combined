@@ -38,7 +38,7 @@ export interface RetrievedCase {
 
 export interface RetrieveOptions {
   topK?: number;
-  category?: "inbound" | "instock";
+  category?: "inbound" | "instock" | "outbound";
   excludeCaseIds?: string[];
 }
 
@@ -134,6 +134,7 @@ export function retrieveSimilarCases(
   options?: RetrieveOptions,
 ): RetrievedCase[] {
   if (!isRagEnabled()) return [];
+  if (options?.category === "outbound") return [];
   const topK = options?.topK || 3;
   const exclude = new Set((options?.excludeCaseIds || []).filter(Boolean));
   const prefix = options?.category === "instock" ? "instock" : options?.category === "inbound" ? "inbound" : "";

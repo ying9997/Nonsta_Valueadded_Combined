@@ -67,7 +67,7 @@ export const ACTION_SCENE_MAP: ActionSceneMapping[] = [
   },
   {
     action: "拍照",
-    regex: /拍照|拍摄/,
+    regex: /拍照|拍摄|照片|图片|实物图/,
     candidateScenes: ["inbound_photo_hold"],
   },
   {
@@ -190,7 +190,7 @@ export function normalizeQuery(raw: string): NormalizedQuery {
     (/拦截/.test(text) && /不上架|先放/.test(text)) ||
     /先放在一边/.test(text) ||
     /暂存不上架/.test(text);
-  const hasPhoto = /拍照|拍摄/.test(text);
+  const hasPhoto = /拍照|拍摄|照片|图片|实物图/.test(text);
   const hasRelabel = /换标|贴标|贴条码|补贴|更换.{0,8}标签|更换.{0,8}条码|重新.{0,8}贴|换商品标签/.test(text);
   const hasIdentify =
     /辨识|尺重|绿标|露出的SKU|SKU对应|对应的商品条码|混\s*SKU|商品条码与包裹条码不对应/.test(text);
@@ -205,8 +205,8 @@ export function normalizeQuery(raw: string): NormalizedQuery {
     hasPackageException: /包裹类异常|包裹条码正常|商品条码异常/.test(text),
     hasPhotoHold: hasPhoto && /暂存区|拍照暂存|先放置在暂存|客户确认后|确认后再处理/.test(text),
     hasDirectScanShelve: /直接扫描上架|第三方箱唛已关联/.test(text) && !hasRelabel,
-    weighOrPhotoWithoutRelabel: /称重|拍照|拍摄/.test(text) && !hasRelabel,
-    inboundStockPhoto: /库内/.test(text) && /拍照|拍摄照片|视频/.test(text),
+    weighOrPhotoWithoutRelabel: /称重|拍照|拍摄|照片|图片|实物图/.test(text) && !hasRelabel,
+    inboundStockPhoto: /库内/.test(text) && /拍照|拍摄照片|照片|图片|实物图|视频/.test(text),
   };
 }
 
@@ -281,6 +281,14 @@ function structuralBonus(card: ScenarioCard, query: NormalizedQuery): { bonus: n
   }
   if (card.sceneKey === "inbound_photo_hold" && query.hasPhotoHold) {
     return { bonus: BONUS_STRUCTURAL, signal: "structural:photo+hold+later_decision" };
+  }
+  if (
+    card.sceneKey === "instock_exception_rephoto" &&
+    /(?:EB\d+|异常单)/.test(query.text) &&
+    /(?:拍照|拍摄|照片|图片|实物图)/.test(query.text) &&
+    /(?:打开|拆开).{0,12}(?:外)?包装|复原包装|恢复包装/.test(query.text)
+  ) {
+    return { bonus: BONUS_STRUCTURAL * 2, signal: "structural:exception+open-package+photo+restore" };
   }
   if (card.sceneKey === "outbound_specified_position_label" && /指定位置|快递面单/.test(query.text)) {
     return { bonus: BONUS_STRUCTURAL, signal: "structural:specified-position-label" };

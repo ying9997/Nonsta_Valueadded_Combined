@@ -1,22 +1,53 @@
 /**
- * 知识库场景对不上 OMS 场景概述码：SOP 仍写入，不选下拉，@ 金萤找业务确认。
+ * 知识库场景对不上 OMS 场景概述码。
+ * 入库/库内：SOP 仍写入、不选下拉，并 @ 金萤找业务补码。
+ * 出库：对不上就空着，SOP 照写，不转人工、不找人补下拉。
  */
 import { alertUserId } from "./canary.ts";
 import { sendPersonalMessage } from "./feishu-bot.ts";
+import { isOutboundOrder } from "./order-category.ts";
 import { resolveSceneOverviewCode } from "./oms-draft-write.ts";
 import { findScenarioCard, supportedCardsMissingOmsSceneCode } from "./scenario-cards.ts";
+import type { MatchResult } from "./types.ts";
 
 export function needsOmsSceneConfirm(args: {
   sceneKey?: string;
   decision?: string;
   outputPath?: string;
   riskFlags?: string[];
+  businessTypeDesc?: string;
+  businessType?: string;
+  vaSource?: string;
 }): boolean {
+  if ((args.riskFlags || []).includes("outbound_unmatched_leave_empty")) return false;
+  if (isOutboundOrder(args)) return false;
+  if (String(args.sceneKey || "").startsWith("outbound_")) return false;
   if (args.outputPath && args.outputPath !== "sop_generated") return false;
   if ((args.riskFlags || []).includes("unmatched_scene_sop")) return true;
   const key = String(args.sceneKey || "").trim();
   if (!key || key === "unsupported") return args.decision === "unsupported";
   return resolveSceneOverviewCode(key).missing;
+}
+
+/** 出库对不上 7 张高频卡时：不选 OMS 下拉，后面仍写 SOP。入库卡不得套到出库单。 */
+export function applyOutboundUnmatchedLeaveEmpty(match: MatchResult, order: {
+  businessTypeDesc?: string;
+  businessType?: string;
+  vaSource?: string;
+}): MatchResult {
+  if (!isOutboundOrder(order)) return match;
+  const key = String(match.sceneKey || "").trim();
+  const usableOutbound =
+    match.decision === "supported" && key.startsWith("outbound_") && key !== "unsupported";
+  if (usableOutbound) return match;
+  return {
+    ...match,
+    sceneKey: "",
+    scenarioId: "",
+    scenarioName: "",
+    matched: false,
+    supported: false,
+  };
 }
 
 export function missingOmsSceneAlertText(args: {

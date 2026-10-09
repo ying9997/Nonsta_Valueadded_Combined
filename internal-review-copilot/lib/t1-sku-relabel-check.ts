@@ -15,6 +15,7 @@ import {
   type InboundMerchandiseLine,
 } from "./sku-consistency-check.ts";
 import type { AgentInput, ContextFacts, MatchResult, T1SkuClaim, T1SkuRelabelResult, T1SkuVerdict } from "./types.ts";
+import { isOutboundOrder } from "./order-category.ts";
 import { pickPutawayWiNos, extractWiNos } from "./wi-numbers.ts";
 
 export const T1_SKU_RELABEL_SCENE = "inbound_package_barcode_batch_relabel";
@@ -104,6 +105,7 @@ export function pickT1TargetWis(input: AgentInput, contextFacts?: ContextFacts):
 }
 
 export function shouldCheckT1SkuRelabel(matchResult?: MatchResult, input?: AgentInput): boolean {
+  if (isOutboundOrder(input?.pageContext || {})) return false;
   const key = asText(matchResult?.sceneKey || input?.sceneKey);
   return key === T1_SKU_RELABEL_SCENE;
 }

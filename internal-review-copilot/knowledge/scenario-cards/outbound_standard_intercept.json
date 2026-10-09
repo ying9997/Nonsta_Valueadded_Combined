@@ -1,0 +1,67 @@
+{
+  "sceneKey": "outbound_standard_intercept",
+  "sceneName": "【出库】标准出库单拦截",
+  "status": "supported",
+  "category": "outbound",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§4.2",
+      "credibility": "authority",
+      "note": "知识库有、OMS 出库下拉近 1 月无对应码。缺 omsSceneCode：可写 SOP，不选下拉（H18）。"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "标准出库单拦截",
+      "拦截出库",
+      "出库单拦截",
+      "已下架拦截",
+      "暂停出库"
+    ],
+    "weak": [
+      "拦截包裹",
+      "转新单",
+      "转暂存",
+      "转自提"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "上架",
+      "入库拦截",
+      "上架前拦截",
+      "辨识后",
+      "重新装箱"
+    ],
+    "soft": [
+      "指定位置贴",
+      "打托"
+    ]
+  },
+  "boundaryRules": [
+    "和入库「拦截不上架」的区别是：本场景拦截的是已下架/出库中的 WO，不是入库 WI",
+    "和【出库】暂存单重新装箱的区别是：拦截是先停；重装箱是暂存货按新单再装",
+    "OMS 暂无稳定下拉码：匹配后写 SOP，场景概述保持空着，不转人工"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：出库单 WO",
+    "动作：拦截 / 暂停出库",
+    "去向：转新单 / 暂存 / 自提等客户要求"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "出库第一刀：附件闸先咨询。"
+  },
+  "sopTemplateHints": [
+    "写明出库单 WO 和拦截原因",
+    "已打包则拦截包裹；未出库则暂停",
+    "去向按客户写：转新单/暂存/自提",
+    "不要选 OMS 场景下拉（本卡无 omsSceneCode）"
+  ],
+  "examples": [],
+  "notes": "T5 第1刀手写。无 OMS 码，沿用 H18：仍出 SOP、不选下拉。"
+}

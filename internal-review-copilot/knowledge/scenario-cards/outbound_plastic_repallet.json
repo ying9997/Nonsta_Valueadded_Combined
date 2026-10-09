@@ -1,0 +1,62 @@
+{
+  "sceneKey": "outbound_plastic_repallet",
+  "sceneName": "【出库】重新打托（塑料托盘）",
+  "status": "supported",
+  "category": "outbound",
+  "omsSceneCode": "20250408001",
+  "sourceRefs": [
+    {
+      "path": "internal-review-copilot/_runs/20260920_outbound_other_service_plan/osf8v1601-knowledge-vs-oms.md",
+      "section": "OMS 20250408001",
+      "credibility": "derived",
+      "note": "知识库第四章无独立节，仅 OMS 有。近 1 月 3 张。"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "塑料托盘",
+      "重新打托（塑料托盘）",
+      "改用塑料托盘"
+    ],
+    "weak": [
+      "重新打托",
+      "换托盘"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "gaylord",
+      "盖洛德",
+      "上架",
+      "重新装箱",
+      "入库单"
+    ],
+    "soft": [
+      "仅补贴托盘标签",
+      "指定位置贴"
+    ]
+  },
+  "boundaryRules": [
+    "和【出库】特殊打托需求的区别是：本场景明确改用塑料托盘，不是 gaylord/特殊打托",
+    "和【出库】补贴包裹/托盘标签的区别是：本场景是重新打托，不是只贴运输标签"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：出库单 WO + 塑料托盘",
+    "动作：重新打托",
+    "去向：继续出库"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "出库第一刀：附件闸先咨询。"
+  },
+  "sopTemplateHints": [
+    "写明出库单 WO",
+    "写明改用塑料托盘重新打托",
+    "不要写成 gaylord 特殊打托"
+  ],
+  "examples": [],
+  "notes": "T5 第1刀手写。只 OMS 有，知识库无独立节。"
+}

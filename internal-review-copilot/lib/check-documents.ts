@@ -1,9 +1,16 @@
 import { asArray, asRecord, asText } from "./oms-adapter.ts";
+import { isOutboundOrder } from "./order-category.ts";
+import { isWoNo } from "./wo-numbers.ts";
 import type { ContextFacts, JsonRecord } from "./types.ts";
+
+function isWiNo(value: string): boolean {
+  return /^WI\d{6,}$/.test(value);
+}
 
 /**
  * Soft document-existence / ownership check.
  * Never hard-pass or hard-fail the pipeline. Unverifiable cases get a risk flag.
+ * Outbound orders bind WO as the primary business order (inbound uses WI / EB).
  */
 export function checkDocuments(detail: JsonRecord, context: ContextFacts): string[] {
   const flags: string[] = [];
@@ -19,9 +26,12 @@ export function checkDocuments(detail: JsonRecord, context: ContextFacts): strin
   );
 
   const boundEbs = context.allEventNos.map((no) => no.toUpperCase());
-  const boundWis = context.allBusinessOrderNos.map((no) => no.toUpperCase());
+  const boundBiz = context.allBusinessOrderNos.map((no) => no.toUpperCase());
+  const boundWis = boundBiz.filter(isWiNo);
+  const boundWos = boundBiz.filter(isWoNo);
+  const outbound = isOutboundOrder(context);
 
-  if (!boundEbs.length && !boundWis.length) {
+  if (!boundEbs.length && !boundWis.length && !boundWos.length) {
     flags.push("单据归属未验证");
     return flags;
   }
@@ -32,10 +42,13 @@ export function checkDocuments(detail: JsonRecord, context: ContextFacts): strin
   }
 
   const business = asRecord(header.businessOrder);
-  const headerWi = asText(business.businessNo).toUpperCase();
-  if (headerWi && boundWis.includes(headerWi)) verified = true;
+  const headerBiz = asText(business.businessNo).toUpperCase();
+  if (headerBiz && boundBiz.includes(headerBiz)) verified = true;
+  if (outbound && headerBiz && isWoNo(headerBiz) && boundWos.includes(headerBiz)) verified = true;
 
   for (const ev of events) {
+    const evBiz = (asText(ev.eventNo) || asText(ev.businessNo) || asText(ev._eventNo)).toUpperCase();
+    if (evBiz && boundWos.includes(evBiz)) verified = true;
     const evCustomer = asText(ev.customerCode) || asText(asRecord(ev.customer).customerCode);
     const evWarehouse = asText(ev.warehouseCode) || asText(asRecord(ev.warehouse).warehouseCode);
     if (evCustomer && headerCustomer && evCustomer !== headerCustomer) {

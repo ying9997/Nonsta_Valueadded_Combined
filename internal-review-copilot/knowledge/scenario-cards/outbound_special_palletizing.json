@@ -1,0 +1,65 @@
+{
+  "sceneKey": "outbound_special_palletizing",
+  "sceneName": "【出库】特殊打托需求",
+  "status": "supported",
+  "category": "outbound",
+  "omsSceneCode": "20260408",
+  "sourceRefs": [
+    {
+      "path": "workspace/knowledge/sop/非标增值单审核SOP知识库-新版.md",
+      "section": "§4.7（§4.4 自提打托并入弱信号）",
+      "credibility": "authority",
+      "note": "近 1 月 7 张。自提打托知识库有、近 1 月无量，不单开卡。"
+    }
+  ],
+  "positiveSignals": {
+    "strong": [
+      "特殊打托",
+      "gaylord",
+      "盖洛德",
+      "装箱打托"
+    ],
+    "weak": [
+      "自提打托",
+      "打托后交货",
+      "拣选明细改数"
+    ]
+  },
+  "negativeSignals": {
+    "hard": [
+      "上架",
+      "塑料托盘",
+      "重新装箱",
+      "入库单",
+      "指定位置贴"
+    ],
+    "soft": [
+      "仅补贴托盘标签",
+      "拍照"
+    ]
+  },
+  "boundaryRules": [
+    "和【出库】重新打托（塑料托盘）的区别是：本场景是特殊方式（如 gaylord），不是改用塑料托盘",
+    "和【出库】暂存单重新装箱的区别是：本场景打托，不是拆箱重装",
+    "gaylord 费用按标准包装打包费：带盖 30USD/个，不带盖 20USD/个（知识库口径）"
+  ],
+  "requiredRequirementHints": [
+    "处理对象：出库单 WO + 打托方式",
+    "动作：按客户要求打托",
+    "去向：交货或继续出库；拣选明细给客服改数"
+  ],
+  "requiredAttachmentPolicy": {
+    "status": "pending_business_confirmation",
+    "enforcement": "advisory",
+    "omsWhitelistFieldKeys": [],
+    "requiredFieldKeys": [],
+    "note": "出库第一刀：附件闸先咨询。"
+  },
+  "sopTemplateHints": [
+    "写明出库单 WO 和打托方式（gaylord 带盖/不带盖等）",
+    "拣选后提供明细给客服改数",
+    "不要写成塑料托盘重新打托"
+  ],
+  "examples": [],
+  "notes": "T5 第1刀手写。OMS 20260408。"
+}

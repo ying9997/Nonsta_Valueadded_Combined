@@ -3,7 +3,7 @@
  *
  *   npx tsx internal-review-copilot/scripts/test-feishu-card.ts
  */
-import { buildAllScenesCard, buildCanaryPromoteCard, buildCanaryPromotedUpdateCard, buildClarificationCard, buildOmsWriteCancelledCard, buildOmsWriteRetryCard, buildRequirementClarificationCard, buildSceneConfirmCard, buildSceneConfirmedUpdateCard, buildSceneSearchMultiCard, buildSceneSearchSingleCard, buildSopActionUpdateCard, buildSopCard, buildSopGenerateErrorCard, compactAiReason, demoTopicTitle, judgmentBasis, shortSceneName } from "../lib/feishu-card.ts";
+import { buildAllScenesCard, buildAskCard, buildCanaryPromoteCard, buildCanaryPromotedUpdateCard, buildClarificationCard, buildOmsWriteCancelledCard, buildOmsWriteRetryCard, buildRequirementClarificationCard, buildSceneConfirmCard, buildSceneConfirmedUpdateCard, buildSceneSearchMultiCard, buildSceneSearchSingleCard, buildSopActionUpdateCard, buildSopCard, buildSopGenerateErrorCard, compactAiReason, demoTopicTitle, judgmentBasis, shortSceneName } from "../lib/feishu-card.ts";
 import { collectSceneCandidates } from "../lib/parse-scene-reply.ts";
 import { replaceInventedOrderNos } from "../lib/generate-text.ts";
 import { searchSceneByKeyword } from "../lib/scenario-cards.ts";
@@ -127,12 +127,36 @@ const l3Scene = buildClarificationCard(
   liveInbound,
 );
 assert(JSON.stringify(l3Scene).includes("场景识别"), "L3 scene name");
+assert(l3Scene.header.title.content.includes("资料待补充"), "L3 title says field/materials missing");
+assert(JSON.stringify(l3Scene).includes("以下场景资料需要补充"), "L3 body says field/materials missing");
+assert(!JSON.stringify(l3Scene).includes("客户需求描述不够完整"), "L3 must not use L1 requirement wording");
 assert(JSON.stringify(l3Scene).includes("处理范围未说明"), "L3 missing info");
 assert(JSON.stringify(l3Scene).includes("标签文件"), "L3 missing attachment");
 assert(JSON.stringify(l3Scene).includes("❓"), "L3 info uses ❓");
 assert(JSON.stringify(l3Scene).includes("ou_d09d7409a63201462177f4d8a8b1ac7b"), "L3 补信息 @ 销售");
 assert(JSON.stringify(l3Scene).includes("ou_cs_test_sales_only"), "L3 补信息 @ 客服");
 assertNoReviewerAt(JSON.stringify(l3Scene), "L3 补信息不 @ 审核员/负责人");
+
+const legacyL25Scene = buildAskCard(
+  {
+    ...base,
+    orderNo: "VASC000000448314",
+    outputPath: "needs_requirement_clarification",
+    ruleOutputPath: "needs_requirement_clarification",
+    node: "check-scene-completeness",
+    failureGate: "check-completeness",
+    missingRequirementItems: ["SKU与入库单对应关系未说明"],
+    missing: ["SKU与入库单对应关系未说明"],
+    matchResult: {
+      sceneKey: "inbound_package_barcode_batch_relabel",
+      scenarioName: "【入库】包裹条码批量异常辨识后补贴包裹标签上架",
+    },
+  } as PipelineResult,
+  liveInbound,
+);
+assert(legacyL25Scene.header.title.content.includes("资料待补充"), "legacy L2.5 title says materials missing");
+assert(JSON.stringify(legacyL25Scene).includes("以下场景资料需要补充"), "legacy L2.5 body says field/materials missing");
+assert(!JSON.stringify(legacyL25Scene).includes("客户需求描述不够完整"), "legacy L2.5 must not use L1 wording");
 
 const l1 = buildRequirementClarificationCard(
   {

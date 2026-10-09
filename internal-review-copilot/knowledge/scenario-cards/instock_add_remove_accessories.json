@@ -72,8 +72,20 @@
     "如有减配件需做销毁处理并收取销毁费"
   ],
   "examples": [],
-  "notes": "batch-generated from SOP §3.39. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250421001. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。",
+  "notes": "batch-generated from SOP §3.39. Status=supported for immediate use. Signals extracted by LLM, pending business validation. OMS 精确匹配 20250421001. 2026-09-14: 写入 G-1 requiredInfoFields（样本≥5）。2026-10-09 P0-011: reply closure badcase VASC000000415983 证明场景正确但必填口径应要求上下架单据，不能只追问处理数量。",
   "requiredInfoFields": [
+    {
+      "field": "上下架单据",
+      "description": "需要提供用于库内下架和处理后重新上架的单据，例如下架出库单号、上架入库单号或上下架单据附件",
+      "frequency": "P0-011 badcase VASC000000415983 人工退回口径",
+      "examples": [
+        "下架单：WO12196257768；上架单：WI52053035",
+        "出库下架单：WO11526888758；入库上架新单：WI50353745",
+        "请提供上下架单据后重新提交",
+        "商品下架单：WO11479255267，处理后上架到 WI50255341"
+      ],
+      "required": true
+    },
     {
       "field": "处理数量",
       "description": "需要明确处理多少件/套产品",
@@ -85,7 +97,7 @@
         "M010000000009973294（100件）",
         "共计468件单品"
       ],
-      "required": true
+      "required": false
     },
     {
       "field": "加减配件操作说明",

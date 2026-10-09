@@ -209,6 +209,20 @@ function localAppendTests(): void {
     needsOmsSceneConfirm({ sceneKey: "", decision: "unsupported", outputPath: "sop_generated", riskFlags: ["unmatched_scene_sop"] }),
     "未匹配场景要确认",
   );
+  assert(
+    !needsOmsSceneConfirm({
+      sceneKey: "",
+      decision: "unsupported",
+      outputPath: "sop_generated",
+      riskFlags: ["unmatched_scene_sop", "outbound_unmatched_leave_empty"],
+      businessTypeDesc: "出库订单",
+    }),
+    "出库对不上不找人补下拉",
+  );
+  assert(
+    !needsOmsSceneConfirm({ sceneKey: "outbound_standard_intercept", outputPath: "sop_generated" }),
+    "出库无码卡也不找人补下拉",
+  );
   const missDm = missingOmsSceneAlertText({
     vascNo: "VASC000000374793",
     sceneKey: "inbound_reshelve_change_wi_keep_sku",
