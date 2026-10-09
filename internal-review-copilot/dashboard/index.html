@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>内部智能审核助手 · 质量看板</title>
+  <style>
+    :root{--agent-font-sans:"Inter","Noto Sans CJK SC","Microsoft YaHei","PingFang SC",system-ui,sans-serif;--agent-font-serif:"Noto Serif CJK SC","Source Han Serif SC","Songti SC",Georgia,serif;--agent-font-mono:"JetBrains Mono",ui-monospace,Consolas,monospace}
+    :root[data-theme="dark"]{--bg:#14100c;--bg2:#21180f;--surface:#221a12;--surface2:#2d2217;--text:#fff7ec;--muted:#bda88f;--faint:#806d57;--line:#4b3826;--accent:#d39e3c;--gold:#f5b834;--green:#4fb477;--red:#df5a4f;--shadow:0 22px 80px rgba(0,0,0,.38)}
+    :root[data-theme="light"]{--bg:#f6ecdf;--bg2:#fbf6ef;--surface:rgba(255,253,249,.92);--surface2:rgba(255,250,244,.88);--text:#4d3420;--muted:#7f6244;--faint:#a38f78;--line:rgba(165,120,72,.16);--accent:#a57848;--gold:#e4ab38;--green:#208759;--red:#c33d35;--shadow:0 8px 24px rgba(120,72,36,.08)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;background:radial-gradient(circle at 12% 0%,rgba(245,184,52,.16),transparent 30%),linear-gradient(145deg,var(--bg),var(--bg2));color:var(--text);font-family:var(--agent-font-sans);-webkit-font-smoothing:antialiased}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.22;background-image:linear-gradient(rgba(245,184,52,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(245,184,52,.03) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,#000,transparent 82%)}
+    button,select{font:inherit;cursor:pointer}
+    .wrap{max-width:1720px;margin:0 auto;padding:26px 28px 64px}
+    .theme-toggle{position:fixed;right:18px;top:18px;z-index:50;border:1px solid rgba(165,120,72,.3);border-radius:12px;background:rgba(165,120,72,.08);color:var(--text);padding:10px 16px;font-size:12px;font-weight:600}
+    .hero{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:28px;padding:28px;background:linear-gradient(135deg,rgba(165,120,72,.2),rgba(245,184,52,.05)),var(--surface);box-shadow:var(--shadow);border-top:2px solid rgba(245,184,52,.3)}
+    .hero::after{content:"质量";position:absolute;right:24px;bottom:-18px;font-family:var(--agent-font-serif);font-size:108px;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent;opacity:.12;letter-spacing:-6px}
+    .eyebrow{position:relative;z-index:1;font-size:12px;color:var(--gold);letter-spacing:.18em}
+    .badge{display:inline-flex;margin-left:10px;height:24px;padding:0 9px;border:1px solid rgba(245,184,52,.28);border-radius:999px;background:rgba(245,184,52,.08);color:var(--gold);font-size:11px;font-weight:800;letter-spacing:0;align-items:center}
+    h1{position:relative;z-index:1;margin-top:8px;font-family:var(--agent-font-serif);font-size:clamp(32px,4vw,56px);line-height:1.08;letter-spacing:-.04em}
+    .conclusion{position:relative;z-index:1;max-width:920px;margin-top:14px;color:var(--text);font-size:16px;line-height:1.7}
+    .filters{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+    .chip{border:1px solid var(--line);border-radius:10px;background:rgba(165,120,72,.06);color:var(--muted);padding:8px 14px;font-size:12px;font-weight:600}
+    .chip.active{background:linear-gradient(135deg,var(--accent),var(--gold));border-color:var(--gold);color:#160f08}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+    .kpi{position:relative;overflow:hidden;text-align:left;border:1px solid var(--line);border-radius:20px;background:var(--surface);padding:16px;color:inherit}
+    .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(var(--accent),var(--gold))}
+    .kpi.active{outline:2px solid var(--gold);outline-offset:2px}
+    .kpi .l{color:var(--faint);font-size:12px}
+    .kpi .v{margin-top:8px;font-size:32px;font-weight:700;letter-spacing:-.04em}
+    .kpi .s{margin-top:8px;color:var(--muted);font-size:12px}
+    .side-note{margin:-6px 0 18px;color:var(--muted);font-size:12px}
+    .card{border:1px solid var(--line);border-radius:24px;background:var(--surface);box-shadow:var(--shadow);padding:18px;margin-bottom:18px}
+    .card-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:14px}
+    h2{font-family:var(--agent-font-serif);font-size:24px;letter-spacing:-.04em;padding-left:14px;border-left:3px solid var(--gold)}
+    .hint{color:var(--muted);font-size:12px;line-height:1.6;text-align:right}
+    .trend{display:flex;gap:14px;align-items:flex-end;overflow:auto;min-height:180px;padding-bottom:6px}
+    .day{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:72px}
+    .bar{width:28px;border-radius:8px 8px 4px 4px;background:linear-gradient(180deg,var(--gold),var(--accent))}
+    .day b{font-size:12px}
+    .day span{color:var(--muted);font-size:11px}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:18px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+    th:first-child,td:first-child,.summary,.scene-name{text-align:left}
+    th{position:sticky;top:0;background:var(--surface2);color:var(--muted);font-weight:600}
+    tr[data-scene],tr[data-vasc]{cursor:pointer}
+    tr.active td,tr:hover td{background:rgba(165,120,72,.1)}
+    tr.few td{color:var(--muted)}
+    .scene-name{max-width:420px;white-space:normal;line-height:1.45}
+    .summary{max-width:360px;white-space:normal;color:var(--muted)}
+    .mono{font-family:var(--agent-font-mono);font-size:12px}
+    .tag,.band{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700}
+    .tag.few{margin-left:8px;border:1px solid var(--line);color:var(--faint)}
+    .band.green{background:rgba(79,180,119,.15);color:var(--green)}
+    .band.yellow{background:rgba(245,184,52,.15);color:var(--gold)}
+    .band.red{background:rgba(223,90,79,.15);color:var(--red)}
+    .band.gray{background:rgba(128,109,87,.15);color:var(--muted)}
+    .down{color:var(--red);font-weight:700}
+    .empty{color:var(--muted);padding:18px;text-align:left}
+    .focus{display:flex;gap:8px;flex-wrap:wrap}
+    .drawer{position:fixed;top:0;right:0;z-index:40;width:min(760px,100vw);height:100vh;padding:22px;background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);transform:translateX(104%);transition:transform .2s ease;overflow:auto}
+    .drawer.open{transform:none}
+    .drawer-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .drawer h3{margin:14px 0 8px;font-size:13px;color:var(--gold)}
+    .drawer pre{white-space:pre-wrap;font-family:var(--agent-font-sans);font-size:13px;line-height:1.65;color:var(--text)}
+    .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    #drawer-summary{margin-top:10px;color:var(--muted);line-height:1.6}
+    #drawer-meta{margin-top:6px;color:var(--faint);font-size:12px}
+    .meta{margin-top:8px;color:var(--faint);font-size:12px}
+    @media(max-width:900px){.kpis,.pair{grid-template-columns:1fr 1fr}.hint{text-align:left}}
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" id="theme" type="button">浅色</button>
+  <main class="wrap">
+    <header class="hero">
+      <div class="eyebrow">VAS INTERNAL REVIEW <span class="badge">本机预览</span></div>
+      <h1>内部智能审核助手 · 质量看板</h1>
+      <p class="conclusion" id="conclusion">正在汇总…</p>
+      <div class="filters" id="filters">
+        <button class="chip active" data-group="range" data-value="7d" type="button">近 7 天</button>
+        <button class="chip" data-group="range" data-value="30d" type="button">近 30 天</button>
+        <button class="chip" data-group="range" data-value="all" type="button">全部</button>
+        <button class="chip active" data-group="category" data-value="all" type="button">全部类型</button>
+        <button class="chip" data-group="category" data-value="inbound" type="button">入库</button>
+        <button class="chip" data-group="category" data-value="instock" type="button">库内</button>
+        <button class="chip active" data-group="review" data-value="all" type="button">全部状态</button>
+        <button class="chip" data-group="review" data-value="done" type="button">已审完</button>
+        <button class="chip" data-group="review" data-value="pending" type="button">待审完</button>
+      </div>
+    </header>
+
+    <section class="kpis" aria-label="四个大数">
+      <button class="kpi" data-kpi="written" type="button"><div class="l">已写入</div><div class="v" id="kpi-written">—</div><div class="s" id="kpi-written-sub">点此看全部清单</div></button>
+      <button class="kpi" data-kpi="reviewed" type="button"><div class="l">已审完</div><div class="v" id="kpi-reviewed">—</div><div class="s">点此只看能评质量的单</div></button>
+      <button class="kpi" data-kpi="match" type="button"><div class="l">场景认对率</div><div class="v" id="kpi-match">—</div><div class="s" id="kpi-match-sub">点此只看认对的单</div></button>
+      <button class="kpi" data-kpi="rewritten" type="button"><div class="l">整段重写</div><div class="v" id="kpi-rewrite">—</div><div class="s">点此只看被推翻的单</div></button>
+    </section>
+    <p class="side-note" id="side-note"></p>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>按天趋势</h2>
+        <p class="hint">看有没有突然变差。柱高是当天写入数，下面是已审完和认对率。</p>
+      </div>
+      <div class="trend" id="trend"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>按场景</h2>
+        <button class="chip" id="scene-sort" data-sort="scene" type="button">按认对率从低到高</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>场景</th><th>已审完</th><th>认对率</th><th>原样</th><th>措辞</th><th>删步骤</th><th>加步骤</th><th>整段重写</th></tr>
+          </thead>
+          <tbody id="scene-body"></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:10px;text-align:left">已审完少于 3 张的场景标「样本少」，不参与从低到高的排名，只列在表后面。点一行，下面清单只留这个场景。</p>
+    </section>
+
+    <section class="card" id="list">
+      <div class="card-head">
+        <h2>问题清单</h2>
+        <div>
+          <div class="focus" id="focus-tags"></div>
+          <p class="hint" id="list-count"></p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>单号</th><th>类型</th><th>场景</th><th>置信度</th><th>分档</th><th>差异</th></tr>
+          </thead>
+          <tbody id="list-body"></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:10px;text-align:left">排序：整段重写 → 场景认错 → 低置信度 → 待审完。点一行看 AI 和人工怎么写的。</p>
+    </section>
+    <p class="meta" id="meta"></p>
+  </main>
+
+  <aside class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <div>
+        <h2 id="drawer-title">单号</h2>
+        <div id="drawer-meta"></div>
+      </div>
+      <div>
+        <span class="band gray" id="drawer-band">灰</span>
+        <button class="chip" id="drawer-close" type="button">关闭</button>
+      </div>
+    </div>
+    <p id="drawer-summary"></p>
+    <div id="drawer-body"></div>
+  </aside>
+
+  <script src="./logic.js"></script>
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

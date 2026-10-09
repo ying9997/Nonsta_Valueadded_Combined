@@ -50,7 +50,7 @@ import { enrichDetailsCustomerNames } from "../lib/oms-customer.ts";
 import { visibleCustomerName } from "../lib/customer-display.ts";
 import { isOmsWriteEnabled, isHumanSopAlreadyFilled, omsWriteAllowlist } from "../lib/oms-draft-write.ts";
 import { notifyOwnerHumanSopFilled } from "../lib/human-sop-alert.ts";
-import { notifyOwnerMissingOmsScene } from "../lib/missing-oms-scene.ts";
+import { notifyOwnerMissingOmsScene, needsOmsSceneConfirm } from "../lib/missing-oms-scene.ts";
 import { appendBadcase } from "../lib/badcase-log.ts";
 import { isRagEnabled } from "../lib/case-retriever.ts";
 import { refreshTomCookies } from "../lib/oms-tom-client.ts";
@@ -65,6 +65,11 @@ import {
 } from "../lib/personnel.ts";
 import { buildTransferNoticeBody, collectSceneCandidates, parseSceneReply } from "../lib/parse-scene-reply.ts";
 import { failureTypeOf, isSopGenerateFailure, runPipeline, type PipelineResult } from "../lib/run-pipeline.ts";
+import {
+  humanRepliesAfterClarification,
+  isClarificationOutput,
+  nextStatusAfterReassess,
+} from "../lib/reassess-loop.ts";
 import { findScenarioCard, loadScenarioCards } from "../lib/scenario-cards.ts";
 import { repliesFromFeishu, summarizeReply } from "../lib/summarize-reply.ts";
 import type { CaseRecord, CaseStatus, JsonRecord } from "../lib/types.ts";
@@ -245,6 +250,35 @@ function statusAfterAssess(result: PipelineResult): CaseStatus {
     return "needs_clarification";
   }
   return "first_assessed";
+}
+
+/** 把飞书话题里的人工补充并进需求描述，再重跑 pipeline。不改原始 OMS 详情对象。 */
+function detailWithFeishuReplies(
+  detail: JsonRecord,
+  replies: Array<{ speaker: string; text: string }>,
+): JsonRecord {
+  const texts = replies.map((item) => String(item.text || "").trim()).filter(Boolean);
+  if (!texts.length) return detail;
+  const cloned = JSON.parse(JSON.stringify(detail)) as JsonRecord;
+  const atoms = asArray(cloned.atoms).map(asRecord);
+  const atom = atoms[0] || {};
+  const attrs = asArray(atom.vaAtomAttrs).map(asRecord);
+  const idx = attrs.findIndex(
+    (a) => asText(a.attributeKey) === "VAS_ATTR_REL_RD" || asText(a.attributeName) === "需求描述",
+  );
+  const prev = idx >= 0 ? asText(attrs[idx].attributeValue) : "";
+  const block = `【飞书话题补充】\n${texts.join("\n")}`;
+  const next = [prev, block].filter(Boolean).join("\n");
+  const row = {
+    attributeKey: "VAS_ATTR_REL_RD",
+    attributeName: "需求描述",
+    attributeValue: next,
+  };
+  if (idx >= 0) attrs[idx] = { ...attrs[idx], ...row };
+  else attrs.push(row);
+  atom.vaAtomAttrs = attrs;
+  cloned.atoms = [atom, ...atoms.slice(1)];
+  return cloned;
 }
 
 async function loadDetails(options: {
@@ -716,6 +750,16 @@ async function autoWriteAndNotify(
         `oms_write_ok ${result.orderNo} written=${writeResult.written.join(",")}${missingOmsScene ? " missingOmsScene=1" : ""}`,
       );
       if (!skipFeishu && missingOmsScene) {
+        const escalate = needsOmsSceneConfirm({
+          sceneKey: result.matchResult?.sceneKey,
+          decision: result.matchResult?.decision,
+          outputPath: result.outputPath,
+          riskFlags: result.riskFlags,
+          businessTypeDesc: result.contextFacts?.businessTypeDesc,
+          businessType: result.contextFacts?.businessType,
+          vaSource: result.contextFacts?.vaSource,
+        });
+        if (escalate) {
         appendBadcase({
           kind: "missing_oms_scene_code",
           vascNo: rec.vascNo,
@@ -731,6 +775,9 @@ async function autoWriteAndNotify(
           warehouse: rec.warehouse,
         });
         appendLog(logPath, `missing_oms_scene_dm ${rec.vascNo} ${notify}`);
+        } else {
+          appendLog(logPath, `missing_oms_scene_skip_dm ${rec.vascNo} outbound_leave_empty`);
+        }
       }
     } else {
       writeError = writeResult.error || "写入 OMS 失败";
@@ -910,7 +957,7 @@ async function refreshReplies(store: CaseStore, logPath: string): Promise<void> 
     if (!rec.feishuThreadId) continue;
     try {
       const messages = await getThreadMessages(chatId, rec.feishuThreadId);
-      const human = repliesFromFeishu(messages, botFilterOpts());
+      const human = humanRepliesAfterClarification(messages, rec.clarificationSentAt, botFilterOpts());
       if (!human.length) {
         maybeRemind(rec, store, logPath);
         continue;
@@ -973,27 +1020,23 @@ async function reassessReplies(
         appendLog(options.logPath, `reassess_missing_detail ${rec.vascNo}`);
         continue;
       }
-      const first = await runPipeline(detail, {
+      const chatId = getTargetChatId();
+      const messages = rec.feishuThreadId && chatId
+        ? await getThreadMessages(chatId, rec.feishuThreadId)
+        : [];
+      const filtered = humanRepliesAfterClarification(messages, rec.clarificationSentAt, botFilterOpts());
+      // 时间戳解析失败时过滤器可能为空；退回全量人工回复，避免丢掉补充
+      const effectiveReplies = filtered.length ? filtered : repliesFromFeishu(messages, botFilterOpts());
+      const detailForRun = detailWithFeishuReplies(detail, effectiveReplies);
+      const first = await runPipeline(detailForRun, {
         skipLlm: options.skipLlm,
         sceneLlm: LIVE_SCENE_LLM,
         sceneLlmVersion: LIVE_SCENE_LLM_VERSION,
         ragEnabled: isRagEnabled(),
       });
       if (!first) continue;
-      const chatId = getTargetChatId();
-      const replies = rec.feishuThreadId && chatId
-        ? repliesFromFeishu(await getThreadMessages(chatId, rec.feishuThreadId), botFilterOpts())
-        : [];
-      const remark = await summarizeReply({ firstAssess: first, replies, caseRecord: rec });
-      const nextStatus: CaseStatus = isSopGenerateFailure(first)
-        ? "transferred"
-        : first.outputPath === "sop_generated"
-          ? (first.missingAttachments || []).length
-            ? "needs_attachment"
-            : "written_back"
-          : first.outputPath === "transfer_human"
-            ? "transferred"
-            : "reassessed";
+      const remark = await summarizeReply({ firstAssess: first, replies: effectiveReplies, caseRecord: rec });
+      const nextStatus = nextStatusAfterReassess(first);
       store.upsert({
         vascNo: rec.vascNo,
         status: nextStatus,
@@ -1004,10 +1047,15 @@ async function reassessReplies(
         missingFields: first.missing,
         reviewRemark: remark,
         lastProcessedAt: new Date().toISOString(),
+        // 仍缺信息：先推进 clarificationSentAt，避免旧回复再次触发 reply_received；清催办钟
+        clarificationSentAt: isClarificationOutput(first) ? new Date().toISOString() : rec.clarificationSentAt,
+        reminderSentAt: isClarificationOutput(first) ? null : rec.reminderSentAt,
       });
       appendLog(options.logPath, `reassessed ${rec.vascNo} -> ${nextStatus}`);
-      if (first.outputPath === "sop_generated") {
-        await autoWriteAndNotify(first, store, options.logPath, false, detail);
+      if (isClarificationOutput(first)) {
+        await sendClarification(first, store, options.logPath, rec.feishuThreadId, detailForRun);
+      } else if (first.outputPath === "sop_generated") {
+        await autoWriteAndNotify(first, store, options.logPath, false, detailForRun);
       }
     } catch (err) {
       appendLog(options.logPath, `reassess_error ${rec.vascNo} ${err instanceof Error ? err.message : err}`);

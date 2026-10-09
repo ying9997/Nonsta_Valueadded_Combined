@@ -68,13 +68,14 @@ import {
   type DraftWriteResult,
 } from "../lib/oms-draft-write.ts";
 import { notifyOwnerHumanSopFilled } from "../lib/human-sop-alert.ts";
-import { notifyOwnerMissingOmsScene } from "../lib/missing-oms-scene.ts";
+import { notifyOwnerMissingOmsScene, needsOmsSceneConfirm } from "../lib/missing-oms-scene.ts";
 import { extractSopSections } from "../lib/sop-sections.ts";
 import { refreshSopEdits } from "../lib/refresh-sop-edits.ts";
 import { runPipeline, failureTypeOf, isSopGenerateFailure, type PipelineResult } from "../lib/run-pipeline.ts";
 import { findScenarioCard, searchSceneByKeyword } from "../lib/scenario-cards.ts";
 import { collectSceneCandidates } from "../lib/parse-scene-reply.ts";
 import { appendBadcase } from "../lib/badcase-log.ts";
+import { classifyAuditorReply, isL1L25OutputPath } from "../lib/auditor-reply-classifier.ts";
 import { MAX_SOP_EDITS, sopEditCountOf } from "../lib/sop-edit.ts";
 import { refreshTomCookies } from "../lib/oms-tom-client.ts";
 import type { CaseRecord, CaseStatus, JsonRecord } from "../lib/types.ts";
@@ -851,6 +852,14 @@ async function finishOmsWriteSuccess(args: {
       : `SOP 已写入 OMS 草稿 by ${name}`,
   });
   if (writeResult.missingOmsScene && !writeResult.dryRun) {
+    const match = rec?.matchResult as { sceneKey?: string; decision?: string } | undefined;
+    const escalate = needsOmsSceneConfirm({
+      sceneKey: asText(match?.sceneKey) || rec?.confirmedScene,
+      decision: asText(match?.decision),
+      outputPath: rec?.aiOutputPath || "sop_generated",
+      riskFlags: rec?.riskFlags,
+    });
+    if (escalate) {
     const notify = await notifyOwnerMissingOmsScene({
       vascNo,
       sceneKey: asText((rec?.matchResult as { sceneKey?: string } | undefined)?.sceneKey),
@@ -859,6 +868,9 @@ async function finishOmsWriteSuccess(args: {
       warehouse: rec?.warehouse,
     });
     console.log(`missing_oms_scene_dm ${vascNo} ${notify}`);
+    } else {
+      console.log(`missing_oms_scene_skip_dm ${vascNo} outbound_leave_empty`);
+    }
   }
   const chatId = event.chat_id || "";
   const threadId = rec?.feishuThreadId || "";
@@ -1020,6 +1032,20 @@ async function handleSceneWrong(args: {
     return;
   }
   const sent = await sendCardMessage(chatId, card, threadId);
+  appendBadcase({
+    type: "auditor_reply_feedback",
+    feedbackType: "scene_wrong",
+    repairBucket: "A",
+    reason: "审核员指出场景识别不对",
+    vascNo,
+    status: rec?.status || "",
+    aiOutputPath: rec?.aiOutputPath || "",
+    ruleOutputPath: rec?.ruleOutputPath || "",
+    missingFields: rec?.missingFields || [],
+    operatorOpenId: operatorId,
+    messageId: event.message_id || "",
+    threadId,
+  });
   store.upsert({
     vascNo,
     status: "awaiting_scene_confirm",
@@ -1413,6 +1439,71 @@ function findCaseByThread(store: CaseStore, threadId: string): CaseRecord | unde
   });
 }
 
+function isTerminalStatus(status: string): boolean {
+  return status === "written_back" || status === "transferred";
+}
+
+function isClarificationCase(rec: CaseRecord): boolean {
+  return isL1L25OutputPath(rec.aiOutputPath || rec.ruleOutputPath) || isL1L25OutputPath(rec.ruleOutputPath);
+}
+
+async function handleAuditorMentionFeedback(args: {
+  parsed: {
+    eventId: string;
+    messageId: string;
+    chatId: string;
+    threadId: string;
+    senderOpenId: string;
+    text: string;
+  };
+  rec: CaseRecord;
+  storePath: string;
+}): Promise<boolean> {
+  const text = args.parsed.text || "";
+  const classification = classifyAuditorReply(text);
+  if (!classification.matched) return false;
+
+  const store = new CaseStore(args.storePath);
+  appendBadcase({
+    type: "auditor_reply_feedback",
+    feedbackType: classification.type,
+    repairBucket: classification.repairBucket,
+    reason: classification.reason,
+    vascNo: args.rec.vascNo,
+    status: args.rec.status,
+    aiOutputPath: args.rec.aiOutputPath,
+    ruleOutputPath: args.rec.ruleOutputPath,
+    missingFields: args.rec.missingFields || [],
+    replyText: text,
+    operatorOpenId: args.parsed.senderOpenId,
+    messageId: args.parsed.messageId,
+    threadId: args.parsed.threadId,
+  });
+
+  if (isClarificationCase(args.rec) && !isTerminalStatus(args.rec.status)) {
+    store.upsert({
+      vascNo: args.rec.vascNo,
+      status: "reply_received",
+      replyReceivedAt: new Date().toISOString(),
+      lastSceneReplyText: text,
+      reviewRemark: `审核员@反馈已收录：${classification.reason}`,
+    });
+  }
+
+  if (args.parsed.chatId && args.parsed.threadId) {
+    await sendConsultThreadText(
+      args.parsed.threadId,
+      `已收录 badcase：${classification.reason}（修复桶 ${classification.repairBucket}）。后续会纳入 L1/L2.5 质量对照。`,
+    ).catch((err) => {
+      console.warn(`auditor feedback ack failed: ${err instanceof Error ? err.message : err}`);
+    });
+  }
+  console.log(
+    `auditor_feedback vascNo=${args.rec.vascNo} type=${classification.type} bucket=${classification.repairBucket}`,
+  );
+  return true;
+}
+
 function resolveBotOpenId(): string {
   const fromEnv = envText("FEISHU_BOT_OPEN_ID");
   if (fromEnv) return fromEnv;
@@ -1532,6 +1623,12 @@ async function handleBotMessage(args: {
     console.log(`im.message skip unknown thread=${parsed.threadId}`);
     return;
   }
+  const collected = await handleAuditorMentionFeedback({
+    parsed,
+    rec,
+    storePath: args.storePath,
+  });
+  if (collected) return;
   if (!SCENE_SEARCH_STATUSES.includes(rec.status)) {
     console.log(`im.message skip ${rec.vascNo} status=${rec.status}`);
     return;
