@@ -1,3 +1,4 @@
+/** Coze 代码节点粘贴用（JavaScript）。由 page-intent-emit.ts 生成，不要手改两份逻辑。 */
 /**
  * Bot Client 封口节点：把页面 sidecar 原样交给 tool_call_send。
  * 贴进 Coze：用同目录 page-intent-emit.coze.js（纯 JS）。本文件给本地测试。
@@ -17,19 +18,6 @@
  *   turn_kind        pageRead | renderA2UI | page_read_result | idle
  */
 
-interface Args {
-  params: Record<string, unknown>;
-}
-
-interface Output {
-  should_send: boolean;
-  function_name: string;
-  arguments: string;
-  skip_reason: string;
-  sidecar_intact: boolean;
-  turn_kind: string;
-}
-
 const BACKEND_PAGE_READ = "pageRead";
 const BACKEND_RENDER = "renderA2UI";
 const CATALOG_ID = "ai-chatbot-builtin";
@@ -43,7 +31,7 @@ const PAGE_METHODS = new Set([
   "scrollHorizontally",
 ]);
 
-function asText(value: unknown): string {
+function asText(value) {
   if (typeof value === "string") return value.trim();
   if (value == null) return "";
   if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -51,17 +39,17 @@ function asText(value: unknown): string {
 }
 
 /** 扣子代码节点有时是 main({params})，有时直接 main({user_input,...})。扁平时 params 是 undefined，一读就整格输出变 null。 */
-function unwrapParams(args: unknown): Record<string, unknown> {
+function unwrapParams(args) {
   if (!args || typeof args !== "object") return {};
-  const rec = args as Record<string, unknown>;
+  const rec = args;
   const nested = rec.params;
   if (nested && typeof nested === "object" && !Array.isArray(nested)) {
-    return nested as Record<string, unknown>;
+    return nested;
   }
   return rec;
 }
 
-function parseJson(value: unknown): unknown {
+function parseJson(value) {
   if (value == null) return null;
   if (typeof value === "object") return value;
   const text = asText(value);
@@ -73,13 +61,13 @@ function parseJson(value: unknown): unknown {
   }
 }
 
-function looksLikeDehydratedDom(value: unknown): boolean {
+function looksLikeDehydratedDom(value) {
   const text = typeof value === "string" ? value : value == null ? "" : JSON.stringify(value);
   if (!text || text.length < 20) return false;
   return /dehydrated|interactiveElements|browserState|updateTree|page-agent|axTree/i.test(text);
 }
 
-function parseSidecarBlob(raw: unknown): unknown {
+function parseSidecarBlob(raw) {
   if (typeof raw === "string") {
     const begin = "<!--SIDECAR_BEGIN-->";
     const end = "<!--SIDECAR_END-->";
@@ -92,65 +80,65 @@ function parseSidecarBlob(raw: unknown): unknown {
   return parseJson(raw);
 }
 
-function extractSidecar(raw: unknown): Record<string, unknown> {
+function extractSidecar(raw) {
   const parsed = parseSidecarBlob(raw);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     if (Array.isArray(parsed)) return { commands: parsed };
     return {};
   }
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed;
   const structured = obj.structured;
   if (structured && typeof structured === "object" && !Array.isArray(structured)) {
-    const pageUi = (structured as Record<string, unknown>).pageUi;
+    const pageUi = (structured).pageUi;
     if (pageUi && typeof pageUi === "object") {
-      return { ...obj, ...(pageUi as Record<string, unknown>) };
+      return { ...obj, ...(pageUi) };
     }
   }
   const pageUi = obj.pageUi;
   if (pageUi && typeof pageUi === "object" && !Array.isArray(pageUi)) {
-    return { ...obj, ...(pageUi as Record<string, unknown>) };
+    return { ...obj, ...(pageUi) };
   }
   return obj;
 }
 
-function commandsOf(sidecar: Record<string, unknown>): unknown[] | null {
+function commandsOf(sidecar) {
   const fromArgs = parseJson(sidecar.arguments);
   if (fromArgs && typeof fromArgs === "object" && !Array.isArray(fromArgs)) {
-    const cmds = (fromArgs as Record<string, unknown>).commands;
+    const cmds = (fromArgs).commands;
     if (Array.isArray(cmds)) return cmds;
   }
   if (Array.isArray(sidecar.commands)) return sidecar.commands;
   const payload = sidecar.payload;
   if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    const cmds = (payload as Record<string, unknown>).commands;
+    const cmds = (payload).commands;
     if (Array.isArray(cmds)) return cmds;
   }
   return null;
 }
 
-function walkUnknown(value: unknown, visit: (node: Record<string, unknown>) => void): void {
+function walkUnknown(value, visit) {
   if (!value || typeof value !== "object") return;
   if (Array.isArray(value)) {
     for (const item of value) walkUnknown(item, visit);
     return;
   }
-  const obj = value as Record<string, unknown>;
+  const obj = value;
   visit(obj);
   for (const nested of Object.values(obj)) walkUnknown(nested, visit);
 }
 
-function validateCommands(commands: unknown[]): string {
+function validateCommands(commands) {
   if (commands.length === 0) return "commands 为空";
-  const surfaceIds = new Set<string>();
-  const rootsBySurface = new Map<string, number>();
+  const surfaceIds = new Set();
+  const rootsBySurface = new Map();
 
   for (const item of commands) {
     if (!item || typeof item !== "object" || Array.isArray(item)) return "命令不是对象";
-    const cmd = item as Record<string, unknown>;
+    const cmd = item;
     if (cmd.version !== A2UI_VERSION) return "缺少 version: v0.9";
 
     if (cmd.createSurface && typeof cmd.createSurface === "object") {
-      const surface = cmd.createSurface as Record<string, unknown>;
+      const surface = cmd.createSurface;
       const surfaceId = asText(surface.surfaceId);
       if (!surfaceId) return "createSurface 缺少 surfaceId";
       if (surface.catalogId !== CATALOG_ID) {
@@ -160,13 +148,13 @@ function validateCommands(commands: unknown[]): string {
     }
 
     if (cmd.updateComponents && typeof cmd.updateComponents === "object") {
-      const update = cmd.updateComponents as Record<string, unknown>;
+      const update = cmd.updateComponents;
       const surfaceId = asText(update.surfaceId);
       const components = update.components;
       if (!Array.isArray(components)) return "updateComponents.components 必须是数组";
       for (const component of components) {
         if (!component || typeof component !== "object") return "component 非法";
-        const row = component as Record<string, unknown>;
+        const row = component;
         if (!asText(row.id) || !asText(row.component)) return "component 缺少 id/component";
         if (row.id === "root") {
           rootsBySurface.set(surfaceId, (rootsBySurface.get(surfaceId) || 0) + 1);
@@ -187,7 +175,7 @@ function validateCommands(commands: unknown[]): string {
     if (badAction) return;
     const event = node.event;
     if (event && typeof event === "object") {
-      const name = asText((event as Record<string, unknown>).name);
+      const name = asText((event).name);
       if (name && !CARD_ACTIONS.has(name)) {
         badAction = `卡片 action 只能是 readPage/operatePage，收到 ${name}`;
       }
@@ -205,14 +193,14 @@ function validateCommands(commands: unknown[]): string {
   return badAction;
 }
 
-function passthroughArguments(sidecar: Record<string, unknown>, fallbackObj: unknown): string {
+function passthroughArguments(sidecar, fallbackObj) {
   if (typeof sidecar.arguments === "string" && sidecar.arguments.trim()) {
     return sidecar.arguments.trim();
   }
   return JSON.stringify(fallbackObj);
 }
 
-function normalizeFunctionName(name: string): string {
+function normalizeFunctionName(name) {
   const trimmed = name.trim();
   if (trimmed === "readPage" || trimmed === BACKEND_PAGE_READ) return BACKEND_PAGE_READ;
   if (trimmed === BACKEND_RENDER) return BACKEND_RENDER;
@@ -220,7 +208,7 @@ function normalizeFunctionName(name: string): string {
   return trimmed;
 }
 
-function idle(reason: string, turnKind: string): Output {
+function idle(reason, turnKind) {
   return {
     should_send: false,
     function_name: "",
@@ -231,7 +219,7 @@ function idle(reason: string, turnKind: string): Output {
   };
 }
 
-function send(functionName: string, args: string, intact: boolean, turnKind: string): Output {
+function send(functionName, args, intact, turnKind) {
   return {
     should_send: true,
     function_name: functionName,
@@ -242,7 +230,7 @@ function send(functionName: string, args: string, intact: boolean, turnKind: str
   };
 }
 
-function sidecarIsEmpty(sidecar: Record<string, unknown>): boolean {
+function sidecarIsEmpty(sidecar) {
   return Object.keys(sidecar).length === 0;
 }
 
@@ -306,7 +294,7 @@ const PHASE1_CARD_ARGUMENTS = JSON.stringify({
 const PHASE1_CLICK_ARGUMENTS =
   '{"commands":[{"version":"v0.9","createSurface":{"surfaceId":"ops","catalogId":"ai-chatbot-builtin"}},{"version":"v0.9","updateComponents":{"surfaceId":"ops","components":[{"id":"root","component":"Card","title":"点页","children":["b"]},{"id":"b","component":"Button","text":"点第0个","action":{"event":{"name":"operatePage","context":{"method":"clickElement","args":[0],"requireConfirmation":true}}}}]}}]}';
 
-async function main(args: Args | Record<string, unknown>): Promise<Output> {
+async function main(args) {
   const params = unwrapParams(args);
   let sidecar = extractSidecar(params.sidecar ?? params.page_ui ?? params.pageUi);
   const userInput = params.user_input ?? params.USER_INPUT ?? "";
@@ -380,7 +368,7 @@ async function main(args: Args | Record<string, unknown>): Promise<Output> {
 }
 
 if (typeof process !== "undefined" && Array.isArray(process.argv) && process.argv.includes("--stdin")) {
-  const chunks: string[] = [];
+  const chunks = [];
   process.stdin.setEncoding("utf8");
   process.stdin.on("data", (chunk) => {
     chunks.push(String(chunk));

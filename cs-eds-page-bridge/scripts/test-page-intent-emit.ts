@@ -24,10 +24,18 @@ type EmitOut = {
 };
 
 function run(params: Record<string, unknown>): EmitOut {
+  return invoke(params);
+}
+
+function runCozeFlat(input: Record<string, unknown>): EmitOut {
+  return invoke({ __coze_flat: true, input });
+}
+
+function invoke(payload: Record<string, unknown>): EmitOut {
   const result = spawnSync("npx", ["tsx", nodeFile, "--stdin"], {
     encoding: "utf8",
     cwd: path.resolve(root, "..", "internal-review-copilot"),
-    input: JSON.stringify(params),
+    input: JSON.stringify(payload),
     shell: true,
   });
   if (result.status !== 0) {
@@ -130,10 +138,24 @@ function main(): void {
   assert(keywordCard.should_send === true, "出卡测试 应下发");
   assert(keywordCard.function_name === "renderA2UI", `出卡测试 function_name=${keywordCard.function_name}`);
   assert(keywordCard.arguments.includes("ai-chatbot-builtin"), "出卡测试 commands 不完整");
+  assert(keywordCard.arguments.includes("操作 SOP"), "出卡测试应带 SOP 标题");
+  assert(keywordCard.arguments.includes("updateComponents"), "出卡测试应带卡片结构");
+  assert(keywordCard.arguments.includes("确认并使用"), "出卡测试应带确认按钮");
+  assert(keywordCard.arguments.includes("operatePage"), "确认并使用应走 operatePage");
+
+  const cozeFlat = runCozeFlat({ user_input: "出卡测试", dehydrated_dom: "出卡测试" });
+  assert(cozeFlat.should_send === true, "扣子扁平入参 出卡测试 应下发，不能整格 null");
+  assert(cozeFlat.function_name === "renderA2UI", `扁平入参 function_name=${cozeFlat.function_name}`);
 
   const keywordRead = run({ user_input: "读页测试" });
   assert(keywordRead.should_send === true, "读页测试 应下发");
   assert(keywordRead.function_name === "pageRead", `读页测试 function_name=${keywordRead.function_name}`);
+
+  const keywordClick = run({ user_input: "点页测试" });
+  assert(keywordClick.should_send === true, "点页测试 应下发");
+  assert(keywordClick.function_name === "renderA2UI", `点页测试 function_name=${keywordClick.function_name}`);
+  assert(keywordClick.arguments.includes("operatePage"), "点页测试应带 operatePage");
+  assert(keywordClick.arguments.length < 500, `点页测试 arguments 太长: ${keywordClick.arguments.length}`);
 
   const clickConfirm = run({
     user_input: "我现在需要执行点击页面第 0 个元素的操作，请确认这个操作是否可以进行？",
@@ -168,6 +190,7 @@ function main(): void {
   console.log("  聊天贴 JSON     -> USER_INPUT 可当 sidecar");
   console.log("  普通问答         -> 不发插件");
   console.log("  出卡测试/读页测试 -> 预览短句触发");
+  console.log("  扣子扁平入参     -> 出卡测试仍 should_send=true");
 }
 
 main();

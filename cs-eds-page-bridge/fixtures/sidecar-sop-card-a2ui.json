@@ -1,0 +1,63 @@
+{
+  "function_name": "renderA2UI",
+  "arguments": {
+    "commands": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "sop",
+          "catalogId": "ai-chatbot-builtin"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "sop",
+          "components": [
+            {
+              "id": "root",
+              "component": "Card",
+              "title": "操作 SOP — 良品转不良品上架",
+              "children": ["body", "confirmBtn", "reviseBtn"]
+            },
+            {
+              "id": "body",
+              "component": "Text",
+              "text": "1. 按出库单 WO12120399145 下架指定商品（86 件）\n2. 按新入库单 WI51339338 补贴包裹标签\n3. 使用新入库单做不良品上架\n4. 上架后登记「单品包装破损」异常，复核时确认为不良品\n5. 操作完成后拍照留存"
+            },
+            {
+              "id": "confirmBtn",
+              "component": "Button",
+              "type": "primary",
+              "text": "确认并使用",
+              "action": {
+                "event": {
+                  "name": "operatePage",
+                  "context": {
+                    "requireConfirmation": true,
+                    "confirmationText": "确认后将按 SOP 在当前页选中处理方式与增值服务，不会提交审核。",
+                    "actions": [
+                      {
+                        "method": "selectOption",
+                        "args": [0, "原单上架"]
+                      },
+                      {
+                        "method": "selectOption",
+                        "args": [1, "入库其他服务需求"]
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "id": "reviseBtn",
+              "component": "Button",
+              "text": "让 AI 再改一版"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,5 +1,11 @@
 # cs-eds-page-bridge（给人看的说明书）
 
+**会话交接（现行接线、Coze ID、交付物、踩坑）：**  
+[`../../_workflow/20260922_cs_eds_page_bridge_handoff/HANDOFF.md`](../../_workflow/20260922_cs_eds_page_bridge_handoff/HANDOFF.md)  
+下文仍混有「Query 后插三格 / 标识通道」旧步骤；**Query 前选择器以 HANDOFF 和 [`coze-import/导入-v2p-link.md`](coze-import/导入-v2p-link.md) 为准**。
+
+**增值指引大脑（V1 纯文本）：** 覆盖包 [`coze-import/cs_Bot_Client_v2p_link_vas.zip`](coze-import/cs_Bot_Client_v2p_link_vas.zip)，步骤 [`coze-import/导入-vas-guide.md`](coze-import/导入-vas-guide.md)。**覆盖**试验画布 `cs_Bot_Client_v2p_link`，不要新建、不要覆盖现网 v2p。
+
 这个目录只做一件事：让智能客服**聊天窗能弹出前端卡片、能让前端去读/点 EDS 页面**。  
 内部审核 Copilot、旧 expert 包、SOP 准不准，都先不管。
 
@@ -7,12 +13,18 @@
 
 | 阶段 | 目标 | 现在是否要做 |
 |---|---|---|
-| 一 | 链路跑通：卡能出、读页指令能发出去、点按钮能点到页 | **现在做** |
-| 二 | 输出准确：场景对、SOP 对、填的字段对 | 阶段一绿灯后再做 |
+| 一 | 链路跑通：卡能出、读页指令能发出去、点按钮能点到页 | **现在做**（卡在前端收令，不挡先设计专家 JSON） |
+| 二 | 输出准确：场景对、SOP 对、填的字段对 | 真问句动态生成放到通道绿灯后；**结束节点吐什么 JSON 可以先定** |
+
+专家结束节点设计（人话 + 标识；专家不自己调插件）：[`marker/expert-end-node-design.md`](marker/expert-end-node-design.md)。
 
 给前端转发：[`contracts/给前端-联调契约.md`](contracts/给前端-联调契约.md)。  
+后台测 SOP 卡 `renderA2UI`：[`contracts/给后台-sop卡-renderA2UI.md`](contracts/给后台-sop卡-renderA2UI.md)。签名原文对照：[`scripts/tool-call-send.py`](scripts/tool-call-send.py)。  
 时序图要看懂什么：[`contracts/时序图-你要做什么.md`](contracts/时序图-你要做什么.md)。  
-导入 Coze 小工作流：[`coze-import/Workflow-page_intent_emit_smoke-draft-0001.zip`](coze-import/Workflow-page_intent_emit_smoke-draft-0001.zip)，步骤见 [`coze-import/导入并测试.md`](coze-import/导入并测试.md)。
+导入 Coze 小工作流：[`coze-import/Workflow-page_intent_emit_smoke-draft-0001.zip`](coze-import/Workflow-page_intent_emit_smoke-draft-0001.zip)，步骤见 [`coze-import/导入并测试.md`](coze-import/导入并测试.md)。  
+**链路探测（跳过 Query，读页→清单卡）**：独立包见 [`coze-import/导入-链路探测.md`](coze-import/导入-链路探测.md)。  
+正式接线（Query 前选择器）：优先导入 [`coze-import/cs_Bot_Client_v2p_link.zip`](coze-import/cs_Bot_Client_v2p_link.zip)，步骤 [`coze-import/导入-v2p-link.md`](coze-import/导入-v2p-link.md)。从 `Chatflow-cs_Bot_Client_v2p_1-draft-8069.zip` 改出，**不要覆盖** v2p_1 / v2p_3。  
+选择器认强制唤起代发的那句 **「我的异常单{EB}应该提交哪个增值产品」**（调 pageRead）；其它问句进 Query / expert。画布试跑可用 `链路测试`。
 
 ### 标识通道第 0 步（和 tool_call_send 并行；卖家页不要 JSON）
 
@@ -20,8 +32,10 @@
 
 | 你要看的 | 路径 |
 |---|---|
+| 专家结束节点该吐什么 | [`marker/expert-end-node-design.md`](marker/expert-end-node-design.md) |
 | 标识长什么样 | [`marker/marker-format.md`](marker/marker-format.md) |
-| 粘贴到 expert 结束节点的测试文本 | [`marker/test-marker-recommend.txt`](marker/test-marker-recommend.txt) |
+| 粘贴：已经能推荐（出卡） | [`marker/test-marker-recommend.txt`](marker/test-marker-recommend.txt) |
+| 粘贴：还没看清页面（读页） | [`marker/test-marker-page-read.txt`](marker/test-marker-page-read.txt) |
 | Coze 里怎么贴（路径 A / B） | [`marker/coze-inject-guide.md`](marker/coze-inject-guide.md) |
 | **副本 F_1 加 sidecar 出口（已授权）** | [`marker/query-f1-sidecar-outlet.md`](marker/query-f1-sidecar-outlet.md) |
 | recaller 到底打哪张 expert | [`marker/recaller-routing-analysis.md`](marker/recaller-routing-analysis.md) |
@@ -36,6 +50,8 @@
 3. 现网 Query / 共享 recaller / 现网 Bot 不要动
 
 测试 Bot 必须绑对话流 **`7685975376836739124`**。旧画布 `7685663589169381391` 没有末尾三格。
+
+出卡测试六个输出全是 null、选择器走否则：见 [`_runs/20260921_page_intent_null/result.md`](_runs/20260921_page_intent_null/result.md)。扣子代码节点请贴 [`nodes/page-intent-emit.coze.js`](nodes/page-intent-emit.coze.js)，不要贴带类型的 `.ts`。
 
 ---
 
