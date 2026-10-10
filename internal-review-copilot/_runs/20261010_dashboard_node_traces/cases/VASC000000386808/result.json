@@ -1,0 +1,1555 @@
+{
+  "orderNo": "VASC000000386808",
+  "outputPath": "sop_generated",
+  "ruleOutputPath": "sop_generated",
+  "node": "format-output",
+  "nodesHit": [
+    "validate-input",
+    "context-bind",
+    "check-requirement",
+    "match-template",
+    "sku-consistency-check",
+    "t1-sku-relabel-check",
+    "check-scene-completeness",
+    "llm-generate-sop",
+    "format-output"
+  ],
+  "failureGate": "",
+  "missingRequirementItems": [],
+  "missingAttachments": [
+    "标签文件"
+  ],
+  "missingFields": [],
+  "missing": [
+    "标签文件"
+  ],
+  "clarificationPrompts": [
+    "请上传「标签文件」。"
+  ],
+  "requirementCheck": {
+    "complete": true,
+    "missingRequirementItems": [],
+    "clarificationPrompts": [],
+    "normalizedRequirement": "一个异常对应多个入库单，标准无法操作需要非标处理 【AI总结】包裹条码与系统预期不符，导致入库流程中断，需通过补贴新标签恢复正常上架流程 EB0326091933195144异常单都是一个异常对应多个入库单，新单单号: WI52831716, WI52831688 EB0326091933195642异常单都是一个异常对应多个入库单，新单单号: WI52832255, WI52832222, WI52832280 EB0326091933195465异常单都是一个异常对应多个入库单，新单单号: WI52832131, WI52832102, WI52832164 EB0326092033201948异常单都是一个异常对应多个入库单，新单单号: WI52831895, WI52831860, WI52831925 客户确认实物产品条码正确，需要按新单处理,仓库帮忙补贴新单的包裹标签操作上架 标准无法操作需要非标处理，帮忙提供非标报价，谢谢。 【AI总结】客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260），因包裹条码批量异常无法标准流程上架。客户已确认实物产品条码正确，需按新入库单补贴包裹标签后上架。所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴",
+    "objectMatch": "入库单",
+    "objectBoundBypass": true,
+    "actionMatch": "补贴",
+    "purposeMatch": "入库单",
+    "purposeBoundBypass": true
+  },
+  "matchResult": {
+    "matched": true,
+    "supported": true,
+    "category": "B",
+    "sceneKey": "inbound_label_identify",
+    "scenarioId": "inbound_label_identify",
+    "scenarioName": "【入库】尺重/标签辨识后换标上架",
+    "confidence": "medium",
+    "reason": "supported_llm_clear",
+    "score": 12,
+    "candidateTemplate": "F-001",
+    "decision": "supported",
+    "confidenceScore": 0.7,
+    "gap": 3,
+    "decisionPath": "ruleCandidates=[inbound_package_barcode_batch_relabel,inbound_label_identify,inbound_package_exception_relabel_shelving,inbound_bulk_return_new_inbound,inbound_identify_sku_relabel_parcel,inbound_parcel_cross_warehouse_transfer,inbound_reshelve_change_wi_keep_sku,inbound_sku_mgmt_cross_warehouse_b,inbound_anker_combine_carton,inbound_aplus_direct_shelve,inbound_basic_3pl_winit_kit,inbound_batch_identify_relabel_barcode,inbound_collect_sn,inbound_destroy_before_shelve,inbound_expedited_inbound] → llm=inbound_label_identify(medium) → supported",
+    "querySignals": {
+      "text": "一个异常对应多个入库单，标准无法操作需要非标处理 【AI总结】包裹条码与系统预期不符，导致入库流程中断，需通过补贴新标签恢复正常上架流程 EB0326091933195144异常单都是一个异常对应多个入库单，新单单号: WI52831716, WI52831688 EB0326091933195642异常单都是一个异常对应多个入库单，新单单号: WI52832255, WI52832222, WI52832280 EB0326091933195465异常单都是一个异常对应多个入库单，新单单号: WI52832131, WI52832102, WI52832164 EB0326092033201948异常单都是一个异常对应多个入库单，新单单号: WI52831895, WI52831860, WI52831925 客户确认实物产品条码正确，需要按新单处理,仓库帮忙补贴新单的包裹标签操作上架 标准无法操作需要非标处理，帮忙提供非标报价，谢谢。 【AI总结】客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260），因包裹条码批量异常无法标准流程上架。客户已确认实物产品条码正确，需按新入库单补贴包裹标签后上架。所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴",
+      "interceptHold": false,
+      "hasPhoto": false,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": true,
+      "hasShelve": true,
+      "hasIdentify": false,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "candidates": [
+      {
+        "sceneKey": "inbound_package_barcode_batch_relabel",
+        "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+        "score": 12,
+        "confidenceScore": 1,
+        "confidence": "high",
+        "matchedSignals": [
+          "strong:包裹条码批量异常",
+          "strong:批量异常",
+          "strong:补贴包裹标签",
+          "weak:上架",
+          "action_constraint:+2(补贴包裹标签)"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_label_identify",
+        "sceneName": "【入库】尺重/标签辨识后换标上架",
+        "score": 3,
+        "confidenceScore": 0.25,
+        "confidence": "medium",
+        "matchedSignals": [
+          "weak:补贴",
+          "weak:包裹标签",
+          "weak:上架",
+          "weak:新单",
+          "weak:新入库单",
+          "action_constraint:-2(补贴包裹标签)"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "sceneName": "【入库】包裹类异常换商品标签上架",
+        "score": 3,
+        "confidenceScore": 0.25,
+        "confidence": "medium",
+        "matchedSignals": [
+          "weak:补贴包裹标签",
+          "weak:上架",
+          "weak:新入库单"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_bulk_return_new_inbound",
+        "sceneName": "【入库】批量退货（≥20件商品）异常包裹建新入库单入库",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:按新入库单"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_identify_sku_relabel_parcel",
+        "sceneName": "【入库】辨识商品条码重新贴包裹标签",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:包裹标签"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+        "sceneName": "【入库】包裹串仓异常调拨",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:新入库单"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_reshelve_change_wi_keep_sku",
+        "sceneName": "【入库】商品下架后换入库单重新上架（不更换SKU）",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:包裹标签"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_sku_mgmt_cross_warehouse_b",
+        "sceneName": "【入库】A仓单品化管理的包裹串仓到B仓异常--在B仓上架",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:包裹标"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_anker_combine_carton",
+        "sceneName": "【入库】anker 合箱入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_aplus_direct_shelve",
+        "sceneName": "【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_basic_3pl_winit_kit",
+        "sceneName": "【入库】Basic 3PL-Winit 组套产品审核",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_batch_identify_relabel_barcode",
+        "sceneName": "【入库】批量辨识商品后补贴商品条码及包裹条码上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_collect_sn",
+        "sceneName": "【入库】收集SN码",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_destroy_before_shelve",
+        "sceneName": "【入库】上架前销毁",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_expedited_inbound",
+        "sceneName": "【入库】加急入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_forecast_sku_mismatch",
+        "sceneName": "【入库】入库预报SKU与实际到货SKU不符合",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_kit_then_shelve",
+        "sceneName": "【入库】组合后上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "sceneName": "【入库】指定商品拍照暂存",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "relabel_then_shelve"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_pre_shelve_inventory_identify",
+        "sceneName": "【入库】上架前盘点-辨识费",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_product_quality_inspection",
+        "sceneName": "【入库】商品质检",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_remove_label",
+        "sceneName": "【入库】清除标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_replace_custom_packaging",
+        "sceneName": "【入库】更换客制包材",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_replace_winit_packaging",
+        "sceneName": "【入库】更换winit包装",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_serialized_sn_handling",
+        "sceneName": "【入库】单品化管理的SN处理场景",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_split_return_order",
+        "sceneName": "【入库】分开退货单入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_third_party_merchandise_barcode",
+        "sceneName": "【入库】关联第三方商品条码上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_transparent_label",
+        "sceneName": "【入库】补贴透明标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_unpack_shelve",
+        "sceneName": "【入库】拆包/拆箱上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_unsigned_not_received_proof",
+        "sceneName": "【入库】签署仓库未收到货证明",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_winit_fault_multi_action",
+        "sceneName": "【入库】因winit原因做入库拦截、辨识、重新包装、销毁或上架等多种动作",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_add_remove_accessories",
+        "sceneName": "【库内】商品拆箱加/减配件",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_aplus_parcel_relabel_shelve",
+        "sceneName": "【库内】A+包裹更换标签上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_appearance_identify_label",
+        "sceneName": "【库内】商品外观辨识+贴标上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_cancel_self_pickup_need_wi",
+        "sceneName": "【库内】异常单：自提单取消出库（需要客户下入库单）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_cancel_self_pickup_outbound",
+        "sceneName": "【库内】自提单取消出库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_carton_to_each",
+        "sceneName": "【库内】箱转单一",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_change_sku_defective_shelve",
+        "sceneName": "【库内】更换SKU做不良品上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_collect_sn",
+        "sceneName": "【库内】采集SN码",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_damaged_repack_reshelve",
+        "sceneName": "【库内】包装破损商品更换包材重新上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_defective_to_good",
+        "sceneName": "【库内】不良品转良品",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_exception_rephoto",
+        "sceneName": "【库内】异常重新拍照",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_exception_to_defective_shelve",
+        "sceneName": "【库内】异常商品转不良品上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_good_defective_inspection",
+        "sceneName": "【库内】良品/不良品检测",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_good_to_defective_shelve",
+        "sceneName": "【库内】良品转不良品上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_identify_photo_then_destroy",
+        "sceneName": "【库内】辨识拍照后销毁",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_identify_then_relabel_shelve",
+        "sceneName": "【库内】库内辨识+辨识后重新贴标上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_instructional_label_photo",
+        "sceneName": "【库内】商品贴指令性标签（警示标语/使用说明/清洁维护等）+拍照",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inter_warehouse_transfer",
+        "sceneName": "【库内】库内仓间调拨",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inter_warehouse_transfer_anker",
+        "sceneName": "【库内】库内仓间调拨-Anker",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inventory_destroy",
+        "sceneName": "【库内】库内库存销毁",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inventory_freeze_unfreeze",
+        "sceneName": "【库内】库存冻结/解冻",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_measure_identify_dims_weight",
+        "sceneName": "【库内】商品尺重测量辨识",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_nonstandard_charge",
+        "sceneName": "【库内】非标收费",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_ownership_transfer",
+        "sceneName": "【库内】货权转移-改数",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_ownership_transfer_relabel",
+        "sceneName": "【库内】货权转移（换标模式）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_photo_video",
+        "sceneName": "【库内】拍摄照片/视频",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_product_kitting",
+        "sceneName": "【库内】商品组合",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_reinforce",
+        "sceneName": "【库内】库内加固",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_relabel_change_sku",
+        "sceneName": "【库内】指定单品/库位商品更换标签上架【换标前后SKU不一样】",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_remove_cover_label",
+        "sceneName": "【库内】清除/覆盖标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_replace_custom_packaging",
+        "sceneName": "【库内】更换客制包装",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_replace_mfg_date_label",
+        "sceneName": "【库内】更换商品生产日期标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_rework_reshelve",
+        "sceneName": "【库内】商品改制重新上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_sn_mgmt_change_reshelve",
+        "sceneName": "【库内】SN采集+管理方式变更+重新上架（复合场景）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_specified_position_label",
+        "sceneName": "【库内】指定位置贴标",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_split_sku",
+        "sceneName": "【库内】拆分SKU",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_unbox_identify_change_sku",
+        "sceneName": "【库内】拆箱辨识后重新更换SKU上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_void_outbound_after_pack",
+        "sceneName": "【库内】打包完成后作废出库单（有商品增值）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_winit_pack_offline_ship",
+        "sceneName": "【库内】WINIT标准包材线下寄件出库（需尾程线下面单）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_delivery_photo",
+        "sceneName": "【出库】交货时拍照",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_plastic_repallet",
+        "sceneName": "【出库】重新打托（塑料托盘）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_relabel_sku",
+        "sceneName": "【出库】补贴/更换商品标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_repack_self_pickup",
+        "sceneName": "【出库】暂存单重新装箱",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_special_palletizing",
+        "sceneName": "【出库】特殊打托需求",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_specified_position_label",
+        "sceneName": "【出库】指定位置贴商品/包裹标签/快递面单",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_standard_intercept",
+        "sceneName": "【出库】标准出库单拦截",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      }
+    ],
+    "topK": [
+      {
+        "sceneKey": "inbound_package_barcode_batch_relabel",
+        "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+        "score": 12,
+        "confidenceScore": 1,
+        "confidence": "high",
+        "matchedSignals": [
+          "strong:包裹条码批量异常",
+          "strong:批量异常",
+          "strong:补贴包裹标签",
+          "weak:上架",
+          "action_constraint:+2(补贴包裹标签)"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_label_identify",
+        "sceneName": "【入库】尺重/标签辨识后换标上架",
+        "score": 3,
+        "confidenceScore": 0.25,
+        "confidence": "medium",
+        "matchedSignals": [
+          "weak:补贴",
+          "weak:包裹标签",
+          "weak:上架",
+          "weak:新单",
+          "weak:新入库单",
+          "action_constraint:-2(补贴包裹标签)"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "sceneName": "【入库】包裹类异常换商品标签上架",
+        "score": 3,
+        "confidenceScore": 0.25,
+        "confidence": "medium",
+        "matchedSignals": [
+          "weak:补贴包裹标签",
+          "weak:上架",
+          "weak:新入库单"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      }
+    ],
+    "ruleCandidateScenes": [
+      "inbound_package_barcode_batch_relabel",
+      "inbound_label_identify",
+      "inbound_package_exception_relabel_shelving",
+      "inbound_bulk_return_new_inbound",
+      "inbound_identify_sku_relabel_parcel",
+      "inbound_parcel_cross_warehouse_transfer",
+      "inbound_reshelve_change_wi_keep_sku",
+      "inbound_sku_mgmt_cross_warehouse_b",
+      "inbound_anker_combine_carton",
+      "inbound_aplus_direct_shelve",
+      "inbound_basic_3pl_winit_kit",
+      "inbound_batch_identify_relabel_barcode",
+      "inbound_collect_sn",
+      "inbound_destroy_before_shelve",
+      "inbound_expedited_inbound"
+    ],
+    "llmClassification": {
+      "matchedScene": "inbound_label_identify",
+      "confidence": "medium",
+      "reasoning": "异常名称='包裹内出现订单外商品'属于规则C的复杂异常类型，不在规则A的直接映射范围内（不是'包裹条码异常'或'商品条码异常'）。需求描述中客户明确提到'客户确认实物产品条码正确，需要按新单处理，仓库帮忙补贴新单的包裹标签操作上架'，核心动作是补贴包裹标签上架。虽然AI总结中提到'包裹条码批量异常'，但这是AI的推断而非OMS异常名称本身。根据规则C，复杂异常名称下回退到看需求描述判断。需求描述没有明确提到'拍照/拍摄实物照片'（不选inbound_photo_hold），也没有明确提到'关联第三方/直接扫描上架'（不选inbound_third_party_merchandise_barcode）。客户提到'客户确认实物产品条码正确'暗示已经过辨识确认，现在需要补贴新单包裹标签上架，这符合inbound_label_identify的通用兜底场景（辨识后换标上架）。虽然没有明确提到'尺重'或'辨识'动作，但'客户确认实物产品条码正确'+'按新单补贴包裹标签'的组合，在复杂异常名称下应归入通用兜底场景。",
+      "conclusionOneLiner": "复杂异常类型，客户确认后补贴新单包裹标签上架",
+      "topicSummary": "4个异常单涉及12个入库单，因包裹内出现订单外商品，客户确认实物产品条码正确，需按新单补贴包裹标签上架",
+      "extractedActions": [
+        "客户确认实物产品条码正确",
+        "按新单补贴包裹标签",
+        "上架"
+      ],
+      "alternativeScenes": [
+        "inbound_package_barcode_batch_relabel"
+      ],
+      "ambiguous": false,
+      "sceneLlmVersion": 2,
+      "exceptionInfos": [
+        {
+          "ebNo": "EB0326091933195144",
+          "exceptionName": "包裹内出现订单外商品",
+          "exceptionObject": "商品",
+          "source": "oms_api"
+        },
+        {
+          "ebNo": "EB0326091933195642",
+          "exceptionName": "包裹内出现订单外商品",
+          "exceptionObject": "商品",
+          "source": "oms_api"
+        },
+        {
+          "ebNo": "EB0326091933195465",
+          "exceptionName": "包裹内出现订单外商品",
+          "exceptionObject": "商品",
+          "source": "oms_api"
+        },
+        {
+          "ebNo": "EB0326092033201948",
+          "exceptionName": "包裹内出现订单外商品",
+          "exceptionObject": "商品",
+          "source": "oms_api"
+        }
+      ]
+    },
+    "llmUsed": true,
+    "retrievedCases": [],
+    "matchedActions": [
+      "补贴包裹标签",
+      "客户确认实物产品条码正确",
+      "按新单补贴包裹标签",
+      "上架"
+    ],
+    "actionCandidateScenes": [
+      "inbound_package_barcode_batch_relabel"
+    ],
+    "actionExcludedScenes": [
+      "inbound_label_identify"
+    ]
+  },
+  "completenessResult": {
+    "applicable": true,
+    "complete": true,
+    "missingAttachments": [
+      "标签文件"
+    ],
+    "missingFields": [
+      {
+        "field": "标签文件",
+        "required": true,
+        "clarificationPrompt": "请上传「标签文件」后再生成 SOP。"
+      }
+    ],
+    "providedCount": 1,
+    "totalRequired": 2,
+    "sceneKey": "inbound_label_identify",
+    "missingInfo": [],
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "系统已掌握异常单号：EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "客户需求描述中明确列出：WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925，且系统已掌握单据信息中包含这些WI单号"
+      },
+      {
+        "field": "商品条码对应关系",
+        "present": true,
+        "evidence": "客户已上传附件「异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx」，文件名明确说明包含包裹和标签的对应关系；且客户说明「所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴」"
+      },
+      {
+        "field": "处理数量",
+        "present": true,
+        "evidence": "客户已上传附件「包裹和标签的对应关系」，该类附件通常包含具体数量信息；且涉及4个异常单对应12个入库单的所有包裹"
+      },
+      {
+        "field": "辨识方法",
+        "present": true,
+        "evidence": "客户明确说明「所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴」，即无需特殊辨识，所有包裹按同一SKU处理即可"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": ""
+  },
+  "sceneCompletenessResult": {
+    "complete": true,
+    "missingInfo": [],
+    "missingAttachments": [
+      "标签文件"
+    ],
+    "clarificationPrompts": [],
+    "sceneKey": "inbound_label_identify",
+    "infoChecks": [
+      {
+        "field": "异常单号",
+        "present": true,
+        "evidence": "系统已掌握异常单号：EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948"
+      },
+      {
+        "field": "新入库单号",
+        "present": true,
+        "evidence": "客户需求描述中明确列出：WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925，且系统已掌握单据信息中包含这些WI单号"
+      },
+      {
+        "field": "商品条码对应关系",
+        "present": true,
+        "evidence": "客户已上传附件「异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx」，文件名明确说明包含包裹和标签的对应关系；且客户说明「所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴」"
+      },
+      {
+        "field": "处理数量",
+        "present": true,
+        "evidence": "客户已上传附件「包裹和标签的对应关系」，该类附件通常包含具体数量信息；且涉及4个异常单对应12个入库单的所有包裹"
+      },
+      {
+        "field": "辨识方法",
+        "present": true,
+        "evidence": "客户明确说明「所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴」，即无需特殊辨识，所有包裹按同一SKU处理即可"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachment": {
+      "applicable": true,
+      "complete": false,
+      "missingAttachments": [
+        "标签文件"
+      ],
+      "missingFields": [
+        {
+          "field": "标签文件",
+          "required": true,
+          "clarificationPrompt": "请上传「标签文件」后再生成 SOP。"
+        }
+      ],
+      "providedCount": 1,
+      "totalRequired": 2,
+      "sceneKey": "inbound_label_identify"
+    }
+  },
+  "contextFacts": {
+    "orderNo": "VASC000000386808",
+    "customerCode": "19937931",
+    "customerName": "TikTok Inc.-2",
+    "warehouseCode": "USKY5",
+    "warehouseName": "USKY5 Warehouse",
+    "eventNo": "EB0326091933195144",
+    "businessOrderNo": "WI52831716",
+    "allEventNos": [
+      "EB0326091933195144",
+      "EB0326091933195642",
+      "EB0326091933195465",
+      "EB0326092033201948"
+    ],
+    "allBusinessOrderNos": [
+      "WI52831716",
+      "WI52831688",
+      "WI52832255",
+      "WI52832222",
+      "WI52832280",
+      "WI52832131",
+      "WI52832102",
+      "WI52832164",
+      "WI52831895",
+      "WI52831860",
+      "WI52831925",
+      "WI51901260"
+    ],
+    "vaSource": "UNUSUAL",
+    "businessType": "INBOUND",
+    "businessTypeDesc": "入库订单",
+    "sceneKey": "",
+    "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+    "sceneCode": "20250430",
+    "serviceAtom": "OW01V1602",
+    "attachmentStatus": {
+      "操作说明附件": "missing",
+      "商品和标签的对应关系": "missing",
+      "包裹和标签的对应关系": "uploaded",
+      "视频拍摄SOP（中文+英文）": "missing",
+      "标签文件": "missing"
+    },
+    "providedFields": {
+      "BEOR": "一个异常对应多个入库单，标准无法操作需要非标处理\n\n【AI总结】包裹条码与系统预期不符，导致入库流程中断，需通过补贴新标签恢复正常上架流程",
+      "VAS_ATTR_REL_RD": "EB0326091933195144异常单都是一个异常对应多个入库单，新单单号: WI52831716, WI52831688\nEB0326091933195642异常单都是一个异常对应多个入库单，新单单号: WI52832255, WI52832222, WI52832280\nEB0326091933195465异常单都是一个异常对应多个入库单，新单单号: WI52832131, WI52832102, WI52832164\nEB0326092033201948异常单都是一个异常对应多个入库单，新单单号:  WI52831895, WI52831860, WI52831925                    客户确认实物产品条码正确，需要按新单处理,仓库帮忙补贴新单的包裹标签操作上架\n标准无法操作需要非标处理，帮忙提供非标报价，谢谢。\n\n【AI总结】客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260），因包裹条码批量异常无法标准流程上架。客户已确认实物产品条码正确，需按新入库单补贴包裹标签后上架。所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴",
+      "VAS_ATTR_REL_NWEON": "WI52831716",
+      "NSVASTN": "",
+      "上架入库单号": "WI52831716",
+      "需求描述": "EB0326091933195144异常单都是一个异常对应多个入库单，新单单号: WI52831716, WI52831688\nEB0326091933195642异常单都是一个异常对应多个入库单，新单单号: WI52832255, WI52832222, WI52832280\nEB0326091933195465异常单都是一个异常对应多个入库单，新单单号: WI52832131, WI52832102, WI52832164\nEB0326092033201948异常单都是一个异常对应多个入库单，新单单号:  WI52831895, WI52831860, WI52831925                    客户确认实物产品条码正确，需要按新单处理,仓库帮忙补贴新单的包裹标签操作上架\n标准无法操作需要非标处理，帮忙提供非标报价，谢谢。\n\n【AI总结】客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260），因包裹条码批量异常无法标准流程上架。客户已确认实物产品条码正确，需按新入库单补贴包裹标签后上架。所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴",
+      "需求背景说明": "一个异常对应多个入库单，标准无法操作需要非标处理\n\n【AI总结】包裹条码与系统预期不符，导致入库流程中断，需通过补贴新标签恢复正常上架流程"
+    },
+    "boundKeys": [
+      "eventNo",
+      "businessOrderNo",
+      "warehouseCode",
+      "customerCode",
+      "VAS_ATTR_REL_NWEON",
+      "包裹和标签的对应关系"
+    ],
+    "uploadedFileNames": [
+      "异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx"
+    ],
+    "knownFactLines": [
+      "业务单号：WI51901260",
+      "原子下单数量：0",
+      "原子处理数量：0"
+    ],
+    "hasRequirementDescriptionField": true,
+    "hasRequirementBackgroundField": true
+  },
+  "ownerFacts": {
+    "submittedBy": "junyan.liu@winit.com",
+    "customerService": [],
+    "sales": [],
+    "reviewers": []
+  },
+  "agentInput": {
+    "mode": "internal_review_copilot",
+    "vascNo": "VASC000000386808",
+    "query": "一个异常对应多个入库单，标准无法操作需要非标处理\n\n【AI总结】包裹条码与系统预期不符，导致入库流程中断，需通过补贴新标签恢复正常上架流程\nEB0326091933195144异常单都是一个异常对应多个入库单，新单单号: WI52831716, WI52831688\nEB0326091933195642异常单都是一个异常对应多个入库单，新单单号: WI52832255, WI52832222, WI52832280\nEB0326091933195465异常单都是一个异常对应多个入库单，新单单号: WI52832131, WI52832102, WI52832164\nEB0326092033201948异常单都是一个异常对应多个入库单，新单单号:  WI52831895, WI52831860, WI52831925                    客户确认实物产品条码正确，需要按新单处理,仓库帮忙补贴新单的包裹标签操作上架\n标准无法操作需要非标处理，帮忙提供非标报价，谢谢。\n\n【AI总结】客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260），因包裹条码批量异常无法标准流程上架。客户已确认实物产品条码正确，需按新入库单补贴包裹标签后上架。所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴",
+    "customerIntent": "一个异常对应多个入库单，标准无法操作需要非标处理\n\n【AI总结】包裹条码与系统预期不符，导致入库流程中断，需通过补贴新标签恢复正常上架流程\nEB0326091933195144异常单都是一个异常对应多个入库单，新单单号: WI52831716, WI52831688\nEB0326091933195642异常单都是一个异常对应多个入库单，新单单号: WI52832255, WI52832222, WI52832280\nEB0326091933195465异常单都是一个异常对应多个入库单，新单单号: WI52832131, WI52832102, WI52832164\nEB0326092033201948异常单都是一个异常对应多个入库单，新单单号:  WI52831895, WI52831860, WI52831925                    客户确认实物产品条码正确，需要按新单处理,仓库帮忙补贴新单的包裹标签操作上架\n标准无法操作需要非标处理，帮忙提供非标报价，谢谢。\n\n【AI总结】客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260），因包裹条码批量异常无法标准流程上架。客户已确认实物产品条码正确，需按新入库单补贴包裹标签后上架。所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴",
+    "serviceAtom": "OW01V1602",
+    "sceneKey": "",
+    "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+    "sceneCode": "20250430",
+    "recommendedVasc": {
+      "vascCode": "VASC202411192246131",
+      "vascName": "入库非标增值（特批）"
+    },
+    "pageContext": {
+      "entryScene": "INTERNAL_REVIEW",
+      "vaSource": "UNUSUAL",
+      "businessType": "INBOUND",
+      "businessTypeDesc": "入库订单",
+      "warehouseCode": "USKY5",
+      "warehouseName": "USKY5 Warehouse",
+      "customerCode": "19937931",
+      "customerName": "TikTok Inc.-2",
+      "eventNo": "EB0326091933195144",
+      "businessOrderNo": "WI52831716",
+      "attachmentStatus": {
+        "操作说明附件": "missing",
+        "商品和标签的对应关系": "missing",
+        "包裹和标签的对应关系": "uploaded",
+        "视频拍摄SOP（中文+英文）": "missing",
+        "标签文件": "missing"
+      }
+    },
+    "providedFields": {
+      "BEOR": "一个异常对应多个入库单，标准无法操作需要非标处理\n\n【AI总结】包裹条码与系统预期不符，导致入库流程中断，需通过补贴新标签恢复正常上架流程",
+      "VAS_ATTR_REL_RD": "EB0326091933195144异常单都是一个异常对应多个入库单，新单单号: WI52831716, WI52831688\nEB0326091933195642异常单都是一个异常对应多个入库单，新单单号: WI52832255, WI52832222, WI52832280\nEB0326091933195465异常单都是一个异常对应多个入库单，新单单号: WI52832131, WI52832102, WI52832164\nEB0326092033201948异常单都是一个异常对应多个入库单，新单单号:  WI52831895, WI52831860, WI52831925                    客户确认实物产品条码正确，需要按新单处理,仓库帮忙补贴新单的包裹标签操作上架\n标准无法操作需要非标处理，帮忙提供非标报价，谢谢。\n\n【AI总结】客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260），因包裹条码批量异常无法标准流程上架。客户已确认实物产品条码正确，需按新入库单补贴包裹标签后上架。所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴",
+      "VAS_ATTR_REL_NWEON": "WI52831716",
+      "NSVASTN": "",
+      "上架入库单号": "WI52831716",
+      "需求描述": "EB0326091933195144异常单都是一个异常对应多个入库单，新单单号: WI52831716, WI52831688\nEB0326091933195642异常单都是一个异常对应多个入库单，新单单号: WI52832255, WI52832222, WI52832280\nEB0326091933195465异常单都是一个异常对应多个入库单，新单单号: WI52832131, WI52832102, WI52832164\nEB0326092033201948异常单都是一个异常对应多个入库单，新单单号:  WI52831895, WI52831860, WI52831925                    客户确认实物产品条码正确，需要按新单处理,仓库帮忙补贴新单的包裹标签操作上架\n标准无法操作需要非标处理，帮忙提供非标报价，谢谢。\n\n【AI总结】客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260），因包裹条码批量异常无法标准流程上架。客户已确认实物产品条码正确，需按新入库单补贴包裹标签后上架。所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴",
+      "需求背景说明": "一个异常对应多个入库单，标准无法操作需要非标处理\n\n【AI总结】包裹条码与系统预期不符，导致入库流程中断，需通过补贴新标签恢复正常上架流程"
+    },
+    "auditFields": {
+      "hasRequirementDescription": true,
+      "hasRequirementBackground": true
+    },
+    "omsFacts": {
+      "customerRequirementDescription": "EB0326091933195144异常单都是一个异常对应多个入库单，新单单号: WI52831716, WI52831688\nEB0326091933195642异常单都是一个异常对应多个入库单，新单单号: WI52832255, WI52832222, WI52832280\nEB0326091933195465异常单都是一个异常对应多个入库单，新单单号: WI52832131, WI52832102, WI52832164\nEB0326092033201948异常单都是一个异常对应多个入库单，新单单号:  WI52831895, WI52831860, WI52831925                    客户确认实物产品条码正确，需要按新单处理,仓库帮忙补贴新单的包裹标签操作上架\n标准无法操作需要非标处理，帮忙提供非标报价，谢谢。\n\n【AI总结】客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260），因包裹条码批量异常无法标准流程上架。客户已确认实物产品条码正确，需按新入库单补贴包裹标签后上架。所有包裹商品码去后缀后为同一SKU（M010000000013796450），标签可随机补贴",
+      "requirementBackground": "一个异常对应多个入库单，标准无法操作需要非标处理\n\n【AI总结】包裹条码与系统预期不符，导致入库流程中断，需通过补贴新标签恢复正常上架流程",
+      "fieldValues": {
+        "VAS_ATTR_REL_NWEON": "WI52831716"
+      },
+      "attachmentStatus": {
+        "操作说明附件": "missing",
+        "商品和标签的对应关系": "missing",
+        "包裹和标签的对应关系": "uploaded",
+        "视频拍摄SOP（中文+英文）": "missing",
+        "标签文件": "missing"
+      },
+      "uploadedFiles": [
+        {
+          "fileType": "TRPP",
+          "fileName": "异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx",
+          "label": "包裹和标签的对应关系"
+        }
+      ],
+      "knownFactLines": [
+        "业务单号：WI51901260",
+        "原子下单数量：0",
+        "原子处理数量：0"
+      ]
+    },
+    "responsiblePeople": {
+      "submittedBy": "junyan.liu@winit.com",
+      "customerService": [],
+      "sales": [],
+      "reviewers": []
+    },
+    "conversationEvidence": [],
+    "enrichedContext": {
+      "orderNo": "VASC000000386808",
+      "customerCode": "19937931",
+      "customerName": "TikTok Inc.-2",
+      "warehouseCode": "USKY5",
+      "warehouseName": "USKY5 Warehouse",
+      "eventNo": "EB0326091933195144",
+      "businessOrderNo": "WI52831716",
+      "allEventNos": [
+        "EB0326091933195144",
+        "EB0326091933195642",
+        "EB0326091933195465",
+        "EB0326092033201948"
+      ],
+      "allBusinessOrderNos": [
+        "WI52831716",
+        "WI52831688",
+        "WI52832255",
+        "WI52832222",
+        "WI52832280",
+        "WI52832131",
+        "WI52832102",
+        "WI52832164",
+        "WI52831895",
+        "WI52831860",
+        "WI52831925",
+        "WI51901260"
+      ],
+      "knownFactLines": [
+        "业务单号：WI51901260",
+        "原子下单数量：0",
+        "原子处理数量：0"
+      ],
+      "vaSource": "UNUSUAL",
+      "businessType": "INBOUND",
+      "businessTypeDesc": "入库订单",
+      "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+      "sceneCode": "20250430"
+    }
+  },
+  "riskFlags": [],
+  "skuCheckResult": {
+    "triggered": false,
+    "oldWi": "",
+    "newWi": "",
+    "oldSkus": [],
+    "newSkus": [],
+    "match": "unknown",
+    "source": "none"
+  },
+  "t1SkuRelabelResult": {
+    "triggered": false,
+    "targetWis": [],
+    "merchandiseCodes": [],
+    "stems": [],
+    "claim": "unspecified",
+    "verdict": "skip",
+    "bouncePrompt": ""
+  },
+  "llm": {
+    "text": "【需求描述】\n客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单的包裹因条码异常无法标准流程上架。客户已确认实物产品条码正确，所有包裹商品码去后缀后为同一SKU（M010000000013796450）。需按新入库单号补贴包裹标签后上架。客户已提供包裹和标签的对应关系文件。\n\n【需求背景】\n包裹条码与系统预期不符导致入库流程中断，需通过补贴新标签恢复正常上架流程。\n\n【操作要求】\n1. 操作前确认已收到客户提供的标签文件，若未收到则暂停操作并通知增值服务协调员\n2. 在系统中查询异常单 EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948，找到对应的实物包裹存放位置并取出\n3. 打开客户提供的「包裹和标签的对应关系」文件（异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx），按文件中的映射关系辨识每个包裹对应的新入库单号\n4. 使用 [待补充：标签文件] 为每个包裹补贴对应入库单号的新包裹标签，覆盖原有标签\n5. 按新入库单号（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260）扫描上架\n6. 操作完成后，将异常单状态变更为仓库已处理\n\n【注意事项】\n1. 所有包裹商品SKU相同（M010000000013796450），但必须严格按对应关系文件中的映射关系补贴标签，不可随意分配\n2. 标签文件缺失时不得开始操作，避免贴错标签导致库存混乱",
+    "model": "claude-sonnet-4-5",
+    "mocked": false,
+    "error": null,
+    "sop": {
+      "requirementBackground": "包裹条码与系统预期不符导致入库流程中断，需通过补贴新标签恢复正常上架流程",
+      "requirementDescription": "客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单的包裹因条码异常无法标准流程上架。客户已确认实物产品条码正确，所有包裹商品码去后缀后为同一SKU（M010000000013796450）。需按新入库单号补贴包裹标签后上架。客户已提供包裹和标签的对应关系文件。",
+      "warehouseSop": "1. 操作前确认已收到客户提供的标签文件，若未收到则暂停操作并通知增值服务协调员\n2. 在系统中查询异常单 EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948，找到对应的实物包裹存放位置并取出\n3. 打开客户提供的「包裹和标签的对应关系」文件（异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx），按文件中的映射关系辨识每个包裹对应的新入库单号\n4. 使用 [待补充：标签文件] 为每个包裹补贴对应入库单号的新包裹标签，覆盖原有标签\n5. 按新入库单号（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260）扫描上架\n6. 操作完成后，将异常单状态变更为仓库已处理",
+      "sopText": "【需求描述】\n客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单的包裹因条码异常无法标准流程上架。客户已确认实物产品条码正确，所有包裹商品码去后缀后为同一SKU（M010000000013796450）。需按新入库单号补贴包裹标签后上架。客户已提供包裹和标签的对应关系文件。\n\n【需求背景】\n包裹条码与系统预期不符导致入库流程中断，需通过补贴新标签恢复正常上架流程。\n\n【操作要求】\n1. 操作前确认已收到客户提供的标签文件，若未收到则暂停操作并通知增值服务协调员\n2. 在系统中查询异常单 EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948，找到对应的实物包裹存放位置并取出\n3. 打开客户提供的「包裹和标签的对应关系」文件（异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx），按文件中的映射关系辨识每个包裹对应的新入库单号\n4. 使用 [待补充：标签文件] 为每个包裹补贴对应入库单号的新包裹标签，覆盖原有标签\n5. 按新入库单号（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260）扫描上架\n6. 操作完成后，将异常单状态变更为仓库已处理\n\n【注意事项】\n1. 所有包裹商品SKU相同（M010000000013796450），但必须严格按对应关系文件中的映射关系补贴标签，不可随意分配\n2. 标签文件缺失时不得开始操作，避免贴错标签导致库存混乱",
+      "scenarioName": "【入库】尺重/标签辨识后换标上架",
+      "fieldsUsed": [
+        "异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx",
+        "[待补充：标签文件]"
+      ],
+      "mocked": false,
+      "model": "claude-sonnet-4-5",
+      "extractedWiNumbers": [
+        "WI52831716"
+      ],
+      "extractedEbNumbers": [
+        "EB0326091933195144",
+        "EB0326091933195642",
+        "EB0326091933195465",
+        "EB0326092033201948"
+      ],
+      "extractedWoNumbers": []
+    },
+    "reflectionPass": false,
+    "reflectionIssues": [
+      "输入数据中明确提到「未上传附件」包含「标签文件」，且「规则缺失项」和「澄清提示」都指出需要上传标签文件。SOP 中虽然标注了「[待补充：标签文件]」，但这表明当前 SOP 无法执行，应明确说明缺少标签文件导致无法操作",
+      "操作步骤第3步「根据对应关系为每个包裹补贴新的包裹标签」缺少具体执行细节：如何打印标签？从哪里获取标签内容？标签格式是什么？仓库人员无法仅凭「补贴标签」这一描述执行操作",
+      "「标签可随机补贴」与「按照对应关系文件辨识每个包裹对应的新入库单号」存在逻辑矛盾。如果需要按对应关系匹配，就不是随机；如果可以随机，就不需要对应关系文件。需明确：是按文件中的映射关系补贴，还是因为SKU相同可以任意分配？",
+      "操作步骤第1步「根据异常单定位对应的待处理包裹」未说明如何定位。是通过异常单查询系统？还是实物已被隔离在特定区域？定位方式不明确"
+    ],
+    "regenerated": true
+  },
+  "structured": {
+    "mode": "internal_review_copilot",
+    "outputPath": "sop_generated",
+    "node": "format-output",
+    "sceneKey": "inbound_label_identify",
+    "scenarioName": "【入库】尺重/标签辨识后换标上架",
+    "missingRequirementItems": [],
+    "missingFields": [
+      "标签文件"
+    ],
+    "missingAttachments": [
+      "标签文件"
+    ],
+    "requirementDescription": "客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单的包裹因条码异常无法标准流程上架。客户已确认实物产品条码正确，所有包裹商品码去后缀后为同一SKU（M010000000013796450）。需按新入库单号补贴包裹标签后上架。客户已提供包裹和标签的对应关系文件。",
+    "requirementBackground": "包裹条码与系统预期不符导致入库流程中断，需通过补贴新标签恢复正常上架流程",
+    "warehouseSop": "1. 操作前确认已收到客户提供的标签文件，若未收到则暂停操作并通知增值服务协调员\n2. 在系统中查询异常单 EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948，找到对应的实物包裹存放位置并取出\n3. 打开客户提供的「包裹和标签的对应关系」文件（异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx），按文件中的映射关系辨识每个包裹对应的新入库单号\n4. 使用 [待补充：标签文件] 为每个包裹补贴对应入库单号的新包裹标签，覆盖原有标签\n5. 按新入库单号（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260）扫描上架\n6. 操作完成后，将异常单状态变更为仓库已处理",
+    "llmGeneratedText": "【需求描述】\n客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单的包裹因条码异常无法标准流程上架。客户已确认实物产品条码正确，所有包裹商品码去后缀后为同一SKU（M010000000013796450）。需按新入库单号补贴包裹标签后上架。客户已提供包裹和标签的对应关系文件。\n\n【需求背景】\n包裹条码与系统预期不符导致入库流程中断，需通过补贴新标签恢复正常上架流程。\n\n【操作要求】\n1. 操作前确认已收到客户提供的标签文件，若未收到则暂停操作并通知增值服务协调员\n2. 在系统中查询异常单 EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948，找到对应的实物包裹存放位置并取出\n3. 打开客户提供的「包裹和标签的对应关系」文件（异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx），按文件中的映射关系辨识每个包裹对应的新入库单号\n4. 使用 [待补充：标签文件] 为每个包裹补贴对应入库单号的新包裹标签，覆盖原有标签\n5. 按新入库单号（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260）扫描上架\n6. 操作完成后，将异常单状态变更为仓库已处理\n\n【注意事项】\n1. 所有包裹商品SKU相同（M010000000013796450），但必须严格按对应关系文件中的映射关系补贴标签，不可随意分配\n2. 标签文件缺失时不得开始操作，避免贴错标签导致库存混乱",
+    "llmError": null,
+    "processingMethod": "暂时",
+    "imActionProposal": {
+      "requiresUserConfirm": true,
+      "mentionRoles": [
+        "reviewers"
+      ],
+      "messageDraft": "【需求描述】\n客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单的包裹因条码异常无法标准流程上架。客户已确认实物产品条码正确，所有包裹商品码去后缀后为同一SKU（M010000000013796450）。需按新入库单号补贴包裹标签后上架。客户已提供包裹和标签的对应关系文件。\n\n【需求背景】\n包裹条码与系统预期不符导致入库流程中断，需通过补贴新标签恢复正常上架流程。\n\n【操作要求】\n1. 操作前确认已收到客户提供的标签文件，若未收到则暂停操作并通知增值服务协调员\n2. 在系统中查询异常单 EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948，找到对应的实物包裹存放位置并取出\n3. 打开客户提供的「包裹和标签的对应关系」文件（异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx），按文件中的映射关系辨识每个包裹对应的新入库单号\n4. 使用 [待补充：标签文件] 为每个包裹补贴对应入库单号的新包裹标签，覆盖原有标签\n5. 按新入库单号（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260）扫描上架\n6. 操作完成后，将异常单状态变更为仓库已处理\n\n【注意事项】\n1. 所有包裹商品SKU相同（M010000000013796450），但必须严格按对应关系文件中的映射关系补贴标签，不可随意分配\n2. 标签文件缺失时不得开始操作，避免贴错标签导致库存混乱"
+    }
+  },
+  "analysis": "【需求描述】\n客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单的包裹因条码异常无法标准流程上架。客户已确认实物产品条码正确，所有包裹商品码去后缀后为同一SKU（M010000000013796450）。需按新入库单号补贴包裹标签后上架。客户已提供包裹和标签的对应关系文件。\n\n【需求背景】\n包裹条码与系统预期不符导致入库流程中断，需通过补贴新标签恢复正常上架流程。\n\n【操作要求】\n1. 操作前确认已收到客户提供的标签文件，若未收到则暂停操作并通知增值服务协调员\n2. 在系统中查询异常单 EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948，找到对应的实物包裹存放位置并取出\n3. 打开客户提供的「包裹和标签的对应关系」文件（异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx），按文件中的映射关系辨识每个包裹对应的新入库单号\n4. 使用 [待补充：标签文件] 为每个包裹补贴对应入库单号的新包裹标签，覆盖原有标签\n5. 按新入库单号（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260）扫描上架\n6. 操作完成后，将异常单状态变更为仓库已处理\n\n【注意事项】\n1. 所有包裹商品SKU相同（M010000000013796450），但必须严格按对应关系文件中的映射关系补贴标签，不可随意分配\n2. 标签文件缺失时不得开始操作，避免贴错标签导致库存混乱",
+  "structuredReview": {
+    "vascNo": "VASC000000386808",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_label_identify",
+      "confidence": 0.7
+    },
+    "materialsComplete": false,
+    "missingMaterials": [
+      "标签文件"
+    ],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "【需求描述】\n客户4个异常单（EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948）涉及12个入库单的包裹因条码异常无法标准流程上架。客户已确认实物产品条码正确，所有包裹商品码去后缀后为同一SKU（M010000000013796450）。需按新入库单号补贴包裹标签后上架。客户已提供包裹和标签的对应关系文件。\n\n【需求背景】\n包裹条码与系统预期不符导致入库流程中断，需通过补贴新标签恢复正常上架流程。\n\n【操作要求】\n1. 操作前确认已收到客户提供的标签文件，若未收到则暂停操作并通知增值服务协调员\n2. 在系统中查询异常单 EB0326091933195144、EB0326091933195642、EB0326091933195465、EB0326092033201948，找到对应的实物包裹存放位置并取出\n3. 打开客户提供的「包裹和标签的对应关系」文件（异常单号：EB0326091933195144 EB0326091933195642 EB0326091933195465 EB0326092033201948对应的入库单号.xlsx），按文件中的映射关系辨识每个包裹对应的新入库单号\n4. 使用 [待补充：标签文件] 为每个包裹补贴对应入库单号的新包裹标签，覆盖原有标签\n5. 按新入库单号（WI52831716、WI52831688、WI52832255、WI52832222、WI52832280、WI52832131、WI52832102、WI52832164、WI52831895、WI52831860、WI52831925、WI51901260）扫描上架\n6. 操作完成后，将异常单状态变更为仓库已处理\n\n【注意事项】\n1. 所有包裹商品SKU相同（M010000000013796450），但必须严格按对应关系文件中的映射关系补贴标签，不可随意分配\n2. 标签文件缺失时不得开始操作，避免贴错标签导致库存混乱",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}

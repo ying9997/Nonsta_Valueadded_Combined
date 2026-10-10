@@ -73,6 +73,16 @@ export interface PipelineResult {
   t1SkuRelabelResult?: T1SkuRelabelResult;
 }
 
+export interface PipelineTraceEvent {
+  node: PipelineNode;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+  input: unknown;
+  output?: unknown;
+  error?: string;
+}
+
 export interface RunPipelineOptions {
   skipLlm?: boolean;
   /** Phase 2: use rule prefilter + LLM scene classifier in match-template. */
@@ -95,6 +105,63 @@ export interface RunPipelineOptions {
   t1SkuRelabelDeps?: T1SkuRelabelDeps;
   /** Read-only OMS package facts for inbound WI quantity context. Fail-closed when absent or unresolved. */
   packageInfoFactsDeps?: PackageInfoFactsDeps;
+  /** Optional local/debug trace collector. Not used by production callers unless explicitly supplied. */
+  onTrace?: (event: PipelineTraceEvent) => void | Promise<void>;
+}
+
+function snapshot(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return String(value);
+  }
+}
+
+async function emitTrace(
+  options: RunPipelineOptions,
+  event: Omit<PipelineTraceEvent, "input" | "output"> & { input: unknown; output?: unknown },
+): Promise<void> {
+  if (!options.onTrace) return;
+  await options.onTrace({
+    ...event,
+    input: snapshot(event.input),
+    output: snapshot(event.output),
+  });
+}
+
+async function traceNode<T>(
+  options: RunPipelineOptions,
+  node: PipelineNode,
+  input: unknown,
+  run: () => T | Promise<T>,
+): Promise<T> {
+  const start = Date.now();
+  const startedAt = new Date(start).toISOString();
+  try {
+    const output = await run();
+    const end = Date.now();
+    await emitTrace(options, {
+      node,
+      startedAt,
+      endedAt: new Date(end).toISOString(),
+      durationMs: end - start,
+      input,
+      output,
+    });
+    return output;
+  } catch (err) {
+    const end = Date.now();
+    await emitTrace(options, {
+      node,
+      startedAt,
+      endedAt: new Date(end).toISOString(),
+      durationMs: end - start,
+      input,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 }
 
 function missingList(result: Pick<PipelineResult, "missingRequirementItems" | "missingAttachments" | "missingFields">): string[] {
@@ -127,7 +194,7 @@ async function attachLlm(
 ): Promise<PipelineResult> {
   if (options.skipLlm || result.outputPath === "invalid_input" || !result.contextFacts || !result.ownerFacts) {
     if (result.contextFacts && result.ownerFacts) {
-      const formatted = formatOutput({
+      const formatInput = {
         outputPath: result.outputPath,
         node: result.node,
         contextFacts: result.contextFacts,
@@ -135,7 +202,8 @@ async function attachLlm(
         requirement: result.requirementCheck,
         matchResult: result.matchResult,
         completeness: result.completenessResult,
-      });
+      };
+      const formatted = await traceNode(options, "format-output", formatInput, () => formatOutput(formatInput));
       result.structured = formatted.structured;
       result.analysis = formatted.analysis;
     }
@@ -152,7 +220,7 @@ async function attachLlm(
     return result;
   }
 
-  const llm = await generateLlmTextSafe({
+  const llmInput = {
     outputPath: result.ruleOutputPath,
     agentInput: result.agentInput,
     contextFacts: result.contextFacts,
@@ -167,7 +235,8 @@ async function attachLlm(
     sopEditInstruction: options.sopEditInstruction,
     previousSop: options.previousSop,
     onDelta: options.onDelta,
-  });
+  };
+  const llm = await traceNode(options, "llm-generate-sop", llmInput, () => generateLlmTextSafe(llmInput));
 
   let outputPath = result.ruleOutputPath;
   let node = result.node;
@@ -177,7 +246,7 @@ async function attachLlm(
     failureGate = "llm-generate-sop";
   }
 
-  const formatted = formatOutput({
+  const formatInput = {
     outputPath,
     node,
     contextFacts: result.contextFacts,
@@ -187,7 +256,8 @@ async function attachLlm(
     completeness: result.completenessResult,
     mockSop: llm.sop,
     llm,
-  });
+  };
+  const formatted = await traceNode(options, "format-output", formatInput, () => formatOutput(formatInput));
 
   return {
     ...result,
@@ -259,7 +329,8 @@ export async function runPipeline(
   const orderNo = built.input.vascNo;
 
   nodesHit.push("validate-input");
-  const validation = await validateInput({ params: built.input as unknown as Record<string, unknown> });
+  const validateInputArgs = { params: built.input as unknown as Record<string, unknown> };
+  const validation = await traceNode(options, "validate-input", validateInputArgs, () => validateInput(validateInputArgs));
   const validationResult = asRecord(validation.validationResult);
   if (validationResult.ok === false && asText(validationResult.reason) !== "missing_intent") {
     return {
@@ -281,14 +352,33 @@ export async function runPipeline(
   }
 
   nodesHit.push("context-bind");
-  await enrichPackageInfoKnownFacts(built.input, options.packageInfoFactsDeps);
-  const { contextFacts, ownerFacts } = bindContext(built.input);
-  const riskFlags = checkDocuments(detail, contextFacts);
+  const contextBound = await traceNode(
+    options,
+    "context-bind",
+    {
+      agentInputBeforeEnrichment: built.input,
+      detail,
+      packageInfoFactsDepsEnabled: Boolean(options.packageInfoFactsDeps),
+    },
+    async () => {
+      await enrichPackageInfoKnownFacts(built.input, options.packageInfoFactsDeps);
+      const bound = bindContext(built.input);
+      const documentRiskFlags = checkDocuments(detail, bound.contextFacts);
+      return { ...bound, riskFlags: documentRiskFlags, agentInputAfterEnrichment: built.input };
+    },
+  );
+  const { contextFacts, ownerFacts, riskFlags } = contextBound;
 
   const overrideKey = (options.overrideScene || "").trim();
   let requirement = checkRequirement(built.input.customerIntent, contextFacts);
   if (!overrideKey) {
     nodesHit.push("check-requirement");
+    requirement = await traceNode(
+      options,
+      "check-requirement",
+      { customerIntent: built.input.customerIntent, contextFacts },
+      () => requirement,
+    );
     if (!requirement.complete) {
       if (requirement.insufficientAuditFacts) {
         const base: PipelineResult = {
@@ -399,12 +489,23 @@ export async function runPipeline(
   } else {
   nodesHit.push("match-template");
   // sceneLlm=true → 规则+LLM；skipLlm 只控制 SOP 生成，不强制关掉显式 sceneLlm。
-  if (options.sceneLlm === true) {
+  matchResult = await traceNode(
+    options,
+    "match-template",
+    {
+      normalizedRequirement: requirement.normalizedRequirement,
+      contextFacts,
+      sceneLlm: options.sceneLlm === true,
+      sceneLlmVersion: options.sceneLlmVersion === 1 ? 1 : options.sceneLlmVersion === 3 ? 3 : 2,
+      ragEnabled: options.ragEnabled,
+    },
+    async () => {
+      if (options.sceneLlm === true) {
     try {
       const llmConfig = resolveLlmConfig();
       const version =
         options.sceneLlmVersion === 1 ? 1 : options.sceneLlmVersion === 3 ? 3 : 2;
-      matchResult = await matchTemplateWithLlm(
+      return matchTemplateWithLlm(
         requirement.normalizedRequirement,
         contextFacts,
         llmConfig,
@@ -414,7 +515,7 @@ export async function runPipeline(
     } catch (err) {
       const fallback = matchTemplate(requirement.normalizedRequirement, contextFacts);
       const msg = err instanceof Error ? err.message : String(err);
-      matchResult = {
+      return {
         ...fallback,
         llmUsed: false,
         llmClassification: {
@@ -427,9 +528,10 @@ export async function runPipeline(
         },
       };
     }
-  } else {
-    matchResult = matchTemplate(requirement.normalizedRequirement, contextFacts);
-  }
+      }
+      return matchTemplate(requirement.normalizedRequirement, contextFacts);
+    },
+  );
   }
   matchResult = takeTopScene(matchResult);
   matchResult = applyOutboundUnmatchedLeaveEmpty(matchResult, contextFacts);
@@ -463,20 +565,26 @@ export async function runPipeline(
   }
 
   nodesHit.push("sku-consistency-check");
-  const skuCheckResult = await checkSkuConsistencySafe({
+  const skuCheckInput = {
     input: built.input,
     matchResult,
     contextFacts,
     events: asArray(detail.events).map(asRecord),
-  });
+  };
+  const skuCheckResult = await traceNode(options, "sku-consistency-check", skuCheckInput, () =>
+    checkSkuConsistencySafe(skuCheckInput),
+  );
 
   nodesHit.push("t1-sku-relabel-check");
-  const t1SkuRelabelResult = await checkT1SkuRelabelSafe({
+  const t1SkuRelabelInput = {
     input: built.input,
     matchResult,
     contextFacts,
     deps: options.t1SkuRelabelDeps,
-  });
+  };
+  const t1SkuRelabelResult = await traceNode(options, "t1-sku-relabel-check", t1SkuRelabelInput, () =>
+    checkT1SkuRelabelSafe(t1SkuRelabelInput),
+  );
   if (!options.skipCompleteness && t1SkuRelabelResult.verdict === "single_mismatch_bounce") {
     const bounce = t1SkuRelabelResult.bouncePrompt || "请销售/客服核对 SKU 是否填错，打回客户重新提交。";
     const base: PipelineResult = {
@@ -512,17 +620,25 @@ export async function runPipeline(
       infoLlmConfig = undefined;
     }
   }
-  const sceneCompleteness = await checkSceneCompleteness(
-    built.input.customerIntent,
+  const sceneCompletenessInput = {
+    customerIntent: built.input.customerIntent,
     contextFacts,
     matchResult,
-    {
+    options: {
       skipInfoLlm: options.skipLlm || !infoLlmConfig || options.skipCompleteness,
       llmConfig: infoLlmConfig,
       skipCompleteness: options.skipCompleteness,
       allowMissingAttachment: options.allowMissingAttachment !== false,
       t1SkuRelabel: t1SkuRelabelResult,
     },
+  };
+  const sceneCompleteness = await traceNode(options, "check-scene-completeness", sceneCompletenessInput, () =>
+    checkSceneCompleteness(
+      sceneCompletenessInput.customerIntent,
+      sceneCompletenessInput.contextFacts,
+      sceneCompletenessInput.matchResult,
+      sceneCompletenessInput.options,
+    ),
   );
   const completeness = toCompletenessResult(sceneCompleteness);
   if (!completeness.complete) {

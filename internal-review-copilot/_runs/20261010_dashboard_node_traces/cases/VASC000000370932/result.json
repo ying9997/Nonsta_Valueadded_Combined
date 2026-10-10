@@ -1,0 +1,1382 @@
+{
+  "orderNo": "VASC000000370932",
+  "outputPath": "sop_generated",
+  "ruleOutputPath": "sop_generated",
+  "node": "format-output",
+  "nodesHit": [
+    "validate-input",
+    "context-bind",
+    "check-requirement",
+    "match-template",
+    "sku-consistency-check",
+    "t1-sku-relabel-check",
+    "check-scene-completeness",
+    "llm-generate-sop",
+    "format-output"
+  ],
+  "failureGate": "",
+  "missingRequirementItems": [],
+  "missingAttachments": [],
+  "missingFields": [],
+  "missing": [],
+  "clarificationPrompts": [],
+  "requirementCheck": {
+    "complete": true,
+    "missingRequirementItems": [],
+    "clarificationPrompts": [],
+    "normalizedRequirement": "暂无标准增值 EB0126091233009024 EB0126091233008937 请把货物转到DE Warehouse，上架到原单",
+    "objectMatch": "EB0126091233009024",
+    "objectBoundBypass": true,
+    "actionMatch": "上架",
+    "purposeMatch": "EB0126091233009024",
+    "purposeBoundBypass": true
+  },
+  "matchResult": {
+    "matched": true,
+    "supported": true,
+    "category": "B",
+    "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+    "scenarioId": "inbound_parcel_cross_warehouse_transfer",
+    "scenarioName": "【入库】包裹串仓异常调拨",
+    "confidence": "high",
+    "reason": "supported_llm_clear",
+    "score": 8,
+    "candidateTemplate": "inbound_parcel_cross_warehouse_transfer",
+    "decision": "supported",
+    "confidenceScore": 0.9,
+    "gap": 3,
+    "decisionPath": "ruleCandidates=[inbound_label_identify,inbound_package_barcode_batch_relabel,inbound_package_exception_relabel_shelving,inbound_parcel_cross_warehouse_transfer,inbound_anker_combine_carton,inbound_aplus_direct_shelve,inbound_basic_3pl_winit_kit,inbound_batch_identify_relabel_barcode,inbound_bulk_return_new_inbound,inbound_collect_sn,inbound_destroy_before_shelve,inbound_expedited_inbound,inbound_forecast_sku_mismatch,inbound_identify_sku_relabel_parcel,inbound_kit_then_shelve] → llm=inbound_parcel_cross_warehouse_transfer(high) → supported",
+    "querySignals": {
+      "text": "暂无标准增值 EB0126091233009024 EB0126091233008937 请把货物转到DE Warehouse，上架到原单",
+      "interceptHold": false,
+      "hasPhoto": false,
+      "explicitPhotoRequirement": false,
+      "hasRelabel": false,
+      "hasShelve": true,
+      "hasIdentify": false,
+      "hasPackageException": false,
+      "hasPhotoHold": false,
+      "hasDirectScanShelve": false,
+      "weighOrPhotoWithoutRelabel": false,
+      "inboundStockPhoto": false
+    },
+    "candidates": [
+      {
+        "sceneKey": "inbound_label_identify",
+        "sceneName": "【入库】尺重/标签辨识后换标上架",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:上架"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_package_barcode_batch_relabel",
+        "sceneName": "【入库】“包裹条码批量异常（需客户处理）”辨识后补贴包裹标签上架",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:上架"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_package_exception_relabel_shelving",
+        "sceneName": "【入库】包裹类异常换商品标签上架",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:上架"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+        "sceneName": "【入库】包裹串仓异常调拨",
+        "score": 1,
+        "confidenceScore": 0.08333333333333333,
+        "confidence": "low",
+        "matchedSignals": [
+          "weak:转到"
+        ],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_anker_combine_carton",
+        "sceneName": "【入库】anker 合箱入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_aplus_direct_shelve",
+        "sceneName": "【入库】海运整柜100%A+无包裹条码异常，新单无箱单或100%A+包直接上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_basic_3pl_winit_kit",
+        "sceneName": "【入库】Basic 3PL-Winit 组套产品审核",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_batch_identify_relabel_barcode",
+        "sceneName": "【入库】批量辨识商品后补贴商品条码及包裹条码上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_bulk_return_new_inbound",
+        "sceneName": "【入库】批量退货（≥20件商品）异常包裹建新入库单入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_collect_sn",
+        "sceneName": "【入库】收集SN码",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_destroy_before_shelve",
+        "sceneName": "【入库】上架前销毁",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_expedited_inbound",
+        "sceneName": "【入库】加急入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_forecast_sku_mismatch",
+        "sceneName": "【入库】入库预报SKU与实际到货SKU不符合",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_identify_sku_relabel_parcel",
+        "sceneName": "【入库】辨识商品条码重新贴包裹标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_kit_then_shelve",
+        "sceneName": "【入库】组合后上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_photo_hold",
+        "sceneName": "【入库】指定商品拍照暂存",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_pre_shelve_inventory_identify",
+        "sceneName": "【入库】上架前盘点-辨识费",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_product_quality_inspection",
+        "sceneName": "【入库】商品质检",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_remove_label",
+        "sceneName": "【入库】清除标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_replace_custom_packaging",
+        "sceneName": "【入库】更换客制包材",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_replace_winit_packaging",
+        "sceneName": "【入库】更换winit包装",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_reshelve_change_wi_keep_sku",
+        "sceneName": "【入库】商品下架后换入库单重新上架（不更换SKU）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_serialized_sn_handling",
+        "sceneName": "【入库】单品化管理的SN处理场景",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_sku_mgmt_cross_warehouse_b",
+        "sceneName": "【入库】A仓单品化管理的包裹串仓到B仓异常--在B仓上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_split_return_order",
+        "sceneName": "【入库】分开退货单入库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_third_party_merchandise_barcode",
+        "sceneName": "【入库】关联第三方商品条码上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_transparent_label",
+        "sceneName": "【入库】补贴透明标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_unpack_shelve",
+        "sceneName": "【入库】拆包/拆箱上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_unsigned_not_received_proof",
+        "sceneName": "【入库】签署仓库未收到货证明",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "inbound_winit_fault_multi_action",
+        "sceneName": "【入库】因winit原因做入库拦截、辨识、重新包装、销毁或上架等多种动作",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_add_remove_accessories",
+        "sceneName": "【库内】商品拆箱加/减配件",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_aplus_parcel_relabel_shelve",
+        "sceneName": "【库内】A+包裹更换标签上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_appearance_identify_label",
+        "sceneName": "【库内】商品外观辨识+贴标上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_cancel_self_pickup_need_wi",
+        "sceneName": "【库内】异常单：自提单取消出库（需要客户下入库单）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_cancel_self_pickup_outbound",
+        "sceneName": "【库内】自提单取消出库",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_carton_to_each",
+        "sceneName": "【库内】箱转单一",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_change_sku_defective_shelve",
+        "sceneName": "【库内】更换SKU做不良品上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_collect_sn",
+        "sceneName": "【库内】采集SN码",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_damaged_repack_reshelve",
+        "sceneName": "【库内】包装破损商品更换包材重新上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_defective_to_good",
+        "sceneName": "【库内】不良品转良品",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_exception_rephoto",
+        "sceneName": "【库内】异常重新拍照",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_exception_to_defective_shelve",
+        "sceneName": "【库内】异常商品转不良品上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_good_defective_inspection",
+        "sceneName": "【库内】良品/不良品检测",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_good_to_defective_shelve",
+        "sceneName": "【库内】良品转不良品上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_identify_photo_then_destroy",
+        "sceneName": "【库内】辨识拍照后销毁",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_identify_then_relabel_shelve",
+        "sceneName": "【库内】库内辨识+辨识后重新贴标上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_instructional_label_photo",
+        "sceneName": "【库内】商品贴指令性标签（警示标语/使用说明/清洁维护等）+拍照",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inter_warehouse_transfer",
+        "sceneName": "【库内】库内仓间调拨",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inter_warehouse_transfer_anker",
+        "sceneName": "【库内】库内仓间调拨-Anker",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inventory_destroy",
+        "sceneName": "【库内】库内库存销毁",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_inventory_freeze_unfreeze",
+        "sceneName": "【库内】库存冻结/解冻",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_measure_identify_dims_weight",
+        "sceneName": "【库内】商品尺重测量辨识",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_nonstandard_charge",
+        "sceneName": "【库内】非标收费",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_ownership_transfer",
+        "sceneName": "【库内】货权转移-改数",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_ownership_transfer_relabel",
+        "sceneName": "【库内】货权转移（换标模式）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_photo_video",
+        "sceneName": "【库内】拍摄照片/视频",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_product_kitting",
+        "sceneName": "【库内】商品组合",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_reinforce",
+        "sceneName": "【库内】库内加固",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_relabel_change_sku",
+        "sceneName": "【库内】指定单品/库位商品更换标签上架【换标前后SKU不一样】",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_remove_cover_label",
+        "sceneName": "【库内】清除/覆盖标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_replace_custom_packaging",
+        "sceneName": "【库内】更换客制包装",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_replace_mfg_date_label",
+        "sceneName": "【库内】更换商品生产日期标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_rework_reshelve",
+        "sceneName": "【库内】商品改制重新上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_sn_mgmt_change_reshelve",
+        "sceneName": "【库内】SN采集+管理方式变更+重新上架（复合场景）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_specified_position_label",
+        "sceneName": "【库内】指定位置贴标",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_split_sku",
+        "sceneName": "【库内】拆分SKU",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_unbox_identify_change_sku",
+        "sceneName": "【库内】拆箱辨识后重新更换SKU上架",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_void_outbound_after_pack",
+        "sceneName": "【库内】打包完成后作废出库单（有商品增值）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "instock_winit_pack_offline_ship",
+        "sceneName": "【库内】WINIT标准包材线下寄件出库（需尾程线下面单）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_delivery_photo",
+        "sceneName": "【出库】交货时拍照",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_plastic_repallet",
+        "sceneName": "【出库】重新打托（塑料托盘）",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_relabel_sku",
+        "sceneName": "【出库】补贴/更换商品标签",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_repack_self_pickup",
+        "sceneName": "【出库】暂存单重新装箱",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_special_palletizing",
+        "sceneName": "【出库】特殊打托需求",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_specified_position_label",
+        "sceneName": "【出库】指定位置贴商品/包裹标签/快递面单",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      },
+      {
+        "sceneKey": "outbound_standard_intercept",
+        "sceneName": "【出库】标准出库单拦截",
+        "score": 0,
+        "confidenceScore": 0,
+        "confidence": "low",
+        "matchedSignals": [],
+        "negativeSignals": [
+          "order_type_mismatch:inbound"
+        ],
+        "source": "deterministic",
+        "status": "supported"
+      }
+    ],
+    "topK": [],
+    "ruleCandidateScenes": [
+      "inbound_label_identify",
+      "inbound_package_barcode_batch_relabel",
+      "inbound_package_exception_relabel_shelving",
+      "inbound_parcel_cross_warehouse_transfer",
+      "inbound_anker_combine_carton",
+      "inbound_aplus_direct_shelve",
+      "inbound_basic_3pl_winit_kit",
+      "inbound_batch_identify_relabel_barcode",
+      "inbound_bulk_return_new_inbound",
+      "inbound_collect_sn",
+      "inbound_destroy_before_shelve",
+      "inbound_expedited_inbound",
+      "inbound_forecast_sku_mismatch",
+      "inbound_identify_sku_relabel_parcel",
+      "inbound_kit_then_shelve"
+    ],
+    "llmClassification": {
+      "matchedScene": "inbound_parcel_cross_warehouse_transfer",
+      "confidence": "high",
+      "reasoning": "1. 异常单详情显示：2个异常单，异常名称均为「客户直发包裹串仓」，异常对象为包裹；2. 需求描述明确提到「转到DE Warehouse」「上架到原单」，核心动作是跨仓库转移；3. 根据场景定义，inbound_parcel_cross_warehouse_transfer的核心特征包括：串仓、调拨、送错仓库、目的仓库；4. 本需求完全符合串仓调拨场景：包裹送错仓库（当前在DEBR2），需要转移到目标仓库（DE Warehouse），并上架到原入库单；5. 负向特征检查：不涉及换标、补贴商品条码、质检等操作；6. 与其他场景边界清晰：这是跨仓库转移，不是同仓库内的换标上架或补贴条码",
+      "conclusionOneLiner": "包裹串仓需跨仓库调拨到目标仓",
+      "topicSummary": "2个串仓异常包裹需转到DE Warehouse并上架到原单",
+      "extractedActions": [
+        "转到DE Warehouse",
+        "上架到原单"
+      ],
+      "alternativeScenes": [],
+      "ambiguous": false,
+      "sceneLlmVersion": 2,
+      "exceptionInfos": [
+        {
+          "ebNo": "EB0126091233009024",
+          "exceptionName": "客户直发包裹串仓",
+          "exceptionObject": "包裹",
+          "source": "oms_api"
+        },
+        {
+          "ebNo": "EB0126091233008937",
+          "exceptionName": "客户直发包裹串仓",
+          "exceptionObject": "包裹",
+          "source": "oms_api"
+        }
+      ]
+    },
+    "llmUsed": true,
+    "retrievedCases": [],
+    "matchedActions": [
+      "转到DE Warehouse",
+      "上架到原单"
+    ],
+    "actionCandidateScenes": [],
+    "actionExcludedScenes": []
+  },
+  "completenessResult": {
+    "applicable": true,
+    "complete": true,
+    "missingAttachments": [],
+    "missingFields": [],
+    "providedCount": 0,
+    "totalRequired": 0,
+    "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+    "missingInfo": [],
+    "infoChecks": [
+      {
+        "field": "异常包裹编号",
+        "present": true,
+        "evidence": "系统已掌握异常单号：EB0126091233009024、EB0126091233008937"
+      },
+      {
+        "field": "目的仓库",
+        "present": true,
+        "evidence": "客户明确要求：请把货物转到DE Warehouse"
+      },
+      {
+        "field": "目标入库单号",
+        "present": true,
+        "evidence": "客户要求上架到原单，系统已掌握单据上的入库单号：WI52461517"
+      },
+      {
+        "field": "当前所在仓库",
+        "present": true,
+        "evidence": "系统已掌握当前单据仓库：DEBR2 Warehouse / DEBR2"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": ""
+  },
+  "sceneCompletenessResult": {
+    "complete": true,
+    "missingInfo": [],
+    "missingAttachments": [],
+    "clarificationPrompts": [],
+    "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+    "infoChecks": [
+      {
+        "field": "异常包裹编号",
+        "present": true,
+        "evidence": "系统已掌握异常单号：EB0126091233009024、EB0126091233008937"
+      },
+      {
+        "field": "目的仓库",
+        "present": true,
+        "evidence": "客户明确要求：请把货物转到DE Warehouse"
+      },
+      {
+        "field": "目标入库单号",
+        "present": true,
+        "evidence": "客户要求上架到原单，系统已掌握单据上的入库单号：WI52461517"
+      },
+      {
+        "field": "当前所在仓库",
+        "present": true,
+        "evidence": "系统已掌握当前单据仓库：DEBR2 Warehouse / DEBR2"
+      }
+    ],
+    "infoCheckSkipped": false,
+    "infoCheckError": "",
+    "attachment": {
+      "applicable": true,
+      "complete": true,
+      "missingAttachments": [],
+      "missingFields": [],
+      "providedCount": 0,
+      "totalRequired": 0,
+      "sceneKey": "inbound_parcel_cross_warehouse_transfer"
+    }
+  },
+  "contextFacts": {
+    "orderNo": "VASC000000370932",
+    "customerCode": "16758605",
+    "customerName": "Anker Technology (UK) Ltd.-3",
+    "warehouseCode": "DEBR2",
+    "warehouseName": "DEBR2 Warehouse",
+    "eventNo": "EB0126091233009024",
+    "businessOrderNo": "WI52461517",
+    "allEventNos": [
+      "EB0126091233009024",
+      "EB0126091233008937"
+    ],
+    "allBusinessOrderNos": [
+      "WI52461517"
+    ],
+    "vaSource": "UNUSUAL",
+    "businessType": "INBOUND",
+    "businessTypeDesc": "入库订单",
+    "sceneKey": "",
+    "sceneName": "",
+    "sceneCode": "",
+    "serviceAtom": "OW01V1602",
+    "attachmentStatus": {
+      "操作说明附件": "missing",
+      "商品和标签的对应关系": "missing",
+      "包裹和标签的对应关系": "missing",
+      "视频拍摄SOP（中文+英文）": "missing",
+      "标签文件": "missing"
+    },
+    "providedFields": {
+      "BEOR": "暂无标准增值",
+      "VAS_ATTR_REL_RD": "EB0126091233009024\r\nEB0126091233008937\r\n\r\n请把货物转到DE Warehouse，上架到原单",
+      "VAS_ATTR_REL_NWEON": "",
+      "NSVASTN": "",
+      "需求描述": "EB0126091233009024\r\nEB0126091233008937\r\n\r\n请把货物转到DE Warehouse，上架到原单",
+      "需求背景说明": "暂无标准增值"
+    },
+    "boundKeys": [
+      "eventNo",
+      "businessOrderNo",
+      "warehouseCode",
+      "customerCode"
+    ],
+    "uploadedFileNames": [],
+    "knownFactLines": [
+      "业务单号：WI52461517",
+      "原子下单数量：0",
+      "原子处理数量：0"
+    ],
+    "hasRequirementDescriptionField": true,
+    "hasRequirementBackgroundField": true
+  },
+  "ownerFacts": {
+    "submittedBy": "s.yuan20037",
+    "customerService": [],
+    "sales": [],
+    "reviewers": []
+  },
+  "agentInput": {
+    "mode": "internal_review_copilot",
+    "vascNo": "VASC000000370932",
+    "query": "暂无标准增值\nEB0126091233009024\r\nEB0126091233008937\r\n\r\n请把货物转到DE Warehouse，上架到原单",
+    "customerIntent": "暂无标准增值\nEB0126091233009024\r\nEB0126091233008937\r\n\r\n请把货物转到DE Warehouse，上架到原单",
+    "serviceAtom": "OW01V1602",
+    "sceneKey": "",
+    "sceneName": "",
+    "sceneCode": "",
+    "recommendedVasc": {
+      "vascCode": "VASC202411192246131",
+      "vascName": "入库非标增值（特批）"
+    },
+    "pageContext": {
+      "entryScene": "INTERNAL_REVIEW",
+      "vaSource": "UNUSUAL",
+      "businessType": "INBOUND",
+      "businessTypeDesc": "入库订单",
+      "warehouseCode": "DEBR2",
+      "warehouseName": "DEBR2 Warehouse",
+      "customerCode": "16758605",
+      "customerName": "Anker Technology (UK) Ltd.-3",
+      "eventNo": "EB0126091233009024",
+      "businessOrderNo": "WI52461517",
+      "attachmentStatus": {
+        "操作说明附件": "missing",
+        "商品和标签的对应关系": "missing",
+        "包裹和标签的对应关系": "missing",
+        "视频拍摄SOP（中文+英文）": "missing",
+        "标签文件": "missing"
+      }
+    },
+    "providedFields": {
+      "BEOR": "暂无标准增值",
+      "VAS_ATTR_REL_RD": "EB0126091233009024\r\nEB0126091233008937\r\n\r\n请把货物转到DE Warehouse，上架到原单",
+      "VAS_ATTR_REL_NWEON": "",
+      "NSVASTN": "",
+      "需求描述": "EB0126091233009024\r\nEB0126091233008937\r\n\r\n请把货物转到DE Warehouse，上架到原单",
+      "需求背景说明": "暂无标准增值"
+    },
+    "auditFields": {
+      "hasRequirementDescription": true,
+      "hasRequirementBackground": true
+    },
+    "omsFacts": {
+      "customerRequirementDescription": "EB0126091233009024\r\nEB0126091233008937\r\n\r\n请把货物转到DE Warehouse，上架到原单",
+      "requirementBackground": "暂无标准增值",
+      "fieldValues": {},
+      "attachmentStatus": {
+        "操作说明附件": "missing",
+        "商品和标签的对应关系": "missing",
+        "包裹和标签的对应关系": "missing",
+        "视频拍摄SOP（中文+英文）": "missing",
+        "标签文件": "missing"
+      },
+      "uploadedFiles": [],
+      "knownFactLines": [
+        "业务单号：WI52461517",
+        "原子下单数量：0",
+        "原子处理数量：0"
+      ]
+    },
+    "responsiblePeople": {
+      "submittedBy": "s.yuan20037",
+      "customerService": [],
+      "sales": [],
+      "reviewers": []
+    },
+    "conversationEvidence": [],
+    "enrichedContext": {
+      "orderNo": "VASC000000370932",
+      "customerCode": "16758605",
+      "customerName": "Anker Technology (UK) Ltd.-3",
+      "warehouseCode": "DEBR2",
+      "warehouseName": "DEBR2 Warehouse",
+      "eventNo": "EB0126091233009024",
+      "businessOrderNo": "WI52461517",
+      "allEventNos": [
+        "EB0126091233009024",
+        "EB0126091233008937"
+      ],
+      "allBusinessOrderNos": [
+        "WI52461517"
+      ],
+      "knownFactLines": [
+        "业务单号：WI52461517",
+        "原子下单数量：0",
+        "原子处理数量：0"
+      ],
+      "vaSource": "UNUSUAL",
+      "businessType": "INBOUND",
+      "businessTypeDesc": "入库订单",
+      "sceneName": "",
+      "sceneCode": ""
+    }
+  },
+  "riskFlags": [],
+  "skuCheckResult": {
+    "triggered": false,
+    "oldWi": "",
+    "newWi": "",
+    "oldSkus": [],
+    "newSkus": [],
+    "match": "unknown",
+    "source": "none"
+  },
+  "t1SkuRelabelResult": {
+    "triggered": false,
+    "targetWis": [],
+    "merchandiseCodes": [],
+    "stems": [],
+    "claim": "unspecified",
+    "verdict": "skip",
+    "bouncePrompt": ""
+  },
+  "llm": {
+    "text": "【需求描述】\n异常单 EB0126091233009024、EB0126091233008937 对应的包裹误入 DEBR2 仓库，需调拨至 DE Warehouse 并使用原入库单 WI52461517 上架。客户未提供标准增值服务配置，需通过非标流程处理跨仓调拨。\n\n【需求背景】\n包裹入库时发生串仓异常，实物到达 DEBR2 仓库但应入库至 DE Warehouse，需调拨至正确仓库后按原入库单上架。\n\n【操作要求】\n1. 在 DEBR2 仓库通过系统查询异常单 EB0126091233009024、EB0126091233008937 对应的库位，前往库位扫描包裹条码确认实物；\n2. 核对包裹上的 SKU、数量、客户信息是否与入库单 WI52461517 一致，如有差异需拍照记录并上报；\n3. 将核对无误的包裹交至 DEBR2 仓库指定的跨仓调拨交接区域，填写调拨交接单，等待物流部门安排转运至 DE Warehouse；\n4. DE Warehouse 收货人员收到包裹后，扫描包裹条码确认到货，核对与调拨交接单信息一致；\n5. 在 DE Warehouse 收货区扫描包裹条码，系统自动关联入库单 WI52461517，按系统分配的库位完成上架；\n6. 上架完成后，将异常单状态变更为仓库已处理。\n\n【注意事项】\n1. 跨仓调拨交接时需拍照留存包裹外观及调拨交接单，确保责任可追溯；\n2. DE Warehouse 上架时必须扫描包裹条码关联原入库单 WI52461517，不得新建入库单；\n3. 如包裹信息与入库单不符，需暂停操作并联系仓库主管处理。",
+    "model": "claude-sonnet-4-5",
+    "mocked": false,
+    "error": null,
+    "sop": {
+      "requirementBackground": "包裹入库时发生串仓异常，实物到达 DEBR2 仓库但应入库至 DE Warehouse，需调拨至正确仓库后按原入库单上架。",
+      "requirementDescription": "异常单 EB0126091233009024、EB0126091233008937 对应的包裹误入 DEBR2 仓库，需调拨至 DE Warehouse 并使用原入库单 WI52461517 上架。客户未提供标准增值服务配置，需通过非标流程处理跨仓调拨。",
+      "warehouseSop": "1. 在 DEBR2 仓库通过系统查询异常单 EB0126091233009024、EB0126091233008937 对应的库位，前往库位扫描包裹条码确认实物；\n2. 核对包裹上的 SKU、数量、客户信息是否与入库单 WI52461517 一致，如有差异需拍照记录并上报；\n3. 将核对无误的包裹交至 DEBR2 仓库指定的跨仓调拨交接区域，填写调拨交接单，等待物流部门安排转运至 DE Warehouse；\n4. DE Warehouse 收货人员收到包裹后，扫描包裹条码确认到货，核对与调拨交接单信息一致；\n5. 在 DE Warehouse 收货区扫描包裹条码，系统自动关联入库单 WI52461517，按系统分配的库位完成上架；\n6. 上架完成后，将异常单状态变更为仓库已处理。",
+      "sopText": "【需求描述】\n异常单 EB0126091233009024、EB0126091233008937 对应的包裹误入 DEBR2 仓库，需调拨至 DE Warehouse 并使用原入库单 WI52461517 上架。客户未提供标准增值服务配置，需通过非标流程处理跨仓调拨。\n\n【需求背景】\n包裹入库时发生串仓异常，实物到达 DEBR2 仓库但应入库至 DE Warehouse，需调拨至正确仓库后按原入库单上架。\n\n【操作要求】\n1. 在 DEBR2 仓库通过系统查询异常单 EB0126091233009024、EB0126091233008937 对应的库位，前往库位扫描包裹条码确认实物；\n2. 核对包裹上的 SKU、数量、客户信息是否与入库单 WI52461517 一致，如有差异需拍照记录并上报；\n3. 将核对无误的包裹交至 DEBR2 仓库指定的跨仓调拨交接区域，填写调拨交接单，等待物流部门安排转运至 DE Warehouse；\n4. DE Warehouse 收货人员收到包裹后，扫描包裹条码确认到货，核对与调拨交接单信息一致；\n5. 在 DE Warehouse 收货区扫描包裹条码，系统自动关联入库单 WI52461517，按系统分配的库位完成上架；\n6. 上架完成后，将异常单状态变更为仓库已处理。\n\n【注意事项】\n1. 跨仓调拨交接时需拍照留存包裹外观及调拨交接单，确保责任可追溯；\n2. DE Warehouse 上架时必须扫描包裹条码关联原入库单 WI52461517，不得新建入库单；\n3. 如包裹信息与入库单不符，需暂停操作并联系仓库主管处理。",
+      "scenarioName": "【入库】包裹串仓异常调拨",
+      "fieldsUsed": [
+        "eventNo: EB0126091233009024, EB0126091233008937",
+        "businessOrderNo: WI52461517",
+        "warehouseCode: DEBR2",
+        "需求描述: 请把货物转到DE Warehouse，上架到原单"
+      ],
+      "mocked": false,
+      "model": "claude-sonnet-4-5",
+      "extractedWiNumbers": [
+        "WI52461517"
+      ],
+      "extractedEbNumbers": [
+        "EB0126091233009024",
+        "EB0126091233008937"
+      ],
+      "extractedWoNumbers": []
+    },
+    "reflectionPass": false,
+    "reflectionIssues": [
+      "步骤3「按跨仓调拨流程将包裹转运至 DE Warehouse」超出仓库操作职责。跨仓调拨涉及物流运输安排、系统间库存转移等非仓库实物操作环节，仓库人员无法独立完成此步骤。",
+      "缺少关键操作步骤：未说明如何在 DEBR2 仓库「定位待调拨包裹」的具体方法（如通过异常单号查询库位、扫描包裹条码等）；未说明包裹到达 DE Warehouse 后的接收确认流程。",
+      "步骤2「核对包裹信息与入库单 WI52461517 的关联关系」表述模糊，未明确需核对哪些字段（如 SKU、数量、客户信息等），以及核对不一致时的处理方式。",
+      "步骤4「使用原入库单 WI52461517 扫描上架」表述不清晰，未说明是扫描入库单条码还是包裹条码，以及上架到哪个库位（「上架到原单」的具体含义不明）。"
+    ],
+    "regenerated": true
+  },
+  "structured": {
+    "mode": "internal_review_copilot",
+    "outputPath": "sop_generated",
+    "node": "format-output",
+    "sceneKey": "inbound_parcel_cross_warehouse_transfer",
+    "scenarioName": "【入库】包裹串仓异常调拨",
+    "missingRequirementItems": [],
+    "missingFields": [],
+    "missingAttachments": [],
+    "requirementDescription": "异常单 EB0126091233009024、EB0126091233008937 对应的包裹误入 DEBR2 仓库，需调拨至 DE Warehouse 并使用原入库单 WI52461517 上架。客户未提供标准增值服务配置，需通过非标流程处理跨仓调拨。",
+    "requirementBackground": "包裹入库时发生串仓异常，实物到达 DEBR2 仓库但应入库至 DE Warehouse，需调拨至正确仓库后按原入库单上架。",
+    "warehouseSop": "1. 在 DEBR2 仓库通过系统查询异常单 EB0126091233009024、EB0126091233008937 对应的库位，前往库位扫描包裹条码确认实物；\n2. 核对包裹上的 SKU、数量、客户信息是否与入库单 WI52461517 一致，如有差异需拍照记录并上报；\n3. 将核对无误的包裹交至 DEBR2 仓库指定的跨仓调拨交接区域，填写调拨交接单，等待物流部门安排转运至 DE Warehouse；\n4. DE Warehouse 收货人员收到包裹后，扫描包裹条码确认到货，核对与调拨交接单信息一致；\n5. 在 DE Warehouse 收货区扫描包裹条码，系统自动关联入库单 WI52461517，按系统分配的库位完成上架；\n6. 上架完成后，将异常单状态变更为仓库已处理。",
+    "llmGeneratedText": "【需求描述】\n异常单 EB0126091233009024、EB0126091233008937 对应的包裹误入 DEBR2 仓库，需调拨至 DE Warehouse 并使用原入库单 WI52461517 上架。客户未提供标准增值服务配置，需通过非标流程处理跨仓调拨。\n\n【需求背景】\n包裹入库时发生串仓异常，实物到达 DEBR2 仓库但应入库至 DE Warehouse，需调拨至正确仓库后按原入库单上架。\n\n【操作要求】\n1. 在 DEBR2 仓库通过系统查询异常单 EB0126091233009024、EB0126091233008937 对应的库位，前往库位扫描包裹条码确认实物；\n2. 核对包裹上的 SKU、数量、客户信息是否与入库单 WI52461517 一致，如有差异需拍照记录并上报；\n3. 将核对无误的包裹交至 DEBR2 仓库指定的跨仓调拨交接区域，填写调拨交接单，等待物流部门安排转运至 DE Warehouse；\n4. DE Warehouse 收货人员收到包裹后，扫描包裹条码确认到货，核对与调拨交接单信息一致；\n5. 在 DE Warehouse 收货区扫描包裹条码，系统自动关联入库单 WI52461517，按系统分配的库位完成上架；\n6. 上架完成后，将异常单状态变更为仓库已处理。\n\n【注意事项】\n1. 跨仓调拨交接时需拍照留存包裹外观及调拨交接单，确保责任可追溯；\n2. DE Warehouse 上架时必须扫描包裹条码关联原入库单 WI52461517，不得新建入库单；\n3. 如包裹信息与入库单不符，需暂停操作并联系仓库主管处理。",
+    "llmError": null,
+    "processingMethod": "暂时",
+    "imActionProposal": {
+      "requiresUserConfirm": true,
+      "mentionRoles": [
+        "reviewers"
+      ],
+      "messageDraft": "【需求描述】\n异常单 EB0126091233009024、EB0126091233008937 对应的包裹误入 DEBR2 仓库，需调拨至 DE Warehouse 并使用原入库单 WI52461517 上架。客户未提供标准增值服务配置，需通过非标流程处理跨仓调拨。\n\n【需求背景】\n包裹入库时发生串仓异常，实物到达 DEBR2 仓库但应入库至 DE Warehouse，需调拨至正确仓库后按原入库单上架。\n\n【操作要求】\n1. 在 DEBR2 仓库通过系统查询异常单 EB0126091233009024、EB0126091233008937 对应的库位，前往库位扫描包裹条码确认实物；\n2. 核对包裹上的 SKU、数量、客户信息是否与入库单 WI52461517 一致，如有差异需拍照记录并上报；\n3. 将核对无误的包裹交至 DEBR2 仓库指定的跨仓调拨交接区域，填写调拨交接单，等待物流部门安排转运至 DE Warehouse；\n4. DE Warehouse 收货人员收到包裹后，扫描包裹条码确认到货，核对与调拨交接单信息一致；\n5. 在 DE Warehouse 收货区扫描包裹条码，系统自动关联入库单 WI52461517，按系统分配的库位完成上架；\n6. 上架完成后，将异常单状态变更为仓库已处理。\n\n【注意事项】\n1. 跨仓调拨交接时需拍照留存包裹外观及调拨交接单，确保责任可追溯；\n2. DE Warehouse 上架时必须扫描包裹条码关联原入库单 WI52461517，不得新建入库单；\n3. 如包裹信息与入库单不符，需暂停操作并联系仓库主管处理。"
+    }
+  },
+  "analysis": "【需求描述】\n异常单 EB0126091233009024、EB0126091233008937 对应的包裹误入 DEBR2 仓库，需调拨至 DE Warehouse 并使用原入库单 WI52461517 上架。客户未提供标准增值服务配置，需通过非标流程处理跨仓调拨。\n\n【需求背景】\n包裹入库时发生串仓异常，实物到达 DEBR2 仓库但应入库至 DE Warehouse，需调拨至正确仓库后按原入库单上架。\n\n【操作要求】\n1. 在 DEBR2 仓库通过系统查询异常单 EB0126091233009024、EB0126091233008937 对应的库位，前往库位扫描包裹条码确认实物；\n2. 核对包裹上的 SKU、数量、客户信息是否与入库单 WI52461517 一致，如有差异需拍照记录并上报；\n3. 将核对无误的包裹交至 DEBR2 仓库指定的跨仓调拨交接区域，填写调拨交接单，等待物流部门安排转运至 DE Warehouse；\n4. DE Warehouse 收货人员收到包裹后，扫描包裹条码确认到货，核对与调拨交接单信息一致；\n5. 在 DE Warehouse 收货区扫描包裹条码，系统自动关联入库单 WI52461517，按系统分配的库位完成上架；\n6. 上架完成后，将异常单状态变更为仓库已处理。\n\n【注意事项】\n1. 跨仓调拨交接时需拍照留存包裹外观及调拨交接单，确保责任可追溯；\n2. DE Warehouse 上架时必须扫描包裹条码关联原入库单 WI52461517，不得新建入库单；\n3. 如包裹信息与入库单不符，需暂停操作并联系仓库主管处理。",
+  "structuredReview": {
+    "vascNo": "VASC000000370932",
+    "requirementComplete": true,
+    "missingRequirements": [],
+    "sceneMatch": {
+      "decision": "supported",
+      "topScene": "inbound_parcel_cross_warehouse_transfer",
+      "confidence": 0.9
+    },
+    "materialsComplete": true,
+    "missingMaterials": [],
+    "outputPath": "sop_generated",
+    "llmGeneratedText": "【需求描述】\n异常单 EB0126091233009024、EB0126091233008937 对应的包裹误入 DEBR2 仓库，需调拨至 DE Warehouse 并使用原入库单 WI52461517 上架。客户未提供标准增值服务配置，需通过非标流程处理跨仓调拨。\n\n【需求背景】\n包裹入库时发生串仓异常，实物到达 DEBR2 仓库但应入库至 DE Warehouse，需调拨至正确仓库后按原入库单上架。\n\n【操作要求】\n1. 在 DEBR2 仓库通过系统查询异常单 EB0126091233009024、EB0126091233008937 对应的库位，前往库位扫描包裹条码确认实物；\n2. 核对包裹上的 SKU、数量、客户信息是否与入库单 WI52461517 一致，如有差异需拍照记录并上报；\n3. 将核对无误的包裹交至 DEBR2 仓库指定的跨仓调拨交接区域，填写调拨交接单，等待物流部门安排转运至 DE Warehouse；\n4. DE Warehouse 收货人员收到包裹后，扫描包裹条码确认到货，核对与调拨交接单信息一致；\n5. 在 DE Warehouse 收货区扫描包裹条码，系统自动关联入库单 WI52461517，按系统分配的库位完成上架；\n6. 上架完成后，将异常单状态变更为仓库已处理。\n\n【注意事项】\n1. 跨仓调拨交接时需拍照留存包裹外观及调拨交接单，确保责任可追溯；\n2. DE Warehouse 上架时必须扫描包裹条码关联原入库单 WI52461517，不得新建入库单；\n3. 如包裹信息与入库单不符，需暂停操作并联系仓库主管处理。",
+    "transferReason": null,
+    "processingMethod": "暂时",
+    "riskFlags": [],
+    "llmError": null
+  }
+}
