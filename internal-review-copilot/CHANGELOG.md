@@ -1,5 +1,12 @@
 # CHANGELOG · vas-internal-review
 
+### 9 · 2026-10-10 · docs · 看板样本节点 trace 与 badcase 闭环说明
+
+- 文件: `_runs/20261010_dashboard_node_traces/README.md`
+- 验证: `npx tsx scripts/export-dashboard-node-traces.ts --limit=1 --skip-llm --out=_runs/20261010_dashboard_node_traces_verify` PASS
+- 部署: 本机文档与证据说明，未操作 40，未写 OMS/TOM，未触发线上重评
+- 说明: 补充为什么 badcase 闭环不能只看最终质量指标，必须保留节点级输入/输出；明确看板 116 单中只有 5 单具备本机完整 OMS detail 可重跑，其余需补原始 detail 留存后才能形成完整 trace。
+
 ### 8 · 2026-10-09 · fix · P1-001 416175 L2 场景识别回归
 
 - 文件: `lib/match-template.ts`, `scripts/test-match-template-v02.ts`
