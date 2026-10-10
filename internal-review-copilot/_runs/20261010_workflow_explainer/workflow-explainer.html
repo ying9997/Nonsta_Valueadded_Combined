@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Internal Review Copilot 工作流地图</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #637083;
+      --line: #d7dee9;
+      --page: #f6f7f9;
+      --paper: #ffffff;
+      --rule: #e9f4ff;
+      --rule-border: #77a8d8;
+      --llm: #fff2d8;
+      --llm-border: #d69b36;
+      --kb: #e8f7ec;
+      --kb-border: #5da873;
+      --external: #f2ecff;
+      --external-border: #8f78c9;
+      --human: #ffe9e6;
+      --human-border: #ce6b62;
+      --code: #101828;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: var(--page);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    main { max-width: 1180px; margin: 0 auto; padding: 34px 24px 56px; }
+    h1 { margin: 0 0 12px; font-size: 32px; letter-spacing: 0; }
+    h2 { margin: 34px 0 12px; font-size: 22px; }
+    h3 { margin: 24px 0 10px; font-size: 17px; }
+    p, li { max-width: 78ch; }
+    .meta {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 6px 14px;
+      max-width: 760px;
+      margin: 0 0 22px;
+      color: var(--muted);
+    }
+    .meta dt { font-weight: 700; color: var(--ink); }
+    .panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 18px 0;
+      box-shadow: 0 1px 2px rgba(18, 29, 46, 0.04);
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid; }
+    .dot.rule { background: var(--rule); border-color: var(--rule-border); }
+    .dot.llm { background: var(--llm); border-color: var(--llm-border); }
+    .dot.kb { background: var(--kb); border-color: var(--kb-border); }
+    .dot.external { background: var(--external); border-color: var(--external-border); }
+    .dot.human { background: var(--human); border-color: var(--human-border); }
+    svg { width: 100%; height: auto; display: block; }
+    .node text { font-size: 12px; fill: var(--ink); }
+    .node .title { font-weight: 700; font-size: 13px; }
+    .arrow { stroke: #7b8798; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+    .small { color: var(--muted); font-size: 13px; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 10px; vertical-align: top; }
+    th { background: #f0f3f7; text-align: left; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+      color: var(--code);
+      background: #eef1f5;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+    pre {
+      max-width: 95ch;
+      overflow: auto;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid var(--line);
+      background: #fff;
+      white-space: nowrap;
+    }
+    .rule-badge { background: var(--rule); border-color: var(--rule-border); }
+    .llm-badge { background: var(--llm); border-color: var(--llm-border); }
+    .kb-badge { background: var(--kb); border-color: var(--kb-border); }
+    .external-badge { background: var(--external); border-color: var(--external-border); }
+    .human-badge { background: var(--human); border-color: var(--human-border); }
+    footer { margin-top: 38px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 780px) {
+      main { padding: 22px 12px 40px; }
+      .cols { grid-template-columns: 1fr; }
+      table { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Internal Review Copilot 工作流地图</h1>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-10-10</dd>
+    <dt>Input shape</dt><dd>concept</dd>
+    <dt>Subject</dt><dd>internal-review-copilot 的节点、规则/AI 分工、提示词与知识库使用</dd>
+  </dl>
+
+  <section class="panel">
+    <h2>一眼结论</h2>
+    <p>
+      这套链路是一个“规则编排 + 场景卡知识 + LLM 辅助判断/生成 + 人工审核出口”的工作流。
+      规则负责入口约束、字段绑定、候选召回、附件/SKU/写入门禁；LLM 主要用在四处：
+      场景分类 refine、场景级必填信息语义判断、追问/转人工话术、SOP 生成与反思检查。
+    </p>
+    <p>
+      正式轮询里首判默认开启 <code>sceneLlm=true</code>、<code>sceneLlmVersion=2</code>，但 RAG 默认关闭。
+      所以当前 badcase 最重要的拆法是：先看退出节点，再看是规则拦截、LLM 分类、L2.5 语义完整性、
+      SOP 生成，还是 OMS/飞书出口问题。
+    </p>
+    <div class="legend">
+      <span class="chip"><span class="dot rule"></span>规则/代码</span>
+      <span class="chip"><span class="dot llm"></span>LLM</span>
+      <span class="chip"><span class="dot kb"></span>知识库/配置</span>
+      <span class="chip"><span class="dot external"></span>外部系统</span>
+      <span class="chip"><span class="dot human"></span>人工/飞书交互</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>可视化工作流</h2>
+    <svg viewBox="0 0 1120 920" role="img" aria-label="internal review copilot workflow">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#7b8798"></path>
+        </marker>
+        <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#1f2937" flood-opacity="0.12"></feDropShadow>
+        </filter>
+      </defs>
+
+      <g class="node">
+        <rect x="30" y="38" width="190" height="70" rx="8" fill="var(--external)" stroke="var(--external-border)" filter="url(#shadow)"></rect>
+        <text x="45" y="64" class="title">OMS 待审核单</text>
+        <text x="45" y="86">poll-and-assess 拉取</text>
+        <text x="45" y="102">限定服务原子</text>
+      </g>
+      <path class="arrow" d="M220 73 H270"></path>
+
+      <g class="node">
+        <rect x="270" y="38" width="190" height="70" rx="8" fill="var(--rule)" stroke="var(--rule-border)" filter="url(#shadow)"></rect>
+        <text x="285" y="64" class="title">buildAgentInput</text>
+        <text x="285" y="86">字段/附件/单号抽取</text>
+        <text x="285" y="102">生成 agentInput</text>
+      </g>
+      <path class="arrow" d="M460 73 H510"></path>
+
+      <g class="node">
+        <rect x="510" y="38" width="190" height="70" rx="8" fill="var(--rule)" stroke="var(--rule-border)" filter="url(#shadow)"></rect>
+        <text x="525" y="64" class="title">validate-input</text>
+        <text x="525" y="86">输入合法性校验</text>
+        <text x="525" y="102">失败: invalid_input</text>
+      </g>
+      <path class="arrow" d="M700 73 H750"></path>
+
+      <g class="node">
+        <rect x="750" y="38" width="190" height="70" rx="8" fill="var(--rule)" stroke="var(--rule-border)" filter="url(#shadow)"></rect>
+        <text x="765" y="64" class="title">context-bind</text>
+        <text x="765" y="86">绑定仓库/客户/EB/WI</text>
+        <text x="765" y="102">已上传附件/已知事实</text>
+      </g>
+      <path class="arrow" d="M845 108 V148"></path>
+
+      <g class="node">
+        <rect x="750" y="148" width="190" height="76" rx="8" fill="var(--rule)" stroke="var(--rule-border)" filter="url(#shadow)"></rect>
+        <text x="765" y="174" class="title">check-requirement</text>
+        <text x="765" y="196">L1: 空白/过短兜底</text>
+        <text x="765" y="212">可橙卡或转人工</text>
+      </g>
+      <path class="arrow" d="M750 186 H700"></path>
+
+      <g class="node">
+        <rect x="510" y="148" width="190" height="76" rx="8" fill="var(--llm)" stroke="var(--llm-border)" filter="url(#shadow)"></rect>
+        <text x="525" y="174" class="title">追问/转人工话术</text>
+        <text x="525" y="196">requirement / transfer</text>
+        <text x="525" y="212">发飞书卡片</text>
+      </g>
+      <path class="arrow" d="M845 224 V270"></path>
+
+      <g class="node">
+        <rect x="750" y="270" width="190" height="82" rx="8" fill="var(--rule)" stroke="var(--rule-border)" filter="url(#shadow)"></rect>
+        <text x="765" y="296" class="title">match-template</text>
+        <text x="765" y="318">规则召回/排序 topK</text>
+        <text x="765" y="334">sceneLlm 时进入 LLM</text>
+      </g>
+      <path class="arrow" d="M940 311 H990"></path>
+
+      <g class="node">
+        <rect x="990" y="258" width="110" height="104" rx="8" fill="var(--kb)" stroke="var(--kb-border)" filter="url(#shadow)"></rect>
+        <text x="1005" y="284" class="title">场景卡</text>
+        <text x="1005" y="306">82 JSON</text>
+        <text x="1005" y="322">信号/边界</text>
+        <text x="1005" y="338">必填字段</text>
+      </g>
+
+      <path class="arrow" d="M845 352 V398"></path>
+      <g class="node">
+        <rect x="750" y="398" width="190" height="82" rx="8" fill="var(--llm)" stroke="var(--llm-border)" filter="url(#shadow)"></rect>
+        <text x="765" y="424" class="title">LLM 场景分类 v2</text>
+        <text x="765" y="446">候选内裁决</text>
+        <text x="765" y="462">异常单详情 + A/B/C/D</text>
+      </g>
+      <path class="arrow" d="M940 439 H990"></path>
+      <g class="node">
+        <rect x="990" y="398" width="110" height="82" rx="8" fill="var(--kb)" stroke="var(--kb-border)" filter="url(#shadow)"></rect>
+        <text x="1005" y="424" class="title">可选 RAG</text>
+        <text x="1005" y="446">BM25 历史案例</text>
+        <text x="1005" y="462">默认关闭</text>
+      </g>
+
+      <path class="arrow" d="M750 439 H700"></path>
+      <g class="node">
+        <rect x="510" y="398" width="190" height="82" rx="8" fill="var(--rule)" stroke="var(--rule-border)" filter="url(#shadow)"></rect>
+        <text x="525" y="424" class="title">H11 / T1 SKU</text>
+        <text x="525" y="446">DWS/OMS 查 SKU</text>
+        <text x="525" y="462">提示审核员或调必填</text>
+      </g>
+
+      <path class="arrow" d="M605 480 V526"></path>
+      <g class="node">
+        <rect x="510" y="526" width="190" height="90" rx="8" fill="var(--llm)" stroke="var(--llm-border)" filter="url(#shadow)"></rect>
+        <text x="525" y="552" class="title">check-scene-completeness</text>
+        <text x="525" y="574">L2.5 信息语义判断</text>
+        <text x="525" y="590">附件仍走规则</text>
+        <text x="525" y="606">可橙卡补资料</text>
+      </g>
+      <path class="arrow" d="M510 571 H460"></path>
+      <g class="node">
+        <rect x="270" y="526" width="190" height="90" rx="8" fill="var(--llm)" stroke="var(--llm-border)" filter="url(#shadow)"></rect>
+        <text x="285" y="552" class="title">field-clarification</text>
+        <text x="285" y="574">缺信息/附件话术</text>
+        <text x="285" y="590">发客服/销售</text>
+        <text x="285" y="606">等人工回复</text>
+      </g>
+      <path class="arrow" d="M365 616 V664"></path>
+      <g class="node">
+        <rect x="270" y="664" width="190" height="86" rx="8" fill="var(--human)" stroke="var(--human-border)" filter="url(#shadow)"></rect>
+        <text x="285" y="690" class="title">飞书回复重评</text>
+        <text x="285" y="712">补充并入需求描述</text>
+        <text x="285" y="728">重新 runPipeline</text>
+      </g>
+      <path class="arrow" d="M460 707 C590 707 630 620 605 616"></path>
+
+      <path class="arrow" d="M700 571 H750"></path>
+      <g class="node">
+        <rect x="750" y="526" width="190" height="90" rx="8" fill="var(--llm)" stroke="var(--llm-border)" filter="url(#shadow)"></rect>
+        <text x="765" y="552" class="title">LLM 生成 SOP</text>
+        <text x="765" y="574">sop-generate.md</text>
+        <text x="765" y="590">反思检查/可重写</text>
+        <text x="765" y="606">防编造单号</text>
+      </g>
+      <path class="arrow" d="M940 571 H990"></path>
+      <g class="node">
+        <rect x="990" y="526" width="110" height="90" rx="8" fill="var(--kb)" stroke="var(--kb-border)" filter="url(#shadow)"></rect>
+        <text x="1005" y="552" class="title">SOP KB</text>
+        <text x="1005" y="574">2.1 入库</text>
+        <text x="1005" y="590">4 出库</text>
+        <text x="1005" y="606">模板参考</text>
+      </g>
+
+      <path class="arrow" d="M845 616 V664"></path>
+      <g class="node">
+        <rect x="750" y="664" width="190" height="86" rx="8" fill="var(--rule)" stroke="var(--rule-border)" filter="url(#shadow)"></rect>
+        <text x="765" y="690" class="title">format-output</text>
+        <text x="765" y="712">结构化结果</text>
+        <text x="765" y="728">outputPath / failureGate</text>
+      </g>
+      <path class="arrow" d="M750 707 H700"></path>
+      <g class="node">
+        <rect x="510" y="664" width="190" height="86" rx="8" fill="var(--external)" stroke="var(--external-border)" filter="url(#shadow)"></rect>
+        <text x="525" y="690" class="title">OMS 写草稿</text>
+        <text x="525" y="712">writeDraft 门禁</text>
+        <text x="525" y="728">不点审核通过</text>
+      </g>
+      <path class="arrow" d="M510 707 H460"></path>
+      <g class="node">
+        <rect x="270" y="792" width="190" height="76" rx="8" fill="var(--human)" stroke="var(--human-border)" filter="url(#shadow)"></rect>
+        <text x="285" y="818" class="title">审核员检查修改</text>
+        <text x="285" y="840">OMS 内改 SOP</text>
+        <text x="285" y="856">最终人工决定</text>
+      </g>
+      <path class="arrow" d="M605 750 C560 830 520 830 460 830"></path>
+    </svg>
+    <p class="small">
+      主路径证据：<code>lib/run-pipeline.ts:249</code> 开始编排，节点依次 push；
+      README 也列了 <code>validate-input → context-bind → check-requirement → match-template → sku-consistency-check → t1-sku-relabel-check → check-scene-completeness → format-output</code>。
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>节点清单</h2>
+    <table>
+      <thead>
+        <tr><th>节点</th><th>类型</th><th>它做什么</th><th>主要出口 / badcase 归因</th><th>证据</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>poll-and-assess</code></td>
+          <td><span class="badge external-badge">外部拉取</span></td>
+          <td>轮询 OMS 待审核单，过滤服务原子，控制每轮/每小时处理量。</td>
+          <td>没进 pipeline 时先看服务原子、拉取失败、Cookie、限流。</td>
+          <td><code>scripts/poll-and-assess.ts:83</code>, <code>:446</code>, <code>:1106</code></td>
+        </tr>
+        <tr>
+          <td><code>buildAgentInput</code></td>
+          <td><span class="badge rule-badge">规则</span></td>
+          <td>从 OMS detail 抽取需求、背景、EB/WI/WO、附件状态、已知事实；无“需求描述”格子时用已填字段和异常单拼需求。</td>
+          <td>字段没抽到、附件识别错、订单类型错，优先查这里。</td>
+          <td><code>lib/oms-adapter.ts:284</code>, <code>:297</code>, <code>:301</code></td>
+        </tr>
+        <tr>
+          <td><code>validate-input</code></td>
+          <td><span class="badge rule-badge">规则</span></td>
+          <td>复用外部 expert 的输入校验节点。</td>
+          <td><code>invalid_input</code>，<code>failureGate=validate-input</code>。</td>
+          <td><code>lib/run-pipeline.ts:261</code></td>
+        </tr>
+        <tr>
+          <td><code>context-bind</code></td>
+          <td><span class="badge rule-badge">规则</span></td>
+          <td>把仓库、客户、异常单、业务单、已上传附件、已知事实绑定成后续节点上下文。</td>
+          <td>后续 LLM 过度追问“已知信息”时，看 boundKeys / knownFactLines。</td>
+          <td><code>lib/context-bind.ts:7</code>, <code>:13</code>, <code>:58</code></td>
+        </tr>
+        <tr>
+          <td><code>check-requirement</code></td>
+          <td><span class="badge rule-badge">规则</span></td>
+          <td>L1 只拦空白/过短需求；没有需求描述格子但有其它事实时放行。</td>
+          <td><code>needs_requirement_clarification</code> 或 <code>transfer_human</code>。</td>
+          <td><code>lib/check-requirement.ts:55</code>, <code>:66</code>, <code>:100</code></td>
+        </tr>
+        <tr>
+          <td><code>match-template</code></td>
+          <td><span class="badge rule-badge">规则召回</span> + <span class="badge llm-badge">可选 LLM</span></td>
+          <td>加载场景卡，按关键词/结构/动作约束打分并选 topK；正式首判继续用 LLM v2 在候选内裁决。</td>
+          <td>场景错：先看 rule candidates / negativeSignals，再看 LLM matchedScene。</td>
+          <td><code>lib/match-template.ts:537</code>, <code>:641</code>; <code>scripts/poll-and-assess.ts:83</code></td>
+        </tr>
+        <tr>
+          <td><code>scene classifier v2</code></td>
+          <td><span class="badge llm-badge">LLM</span></td>
+          <td>把候选场景、上下文、异常单详情、A/B/C/D 规则放进 prompt，输出 JSON：matchedScene/confidence/reasoning/topicSummary。</td>
+          <td>LLM 失败会降级纯规则；低置信/ambiguous 会转为不自动跑。</td>
+          <td><code>lib/llm-scene-classifier.ts:501</code>, <code>:152</code>; <code>lib/match-template.ts:684</code></td>
+        </tr>
+        <tr>
+          <td><code>sku-consistency-check</code></td>
+          <td><span class="badge rule-badge">规则 + DWS/OMS</span></td>
+          <td>拦截/换标类原 WI vs 新 WI SKU 比对。只提示审核员，不阻断；查不到/超时为 unknown。</td>
+          <td>SKU 风险漏报看触发条件；误阻断通常不是它，因为它不是门禁。</td>
+          <td><code>lib/sku-consistency-check.ts:139</code>, <code>:599</code>, <code>:685</code></td>
+        </tr>
+        <tr>
+          <td><code>t1-sku-relabel-check</code></td>
+          <td><span class="badge rule-badge">规则 + DWS</span></td>
+          <td>T1 场景查目标 WI 商品码去后缀后的 SKU 数：单 SKU 放行，多 SKU 需要辨识/对应关系，客户声称单 SKU 但 DWS 多 SKU 则打回。</td>
+          <td>“明明单 SKU 还追问对应关系”看 verdict 和 requiredInfo 调节。</td>
+          <td><code>lib/t1-sku-relabel-check.ts:163</code>, <code>:238</code></td>
+        </tr>
+        <tr>
+          <td><code>check-scene-completeness</code></td>
+          <td><span class="badge llm-badge">LLM 信息判断</span> + <span class="badge rule-badge">附件规则</span></td>
+          <td>场景卡的 requiredInfoFields 走 LLM 判断；附件、OMS 字段仍走规则；默认允许缺附件继续生成 SOP 并占位。</td>
+          <td>L2.5 误追问：看 prompt 的已知事实、requiredInfoFields、T1 mode、附件 allowMissingAttachment。</td>
+          <td><code>lib/check-scene-completeness.ts:249</code>, <code>:350</code>, <code>:398</code>, <code>:413</code></td>
+        </tr>
+        <tr>
+          <td><code>generateLlmText</code></td>
+          <td><span class="badge llm-badge">LLM</span></td>
+          <td>按 outputPath 生成追问/转人工文本或 SOP；SOP 还会反思检查、重试 JSON、检查禁词和编造单号。</td>
+          <td>SOP 失败是 <code>failureGate=llm-generate-sop</code>，不是场景不确定。</td>
+          <td><code>lib/generate-text.ts:605</code>, <code>:568</code>, <code>:297</code></td>
+        </tr>
+        <tr>
+          <td><code>format-output</code></td>
+          <td><span class="badge rule-badge">结构化输出</span></td>
+          <td>汇总 structuredReview、缺失项、IM 草稿、failureType。</td>
+          <td>看板指标应优先用 outputPath/node/failureGate/ruleOutputPath 分层。</td>
+          <td><code>lib/format-output.ts:78</code>, <code>:134</code></td>
+        </tr>
+        <tr>
+          <td><code>writePipelineDraft</code> / <code>writeDraft</code></td>
+          <td><span class="badge external-badge">OMS 写入</span></td>
+          <td>把 SOP 步骤、AI 总结、场景概述码、必要仓库动作写入 OMS 草稿；不调用审核通过接口。</td>
+          <td>写入失败/取消：看状态门禁、人工 SOP 已填、allowlist、OMS_WRITE_ENABLED。</td>
+          <td><code>lib/auto-oms-write.ts:27</code>, <code>lib/oms-draft-write.ts:157</code>, <code>:487</code></td>
+        </tr>
+        <tr>
+          <td>飞书卡片/回复循环</td>
+          <td><span class="badge human-badge">人工闭环</span></td>
+          <td>缺信息发橙卡；SOP 写入/失败发绿/红卡；补充回复后把话题内容并入需求重跑；@bot 可收 badcase。</td>
+          <td>这不是自动审核闭环，最终仍由审核员在 OMS 判断。</td>
+          <td><code>scripts/poll-and-assess.ts:953</code>, <code>:1010</code>; <code>scripts/listen-card-actions.ts:1450</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>规则和 AI 怎么分工</h2>
+    <div class="cols">
+      <div>
+        <h3>规则负责“能不能走”和“事实边界”</h3>
+        <ul>
+          <li>入口合法性、服务原子过滤、字段/附件/单号抽取。</li>
+          <li>需求是否空白/过短的 L1 兜底。</li>
+          <li>场景卡候选召回、negativeSignals、动作约束。</li>
+          <li>附件是否上传、WI 是否绑定、SKU 一致性、T1 单/多 SKU。</li>
+          <li>OMS 写入门禁：待审核、人工 SOP 不覆盖、allowlist、dry-run。</li>
+        </ul>
+      </div>
+      <div>
+        <h3>AI 负责“语义判断”和“文本生成”</h3>
+        <ul>
+          <li>在规则候选内判断最终场景，而不是自由发挥全量检索。</li>
+          <li>判断场景必填信息是否已在原文、附件线索、OMS 已知事实中出现。</li>
+          <li>生成追问、转人工、回复总结、SOP 草稿。</li>
+          <li>用反思 prompt 检查 SOP 是否编造、遗漏、越界；失败时尽量重写或降级。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>LLM 节点与提示词</h2>
+    <table>
+      <thead>
+        <tr><th>LLM 节点</th><th>触发条件</th><th>提示词来源</th><th>输出</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>场景分类 v1/v2/v3</td>
+          <td><code>runPipeline({ sceneLlm: true })</code>；正式首判是 v2。</td>
+          <td>代码内动态 prompt：<code>buildSystemPromptV1/V2/V3</code>、<code>buildUserMessageV1/V2/V3</code>。</td>
+          <td><code>matchedScene</code>, <code>topicSummary</code>, <code>confidence</code>, <code>reasoning</code>, <code>ambiguous</code>。</td>
+          <td>v2 加异常单详情和 A/B/C/D 规则；v3 是 tool calling 实验版，可调用异常单、入库单、场景定义工具。</td>
+        </tr>
+        <tr>
+          <td>L2.5 信息完整性</td>
+          <td>场景已匹配且 <code>skipInfoLlm=false</code>，并且场景卡有 requiredInfoFields。</td>
+          <td>代码内动态 prompt：<code>buildInfoPrompt</code>。</td>
+          <td><code>checks[]</code> 和 <code>missing[]</code> JSON。</td>
+          <td>附件不让 LLM 判；附件规则来自 <code>checkCompleteness</code>。</td>
+        </tr>
+        <tr>
+          <td>需求追问</td>
+          <td><code>outputPath=needs_requirement_clarification</code>。</td>
+          <td><code>prompts/requirement-clarification.md</code> + rule result factBlob。</td>
+          <td>发客服/销售的中文追问。</td>
+          <td>不能补事实、不能生成 SOP。</td>
+        </tr>
+        <tr>
+          <td>资料追问</td>
+          <td><code>outputPath=needs_field_clarification</code>。</td>
+          <td><code>prompts/field-clarification.md</code> + rule result factBlob。</td>
+          <td>场景化补资料话术。</td>
+          <td>一次说完信息和附件，不拆两轮。</td>
+        </tr>
+        <tr>
+          <td>转人工理由</td>
+          <td><code>outputPath=transfer_human</code>。</td>
+          <td><code>prompts/transfer-human.md</code> + rule result factBlob。</td>
+          <td>给审核员看的 1-3 句理由。</td>
+          <td>只复述规则结论，不生成 SOP。</td>
+        </tr>
+        <tr>
+          <td>SOP 生成</td>
+          <td><code>outputPath=sop_generated</code>。</td>
+          <td><code>prompts/sop-generate.md</code> + SOP KB + 动态约束块。</td>
+          <td><code>requirementDescription</code>, <code>requirementBackground</code>, <code>warehouseSop</code>, <code>sopText</code>, 单号提取。</td>
+          <td>JSON mode；失败会二次要求合法 JSON；编造单号会重试或替换为 <code>[待补充]</code>。</td>
+        </tr>
+        <tr>
+          <td>SOP 反思</td>
+          <td>SOP 首版生成后。</td>
+          <td><code>prompts/sop-reflection.md</code>。</td>
+          <td><code>PASS</code> 或问题 JSON。</td>
+          <td>发现问题会带约束再生成一次；反思失败不阻断原流程。</td>
+        </tr>
+        <tr>
+          <td>回复总结</td>
+          <td>飞书话题收到人工补充后。</td>
+          <td><code>prompts/summarize-reply.md</code>。</td>
+          <td>可复制进 OMS 备注的结构化文本。</td>
+          <td>若 LLM 失败，有代码 fallback 模板。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>代码内动态 Prompt 摘要</h3>
+    <pre>场景分类 v2 system prompt =
+  角色：万邑通入库/库内/出库增值审核场景分类器
+  任务：根据客户需求描述和已知上下文，从候选场景中选一个或 unsupported
+  候选：规则 topK/补齐到最多 15 张场景卡
+  规则：异常单详情优先；规则 A/B/C/D；入库/库内/出库边界；不要编造 sceneKey
+  输出 JSON：matchedScene, topicSummary, matchedSceneName, confidence,
+             reasoning, conclusionOneLiner, extractedActions, alternativeScenes, ambiguous
+
+L2.5 信息完整性 user prompt =
+  角色：增值审核完整性检查员
+  输入：场景 requiredInfoFields、客户需求描述、已上传附件、系统已掌握的单据信息
+  判断标准：原文直接写了/上下文可推断/OMS 字段或附件线索已有 => 有；否则缺失
+  输出 JSON：{"checks":[{"field":"处理范围","present":true,"evidence":"264箱"}],
+             "missing":["辨识方法未说明"]}</pre>
+
+    <h3>文件型 Prompt 全文入口</h3>
+    <p>下面是实际文件 prompt 的作用摘要；完整文本就在对应文件中，HTML 已保留路径，便于你后面直接改。</p>
+    <pre>prompts/sop-generate.md
+- 角色：万邑通入库非标增值 SOP 撰写专家
+- 硬约束：只引用输入事实；不得写审核通过；处理方式为“暂时”；不得编造单号/SKU/数量
+- 内容禁区：不写系统按钮、不写客户/销售/客服动作、不写费用/SLA
+- 输出 JSON：requirementDescription, requirementBackground, warehouseSop, sopText,
+             scenarioName, fieldsUsed, extractedWiNumbers, extractedEbNumbers
+
+prompts/sop-reflection.md
+- 检查：事实编造、遗漏、禁词、操作完整性、可执行性、系统界面编造、非仓库职责
+- 输出：PASS 或 issues JSON
+
+prompts/requirement-clarification.md
+- 需求描述不完整时发客服/销售
+- 不生成 SOP，不代填事实，不自动审核
+
+prompts/field-clarification.md
+- 场景已确认但缺关键信息/附件时发客服/销售
+- 一次说完信息和附件
+
+prompts/transfer-human.md
+- 规则判定不能自动处理时给审核员的 1-3 句理由
+
+prompts/summarize-reply.md
+- 把 AI 首判、原始需求、飞书回复总结为可复制 OMS 备注</pre>
+  </section>
+
+  <section class="panel">
+    <h2>知识库与配置</h2>
+    <table>
+      <thead>
+        <tr><th>来源</th><th>当前用途</th><th>是否进入 LLM prompt</th><th>调 badcase 时改哪里</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>knowledge/scenario-cards/*.json</code></td>
+          <td>82 张场景卡：sceneKey、sceneName、强/弱信号、负向信号、边界规则、必填信息、附件策略、OMS 场景码。</td>
+          <td>是。规则召回用全部活跃卡；场景 LLM prompt 接收候选卡；v3 工具可查单张定义。</td>
+          <td>场景误判、边界混淆、L2.5 必填信息错，优先改对应场景卡。</td>
+        </tr>
+        <tr>
+          <td><code>knowledge/scenario-evidence/</code></td>
+          <td>OMS 场景概述码和业务证据材料。</td>
+          <td>不直接作为 runtime prompt；用于构建/校验场景卡和 OMS 映射。</td>
+          <td>OMS 下拉码缺失或业务口径有争议时查这里。</td>
+        </tr>
+        <tr>
+          <td><code>knowledge/case-library/*.jsonl</code></td>
+          <td>BM25 相似历史案例，最多 top 3，约 500 字。</td>
+          <td>只有 <code>RAG_ENABLED=1</code> 且相似度达阈值时进入场景分类 prompt；默认关闭。</td>
+          <td>适合补“相似表达怎么判”的 few-shot；不是金标，不能替代场景卡。</td>
+        </tr>
+        <tr>
+          <td><code>workspace/knowledge/sop/2.1-inbound-relabel-shelving.md</code></td>
+          <td>入库 SOP 生成参考模板。</td>
+          <td>是。SOP 生成时按订单类别读入。</td>
+          <td>SOP 步骤风格/缺步骤/术语错，查这里和 <code>sop-generate.md</code>。</td>
+        </tr>
+        <tr>
+          <td><code>workspace/knowledge/sop/4-outbound-other-service.md</code></td>
+          <td>出库 SOP 生成参考模板。</td>
+          <td>是。出库单用它，禁止套入库模板。</td>
+          <td>出库 SOP 被写成入库上架时查订单类别和这个模板。</td>
+        </tr>
+        <tr>
+          <td><code>config/personnel.json</code>, <code>exception-group-roster.json</code></td>
+          <td>审核员/销售/客服 @ 人员解析。</td>
+          <td>否。</td>
+          <td>飞书 @ 错人或查不到人时改配置。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Badcase 定位手册</h2>
+    <ol>
+      <li>
+        先看 <code>outputPath</code>、<code>node</code>、<code>failureGate</code>：
+        <code>needs_requirement_clarification</code> 是 L1，<code>needs_field_clarification</code> 是 L2.5，
+        <code>sop_generated</code> 是 L4，<code>llm-generate-sop</code> 是 SOP 生成失败。
+      </li>
+      <li>
+        场景错：看 <code>matchResult.candidates/topK</code>。如果规则候选里没有正确场景，改
+        <code>scenario-cards</code> 的 positive/negative/boundary；如果候选里有但 LLM 选错，改
+        场景分类 prompt 的边界规则或开启/补充 RAG few-shot。
+      </li>
+      <li>
+        明明信息齐却追问：看 <code>sceneCompletenessResult.infoChecks</code> 和
+        <code>contextFacts.knownFactLines</code>。如果已知事实没进 prompt，改抽取/绑定；如果字段定义过严，改场景卡 requiredInfoFields。
+      </li>
+      <li>
+        附件误判：看 <code>attachmentStatus</code> 和 <code>requiredAttachmentPolicy.requiredFieldKeys</code>。
+        附件不是 LLM 判断，优先改文件名识别、附件字段映射或场景卡附件策略。
+      </li>
+      <li>
+        SOP 事实编造/步骤错：看 <code>llm.sop</code>、<code>reflectionIssues</code>、<code>degraded</code>。
+        修法通常在 <code>sop-generate.md</code>、SOP KB 模板、场景卡 sopTemplateHints。
+      </li>
+      <li>
+        写入失败或看板闭环异常：看 <code>oms_write_fail</code>、<code>failureType</code>、
+        <code>writeResult.skipped</code>。这通常不是 AI 能力问题，而是状态、allowlist、人工 SOP 已填或 OMS 接口问题。
+      </li>
+    </ol>
+  </section>
+
+  <section class="panel">
+    <h2>对看板指标的启发</h2>
+    <p>
+      这条链路天然适合按“节点漏斗”监控，不适合只看一个场景识别准确率。
+      我建议北极星仍围绕 <strong>AI 一次性草稿可用率</strong> 或 <strong>AI 草稿一次通过率</strong>，
+      往下拆成：L1 需求拦截率、场景识别通过率、L2.5 信息完整率、SOP 生成成功率、OMS 写入成功率、
+      人工修改距离/审核员反馈 badcase 桶。
+    </p>
+    <p>
+      当前代码已经有这些埋点的雏形：<code>nodesHit</code>、<code>ruleOutputPath</code>、<code>outputPath</code>、
+      <code>failureGate</code>、<code>matchResult</code>、<code>sceneCompletenessResult</code>、<code>llm.reflectionIssues</code>、
+      <code>appendAiWriteSnapshot</code> 和 <code>syncAuditDiff</code>。看板后续可以直接按这些字段做层层下钻。
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>关键证据索引</h2>
+    <ul>
+      <li>主编排：<code>internal-review-copilot/lib/run-pipeline.ts:249</code>，节点 push 在 <code>:261</code>, <code>:283</code>, <code>:291</code>, <code>:400</code>, <code>:465</code>, <code>:473</code>, <code>:506</code>, <code>:561</code>, <code>:562</code>。</li>
+      <li>正式首判开关：<code>internal-review-copilot/scripts/poll-and-assess.ts:83</code>, <code>:446</code>, <code>:1106</code>。</li>
+      <li>场景卡加载：<code>internal-review-copilot/lib/scenario-cards.ts:116</code>；82 张卡由本地文件统计得到。</li>
+      <li>RAG 默认关闭：<code>internal-review-copilot/lib/case-retriever.ts:13</code>, <code>:15</code>；README 说明在 <code>internal-review-copilot/README.md:260</code>。</li>
+      <li>LLM 配置、fallback、JSON mode：<code>internal-review-copilot/lib/llm-client.ts:189</code>, <code>:393</code>, <code>:590</code>。</li>
+      <li>OMS 写入门禁：<code>internal-review-copilot/lib/oms-draft-write.ts:157</code>, <code>:244</code>, <code>:487</code>。</li>
+    </ul>
+  </section>
+
+  <footer>Composed 2026-10-10 by ce-explain</footer>
+</main>
+</body>
+</html>
