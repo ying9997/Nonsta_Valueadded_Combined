@@ -92,36 +92,57 @@
       </div>
     </header>
 
-    <section class="kpis" aria-label="四个大数">
-      <button class="kpi" data-kpi="written" type="button"><div class="l">已写入</div><div class="v" id="kpi-written">—</div><div class="s" id="kpi-written-sub">点此看全部清单</div></button>
-      <button class="kpi" data-kpi="reviewed" type="button"><div class="l">已审完</div><div class="v" id="kpi-reviewed">—</div><div class="s">点此只看能评质量的单</div></button>
-      <button class="kpi" data-kpi="match" type="button"><div class="l">场景认对率</div><div class="v" id="kpi-match">—</div><div class="s" id="kpi-match-sub">点此只看认对的单</div></button>
-      <button class="kpi" data-kpi="rewritten" type="button"><div class="l">整段重写</div><div class="v" id="kpi-rewrite">—</div><div class="s">点此只看被推翻的单</div></button>
+    <section class="kpis" aria-label="灰度效果指标">
+      <button class="kpi" data-metric="usableRate" type="button"><div class="l">AI 可用成稿率</div><div class="v" id="kpi-usable">—</div><div class="s" id="kpi-usable-sub">点击看趋势和归因</div></button>
+      <button class="kpi" data-metric="firstPassRate" type="button"><div class="l">AI 一次成稿率</div><div class="v" id="kpi-first-pass">—</div><div class="s" id="kpi-first-pass-sub">点击看趋势和归因</div></button>
+      <button class="kpi" data-metric="qualityScore" type="button"><div class="l">SOP 采纳质量分</div><div class="v" id="kpi-quality">—</div><div class="s" id="kpi-quality-sub">点击看趋势和归因</div></button>
+      <button class="kpi" data-metric="humanEditRate" type="button"><div class="l">人工实质改动率</div><div class="v" id="kpi-human-edit">—</div><div class="s" id="kpi-human-edit-sub">越低越好</div></button>
     </section>
     <p class="side-note" id="side-note"></p>
 
-    <section class="card">
+    <section class="card" id="trend-card">
       <div class="card-head">
-        <h2>按天趋势</h2>
-        <p class="hint">看有没有突然变差。柱高是当天写入数，下面是已审完和认对率。</p>
+        <div>
+          <h2>按天趋势</h2>
+          <p class="hint" style="margin-top:8px;text-align:left" id="metric-help">选择一个指标看趋势。</p>
+        </div>
+        <div>
+          <p class="hint" id="metric-title">AI 可用成稿率</p>
+          <div class="filters compact">
+            <button class="chip active" data-group="metric" data-value="usableRate" type="button">可用成稿</button>
+            <button class="chip" data-group="metric" data-value="firstPassRate" type="button">一次成稿</button>
+            <button class="chip" data-group="metric" data-value="qualityScore" type="button">质量分</button>
+            <button class="chip" data-group="metric" data-value="sceneMatchRate" type="button">场景认对</button>
+            <button class="chip" data-group="metric" data-value="rewriteRate" type="button">整段重写</button>
+            <button class="chip" data-group="metric" data-value="wiStableRate" type="button">单号稳定</button>
+          </div>
+        </div>
       </div>
       <div class="trend" id="trend"></div>
     </section>
 
     <section class="card">
       <div class="card-head">
-        <h2>按场景</h2>
-        <button class="chip" id="scene-sort" data-sort="scene" type="button">按认对率从低到高</button>
+        <div>
+          <h2 id="drill-title">按场景 · AI 可用成稿率</h2>
+          <p class="hint" style="margin-top:8px;text-align:left" id="drill-hint">越低越需要优先看；样本少的分组标记在后面。</p>
+        </div>
+        <div class="filters compact">
+          <button class="chip active" data-group="dimension" data-value="scene" type="button">按场景</button>
+          <button class="chip" data-group="dimension" data-value="category" type="button">按类型</button>
+          <button class="chip" data-group="dimension" data-value="editType" type="button">按修改形态</button>
+          <button class="chip" data-group="dimension" data-value="confidence" type="button">按置信度</button>
+        </div>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>场景</th><th>已审完</th><th>认对率</th><th>原样</th><th>措辞</th><th>删步骤</th><th>加步骤</th><th>整段重写</th></tr>
+            <tr><th>分组</th><th>写入</th><th>已审完</th><th>当前指标</th><th>可用成稿</th><th>场景认对</th><th>整段重写</th><th>实质改动</th></tr>
           </thead>
           <tbody id="scene-body"></tbody>
         </table>
       </div>
-      <p class="hint" style="margin-top:10px;text-align:left">已审完少于 3 张的场景标「样本少」，不参与从低到高的排名，只列在表后面。点一行，下面清单只留这个场景。</p>
+      <p class="hint" style="margin-top:10px;text-align:left">点一行，下面清单只留这个分组。当前阶段先用 AI 初稿与人工最终稿差异近似质量；真正业务闭环率和 AI 独立完成率需要后续接入业务终态事件链。</p>
     </section>
 
     <section class="card" id="list">

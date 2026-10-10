@@ -36,6 +36,11 @@ const week = Q.applyFilters(rows, { range: "7d", category: "all", review: "all" 
 const stats = Q.summarize(week);
 assert(stats.written === week.length, "已写入统计应等于过滤后行数");
 assert(stats.reviewed + stats.pending === stats.written, "已审完 + 待审完应等于已写入");
+assert(Number.isInteger(stats.usableRate) || stats.usableRate === null, "AI 可用成稿率应可计算");
+assert(Number.isInteger(stats.firstPassRate) || stats.firstPassRate === null, "AI 一次成稿率应可计算");
+assert(Number.isInteger(stats.qualityScore) || stats.qualityScore === null, "SOP 采纳质量分应可计算");
+assert(Number.isInteger(stats.humanEditRate) || stats.humanEditRate === null, "人工实质改动率应可计算");
+assert(stats.usable >= stats.firstPass, "可用成稿数不应小于一次成稿数");
 
 const scenes = Q.sceneTable(week, "matchAsc");
 const ranked = scenes.filter((item) => !item.few);
@@ -66,9 +71,26 @@ assert(Q.applyFilters(syntheticRows, { range: "7d", category: "all", review: "al
 assert(Q.applyFilters(syntheticRows, { range: "30d", category: "all", review: "all" }, "2026-09-21").length === 3, "近30天过滤应保留 3 条");
 assert(Q.applyFilters(syntheticRows, { range: "all", category: "all", review: "all" }, "2026-09-21").length === 3, "全部过滤应保留 3 条");
 
+const drill = Q.groupTable(week, "scene", "usableRate");
+const drillRanked = drill.filter((item) => !item.few);
+assert(drill.length > 0, "按场景下钻应有数据");
+assert(drill.every((item) => Object.prototype.hasOwnProperty.call(item, "metricValue")), "下钻表应带当前指标值");
+if (drillRanked.length > 1) {
+  assert(drillRanked[0].metricValue <= drillRanked[drillRanked.length - 1].metricValue, "可用成稿率应按低到高找提升空间");
+}
+
+const rewriteDrill = Q.groupTable(week, "scene", "rewriteRate").filter((item) => !item.few);
+if (rewriteDrill.length > 1) {
+  assert(rewriteDrill[0].metricValue >= rewriteDrill[rewriteDrill.length - 1].metricValue, "整段重写率应按高到低找风险");
+}
+
 console.log(JSON.stringify({
   written: stats.written,
   reviewed: stats.reviewed,
+  usableRate: stats.usableRate,
+  firstPassRate: stats.firstPassRate,
+  qualityScore: stats.qualityScore,
+  humanEditRate: stats.humanEditRate,
   matchRate: stats.matchRate,
   noneRate: stats.noneRate,
   rewritten: stats.rewritten,

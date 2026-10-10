@@ -6,16 +6,17 @@
     range: "7d",
     category: "all",
     review: "all",
-    kpi: null,
-    sceneKey: null,
-    sceneSort: "matchAsc",
+    metric: "usableRate",
+    dimension: "scene",
+    groupKey: null,
+    groupName: "",
     selected: null,
   };
 
   var BAND_LABEL = { green: "绿 · 可过", yellow: "黄 · 改了步骤", red: "红 · 要盯", gray: "灰 · 待审完" };
   var CONF_LABEL = { high: "高", medium: "中", low: "低" };
-  var KPI_LABEL = { reviewed: "只看已审完", match: "只看场景认对", rewritten: "只看整段重写" };
   var RANGE_LABEL = { "7d": "近 7 天", "30d": "近 30 天", all: "全部" };
+  var DIMENSION_LABEL = { scene: "按场景", category: "按业务类型", editType: "按修改形态", confidence: "按置信度" };
 
   function $(id) { return document.getElementById(id); }
 
@@ -67,70 +68,90 @@
     return rate == null ? "—" : rate + "%";
   }
 
+  function metricText(value, metricKey) {
+    return Q.metricText(value, metricKey || state.metric);
+  }
+
+  function selectedMetric() {
+    return Q.METRICS[state.metric] || Q.METRICS.usableRate;
+  }
+
   function render() {
     var rows = baseRows();
     var stats = Q.summarize(rows);
-    var focus = { kpi: state.kpi, sceneKey: state.sceneKey };
+    var focus = { kpi: null, dimension: state.dimension, groupKey: state.groupKey };
     var list = Q.problemList(rows, focus);
-    var scenes = Q.sceneTable(rows, state.sceneSort);
+    var groups = Q.groupTable(rows, state.dimension, state.metric);
     var days = Q.trend(rows);
     var cat = Q.categoryLabel(state.category);
     var coverage = dataCoverage();
+    var metric = selectedMetric();
 
     $("conclusion").textContent = Q.conclusion(state, stats);
     setPressed("range", state.range);
     setPressed("category", state.category);
     setPressed("review", state.review);
-    $("kpi-written").textContent = String(stats.written);
-    $("kpi-reviewed").textContent = String(stats.reviewed);
-    $("kpi-match").textContent = rateText(stats.matchRate);
-    $("kpi-rewrite").textContent = String(stats.rewritten);
-    $("kpi-written-sub").textContent = "其中待审完 " + stats.pending + " 单";
-    $("kpi-match-sub").textContent = stats.reviewed ? "认对 " + stats.match + " / " + stats.reviewed : "还没有已审完的单";
+    $("metric-title").textContent = metric.label;
+    $("metric-help").textContent = metric.help;
+    $("kpi-usable").textContent = rateText(stats.usableRate);
+    $("kpi-first-pass").textContent = rateText(stats.firstPassRate);
+    $("kpi-quality").textContent = stats.qualityScore == null ? "—" : stats.qualityScore;
+    $("kpi-human-edit").textContent = rateText(stats.humanEditRate);
+    $("kpi-usable-sub").textContent = stats.reviewed ? "可用 " + stats.usable + " / " + stats.reviewed : "还没有已审完的单";
+    $("kpi-first-pass-sub").textContent = stats.reviewed ? "一次成稿 " + stats.firstPass + " / " + stats.reviewed : "还没有已审完的单";
+    $("kpi-quality-sub").textContent = stats.reviewed ? "基于已审完 " + stats.reviewed + " 单" : "待人工审核后计算";
+    $("kpi-human-edit-sub").textContent = stats.reviewed ? "实质改动 " + stats.substantiveEdit + " / " + stats.reviewed : "待人工审核后计算";
     $("side-note").textContent = stats.reviewed
-      ? "需求被改 " + stats.requirementRate + "%（先不当红灯） · WI 被改 " + stats.wiRate + "%"
+      ? "二级拆解：场景认对 " + stats.matchRate + "% · SOP 原样 " + stats.sopOriginalRate + "% · WI 稳定 " + stats.wiStableRate + "% · 整段重写 " + stats.rewriteRate + "%"
       : "需求被改、WI 被改要等有已审完的单再看";
 
     document.querySelectorAll(".kpi").forEach(function (card) {
-      var key = card.getAttribute("data-kpi");
-      var on = key === "written" ? !state.kpi : key === state.kpi;
+      var key = card.getAttribute("data-metric");
+      var on = key === state.metric;
       card.classList.toggle("active", on);
     });
 
-    var maxWritten = days.reduce(function (max, day) { return Math.max(max, day.written); }, 1);
+    setPressed("metric", state.metric);
+    setPressed("dimension", state.dimension);
+
+    var maxMetric = days.reduce(function (max, day) {
+      var value = day[state.metric];
+      return Math.max(max, Number.isFinite(value) ? value : 0);
+    }, 1);
     $("trend").innerHTML = days.length ? days.map(function (day) {
-      var h = Math.max(8, Math.round((day.written / maxWritten) * 120));
+      var value = day[state.metric];
+      var h = Math.max(8, Math.round(((Number.isFinite(value) ? value : 0) / maxMetric) * 120));
       return '<div class="day">' +
-        '<div class="bar" style="height:' + h + 'px" title="写入 ' + day.written + '"></div>' +
+        '<div class="bar" style="height:' + h + 'px" title="' + esc(metric.label) + ' ' + metricText(value) + '"></div>' +
         '<b>' + esc(day.day.slice(5)) + '</b>' +
-        '<span>写入 ' + day.written + '</span>' +
+        '<span>' + esc(metric.shortLabel) + ' ' + metricText(value) + '</span>' +
         '<span>审完 ' + day.reviewed + '</span>' +
-        '<span>认对 ' + rateText(day.matchRate) + '</span>' +
+        '<span>样本 ' + day.written + '</span>' +
         '</div>';
     }).join("") : '<p class="empty">这个时间范围里没有写入记录。</p>';
 
-    $("scene-sort").textContent = state.sceneSort === "rewrittenDesc" ? "按整段重写从多到少" : "按认对率从低到高";
-    $("scene-body").innerHTML = scenes.length ? scenes.map(function (item) {
-      var active = state.sceneKey === item.key ? " active" : "";
+    $("drill-title").textContent = (DIMENSION_LABEL[state.dimension] || "下钻") + " · " + metric.label;
+    $("drill-hint").textContent = metric.good === "low"
+      ? "越高越需要优先看；已审完少于 3 张的分组标「样本少」。"
+      : "越低越需要优先看；已审完少于 3 张的分组标「样本少」。";
+    $("scene-body").innerHTML = groups.length ? groups.map(function (item) {
+      var active = state.groupKey === item.key ? " active" : "";
       var few = item.few ? '<span class="tag few">样本少</span>' : "";
-      return '<tr data-scene="' + esc(item.key) + '" class="' + active + (item.few ? " few" : "") + '">' +
+      return '<tr data-group-key="' + esc(item.key) + '" data-group-name="' + esc(item.name) + '" class="' + active + (item.few ? " few" : "") + '">' +
         '<td><div class="scene-name">' + esc(item.name) + few + '</div></td>' +
+        '<td>' + item.written + '</td>' +
         '<td>' + item.reviewed + '</td>' +
+        '<td class="' + (metric.good === "low" && item.metricValue ? "down" : "") + '">' + metricText(item.metricValue) + '</td>' +
+        '<td>' + rateText(item.usableRate) + '</td>' +
         '<td>' + rateText(item.matchRate) + '</td>' +
-        '<td>' + item.none + '</td>' +
-        '<td>' + item.wording + '</td>' +
-        '<td>' + item.deletedStep + '</td>' +
-        '<td>' + item.addedStep + '</td>' +
-        '<td class="' + (item.rewritten ? "down" : "") + '">' + item.rewritten + '</td>' +
+        '<td class="' + (item.rewriteRate ? "down" : "") + '">' + rateText(item.rewriteRate) + '</td>' +
+        '<td class="' + (item.humanEditRate ? "down" : "") + '">' + rateText(item.humanEditRate) + '</td>' +
         '</tr>';
-    }).join("") : '<tr><td colspan="8" class="empty">没有已审完的单，场景表先空着。</td></tr>';
+    }).join("") : '<tr><td colspan="8" class="empty">没有已审完的单，下钻表先空着。</td></tr>';
 
     var tags = [];
-    if (state.kpi && KPI_LABEL[state.kpi]) tags.push('<button class="chip active" data-clear="kpi">' + KPI_LABEL[state.kpi] + " ×</button>");
-    if (state.sceneKey) {
-      var scene = scenes.find(function (item) { return item.key === state.sceneKey; });
-      tags.push('<button class="chip active" data-clear="scene">' + esc(Q.shortName(scene ? scene.name : state.sceneKey)) + " ×</button>");
-    }
+    tags.push('<span class="chip active">当前指标：' + esc(metric.label) + "</span>");
+    if (state.groupKey) tags.push('<button class="chip active" data-clear="group">' + esc(Q.shortName(state.groupName || state.groupKey)) + " ×</button>");
     $("focus-tags").innerHTML = tags.join("");
     $("list-count").textContent = list.length + " 单" + (cat ? " · " + cat : "");
 
@@ -193,35 +214,38 @@
     var btn = event.target.closest("[data-group]");
     if (btn) {
       state[btn.getAttribute("data-group")] = btn.getAttribute("data-value");
+      if (btn.getAttribute("data-group") === "dimension") {
+        state.groupKey = null;
+        state.groupName = "";
+      }
       setPressed(btn.getAttribute("data-group"), state[btn.getAttribute("data-group")]);
       render();
       return;
     }
-    var kpi = event.target.closest("[data-kpi]");
+    var kpi = event.target.closest("[data-metric]");
     if (kpi) {
-      var key = kpi.getAttribute("data-kpi");
-      state.kpi = key === "written" || state.kpi === key ? null : key;
+      var key = kpi.getAttribute("data-metric");
+      state.metric = key;
+      state.groupKey = null;
+      state.groupName = "";
       render();
-      $("list").scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    var sort = event.target.closest("[data-sort]");
-    if (sort) {
-      state.sceneSort = state.sceneSort === "matchAsc" ? "rewrittenDesc" : "matchAsc";
-      render();
+      $("trend-card").scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     var clear = event.target.closest("[data-clear]");
     if (clear) {
-      if (clear.getAttribute("data-clear") === "kpi") state.kpi = null;
-      if (clear.getAttribute("data-clear") === "scene") state.sceneKey = null;
+      if (clear.getAttribute("data-clear") === "group") {
+        state.groupKey = null;
+        state.groupName = "";
+      }
       render();
       return;
     }
-    var scene = event.target.closest("[data-scene]");
-    if (scene) {
-      var key = scene.getAttribute("data-scene");
-      state.sceneKey = state.sceneKey === key ? null : key;
+    var group = event.target.closest("[data-group-key]");
+    if (group) {
+      var groupKey = group.getAttribute("data-group-key");
+      state.groupKey = state.groupKey === groupKey ? null : groupKey;
+      state.groupName = state.groupKey ? group.getAttribute("data-group-name") : "";
       render();
       $("list").scrollIntoView({ behavior: "smooth", block: "start" });
       return;
